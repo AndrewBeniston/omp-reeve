@@ -67,6 +67,37 @@ export function bunRuntimeName(triple) {
   return `bun-${triple}${triple === "windows-x64" ? ".exe" : ""}`;
 }
 
+/**
+ * The two host parts a desktop build needs before it starts. Both are one
+ * command to supply, and the Next build costs minutes, so name them first.
+ *
+ * electron-builder reads desktop/package.json, which the root install does not
+ * cover: desktop is not a workspace member. The check names the declared
+ * dependency rather than the directory, because an empty node_modules
+ * directory would otherwise pass and fail later inside electron-builder.
+ */
+export function findMissingBuildPrerequisites(plan, { exists = existsSync, root = repositoryRoot } = {}) {
+  const missing = [];
+  const desktopPackage = JSON.parse(
+    readFileSync(join(root, "desktop", "package.json"), "utf8"),
+  );
+  for (const name of Object.keys(desktopPackage.dependencies ?? {})) {
+    if (!exists(join(root, "desktop", "node_modules", name, "package.json"))) {
+      missing.push(
+        `desktop/node_modules/${name} is missing. Run: cd desktop && bun install --frozen-lockfile`,
+      );
+    }
+  }
+  for (const triple of plan.bunTriples) {
+    if (!exists(join(root, "desktop", "resources", bunRuntimeName(triple)))) {
+      missing.push(
+        `desktop/resources/${bunRuntimeName(triple)} is missing. Run: bun run desktop:fetch-bun --target ${plan.id}`,
+      );
+    }
+  }
+  return missing;
+}
+
 export function resolvePackagedApplication(
   plan,
   { exists = existsSync, root = repositoryRoot } = {},

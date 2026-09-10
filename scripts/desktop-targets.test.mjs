@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  findMissingBuildPrerequisites,
   nativeInstallFlags, resolveDesktopPlan, resolvePackagedApplication } from "./desktop-targets.mjs";
 
 test("the macOS ARM plan owns every build target", () => {
@@ -96,4 +97,48 @@ test("native installs name their os and cpu so Bun does not skip a cross-arch pa
   assert.deepEqual(nativeInstallFlags({ name: "@oh-my-pi/omp-stats" }, universal), ["--os", "darwin"]);
   assert.deepEqual(nativeInstallFlags({ name: "@next/swc-linux-x64-gnu" }, resolveDesktopPlan({ target: "linux-x64" })), ["--os", "linux", "--cpu", "x64"]);
   assert.deepEqual(nativeInstallFlags({ name: "@next/swc-win32-x64-msvc" }, resolveDesktopPlan({ target: "win32-x64" })), ["--os", "win32", "--cpu", "x64"]);
+});
+
+test("a ready machine reports no missing desktop build prerequisite", () => {
+  const plan = resolveDesktopPlan({ target: "win32-x64" });
+
+  assert.deepEqual(findMissingBuildPrerequisites(plan, { exists: () => true }), []);
+});
+
+// electron-builder resolves desktop/package.json dependencies, so an empty
+// desktop/node_modules must fail here and not minutes later inside packaging.
+test("an empty desktop node_modules is still a missing prerequisite", () => {
+  const plan = resolveDesktopPlan({ target: "win32-x64" });
+
+  const missing = findMissingBuildPrerequisites(plan, {
+    exists: (path) => !path.includes("node_modules"),
+  });
+
+  assert.equal(missing.length, 1);
+  assert.match(missing[0], /desktop\/node_modules\/electron-updater is missing/);
+  assert.match(missing[0], /cd desktop && bun install --frozen-lockfile/);
+});
+
+// fetch-bun downloads the host target by default, so a cross-target build must
+// be told which target to fetch.
+test("a missing Bun runtime names the target to fetch", () => {
+  const plan = resolveDesktopPlan({ target: "win32-x64" });
+
+  const missing = findMissingBuildPrerequisites(plan, {
+    exists: (path) => !path.includes("bun-windows-x64.exe"),
+  });
+
+  assert.deepEqual(missing, [
+    "desktop/resources/bun-windows-x64.exe is missing. Run: bun run desktop:fetch-bun --target win32-x64",
+  ]);
+});
+
+test("the universal macOS plan reports every Bun runtime it is missing", () => {
+  const plan = resolveDesktopPlan({ target: "darwin-universal" });
+
+  const missing = findMissingBuildPrerequisites(plan, {
+    exists: (path) => !path.includes("desktop") || !path.includes("resources"),
+  });
+
+  assert.equal(missing.length, plan.bunTriples.length);
 });
