@@ -68,10 +68,16 @@ test("a browser tab shows its page name and its address", () => {
 
 test("the new browser tab control appears only when it can be used", () => {
   const without = render("notes", tabs);
-  assert.doesNotMatch(without, /aria-label="New browser tab"/);
+  assert.doesNotMatch(without, /aria-label="New tab"/);
 
-  const withControl = render("notes", tabs, { onNewBrowserTab() {} });
-  assert.match(withControl, /aria-label="New browser tab"/);
+  const withControl = render("notes", tabs, {
+    newTabActions: [{ id: "browser", label: "Browser", keys: "⌘T", run() {} }],
+  });
+  assert.match(withControl, /aria-label="New tab"/);
+});
+
+test("the launcher is absent when nothing can be opened", () => {
+  assert.doesNotMatch(render("notes", tabs, { newTabActions: [] }), /aria-label="New tab"/);
 });
 
 test("selects and closes tabs through the callback props", () => {
