@@ -1,0 +1,101 @@
+.terminalTabs {
+  position: relative;
+  height: 100%;
+}
+
+/*
+ * Every Terminal stays mounted. A shell is a live process with scrollback, so
+ * an inactive Tab is hidden rather than unmounted, exactly as a Browser tab is.
+ */
+.terminalTab {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+
+.terminalTab[data-active="false"] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/*
+ * The padding is the reference application own, measured from its shipped
+ * stylesheet: 16px at the start, 8px above, 12px below, and nothing on the
+ * right, so the scrollbar sits against the panel edge rather than floating in
+ * from it.
+ */
+.terminalHost {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding-inline-start: var(--space-4);
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-3);
+  letter-spacing: normal;
+}
+
+/*
+ * xterm paints its own background by default. It is forced transparent so the
+ * Tab surface above shows through, which is what makes the terminal follow
+ * Reeve theme rather than carrying a colour of its own.
+ */
+.terminalHost :global(.xterm) {
+  height: 100%;
+  background-color: transparent;
+}
+
+.terminalHost :global(.xterm-viewport) {
+  background-color: transparent;
+  scrollbar-color: var(--ui-scrollbar-thumb) transparent;
+}
+
+.terminalHost :global(.xterm-viewport)::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.terminalHost :global(.xterm-viewport)::-webkit-scrollbar-track,
+.terminalHost :global(.xterm-viewport)::-webkit-scrollbar-corner {
+  background-color: transparent;
+}
+
+.terminalHost :global(.xterm-viewport)::-webkit-scrollbar-thumb {
+  background-color: var(--ui-scrollbar-thumb);
+}
+
+.terminalHost :global(.xterm-viewport)::-webkit-scrollbar-thumb:hover,
+.terminalHost :global(.xterm-viewport)::-webkit-scrollbar-thumb:active {
+  background-color: var(--ui-border-strong);
+}
+
+/* Why there is no shell. Replaces the terminal rather than sitting over it. */
+.terminalNotice {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-6);
+  text-align: center;
+  background: var(--ui-surface);
+  color: var(--ui-text-dim);
+  font-size: var(--text-xs);
+  line-height: var(--leading-sm);
+}
+
+/*
+ * The shell ended. The scrollback stays readable underneath, because what the
+ * command printed before it exited is usually the reason it exited.
+ */
+.terminalExited {
+  flex: 0 0 auto;
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--ui-border);
+  color: var(--ui-text-dim);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}

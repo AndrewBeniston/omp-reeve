@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
@@ -114,8 +116,19 @@ test("an empty desktop node_modules is still a missing prerequisite", () => {
     exists: (path) => !path.includes("node_modules"),
   });
 
-  assert.equal(missing.length, 1);
-  assert.match(missing[0], /desktop\/node_modules\/electron-updater is missing/);
+  // Every dependency the desktop package declares must be reported, so this
+  // count follows that list rather than being written out here. node-pty
+  // joined it with the Terminal tab.
+  const declared = Object.keys(
+    JSON.parse(readFileSync(join(import.meta.dir, "..", "desktop", "package.json"), "utf8")).dependencies,
+  );
+  assert.equal(missing.length, declared.length);
+  for (const name of declared) {
+    assert.ok(
+      missing.some((entry) => entry.includes(`desktop/node_modules/${name} is missing`)),
+      `${name} was not reported as missing`,
+    );
+  }
   assert.match(missing[0], /cd desktop && bun install --frozen-lockfile/);
 });
 

@@ -47,8 +47,9 @@ test("the preload exposes only the protected external-link command", async () =>
   assert.equal(exposed.name, "ompDesktop");
   onDomReady();
   assert.equal(document.documentElement.dataset.ompDesktop, "darwin");
-  assert.deepEqual(Object.keys(exposed.value), ["openExternal", "selectDirectory", "selectAttachments", "showProjectMenu", "showSessionMenu", "updater"]);
+  assert.deepEqual(Object.keys(exposed.value), ["openExternal", "selectDirectory", "selectAttachments", "showProjectMenu", "showSessionMenu", "updater", "terminal"]);
   assert.deepEqual(Object.keys(exposed.value.updater), ["getState", "check", "install", "onState"]);
+  assert.deepEqual(Object.keys(exposed.value.terminal), ["open", "write", "resize", "close", "onData", "onExit"]);
   await exposed.value.openExternal("https://example.com/login");
   await exposed.value.selectDirectory();
   await exposed.value.selectAttachments();
@@ -76,4 +77,62 @@ test("the preload exposes only the protected external-link command", async () =>
     ["omp-desktop:update-check"],
     ["omp-desktop:update-install"],
   ]);
+});
+
+test("the preload's terminal speaks only to its own Terminal", async () => {
+  let exposed;
+  const invocations = [];
+  const listeners = [];
+  const source = readFileSync(join(import.meta.dir, "preload.cjs"), "utf8");
+  const electron = {
+    contextBridge: { exposeInMainWorld(name, value) { exposed = { name, value }; } },
+    ipcRenderer: {
+      invoke(...args) { invocations.push(args); return Promise.resolve(); },
+      on(channel, listener) { listeners.push({ channel, listener }); },
+      removeListener(channel) { listeners.push({ channel, removed: true }); },
+    },
+  };
+
+  vm.runInNewContext(source, {
+    document: { documentElement: { dataset: {} } },
+    Object,
+    process: { platform: "darwin" },
+    window: { addEventListener() {} },
+    require: () => electron,
+  });
+
+  const { terminal } = exposed.value;
+  await terminal.open({ cwd: "/projects/mine", cols: 100, rows: 30 });
+  await terminal.write("terminal-1", "ls\r");
+  await terminal.resize("terminal-1", 120, 40);
+  await terminal.close("terminal-1");
+
+  // The payloads are built inside the preload's own realm, so their prototypes
+  // are not this realm's. Compare by value.
+  assert.deepEqual(JSON.parse(JSON.stringify(invocations)), [
+    ["omp-desktop:terminal-open", { cwd: "/projects/mine", cols: 100, rows: 30 }],
+    ["omp-desktop:terminal-write", { id: "terminal-1", data: "ls\r" }],
+    ["omp-desktop:terminal-resize", { id: "terminal-1", cols: 120, rows: 40 }],
+    ["omp-desktop:terminal-close", { id: "terminal-1" }],
+  ]);
+
+  // Two Terminals share one channel, so each listener must ignore the other's
+  // output. Without the id filter every Tab would echo every shell.
+  const mine = [];
+  const stop = terminal.onData("terminal-1", (data) => mine.push(data));
+  const deliver = listeners.find((entry) => entry.channel === "omp-desktop:terminal-data").listener;
+  deliver({}, { id: "terminal-1", data: "mine" });
+  deliver({}, { id: "terminal-2", data: "someone else's" });
+  assert.deepEqual(mine, ["mine"]);
+
+  const ended = [];
+  const stopExit = terminal.onExit("terminal-1", (code) => ended.push(code));
+  const deliverExit = listeners.find((entry) => entry.channel === "omp-desktop:terminal-exit").listener;
+  deliverExit({}, { id: "terminal-2", exitCode: 1 });
+  deliverExit({}, { id: "terminal-1", exitCode: 0 });
+  assert.deepEqual(ended, [0]);
+
+  stop();
+  stopExit();
+  assert.equal(listeners.filter((entry) => entry.removed).length, 2);
 });

@@ -21,6 +21,7 @@ const {
   prepareWritableNext,
 } = require("./desktop-runtime.cjs");
 const { STATE_CHANNEL: UPDATE_STATE_CHANNEL, createUpdateController } = require("./update-controller.cjs");
+const { createTerminalRegistry, loadPty } = require("./terminal-host.cjs");
 
 const DEFAULT_DEV_URL = "http://127.0.0.1:30141";
 const LOG_PATH = path.join(os.tmpdir(), "omp-desktop.log");
@@ -30,6 +31,7 @@ let serverProcess;
 let desktopUrl;
 let updateController = null;
 let shuttingDown = false;
+let terminalRegistry = null;
 
 function createMenuIcon(png) {
   const image = nativeImage.createFromDataURL(`data:image/png;base64,${png}`).resize({ width: 16, height: 16 });
@@ -358,6 +360,79 @@ function startUpdater() {
   updateController.start();
 }
 
+/**
+ * The Terminal tab's shells.
+ *
+ * Every handler checks that the request came from the application's own
+ * renderer, exactly as the pickers and menus do, and then hands the decision to
+ * terminal-host.cjs, which reads the Project's trust from disk. The renderer
+ * names a directory; it never grants itself one.
+ *
+ * The owner of a Terminal is the webContents that opened it, so its output is
+ * sent back only there and no window can reach another window's shell.
+ */
+function registerTerminalHandlers() {
+  const trusted = (event) =>
+    Boolean(event.senderFrame && desktopUrl && isTrustedRendererUrl(event.senderFrame.url, desktopUrl));
+
+  const send = (contents, channel, payload) => {
+    if (!contents.isDestroyed()) contents.send(channel, payload);
+  };
+
+  ipcMain.handle("omp-desktop:terminal-open", (event, request) => {
+    if (!trusted(event)) return { ok: false, reason: "untrusted-sender" };
+
+    const binding = loadPty();
+    if (!binding.ok) {
+      // A native binding built for the wrong ABI. The human gets a message in
+      // the Tab rather than a dead panel, and the reason reaches the log.
+      appendDesktopLog("[omp-desktop] node-pty unavailable: " + binding.error);
+      return { ok: false, reason: "pty-unavailable" };
+    }
+
+    const contents = event.sender;
+    if (!terminalRegistry) {
+      terminalRegistry = createTerminalRegistry({
+        spawn: (shell, args, options) => binding.pty.spawn(shell, args, options),
+        mintId: () => randomUUID(),
+      });
+    }
+
+    const opened = terminalRegistry.open({
+      cwd: typeof request?.cwd === "string" ? request.cwd : "",
+      ownerId: contents.id,
+      platform: process.platform,
+      env: process.env,
+      cols: Number.isInteger(request?.cols) ? request.cols : undefined,
+      rows: Number.isInteger(request?.rows) ? request.rows : undefined,
+      onData: (id, data) => send(contents, "omp-desktop:terminal-data", { id, data }),
+      onExit: (id, exitCode) => send(contents, "omp-desktop:terminal-exit", { id, exitCode }),
+    });
+
+    if (opened.ok) {
+      // Every shell this window owns ends with the window. A pty outlives the
+      // process that spawned it otherwise.
+      contents.once("destroyed", () => terminalRegistry?.closeAllFor(contents.id));
+    }
+    return opened;
+  });
+
+  ipcMain.handle("omp-desktop:terminal-write", (event, request) => {
+    if (!trusted(event) || !terminalRegistry) return false;
+    return terminalRegistry.write(request?.id, event.sender.id, request?.data);
+  });
+
+  ipcMain.handle("omp-desktop:terminal-resize", (event, request) => {
+    if (!trusted(event) || !terminalRegistry) return false;
+    return terminalRegistry.resize(request?.id, event.sender.id, request?.cols, request?.rows);
+  });
+
+  ipcMain.handle("omp-desktop:terminal-close", (event, request) => {
+    if (!trusted(event) || !terminalRegistry) return false;
+    return terminalRegistry.close(request?.id, event.sender.id);
+  });
+}
+
 function registerPermissionHandler() {
   session.defaultSession.setPermissionCheckHandler(() => false);
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
@@ -382,6 +457,7 @@ if (!hasSingleInstanceLock) {
   });
   app.on("before-quit", () => {
     shuttingDown = true;
+    if (mainWindow && !mainWindow.isDestroyed()) terminalRegistry?.closeAllFor(mainWindow.webContents.id);
     terminateServerTree();
   });
   app.on("window-all-closed", () => {
@@ -402,6 +478,7 @@ if (!hasSingleInstanceLock) {
       registerProjectMenuHandler();
       registerSessionMenuHandler();
       registerUpdateHandlers();
+      registerTerminalHandlers();
       registerPermissionHandler();
       mainWindow = createMainWindow();
 

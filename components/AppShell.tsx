@@ -11,9 +11,10 @@ import { QuickChat } from "./chat/QuickChat";
 import { SubagentPanel } from "./SubagentPanel";
 import { ChatWindow } from "./ChatWindow";
 import { FileViewer } from "./FileViewer";
-import { TabBar, assertNeverTab, type BrowserTab, type Tab } from "./TabBar";
+import { TabBar, assertNeverTab, type BrowserTab, type Tab, type TerminalTab } from "./TabBar";
 import { Launcher, type LauncherAction } from "./tabs/Launcher";
 import { BrowserTabs, useSupportsBrowserTab } from "./browser/BrowserTabs";
+import { TerminalTabs, useSupportsTerminalTab } from "./terminal/TerminalTabs";
 import { SettingsConfig } from "./SettingsConfig";
 import { ProjectTrustDialog } from "./ProjectTrustDialog";
 import { SummaryPanel } from "./SummaryPanel";
@@ -118,6 +119,7 @@ export function AppShell() {
   // False on the server and the first client render, so the strip's trailing
   // control cannot differ between the two trees.
   const supportsBrowserTabs = useSupportsBrowserTab();
+  const supportsTerminalTabs = useSupportsTerminalTab();
   useViewportHeight();
   // Audio ownership lives here (not in ChatWindow) so the completion tone can
   // also fire for tasks finishing in a non-active workspace whose ChatWindow
@@ -800,6 +802,33 @@ export function AppShell() {
     if (isMobile) setSidebarOpen(false);
   }, [growRightPanelToAtLeast, isMobile, sidebarOpen, translate]);
 
+  /**
+   * Open a Terminal in the active Project.
+   *
+   * The directory is fixed now, not followed: a shell whose cwd changed when
+   * the human selected another Session would move underneath a running
+   * command. The desktop process still checks the Project's trust before it
+   * spawns anything, so this is a request, not a grant.
+   */
+  const handleOpenTerminalTab = useCallback((cwd: string) => {
+    const tabId = `terminal:${crypto.randomUUID()}`;
+    setTabs((prev) => [...prev, {
+      id: tabId,
+      kind: "terminal",
+      label: translate("tabs.terminal"),
+      cwd,
+    }]);
+    setActiveTabId(tabId);
+    setRightPanelOpen(true);
+    if (isMobile) setSidebarOpen(false);
+  }, [isMobile, translate]);
+
+  /** The shell named itself, the way a terminal tab is titled by its program. */
+  const handleTerminalTitle = useCallback((tabId: string, title: string) => {
+    setTabs((prev) => prev.map((t) => (
+      t.id === tabId && t.kind === "terminal" && t.label !== title ? { ...t, label: title } : t
+    )));
+  }, []);
   /** The guest navigated. The Tab's URL follows the page, its id never does. */
   const handleBrowserNavigate = useCallback((tabId: string, url: string) => {
     setTabs((prev) => prev.map((t) => (
@@ -930,6 +959,8 @@ export function AppShell() {
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
   /** Every open Browser tab, kept for the persistent guests above. */
   const browserTabs = tabs.filter((t): t is BrowserTab => t.kind === "browser");
+  /** Every open Terminal, kept for the persistent shells above. */
+  const terminalTabs = tabs.filter((t): t is TerminalTab => t.kind === "terminal");
 
   /**
    * The launcher's entries: what the empty panel offers, and what the plus
@@ -956,10 +987,13 @@ export function AppShell() {
       id: "terminal",
       label: translate("tabs.terminal"),
       keys: acceleratorLabel("Control+`"),
-      // A Terminal spawns a pty in the desktop process, and an untrusted
-      // Project may not get one at all. Both are a later ticket.
-      unavailableReason: translate("tabs.notYetBuilt"),
-      run: () => {},
+      // The pty lives in the desktop process, so the browser version has no
+      // shell to offer, and a shell needs a directory to start in. An
+      // untrusted Project is refused later, by the desktop process itself.
+      unavailableReason: !supportsTerminalTabs
+        ? translate("tabs.desktopOnly")
+        : (activeCwd ? undefined : translate("tabs.needsProject")),
+      run: () => { if (activeCwd) handleOpenTerminalTab(activeCwd); },
     },
     {
       id: "browser",
@@ -1009,6 +1043,10 @@ export function AppShell() {
     }
     switch (activeTab.kind) {
       case "browser":
+        return null;
+      case "terminal":
+        // Mounted separately and always, like a Browser tab, because the shell
+        // behind it is a live process.
         return null;
       case "sources":
         return (
@@ -1406,6 +1444,18 @@ export function AppShell() {
                   onNavigate={handleBrowserNavigate}
                   onTitleChange={handleBrowserTitle}
                   onFaviconChange={handleBrowserFavicon}
+                />
+              )}
+              {/*
+                * Every Terminal is mounted whenever one exists, for the same
+                * reason: a shell is a live process, and unmounting its view
+                * would throw away the scrollback the human is reading.
+                */}
+              {terminalTabs.length > 0 && (
+                <TerminalTabs
+                  tabs={terminalTabs}
+                  activeTabId={activeTab?.kind === "terminal" ? activeTab.id : null}
+                  onTitleChange={handleTerminalTitle}
                 />
               )}
               {renderActiveTab()}

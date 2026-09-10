@@ -6,6 +6,7 @@ import { join } from "node:path";
 
 import { validateStagedDesktop } from "./desktop-stage-contract.mjs";
 import { findMissingBuildPrerequisites, readDesktopTargetArgs } from "./desktop-targets.mjs";
+import { repairSpawnHelperModes } from "./pty-package.mjs";
 
 const root = join(import.meta.dir, "..");
 const server = join(root, "desktop", "server");
@@ -30,6 +31,12 @@ try {
   );
   const rootPackage = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
   validateStagedDesktop({ packageVersion: rootPackage.version, plan, server });
+  // node-pty's helper must be executable before it is packaged. bun's install
+  // does not preserve the bit, and a package built without it spawns nothing.
+  const repaired = repairSpawnHelperModes(join(root, "desktop", "node_modules", "node-pty"));
+  for (const helper of repaired) {
+    console.log(`[build-desktop] restored the execute bit on ${helper}`);
+  }
   run(
     process.execPath,
     // --publish never: the workflow uploads assets in its own release job. Without
