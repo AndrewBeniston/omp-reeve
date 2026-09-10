@@ -20,6 +20,7 @@ import { tmpdir } from "node:os";
 import { basename, join, relative } from "node:path";
 
 import { readDesktopTargetArgs, resolvePackagedApplication } from "./desktop-targets.mjs";
+import { spawnHelperDirectories } from "./pty-package.mjs";
 
 const require = createRequire(import.meta.url);
 const { DESKTOP_PORT } = require("../desktop/desktop-runtime.cjs");
@@ -213,6 +214,69 @@ async function terminateApplication(applicationProcess) {
   }
 }
 
+/**
+ * Prove the packaged terminal binding loads and can spawn.
+ *
+ * node-pty is native. A binding that was built for the wrong ABI, or a
+ * spawn-helper that lost its execute bit during install, both produce a
+ * package that looks complete and fails the first time a human opens a
+ * Terminal. Neither is visible in the file list, so the binding is loaded here
+ * with the packaged Electron binary itself and asked to run one command.
+ *
+ * ELECTRON_RUN_AS_NODE makes that binary behave as Node while keeping its own
+ * ABI, which is the thing under test.
+ */
+async function verifyTerminalBinding(application, resources) {
+  const packageRoot = join(resources, "app.asar.unpacked", "node_modules", "node-pty");
+  assert.ok(
+    existsSync(packageRoot),
+    "node-pty is not unpacked from the asar. A native binary cannot be loaded from inside one.",
+  );
+
+  if (process.platform !== "win32") {
+    const helpers = spawnHelperDirectories(packageRoot)
+      .map((directory) => join(directory, "spawn-helper"))
+      .filter((helper) => existsSync(helper));
+    assert.ok(helpers.length > 0, "node-pty shipped without a spawn-helper.");
+    for (const helper of helpers) {
+      assert.ok(
+        (statSync(helper).mode & 0o111) !== 0,
+        `${helper} is not executable, so every terminal would fail with "posix_spawnp failed".`,
+      );
+    }
+  }
+
+  const probe = join(mkdtempSync(join(tmpdir(), "omp-pty-probe-")), "probe.cjs");
+  const shell = process.platform === "win32" ? (process.env.COMSPEC || "cmd.exe") : "/bin/sh";
+  const shellArgs = process.platform === "win32" ? JSON.stringify(["/c", "echo REEVE_PTY_OK"]) : JSON.stringify(["-c", "echo REEVE_PTY_OK"]);
+  writeFileSync(probe, [
+    `const pty = require(${JSON.stringify(packageRoot)});`,
+    `const term = pty.spawn(${JSON.stringify(shell)}, ${shellArgs}, { name: "xterm-256color", cwd: ${JSON.stringify(tmpdir())}, env: process.env, cols: 80, rows: 24 });`,
+    "let seen = \"\";",
+    "term.onData((data) => { seen += data; });",
+    "term.onExit(() => { process.stdout.write(seen.includes(\"REEVE_PTY_OK\") ? \"PTY_OK\" : \"PTY_NO_OUTPUT\"); process.exit(0); });",
+    "setTimeout(() => { process.stdout.write(\"PTY_TIMEOUT\"); process.exit(1); }, 20000);",
+  ].join("\n"));
+
+  const output = await new Promise((resolve, reject) => {
+    const child = spawn(executablePath(application), [probe], {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.once("error", reject);
+    child.once("close", () => resolve({ stdout, stderr }));
+  });
+
+  rmSync(join(probe, ".."), { recursive: true, force: true });
+  assert.ok(
+    output.stdout.includes("PTY_OK"),
+    `The packaged terminal binding did not run a command: ${output.stdout.trim() || "no output"}${output.stderr.trim() ? `\n${output.stderr.trim()}` : ""}`,
+  );
+}
 async function verifyPackage() {
   if (await portIsOpen(desktopOrigin)) {
     throw new Error(`Another process already uses ${desktopOrigin}.`);
@@ -256,6 +320,7 @@ async function verifyPackage() {
   let origin;
   let verificationError;
   try {
+    await verifyTerminalBinding(application, resources);
     origin = await waitForOrigin(logStart, applicationProcess);
     await verifySessions(origin);
     await waitForWindow(logStart, origin, applicationProcess);

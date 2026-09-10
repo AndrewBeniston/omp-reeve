@@ -17,6 +17,14 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- A Terminal tab. The panel beside a Session can now hold a real shell, opened
+  from the panel's own launcher or the plus control at the end of the strip. It
+  starts your own login shell in the project's directory, so your aliases,
+  path and prompt are the ones you already have. Control keys reach the shell,
+  the shell is told when you resize the panel, and closing the tab ends it.
+  Several can run at once. A project you have not trusted is refused a shell.
+  Desktop application only.
+
 - A Browser tab. The tab strip beside a Session can now hold a web page as well
   as a file, opened from a new control at the end of the strip. Type an address
   and press Enter to go somewhere; the tab takes the page's own name, and

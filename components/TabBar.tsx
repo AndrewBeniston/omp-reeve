@@ -43,13 +43,29 @@ export interface BrowserTab extends TabBase {
 }
 
 /**
+ * A shell running in a Project directory, beside a Session.
+ *
+ * The cwd is fixed when the Tab opens. A shell that followed the selected
+ * Session would change directory underneath a running command, so it does not:
+ * a Terminal belongs to the Project it was opened in.
+ *
+ * The id here is Reeve's. The pty has an id of its own, minted in the desktop
+ * process and never exposed as this one, so a renderer cannot name a shell it
+ * did not open.
+ */
+export interface TerminalTab extends TabBase {
+  kind: "terminal";
+  cwd: string;
+}
+
+/**
  * A surface in the Tab strip, of exactly one kind. A Session is never a Tab:
  * the navigation tree selects Sessions, and the Session view is not in the
  * strip. Adding a kind here is deliberately a typecheck failure everywhere the
  * new kind is unhandled — that exhaustiveness is what makes the union safe to
  * extend, so do not replace it with a runtime registry.
  */
-export type Tab = FileTab | SourcesTab | BrowserTab;
+export type Tab = FileTab | SourcesTab | BrowserTab | TerminalTab;
 
 /**
  * Refuse to compile when a Tab kind is unhandled.
@@ -79,6 +95,8 @@ function TabIcon({ tab }: { tab: Tab }) {
       return <BrowserIcon />;
     case "file":
       return getFileIcon(tab.label, 13);
+    case "terminal":
+      return <TerminalIcon />;
   }
 }
 
@@ -89,6 +107,10 @@ function tabTitle(tab: Tab): string {
       return tab.filePath;
     case "browser":
       return tab.url;
+    case "terminal":
+      // The directory the shell is in, which is the one thing about a Terminal
+      // its label does not already say.
+      return tab.cwd;
     case "sources":
       return tab.label;
   }
@@ -203,6 +225,16 @@ function BrowserIcon() {
       <circle cx="8" cy="8" r="5.6" />
       <path d="M2.4 8h11.2" />
       <path d="M8 2.4a8.6 8.6 0 0 1 0 11.2a8.6 8.6 0 0 1 0-11.2" />
+    </svg>
+  );
+}
+
+/** The launcher's terminal glyph at Tab size: a rounded window, prompt, line. */
+function TerminalIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="1.4" y="2.5" width="13.2" height="11" rx="2.3" />
+      <path d="m4.6 6.8 1.8 1.8-1.8 1.8M8.4 10.9h3" />
     </svg>
   );
 }
