@@ -57,7 +57,8 @@
     "desktop:verify-package": "bun scripts/verify-desktop-package.mjs",
     "release": "bun scripts/release.mjs",
     "release:check": "bun scripts/release-check.mjs",
-    "release:notes": "bun scripts/release-notes.mjs"
+    "release:notes": "bun scripts/release-notes.mjs",
+    "test:shell": "ELECTRON_RUN_AS_NODE=1 electron --test desktop/terminal-shell.test.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",

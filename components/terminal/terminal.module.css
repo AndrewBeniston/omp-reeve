@@ -23,7 +23,7 @@
 }
 
 /*
- * The padding is the reference application own, measured from its shipped
+ * The padding is the reference application's own, measured from its shipped
  * stylesheet: 16px at the start, 8px above, 12px below, and nothing on the
  * right, so the scrollbar sits against the panel edge rather than floating in
  * from it.
@@ -41,7 +41,7 @@
 /*
  * xterm paints its own background by default. It is forced transparent so the
  * Tab surface above shows through, which is what makes the terminal follow
- * Reeve theme rather than carrying a colour of its own.
+ * Reeve's theme rather than carrying a colour of its own.
  */
 .terminalHost :global(.xterm) {
   height: 100%;

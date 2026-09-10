@@ -35,7 +35,7 @@ function terminalBridge(): TerminalBridge | undefined {
  *
  * A pty needs a process to spawn it, and the browser version of Reeve has none.
  * The answer arrives in an effect rather than during render, because reading
- * the window while rendering would make the server and client trees differ.
+ * `window` while rendering would make the server and client trees differ.
  */
 export function useSupportsTerminalTab(): boolean {
   const [supported, setSupported] = useState(false);
@@ -108,10 +108,10 @@ function TerminalSession({
     const bridge = terminalBridge();
     if (!host || !bridge) return;
 
-    // The options match the reference application own terminal, read from its
-    // shipped bundle: a transparent background so the panel surface shows
-    // through, a blinking bar cursor, and 1.2 line height. The colours are
-    // Reeve own, not the reference ones.
+    // The options match the reference application's own terminal, read from
+    // its shipped bundle: a transparent background so the panel's own surface
+    // shows through, a blinking bar cursor, and 1.2 line height. The colours
+    // are Reeve's, not the reference's.
     const terminal = new Terminal({
       allowTransparency: true,
       allowProposedApi: true,
@@ -217,18 +217,18 @@ function TerminalSession({
   );
 }
 
-/** One custom property computed value, trimmed. */
+/** One custom property's computed value, trimmed. */
 function readCssValue(element: HTMLElement, name: string): string {
   return getComputedStyle(element).getPropertyValue(name).trim();
 }
 
 /**
- * The xterm palette, taken from Reeve own theme.
+ * The xterm palette, taken from Reeve's own theme.
  *
- * xterm needs real colour strings, so the theme custom properties are resolved
- * here rather than handed over unresolved. The background stays transparent:
- * the panel behind it supplies the surface, which is how the terminal follows
- * the panel colour without being rebuilt.
+ * xterm needs real colour strings, so the theme's custom properties are
+ * resolved here rather than handed over unresolved. The background stays
+ * transparent: the panel behind it supplies the surface, which is how the
+ * terminal follows the panel's colour without being rebuilt.
  */
 function buildTheme(host: HTMLElement) {
   return {

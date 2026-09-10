@@ -195,6 +195,22 @@ function createTerminalRegistry({ spawn, mintId }) {
     return session;
   }
 
+  /**
+   * Forget a shell and end it.
+   *
+   * The kill can throw when the shell has already exited on its own, which is a
+   * race nobody can avoid: the human types exit at the same moment the Tab
+   * closes. It is forgotten either way.
+   */
+  function end(id, session) {
+    sessions.delete(id);
+    try {
+      session.pty.kill();
+    } catch {
+      // Already gone.
+    }
+  }
+
   return {
     /**
      * Start a shell for a Project, or return the reason there will not be one.
@@ -267,12 +283,7 @@ function createTerminalRegistry({ spawn, mintId }) {
     close(id, ownerId) {
       const session = get(id, ownerId);
       if (!session) return false;
-      sessions.delete(id);
-      try {
-        session.pty.kill();
-      } catch {
-        // Already gone.
-      }
+      end(id, session);
       return true;
     },
 
@@ -285,13 +296,7 @@ function createTerminalRegistry({ spawn, mintId }) {
      */
     closeAllFor(ownerId) {
       for (const [id, session] of sessions) {
-        if (session.ownerId !== ownerId) continue;
-        sessions.delete(id);
-        try {
-          session.pty.kill();
-        } catch {
-          // Already gone.
-        }
+        if (session.ownerId === ownerId) end(id, session);
       }
     },
 
