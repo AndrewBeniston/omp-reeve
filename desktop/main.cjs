@@ -5,7 +5,7 @@ const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, session, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme, session, shell } = require("electron");
 const {
   DESKTOP_PORT,
   DESKTOP_CHALLENGE_HEADER,
@@ -24,6 +24,25 @@ const { STATE_CHANNEL: UPDATE_STATE_CHANNEL, createUpdateController } = require(
 const DEFAULT_DEV_URL = "http://127.0.0.1:30141";
 const LOG_PATH = path.join(os.tmpdir(), "omp-desktop.log");
 const SERVER_READY_TIMEOUT_MS = 60_000;
+
+// The custom title bar on Windows and Linux. A transparent background lets the
+// renderer's own bar show through, so the caption buttons sit on our colour
+// instead of a system strip. The height matches the renderer bar in
+// navigation.module.css; change both together or the buttons misalign.
+const DESKTOP_TITLE_BAR_HEIGHT = 36;
+const DESKTOP_TITLE_BAR_BACKGROUND = "#00000000";
+const DESKTOP_TITLE_BAR_SYMBOL_DARK = "#ffffff";
+const DESKTOP_TITLE_BAR_SYMBOL_LIGHT = "#1f1f1f";
+
+function desktopTitleBarOverlay() {
+  return {
+    color: DESKTOP_TITLE_BAR_BACKGROUND,
+    symbolColor: nativeTheme.shouldUseDarkColors
+      ? DESKTOP_TITLE_BAR_SYMBOL_DARK
+      : DESKTOP_TITLE_BAR_SYMBOL_LIGHT,
+    height: DESKTOP_TITLE_BAR_HEIGHT,
+  };
+}
 let mainWindow;
 let serverProcess;
 let desktopUrl;
@@ -176,8 +195,30 @@ function createMainWindow() {
     windowOptions.vibrancy = "menu";
     windowOptions.acceptFirstMouse = true;
   }
+  if (process.platform === "win32" || process.platform === "linux") {
+    // The renderer draws its own title bar. Windows still owns the caption
+    // buttons, so the overlay hands them our height and a transparent
+    // background: the app colour behind them shows through, and one bar
+    // replaces the native caption strip and the native menu strip.
+    windowOptions.titleBarStyle = "hidden";
+    windowOptions.titleBarOverlay = desktopTitleBarOverlay();
+    windowOptions.autoHideMenuBar = true;
+  }
 
   const window = new BrowserWindow(windowOptions);
+  if (process.platform === "win32" || process.platform === "linux") {
+    // The application menu stays registered for its accelerators. Removing the
+    // bar from this window stops Windows drawing a second strip under the
+    // caption, which is the row the renderer's own bar replaces.
+    window.setMenuBarVisibility(false);
+    window.removeMenu();
+    const followTheme = () => {
+      if (window.isDestroyed()) return;
+      window.setTitleBarOverlay(desktopTitleBarOverlay());
+    };
+    nativeTheme.on("updated", followTheme);
+    window.once("closed", () => nativeTheme.removeListener("updated", followTheme));
+  }
   const guardNavigation = (event, legacyUrl) => {
     const url = event.url || legacyUrl;
     if (desktopUrl && isNavigationAllowed(url, desktopUrl, true)) return;

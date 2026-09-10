@@ -97,6 +97,22 @@
   -webkit-app-region: no-drag;
 }
 
+/*
+ * Windows and Linux keep the native caption buttons and draw them over the
+ * top right of the window. The header reserves that width so a control never
+ * lands under them. Three buttons at 46px is the Windows caption metric.
+ */
+:global(html[data-omp-desktop="win32"]) .headerBar,
+:global(html[data-omp-desktop="linux"]) .headerBar {
+  -webkit-app-region: drag;
+  padding-right: calc(var(--space-2-5) + 138px);
+}
+
+:global(html[data-omp-desktop="win32"]) .headerBar button,
+:global(html[data-omp-desktop="linux"]) .headerBar button {
+  -webkit-app-region: no-drag;
+}
+
 :global(html[data-omp-desktop="darwin"]) .headerLeading[data-sidebar-open="true"] .mainSidebarToggle {
   display: none;
 }

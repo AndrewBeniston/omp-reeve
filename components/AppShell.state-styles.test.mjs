@@ -127,3 +127,26 @@ test("the narrow macOS sidebar stays inside the shell layout", () => {
     /:global\(html\[data-omp-desktop="darwin"\]\) \.sidebarPanel\[data-open="false"\]\s*\{[^}]*width:\s*0;[^}]*min-width:\s*0;/,
   );
 });
+
+test("the Windows and Linux shell draws its own title bar", () => {
+  // desktop/main.cjs hides the native caption and hands Electron the same 36px
+  // height. The renderer bar and the overlay must agree, or the caption buttons
+  // sit off the bar.
+  assert.match(
+    navigationStyles,
+    /:global\(html\[data-omp-desktop="win32"\]\) \.desktopTitleBar,\s*:global\(html\[data-omp-desktop="linux"\]\) \.desktopTitleBar\s*\{[^}]*display:\s*flex;[^}]*height:\s*36px;[^}]*-webkit-app-region:\s*drag;/,
+  );
+});
+
+test("the Windows and Linux header clears the native caption buttons", () => {
+  // Windows keeps its caption buttons and draws them over the top right, so the
+  // header reserves that width. macOS puts them on the left instead.
+  assert.match(
+    shellStyles,
+    /:global\(html\[data-omp-desktop="win32"\]\) \.headerBar,\s*:global\(html\[data-omp-desktop="linux"\]\) \.headerBar\s*\{[^}]*-webkit-app-region:\s*drag;[^}]*padding-right:\s*calc\(var\(--space-2-5\) \+ 138px\);/,
+  );
+  assert.match(
+    shellStyles,
+    /:global\(html\[data-omp-desktop="win32"\]\) \.headerBar button,\s*:global\(html\[data-omp-desktop="linux"\]\) \.headerBar button\s*\{[^}]*-webkit-app-region:\s*no-drag;/,
+  );
+});

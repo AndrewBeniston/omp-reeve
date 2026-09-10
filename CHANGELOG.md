@@ -9,6 +9,12 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+### Changed
+- The Windows and Linux window draws its own title bar. The native caption
+  strip and the File / Edit / View / Window strip are gone, so the application
+  starts at the top of the window and the close, minimise, and maximise buttons
+  sit on Reeve's own colour.
+
 ## [0.5.0] - 2026-09-08 support: true
 
 ### Summary
