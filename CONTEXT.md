@@ -139,3 +139,40 @@ _Avoid_: web setting, local preference, client setting
 The microphone control in the Composer footer, rendered hidden until a
 dictation path exists.
 _Avoid_: mic button, voice button, speech control
+
+## Release
+
+**Release**:
+One tagged version of Reeve with its packages for every target, published on
+GitHub Releases. The tag is `v<version>` and only the release script writes it.
+_Avoid_: build, version bump, deploy
+
+**Package**:
+One installable file for one target: a macOS DMG and ZIP pair, a Windows
+installer, or a Linux AppImage.
+_Avoid_: artifact, binary, bundle
+
+**Update feed**:
+The `latest*.yml` files in a Release that an installed Reeve reads to learn
+about a newer version. One file per platform, with the file hashes inside.
+_Avoid_: manifest, update channel, release metadata
+
+**Update card**:
+The sidebar card that reports a download in progress and offers Restart now
+when the update is ready.
+_Avoid_: update banner, notification, toast
+
+**What's New**:
+The dialog on the first launch after a version change that lists every
+version section newer than the last one seen.
+_Avoid_: changelog dialog, release notes popup, onboarding
+
+**Support page**:
+The second What's New page, shown only when the newest version carries
+`support: true`, with the Ko-fi and Star on GitHub actions.
+_Avoid_: donation page, sponsor screen, upsell
+
+**Build machine**:
+A computer Andrew owns that builds one or more Packages from a clean checkout
+of the tag. The GitHub runner is a paid fallback, never the default.
+_Avoid_: CI, runner, pipeline
