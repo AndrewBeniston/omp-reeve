@@ -17,6 +17,12 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The panel accelerators from the reference application. `Cmd+T` opens a
+  Browser tab and `Cmd+P` searches files in the active Project; the three
+  entries Reeve has not built yet stay listed and say so. A chord works while a
+  web page holds focus, because the desktop process matches it before the page
+  sees the key.
+
 - A Browser tab. The tab strip beside a Session can now hold a web page as well
   as a file, opened from a new control at the end of the strip. Type an address
   and press Enter to go somewhere; the tab takes the page's own name, and

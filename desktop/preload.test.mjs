@@ -47,7 +47,7 @@ test("the preload exposes only the protected external-link command", async () =>
   assert.equal(exposed.name, "ompDesktop");
   onDomReady();
   assert.equal(document.documentElement.dataset.ompDesktop, "darwin");
-  assert.deepEqual(Object.keys(exposed.value), ["openExternal", "selectDirectory", "selectAttachments", "showProjectMenu", "showSessionMenu", "updater"]);
+  assert.deepEqual(Object.keys(exposed.value), ["openExternal", "selectDirectory", "selectAttachments", "showProjectMenu", "showSessionMenu", "onPanelAction", "updater"]);
   assert.deepEqual(Object.keys(exposed.value.updater), ["getState", "check", "install", "onState"]);
   await exposed.value.openExternal("https://example.com/login");
   await exposed.value.selectDirectory();
