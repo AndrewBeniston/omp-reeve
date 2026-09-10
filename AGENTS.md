@@ -13,6 +13,23 @@ This repository is public. Every change is visible to anyone.
 - Work is tracked in GitHub issues. There is no local ticket folder.
 - Write user-facing text and docs in plain, short sentences.
 
+## Agent skills
+
+### Skill set
+
+The repository carries Matt Pocock's 37 skills in `.agents/skills`. A clone gets
+them. There is no install step. They are MIT licensed, and the notice is in
+`.agents/skills/LICENSE`. `skills-lock.json` records the source of each one.
+See `.agents/skills/README.md` to update them.
+
+### Issue tracker
+
+Issues live as GitHub issues in this repository. Use the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context. `CONTEXT.md` and `docs/adr/` sit at the repository root. See `docs/agents/domain.md`.
+
 ## Quick Start
 
 ```bash
