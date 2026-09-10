@@ -110,7 +110,12 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab, newTabActio
   return (
     <Surface
       className={styles.tabBar}
-      tone="sidebar"
+      /*
+        * The strip shares the panel's own surface, so it reads as one piece
+        * with the chat and the title bar rather than as a lighter band across
+        * the top. Only the active Tab lifts above it.
+        */
+      tone="canvas"
       border="none"
       radius="none"
       data-component="tab-bar"

@@ -64,7 +64,7 @@
  * sidebar in all of them.
  */
 .fileTab:hover {
-  background: color-mix(in srgb, var(--ui-text) 6%, var(--ui-sidebar));
+  background: color-mix(in srgb, var(--ui-text) 6%, var(--ui-canvas));
   color: var(--ui-text);
 }
 
@@ -74,7 +74,7 @@
 }
 
 .fileTab[data-active="true"] {
-  background: color-mix(in srgb, var(--ui-text) 10%, var(--ui-sidebar));
+  background: color-mix(in srgb, var(--ui-text) 10%, var(--ui-canvas));
   color: var(--ui-text);
 }
 

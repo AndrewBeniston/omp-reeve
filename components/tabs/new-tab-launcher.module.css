@@ -16,12 +16,12 @@
   width: 28px;
   height: 28px;
   border-radius: var(--radius-xs);
-  background: color-mix(in srgb, var(--ui-text) 8%, var(--ui-sidebar));
+  background: color-mix(in srgb, var(--ui-text) 8%, var(--ui-canvas));
   color: var(--ui-text-muted);
 }
 
 .trigger:hover {
-  background: color-mix(in srgb, var(--ui-text) 13%, var(--ui-sidebar));
+  background: color-mix(in srgb, var(--ui-text) 13%, var(--ui-canvas));
   color: var(--ui-text);
 }
 
