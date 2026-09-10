@@ -7,10 +7,73 @@ import test from "node:test";
 import {
   DESKTOP_STAGE_MANIFEST,
   createStageManifest,
+  describePersonalBuildPath,
   publishStagedDesktop,
   recoverInterruptedStage,
   validateStagedDesktop,
 } from "./desktop-stage-contract.mjs";
+
+test("a build path inside a home directory is refused, and the override names itself", () => {
+  // Next writes the build directory into the server bundle. A build from a home
+  // directory therefore carries the name of the person who built it, and this
+  // repository is public. Issue 6.
+
+  // Every home directory shape, on each platform that has one.
+  const personal = [
+    { root: "/Users/alex/code/omp-reeve", platform: "darwin" },
+    { root: "/home/builder/omp-reeve", platform: "linux" },
+    { root: "C:\\Users\\alex\\code\\omp-reeve", platform: "win32" },
+    { root: "C:/Users/alex/code/omp-reeve", platform: "win32" },
+  ];
+  for (const { root, platform } of personal) {
+    const reason = describePersonalBuildPath({ env: {}, platform, root });
+    assert.ok(reason, `${root} must be refused`);
+    assert.match(reason, /home directory/);
+  }
+
+  // The neutral paths RELEASING.md names, and a checkout beside them.
+  const neutral = [
+    { root: "/tmp/reeve/build", platform: "darwin" },
+    { root: "/tmp/reeve/build", platform: "linux" },
+    { root: "C:\\reeve\\build", platform: "win32" },
+    { root: "C:\\Projects\\git\\omp-reeve", platform: "win32" },
+    { root: "/srv/build/omp-reeve", platform: "linux" },
+  ];
+  for (const { root, platform } of neutral) {
+    assert.equal(describePersonalBuildPath({ env: {}, platform, root }), null, root);
+  }
+
+  // The current home directory counts, whatever its shape. A build machine may
+  // put a home somewhere the patterns above do not name.
+  assert.ok(describePersonalBuildPath({
+    env: {},
+    home: "/var/lib/ci",
+    platform: "linux",
+    root: "/var/lib/ci/checkout",
+  }));
+
+  // Windows file names carry no case.
+  assert.ok(describePersonalBuildPath({
+    env: {},
+    platform: "win32",
+    root: "c:\\users\\ALEX\\omp-reeve",
+  }));
+
+  // A home directory is not a prefix match. A sibling directory is fine.
+  assert.equal(describePersonalBuildPath({
+    env: {},
+    home: "/home/alex",
+    platform: "linux",
+    root: "/home/alexander-build",
+  }), null);
+
+  // The override is deliberate and it names itself.
+  assert.equal(describePersonalBuildPath({
+    env: { REEVE_ALLOW_PERSONAL_BUILD_PATH: "1" },
+    platform: "darwin",
+    root: "/Users/alex/code/omp-reeve",
+  }), null);
+});
 import { resolveDesktopPlan } from "./desktop-targets.mjs";
 
 async function writeStage(server, plan, { omitNative } = {}) {

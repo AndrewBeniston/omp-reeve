@@ -32,7 +32,15 @@ at 10x and 2x clock time.
 Each package is built on a machine with that operating system, from a clean checkout of the tag.
 The command is the same on every machine. Bun 1.4.0 must match the lockfile.
 
+Clone into a neutral directory, never into a home directory. Next writes the
+absolute build directory into the server bundle, and this repository is public,
+so a build from a home directory ships the name of the person who made it. Use
+`/tmp/reeve/build` on macOS and Linux, and `C:\reeve\build` on Windows.
+Staging refuses a home directory and names `REEVE_ALLOW_PERSONAL_BUILD_PATH`
+as the deliberate override.
+
 ```bash
+mkdir -p /tmp/reeve/build && cd /tmp/reeve/build
 git clone --branch v<version> git@github.com:AndrewBeniston/omp-reeve.git reeve-release
 cd reeve-release
 bun install --frozen-lockfile

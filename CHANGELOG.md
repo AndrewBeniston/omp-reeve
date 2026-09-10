@@ -10,6 +10,11 @@ the What's New dialog adds a second page that invites support.
 ## [Unreleased]
 
 ### Changed
+- A desktop build refuses to stage from a directory inside a home directory.
+  Next records the build directory inside the server bundle, so such a build
+  would carry the name of the person who made it. The message names a neutral
+  path to build from, and names the override for a machine that has no other
+  choice.
 - The Windows and Linux window draws its own title bar. The native caption
   strip and the File / Edit / View / Window strip are gone, so the application
   starts at the top of the window and the close, minimise, and maximise buttons
