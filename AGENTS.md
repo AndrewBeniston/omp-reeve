@@ -5,6 +5,8 @@
 This repository is public. Every change is visible to anyone.
 
 - Never commit a secret, a personal path, a private note, or an extract from another vendor's application bundle.
+- Issues, pull requests, comments, and commit messages are public too. Write them for a stranger. Name no machine, host, IP address, user account, home path, Apple team, or private service. Say "a Windows machine", "the Linux build machine", "the maintainer's Mac". Private detail that an agent needs goes in `RELEASING.md` as a role, never as an identity, or stays in the chat.
+- Before you file or edit an issue, read it once as an outsider. If it tells someone where a machine is or who owns it, rewrite it.
 - Every user-visible change adds an entry under `## [Unreleased]` in `CHANGELOG.md` in the same pull request.
 - Releases follow `RELEASING.md`. Only `bun run release` writes a version number or a tag.
 - Packages are built on Andrew's own machines and uploaded with `gh release`. The GitHub workflow is a paid manual fallback. Never start it without Andrew's approval for that run.
