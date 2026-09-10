@@ -142,6 +142,7 @@ export const zhCNLocale: LocalePlugin = {
     "files.showPanel": "显示文件面板",
     "files.panel": "文件",
     "files.noneOpen": "没有打开的文件",
+    "tabs.strip": "打开的标签页",
     "layout.resizeSidebar": "调整侧边栏宽度",
     "layout.resizeFilePanel": "调整文件面板宽度",
     "layout.resizeHint": "拖动调整宽度。双击或按 Enter 恢复默认值。",

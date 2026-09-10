@@ -308,8 +308,8 @@ export function AppShell() {
   }, [activeTopPanel, rightPanelOpen, sidebarOpen]);
 
   // Right panel tabs
-  const [fileTabs, setFileTabs] = useState<Tab[]>([]);
-  const [activeFileTabId, setActiveFileTabId] = useState<string | null>(null);
+  const [tabs, setTabs] = useState<Tab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
   // Same @mention format as the chat input's @ autocomplete, so the agent's
   // read tool resolves it the same way (it strips the @ prefix).
@@ -463,13 +463,13 @@ export function AppShell() {
     setBranchActiveLeafId(null);
     setSystemPrompt(null);
     setActiveTopPanel(null);
-    // File tabs are keyed by absolute path, so tabs opened in the previous
+    // A file Tab is keyed by absolute path, so Tabs opened in the previous
     // project would otherwise linger after switching to a different project.
     // Reached only past the same-project early return above, so worktrees of
-    // one repo keep their open tabs. Mirror handleCloseFileTab and close the
+    // one repo keep their open tabs. Mirror handleCloseTab and close the
     // now-empty right panel.
-    setFileTabs([]);
-    setActiveFileTabId(null);
+    setTabs([]);
+    setActiveTabId(null);
     setRightPanelOpen(false);
     // Restore the workspace we switched to: its last open session, or keep
     // the default welcome page when none is remembered.
@@ -725,7 +725,7 @@ export function AppShell() {
     const sourceSessionId = options?.sourceSessionId;
     const modeHint = options?.modeHint;
     const tabId = `file:${filePath}`;
-    setFileTabs((prev) => {
+    setTabs((prev) => {
       const existing = prev.find((t) => t.id === tabId);
       if (!existing) {
         return [...prev, {
@@ -749,7 +749,7 @@ export function AppShell() {
         return next;
       });
     });
-    setActiveFileTabId(tabId);
+    setActiveTabId(tabId);
     setRightPanelOpen(true);
     // On mobile the file panel is full-screen; close the drawer so it shows.
     if (isMobile) setSidebarOpen(false);
@@ -759,18 +759,18 @@ export function AppShell() {
     handleOpenFile(filePath, getFileName(filePath), { sourceSessionId: selectedSession?.id ?? null });
   }, [handleOpenFile, selectedSession?.id]);
 
-  const handleCloseFileTab = useCallback((tabId: string) => {
-    setFileTabs((prev) => {
+  const handleCloseTab = useCallback((tabId: string) => {
+    setTabs((prev) => {
       const next = prev.filter((t) => t.id !== tabId);
       if (next.length === 0) setRightPanelOpen(false);
       return next;
     });
-    setActiveFileTabId((cur) => {
+    setActiveTabId((cur) => {
       if (cur !== tabId) return cur;
-      const remaining = fileTabs.filter((t) => t.id !== tabId);
+      const remaining = tabs.filter((t) => t.id !== tabId);
       return remaining.length > 0 ? remaining[remaining.length - 1].id : null;
     });
-  }, [fileTabs]);
+  }, [tabs]);
 
   const handleViewFullHistory = useCallback(() => {
     if (!selectedSession) return;
@@ -863,7 +863,7 @@ export function AppShell() {
     }
   }, [projectTrustBusy, projectTrustCwd]);
 
-  const activeFileTab = fileTabs.find((t) => t.id === activeFileTabId) ?? null;
+  const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
   const activeCwdName = activeCwd
     ? (isManagedChatCwd(activeCwd) ? translate("workspace.chats") : getFileName(activeCwd) || activeCwd)
     : null;
@@ -954,7 +954,7 @@ export function AppShell() {
 
   useEffect(() => {
     const sourceSessionId = selectedSession?.id ?? null;
-    setFileTabs((current) => current.map((tab) => {
+    setTabs((current) => current.map((tab) => {
       if (tab.kind !== "sources" || tab.sourceSessionId !== sourceSessionId) return tab;
       if (tab.sources === visibleSummarySources) return tab;
       return { ...tab, sources: visibleSummarySources };
@@ -964,7 +964,7 @@ export function AppShell() {
   const handleViewAllSources = useCallback(() => {
     const sourceSessionId = selectedSession?.id ?? null;
     const tabId = `sources:${sourceSessionId ?? "new"}`;
-    setFileTabs((current) => {
+    setTabs((current) => {
       const nextTab: Tab = {
         id: tabId,
         kind: "sources",
@@ -976,7 +976,7 @@ export function AppShell() {
         ? current.map((tab) => tab.id === tabId ? nextTab : tab)
         : [...current, nextTab];
     });
-    setActiveFileTabId(tabId);
+    setActiveTabId(tabId);
     setRightPanelOpen(true);
     if (isMobile) setSidebarOpen(false);
   }, [isMobile, selectedSession?.id, translate, visibleSummarySources]);
@@ -1209,28 +1209,28 @@ export function AppShell() {
           />
         ) : undefined}
         rightPanel={{
-          content: activeFileTab?.kind === "sources" ? (
+          content: activeTab?.kind === "sources" ? (
             <SourcesView
-              sources={activeFileTab.sources}
+              sources={activeTab.sources}
               onOpenFile={(filePath) => handleOpenFile(
                 filePath,
                 getFileName(filePath),
-                { sourceSessionId: activeFileTab.sourceSessionId },
+                { sourceSessionId: activeTab.sourceSessionId },
               )}
             />
-          ) : activeFileTab?.kind === "file" ? (
+          ) : activeTab?.kind === "file" ? (
             <FileViewer
-              filePath={activeFileTab.filePath}
+              filePath={activeTab.filePath}
               cwd={activeCwd ?? undefined}
-              sourceSessionId={activeFileTab.sourceSessionId}
+              sourceSessionId={activeTab.sourceSessionId}
               gitRefreshKey={fileViewerRefreshKey}
-              initialDisplayMode={activeFileTab.initialDisplayMode}
+              initialDisplayMode={activeTab.initialDisplayMode}
               onMentionLines={rightPanelOpen ? handleFileLineMention : undefined}
               onAtMention={handleAtMention}
               onOpenFile={(filePath) => handleOpenFile(
                 filePath,
                 getFileName(filePath),
-                { sourceSessionId: activeFileTab.sourceSessionId },
+                { sourceSessionId: activeTab.sourceSessionId },
               )}
             />
           ) : (
@@ -1240,13 +1240,13 @@ export function AppShell() {
           ),
           header: (
             <TabBar
-              tabs={fileTabs}
-              activeTabId={activeFileTabId ?? ""}
-              onSelectTab={setActiveFileTabId}
-              onCloseTab={handleCloseFileTab}
+              tabs={tabs}
+              activeTabId={activeTabId ?? ""}
+              onSelectTab={setActiveTabId}
+              onCloseTab={handleCloseTab}
             />
           ),
-          label: activeFileTab?.kind === "sources" ? translate("summary.sources") : translate("files.panel"),
+          label: activeTab?.kind === "sources" ? translate("summary.sources") : translate("files.panel"),
           onBackdropClick: () => setRightPanelOpen(false),
           open: rightPanelOpen,
           resize: {
