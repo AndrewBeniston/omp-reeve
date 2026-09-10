@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useGlobalKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useShortcutLabel } from "@/hooks/useShortcutLabel";
@@ -11,7 +11,8 @@ import { QuickChat } from "./chat/QuickChat";
 import { SubagentPanel } from "./SubagentPanel";
 import { ChatWindow } from "./ChatWindow";
 import { FileViewer } from "./FileViewer";
-import { TabBar, type Tab } from "./TabBar";
+import { TabBar, assertNeverTab, type BrowserTab, type Tab } from "./TabBar";
+import { BrowserTabs, supportsBrowserTab } from "./browser/BrowserTabs";
 import { SettingsConfig } from "./SettingsConfig";
 import { ProjectTrustDialog } from "./ProjectTrustDialog";
 import { SummaryPanel } from "./SummaryPanel";
@@ -759,6 +760,40 @@ export function AppShell() {
     handleOpenFile(filePath, getFileName(filePath), { sourceSessionId: selectedSession?.id ?? null });
   }, [handleOpenFile, selectedSession?.id]);
 
+  /**
+   * Open a Browser tab.
+   *
+   * Unlike a file, two Browser tabs on the same address are two Tabs: the human
+   * may want the same page twice, and the id is what the agent addresses, so it
+   * is minted per Tab rather than derived from the URL.
+   */
+  const handleOpenBrowserTab = useCallback((url: string) => {
+    const tabId = `browser:${crypto.randomUUID()}`;
+    setTabs((prev) => [...prev, {
+      id: tabId,
+      kind: "browser",
+      label: translate("browser.untitled"),
+      url,
+    }]);
+    setActiveTabId(tabId);
+    setRightPanelOpen(true);
+    if (isMobile) setSidebarOpen(false);
+  }, [isMobile, translate]);
+
+  /** The guest navigated. The Tab's URL follows the page, its id never does. */
+  const handleBrowserNavigate = useCallback((tabId: string, url: string) => {
+    setTabs((prev) => prev.map((t) => (
+      t.id === tabId && t.kind === "browser" && t.url !== url ? { ...t, url } : t
+    )));
+  }, []);
+
+  /** The page named itself, so the Tab takes that name. */
+  const handleBrowserTitle = useCallback((tabId: string, title: string) => {
+    setTabs((prev) => prev.map((t) => (
+      t.id === tabId && t.kind === "browser" && t.label !== title ? { ...t, label: title } : t
+    )));
+  }, []);
+
   const handleCloseTab = useCallback((tabId: string) => {
     setTabs((prev) => {
       const next = prev.filter((t) => t.id !== tabId);
@@ -864,6 +899,60 @@ export function AppShell() {
   }, [projectTrustBusy, projectTrustCwd]);
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
+  /** Every open Browser tab, kept for the persistent guests above. */
+  const browserTabs = tabs.filter((t): t is BrowserTab => t.kind === "browser");
+
+  /**
+   * The active Tab's own surface.
+   *
+   * A Browser tab renders nothing here: its guest is mounted separately and
+   * always, and this would unmount it. The switch is exhaustive on purpose, so
+   * a new Tab kind is a typecheck failure at this line rather than a silent
+   * fall through to the empty state.
+   */
+  function renderActiveTab(): ReactNode {
+    if (!activeTab) {
+      return <div className={shellStyles.fileEmpty}>{translate("files.noneOpen")}</div>;
+    }
+    switch (activeTab.kind) {
+      case "browser":
+        return null;
+      case "sources":
+        return (
+          <SourcesView
+            sources={activeTab.sources}
+            onOpenFile={(filePath) => handleOpenFile(
+              filePath,
+              getFileName(filePath),
+              { sourceSessionId: activeTab.sourceSessionId },
+            )}
+          />
+        );
+      case "file":
+        return (
+          <FileViewer
+            filePath={activeTab.filePath}
+            cwd={activeCwd ?? undefined}
+            sourceSessionId={activeTab.sourceSessionId}
+            gitRefreshKey={fileViewerRefreshKey}
+            initialDisplayMode={activeTab.initialDisplayMode}
+            onMentionLines={rightPanelOpen ? handleFileLineMention : undefined}
+            onAtMention={handleAtMention}
+            onOpenFile={(filePath) => handleOpenFile(
+              filePath,
+              getFileName(filePath),
+              { sourceSessionId: activeTab.sourceSessionId },
+            )}
+          />
+        );
+      default:
+        // A new Tab kind must be handled above. This line stops compiling when
+        // one is added, which is the point: ReactNode includes undefined, so
+        // falling out of the switch would otherwise be silently legal and the
+        // new kind would render as the empty state.
+        return assertNeverTab(activeTab);
+    }
+  }
   const activeCwdName = activeCwd
     ? (isManagedChatCwd(activeCwd) ? translate("workspace.chats") : getFileName(activeCwd) || activeCwd)
     : null;
@@ -1209,34 +1298,24 @@ export function AppShell() {
           />
         ) : undefined}
         rightPanel={{
-          content: activeTab?.kind === "sources" ? (
-            <SourcesView
-              sources={activeTab.sources}
-              onOpenFile={(filePath) => handleOpenFile(
-                filePath,
-                getFileName(filePath),
-                { sourceSessionId: activeTab.sourceSessionId },
+          content: (
+            <>
+              {/*
+                * Every Browser tab is mounted whenever one exists, not only
+                * when a Browser tab is active. A guest reloads if it is
+                * unmounted, so switching to a file and back would otherwise
+                * throw the page away.
+                */}
+              {browserTabs.length > 0 && (
+                <BrowserTabs
+                  tabs={browserTabs}
+                  activeTabId={activeTab?.kind === "browser" ? activeTab.id : null}
+                  onNavigate={handleBrowserNavigate}
+                  onTitleChange={handleBrowserTitle}
+                />
               )}
-            />
-          ) : activeTab?.kind === "file" ? (
-            <FileViewer
-              filePath={activeTab.filePath}
-              cwd={activeCwd ?? undefined}
-              sourceSessionId={activeTab.sourceSessionId}
-              gitRefreshKey={fileViewerRefreshKey}
-              initialDisplayMode={activeTab.initialDisplayMode}
-              onMentionLines={rightPanelOpen ? handleFileLineMention : undefined}
-              onAtMention={handleAtMention}
-              onOpenFile={(filePath) => handleOpenFile(
-                filePath,
-                getFileName(filePath),
-                { sourceSessionId: activeTab.sourceSessionId },
-              )}
-            />
-          ) : (
-            <div className={shellStyles.fileEmpty}>
-              {translate("files.noneOpen")}
-            </div>
+              {renderActiveTab()}
+            </>
           ),
           header: (
             <TabBar
@@ -1244,6 +1323,7 @@ export function AppShell() {
               activeTabId={activeTabId ?? ""}
               onSelectTab={setActiveTabId}
               onCloseTab={handleCloseTab}
+              onNewBrowserTab={supportsBrowserTab() ? () => handleOpenBrowserTab("https://duckduckgo.com") : undefined}
             />
           ),
           label: activeTab?.kind === "sources" ? translate("summary.sources") : translate("files.panel"),

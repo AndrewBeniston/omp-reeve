@@ -15,6 +15,15 @@ the What's New dialog adds a second page that invites support.
   "Open files", and the name is translated. It is about to carry more than
   files.
 
+### Added
+
+- A Browser tab. The tab strip beside a Session can now hold a web page as well
+  as a file, opened from a new control at the end of the strip. Type an address
+  and press Enter to go somewhere; the tab takes the page's own name, and
+  follows the page as you navigate. Every browser tab shares one signed-in
+  browsing session, so a login is still there in the next tab and after a
+  restart. Desktop application only.
+
 ### Security
 
 - The desktop window can now host a web page guest, in preparation for a
