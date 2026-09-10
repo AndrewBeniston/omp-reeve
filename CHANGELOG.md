@@ -10,6 +10,9 @@ the What's New dialog adds a second page that invites support.
 ## [Unreleased]
 
 ### Changed
+- Opening a drive from the Windows drive picker works. The file browser
+  answered an error before, because the resolved path lost the separator
+  after the drive letter.
 - The desktop window shows Reeve's own page when it cannot load the
   application. The window showed the browser's "This page couldn't load"
   screen before. The new page names the error and offers Try again.

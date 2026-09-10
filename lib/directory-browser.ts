@@ -66,8 +66,15 @@ export function getParentDirectory(directory: string): string | null {
   return parent === normalized ? null : parent;
 }
 
+// realpath("C:\\") answers "C:", which names the current directory of drive C,
+// not the drive root. stat accepts it and readdir fails with ENOENT. The
+// Windows drive picker sends exactly that path. Issue 7.
+export function keepWindowsDriveRoot(directory: string): string {
+  return /^[a-zA-Z]:$/.test(directory) ? `${directory}\\` : directory;
+}
+
 export async function resolveDirectory(directory: string): Promise<string> {
-  return realpath(normalizeDirectory(directory));
+  return keepWindowsDriveRoot(await realpath(normalizeDirectory(directory)));
 }
 
 export async function listDirectories(directory: string): Promise<BrowsableDirectory[]> {
