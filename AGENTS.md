@@ -386,6 +386,16 @@ The Bun server returns `HMAC-SHA256(OMP_WEB_DESKTOP_TOKEN, challenge)` through `
 Never send `OMP_WEB_DESKTOP_TOKEN` in a request. A process occupying the port could echo it.
 Release publication waits for every platform package and verification job.
 
+### Disk space
+
+Run `bun run clean` after a desktop build, and before you switch target or branch.
+A build leaves about 2.6 GB under `desktop/dist` and `desktop/server`, and nothing removes the previous one.
+A failed build leaves the same weight behind, so clean after a failure too.
+`bun run clean --dry-run` reports the size and removes nothing.
+`bun run clean --deps` also removes both `node_modules` trees. Reach for it only when an install is broken.
+Never remove `~/.bun/install/cache` or the Electron cache. Every repository on the machine shares them.
+See `docs/disk-space.md` for what each directory holds and what a release machine keeps.
+
 ## omp Session File Format
 
 Location: `~/.omp/agent/sessions/<encoded-cwd>/<timestamp>_<uuid>.jsonl`

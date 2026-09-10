@@ -46,6 +46,7 @@
     "start:lan": "bun --bun next start -H 0.0.0.0 -p 30141",
     "lint": "eslint . && bun run check:ui-styles",
     "check:ui-styles": "bun scripts/check-ui-style-boundaries.mjs",
+    "clean": "bun scripts/clean.mjs",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "desktop:build": "bun scripts/build-desktop.mjs",
