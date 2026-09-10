@@ -41,7 +41,7 @@
      Windows and Linux. It is measured against the surface, not the sidebar,
      so it reads the same in every theme. The reference sits about twice the
      surface value. See components/shell/shell.module.css. */
-  --ui-border-shell: color-mix(in srgb, var(--ui-main) 88%, var(--ui-text));
+  --ui-border-shell: color-mix(in srgb, var(--assistant-bg) 88%, var(--text));
   --ui-text: var(--text);
   --ui-text-muted: var(--text-muted);
   --ui-text-dim: var(--text-dim);
