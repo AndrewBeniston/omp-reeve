@@ -93,8 +93,6 @@ test("desktop releases sync versions and require signed packages", () => {
   assert.match(workflow, /bun run desktop:sync-version/);
   assert.match(workflow, /CSC_LINK:.*MACOS_CSC_LINK/);
   assert.doesNotMatch(workflow, /WIN_CSC_LINK:/);
-  assert.doesNotMatch(workflow, /^\s+- platform: windows-latest/m, "Windows is deferred from 0.5.0");
-  assert.doesNotMatch(workflow, /^\s+- platform: ubuntu-latest/m, "Linux is deferred from 0.5.0");
   assert.match(workflow, /target: darwin-arm64/);
   assert.match(workflow, /target: darwin-x64/);
   assert.doesNotMatch(workflow, /target: darwin-universal/, "the universal merge walks 800 MB single-threaded; ship two packages");
@@ -105,8 +103,13 @@ test("desktop releases sync versions and require signed packages", () => {
   assert.match(workflow, /spctl --assess/);
   assert.match(workflow, /desktop:artifact-path/);
   assert.doesNotMatch(workflow, /desktop\/dist\/mac-universal/);
-  assert.doesNotMatch(workflow, /workflow_dispatch/);
-  assert.match(workflow, /GITHUB_REF_NAME/);
+  // Manual only. macOS runners bill at 10x; a tag push must never start this.
+  assert.match(workflow, /^on:\s*\n\s+workflow_dispatch:/m, "the publish workflow starts only by hand");
+  assert.doesNotMatch(workflow, /^\s+push:\s*\n\s+tags:/m, "a tag push must not start a paid build");
+  assert.match(workflow, /RELEASE_TAG: \$\{\{ inputs\.tag \}\}/);
+  assert.match(workflow, /ref: \$\{\{ inputs\.tag \}\}/);
+  const buildScript = readFileSync(join(root, "scripts", "build-desktop.mjs"), "utf8");
+  assert.match(buildScript, /"--publish", "never"/, "the release job uploads; electron-builder must not");
   assert.match(workflow, /bun test/);
   assert.match(workflow, /bun run typecheck/);
   assert.match(workflow, /bun run lint/);
