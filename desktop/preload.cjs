@@ -23,18 +23,6 @@ contextBridge.exposeInMainWorld(
     showSessionMenu(state) {
       return ipcRenderer.invoke("omp-desktop:show-session-menu", state);
     },
-    /**
-     * A panel accelerator the main process matched.
-     *
-     * The chords are matched there rather than here because a focused web page
-     * swallows a renderer key handler, and a Browser tab is exactly when one
-     * is most likely to be pressed.
-     */
-    onPanelAction(callback) {
-      const listener = (_event, action) => callback(action);
-      ipcRenderer.on("omp-desktop:panel-action", listener);
-      return () => ipcRenderer.removeListener("omp-desktop:panel-action", listener);
-    },
     updater: Object.freeze({
       getState() {
         return ipcRenderer.invoke("omp-desktop:update-get-state");

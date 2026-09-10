@@ -10,7 +10,6 @@ const {
   DESKTOP_PORT,
   DESKTOP_CHALLENGE_HEADER,
   containWebviewGuest,
-  matchAccelerator,
   createExternalLinkHandler,
   createProjectMenuTemplate,
   createSessionMenuTemplate,
@@ -22,9 +21,6 @@ const {
   prepareWritableNext,
 } = require("./desktop-runtime.cjs");
 const { STATE_CHANNEL: UPDATE_STATE_CHANNEL, createUpdateController } = require("./update-controller.cjs");
-
-/** Carries a matched panel accelerator to the renderer. */
-const PANEL_ACTION_CHANNEL = "omp-desktop:panel-action";
 
 const DEFAULT_DEV_URL = "http://127.0.0.1:30141";
 const LOG_PATH = path.join(os.tmpdir(), "omp-desktop.log");
@@ -208,13 +204,6 @@ function createMainWindow() {
     }
   };
   window.webContents.on("will-navigate", guardNavigation);
-  // The same chords, for when focus is anywhere in the application itself.
-  window.webContents.on("before-input-event", (event, input) => {
-    const action = matchAccelerator(input, process.platform);
-    if (!action) return;
-    event.preventDefault();
-    window.webContents.send(PANEL_ACTION_CHANNEL, action);
-  });
   window.webContents.on("will-redirect", guardFrameNavigation);
   window.webContents.on("will-frame-navigate", guardFrameNavigation);
   // Runs before any guest exists. Discards whatever the element asked for.
@@ -231,15 +220,6 @@ function createMainWindow() {
         });
       }
       return { action: "deny" };
-    });
-    // A focused page swallows a renderer key handler, and a Browser tab is
-    // exactly when a human is most likely to press one of the panel's chords.
-    // Matching here catches it before the page ever sees it.
-    guestWebContents.on("before-input-event", (event, input) => {
-      const action = matchAccelerator(input, process.platform);
-      if (!action) return;
-      event.preventDefault();
-      window.webContents.send(PANEL_ACTION_CHANNEL, action);
     });
   });
   window.webContents.setWindowOpenHandler(({ url }) => {

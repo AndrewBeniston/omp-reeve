@@ -1,17 +1,23 @@
 "use client";
 
-import type { PanelActionId } from "@/lib/desktop-panel-actions";
 import styles from "./launcher.module.css";
 
 /**
  * What a launcher entry can open.
  *
- * The ids live beside the accelerator table in `lib/desktop-panel-actions`,
- * because the desktop process matches a chord and sends one of them back. The
- * order below is the reference application's own: its order map puts review
- * first for a git-backed project, which every Reeve Project is.
+ * The ids, their order and their accelerators all come from the reference
+ * application's own command registry, read from its shipped bundle:
+ *
+ *   review     Ctrl+Shift+G    toggleReviewTab
+ *   terminal   Control+`       toggleTerminal
+ *   browser    CmdOrCtrl+T     openBrowserTab
+ *   files      CmdOrCtrl+P     searchFiles
+ *   side-chat  CmdOrCtrl+Alt+S openSideChat
+ *
+ * Its order map puts review first for a git-backed project, which every Reeve
+ * Project is, so review leads here too.
  */
-export type LauncherActionId = PanelActionId;
+export type LauncherActionId = "review" | "terminal" | "browser" | "files" | "side-chat";
 
 export interface LauncherAction {
   id: LauncherActionId;
@@ -115,3 +121,4 @@ function LauncherIcon({ id }: { id: LauncherActionId }) {
       );
   }
 }
+

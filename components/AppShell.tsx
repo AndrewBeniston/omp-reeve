@@ -13,7 +13,6 @@ import { ChatWindow } from "./ChatWindow";
 import { FileViewer } from "./FileViewer";
 import { TabBar, assertNeverTab, type BrowserTab, type Tab } from "./TabBar";
 import { Launcher, type LauncherAction } from "./tabs/Launcher";
-import { subscribeToPanelActions } from "@/lib/desktop-panel-actions";
 import { BrowserTabs, useSupportsBrowserTab } from "./browser/BrowserTabs";
 import { SettingsConfig } from "./SettingsConfig";
 import { ProjectTrustDialog } from "./ProjectTrustDialog";
@@ -993,24 +992,6 @@ export function AppShell() {
       run: () => {},
     },
   ];
-
-  /**
-   * The same entries, reachable by their accelerators.
-   *
-   * The desktop process matches the chord and sends the id here, so a chord
-   * works even while a web page holds focus. The entries are rebuilt every
-   * render, so a ref carries the current set into a subscription that is made
-   * once: re-subscribing on each render would tear the listener down and
-   * rebuild it constantly.
-   *
-   * An entry that is not built yet does nothing, exactly as clicking it does.
-   */
-  const launcherActionsRef = useRef(launcherActions);
-  useEffect(() => { launcherActionsRef.current = launcherActions; });
-  useEffect(() => subscribeToPanelActions((id) => {
-    const action = launcherActionsRef.current.find((entry) => entry.id === id);
-    if (action && !action.unavailableReason) action.run();
-  }), []);
 
   /**
    * The active Tab's own surface.
