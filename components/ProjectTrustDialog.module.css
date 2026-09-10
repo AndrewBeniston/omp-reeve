@@ -1,0 +1,33 @@
+.warningIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  stroke: var(--ui-warning);
+}
+
+.pathCode {
+  display: block;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: 5px;
+  background: var(--ui-canvas);
+  color: var(--ui-text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.error {
+  margin-top: 10px;
+  color: var(--ui-danger);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--ui-border);
+}

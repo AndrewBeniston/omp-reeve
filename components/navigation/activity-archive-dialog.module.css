@@ -1,0 +1,26 @@
+.dialog {
+  width: min(440px, calc(100vw - 32px));
+  padding: 20px;
+  border-radius: 20px;
+  background: var(--ui-surface-elevated);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.error {
+  margin-top: var(--space-2);
+  color: var(--ui-danger);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+@media (max-width: 640px) {
+  .actions {
+    flex-direction: column-reverse;
+  }
+}

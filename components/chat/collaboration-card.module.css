@@ -1,0 +1,324 @@
+.card {
+  overflow: hidden;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--ui-surface-inset);
+  color: var(--ui-text);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  background:
+    radial-gradient(circle at 12% 18%, var(--ui-success-wash), transparent 38%),
+    linear-gradient(135deg, var(--ui-surface-elevated), var(--ui-main));
+}
+
+.qrStage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.qrStage > span {
+  color: var(--ui-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.02em;
+}
+
+.qr {
+  width: 148px;
+  height: 148px;
+  flex: 0 0 148px;
+  padding: var(--space-1-5);
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--ui-qr-background);
+  box-shadow: var(--shadow-composer);
+  color: var(--ui-qr-foreground);
+}
+
+.qrBackground {
+  fill: var(--ui-qr-background);
+}
+
+.qr path {
+  fill: currentColor;
+}
+
+.overview {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.badges,
+.title,
+.presence,
+.participants,
+.stopped {
+  display: flex;
+  align-items: center;
+}
+
+.badges {
+  flex-wrap: wrap;
+  gap: var(--space-1-5);
+  margin-bottom: var(--space-3);
+}
+
+.liveBadge,
+.modeBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--radius-round);
+  corner-shape: var(--corner-round);
+  padding: 0 var(--space-2);
+  background: var(--ui-row-selected);
+  color: var(--ui-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.liveBadge {
+  gap: var(--space-1-5);
+  color: var(--ui-text);
+}
+
+.liveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-round);
+  corner-shape: var(--corner-round);
+  background: var(--ui-success);
+  box-shadow: 0 0 0 3px var(--ui-success-wash);
+}
+
+.title {
+  gap: var(--space-2);
+}
+
+.title svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  color: var(--ui-text-muted);
+}
+
+.title h3 {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-title);
+}
+
+.lead {
+  margin: var(--space-1) 0 var(--space-4);
+  color: var(--ui-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.presence {
+  gap: var(--space-3);
+}
+
+.avatars {
+  display: flex;
+  align-items: center;
+  padding-left: var(--space-1);
+}
+
+.avatar {
+  display: inline-flex;
+  width: 25px;
+  height: 25px;
+  align-items: center;
+  justify-content: center;
+  margin-left: calc(var(--space-1) * -1);
+  border: 2px solid var(--ui-main);
+  border-radius: var(--radius-round);
+  corner-shape: var(--corner-round);
+  background: var(--ui-surface-elevated);
+  color: var(--ui-text);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.participants {
+  gap: var(--space-1-5);
+  color: var(--ui-text-muted);
+  font-size: var(--text-xs);
+}
+
+.participants svg {
+  width: 15px;
+  height: 15px;
+}
+
+.accessGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  border-top: 1px solid var(--ui-border-subtle);
+  padding: var(--space-2);
+  background: var(--ui-main);
+}
+
+.accessCard {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-3);
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background: var(--ui-surface-inset);
+}
+
+.accessCard[data-primary="true"] {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-surface-elevated);
+  box-shadow: inset 0 0 0 1px var(--ui-row-selected);
+}
+
+.accessHeading {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.accessHeading > svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  margin-top: 1px;
+  color: var(--ui-text-muted);
+}
+
+.accessHeading > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+
+.accessHeading strong {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.accessHeading span {
+  color: var(--ui-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.actions a,
+.actions button {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: var(--space-1-5);
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  background: var(--ui-row-selected);
+  color: var(--ui-text);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-decoration: none;
+}
+
+.actions button {
+  color: var(--ui-text-muted);
+  cursor: pointer;
+}
+
+.actions a:hover,
+.actions button:hover {
+  border-color: var(--ui-border-strong);
+  background: var(--ui-hover);
+  color: var(--ui-text);
+}
+
+.actions a:focus-visible,
+.actions button:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.actions svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+}
+
+.stopped {
+  min-height: 54px;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  color: var(--ui-text-muted);
+}
+
+.stopped svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .liveDot {
+    animation: collaboration-live-pulse 2.4s var(--ease-standard) infinite;
+  }
+}
+
+@keyframes collaboration-live-pulse {
+  50% {
+    opacity: 0.55;
+    transform: scale(0.88);
+  }
+}
+
+@media (max-width: 620px) {
+  .hero {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .overview {
+    align-items: center;
+  }
+
+  .qr {
+    width: 124px;
+    height: 124px;
+    flex-basis: 124px;
+  }
+
+  .accessGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liveDot {
+    animation: none;
+  }
+}

@@ -1,0 +1,192 @@
+.projectPicker {
+  position: relative;
+  min-width: 0;
+  font-family: var(--font-sans);
+}
+
+.contextButton {
+  display: inline-flex;
+  min-height: 30px;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-1-5);
+  border: 0;
+  border-radius: var(--radius-round);
+  corner-shape: var(--corner-round);
+  padding: var(--space-1) var(--space-2-5);
+  background: transparent;
+  color: var(--ui-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.contextButton:hover,
+.contextButton[aria-expanded="true"] {
+  background: var(--ui-row-hover);
+  color: var(--ui-text);
+}
+
+.contextButton:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.searchInput:focus,
+.searchInput:focus-visible {
+  outline: none;
+}
+
+.contextValue {
+  overflow: hidden;
+  max-width: 240px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projectMenu {
+  position: absolute;
+  z-index: 40;
+  bottom: calc(100% + var(--space-2));
+  left: 0;
+  width: 336px;
+  overflow: hidden;
+  border-radius: 20px;
+  corner-shape: var(--corner-row);
+  padding: var(--space-1);
+  font-family: var(--font-sans);
+}
+
+.searchRow {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: 0;
+  border-radius: var(--radius-lg);
+  padding: 0 var(--space-2);
+  background: transparent;
+  color: var(--ui-text-muted);
+}
+
+.searchInput {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ui-text);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.searchInput::placeholder { color: var(--ui-text-dim); }
+
+.projectList {
+  max-height: 150px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.projectItem { width: 100%; }
+
+.projectChoiceContent {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.projectChoiceLabel,
+.projectChoiceSlug {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projectChoiceLabel { color: var(--ui-text); }
+.projectChoiceSlug { color: var(--ui-text-dim); }
+
+.separator {
+  height: 1px;
+  margin: var(--space-1) var(--space-2);
+  background: var(--ui-divider);
+}
+
+.menuState,
+.menuError {
+  padding: var(--space-2) var(--space-3);
+  color: var(--ui-text-muted);
+  font-size: var(--text-sm);
+}
+
+.menuError { color: var(--ui-danger); }
+
+.loadFailure {
+  display: flex;
+  min-height: 72px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  color: var(--ui-text-muted);
+  font-size: var(--text-sm);
+}
+
+.retryButton {
+  min-height: 28px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-2-5);
+  background: transparent;
+  color: var(--ui-text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.retryButton:hover { background: var(--ui-row-hover); }
+.retryButton:focus-visible { outline: var(--ui-focus-ring); outline-offset: var(--ui-focus-offset); }
+
+.contextMetadata {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  color: var(--ui-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+}
+
+.contextMetadataItem {
+  display: inline-flex;
+  min-height: 30px;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-1-5);
+  border-radius: var(--radius-round);
+  corner-shape: var(--corner-round);
+  padding: var(--space-1) var(--space-2-5);
+}
+
+.contextMetadataItem:last-child {
+  overflow: hidden;
+  max-width: 220px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .projectMenu { width: min(336px, calc(100vw - 32px)); }
+  .contextValue { max-width: 150px; }
+  .contextMetadataItem:last-child { max-width: 120px; }
+}
+
+@media (max-width: 640px) and (pointer: coarse) {
+  .contextButton,
+  .contextMetadataItem { min-height: var(--ui-control-touch); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contextButton { transition: none; }
+}

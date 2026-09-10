@@ -1,0 +1,308 @@
+.statusRow {
+  position: relative;
+  z-index: 12;
+  display: flex;
+  width: 100%;
+  height: 32px;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.statusPill {
+  position: absolute;
+  bottom: 8px;
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 35px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-composer-squircle);
+  corner-shape: var(--corner-row);
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--ui-surface-elevated) 70%, transparent);
+  color: var(--ui-text);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--ui-backdrop) 15%, transparent);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+  animation: turnStatusEnter 150ms var(--ease-standard) both;
+}
+
+.tooltipTrigger {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.stepsSummary,
+.changesSummary {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  border: 0;
+  border-radius: var(--radius-xs);
+  padding: 0;
+  background: transparent;
+  color: var(--ui-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.stepsSummary {
+  gap: 6px;
+}
+
+.changesSummary {
+  gap: 4px;
+}
+
+.changesSummary:disabled {
+  cursor: default;
+}
+
+.stepsSummary:hover,
+.stepsSummary:focus-visible,
+.changesSummary:hover,
+.changesSummary:focus-visible {
+  color: var(--ui-text);
+  outline: none;
+}
+
+.stepsSummary:focus-visible,
+.changesSummary:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.stepCount,
+.diffStats {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.progressDonut {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  overflow: visible;
+  color: var(--ui-accent);
+  transform: rotate(-90deg);
+}
+
+.progressTrack,
+.progressValue {
+  stroke-width: 2;
+}
+
+.progressTrack {
+  stroke: currentColor;
+  opacity: 0.16;
+}
+
+.progressValue {
+  stroke: currentColor;
+  stroke-linecap: round;
+  transition: stroke-dasharray 120ms var(--ease-standard);
+}
+
+.separator {
+  flex-shrink: 0;
+  color: var(--ui-text-muted);
+}
+
+.changedFilesLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diffStats {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+}
+
+.added {
+  color: var(--ui-success);
+}
+
+.removed {
+  color: var(--ui-danger);
+}
+
+.tooltip {
+  position: absolute;
+  right: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 100;
+  display: block;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 16px));
+  max-height: min(288px, calc(100dvh - 16px));
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-project-row);
+  corner-shape: var(--corner-row);
+  background: var(--ui-surface-elevated);
+  color: var(--ui-text);
+  box-shadow: 0 12px 36px color-mix(in srgb, var(--ui-backdrop) 45%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(50%, 4px);
+  transition: opacity 100ms var(--ease-standard), transform 100ms var(--ease-standard);
+}
+
+.changesTooltip {
+  bottom: calc(100% + 4px);
+}
+
+.tooltipTrigger:hover .tooltip,
+.tooltipTrigger:focus-within .tooltip {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(50%, 0);
+}
+
+.stepsList,
+.changeList {
+  display: flex;
+  min-width: 256px;
+  max-height: min(288px, calc(100dvh - 16px));
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.stepsList {
+  gap: 8px;
+}
+
+.stepRow {
+  display: flex;
+  max-width: 320px;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--ui-text-muted);
+  font-size: var(--text-sm);
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+.stepRow[data-step-status="completed"] {
+  color: var(--ui-text-dim);
+}
+
+.blocker {
+  color: var(--ui-warning);
+}
+
+.stepMarker {
+  display: inline-grid;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  place-items: center;
+  border: 1px solid var(--ui-text-dim);
+  border-radius: var(--radius-round);
+  corner-shape: var(--corner-round);
+  color: var(--ui-text-muted);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.stepMarker[data-status="completed"] {
+  border-color: transparent;
+  color: var(--ui-text-dim);
+}
+
+.stepMarker[data-status="blocked"] {
+  border-color: var(--ui-warning);
+  color: var(--ui-warning);
+}
+
+.stepMarker[data-status="abandoned"] {
+  border-color: var(--ui-danger);
+  color: var(--ui-danger);
+}
+
+.stepSpinner {
+  border-color: color-mix(in srgb, var(--ui-accent) 22%, transparent);
+  border-top-color: var(--ui-accent);
+  animation: turnStatusSpin 800ms linear infinite;
+}
+
+.changeList {
+  gap: 2px;
+}
+
+.changeRow {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--ui-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  text-align: left;
+}
+
+.changeRow:hover,
+.changeRow:focus-visible {
+  background: var(--ui-hover);
+  outline: none;
+}
+
+.changedFileName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes turnStatusEnter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes turnStatusSpin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statusPill,
+  .stepSpinner {
+    animation: none;
+  }
+
+  .progressValue,
+  .stepsSummary,
+  .changesSummary,
+  .tooltip {
+    transition: none;
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "description": "Approved violation counts for scripts/check-ui-style-boundaries.mjs. DESIGN.md section 12.2 rule 6. Every entry must also appear in scripts/ui-style-exceptions.mjs with a reason. The checker fails when a count grows. A file that is absent here receives a zero limit, so every migrated file and every new file starts at zero.",
+  "limits": {
+    "app/globals.css": {
+      "no-color-literal": 44
+    },
+    "app/layout.tsx": {
+      "no-color-literal": 2,
+      "no-dom-style-mutation": 0
+    },
+    "app/tokens.css": {
+      "no-color-literal": 5
+    },
+    "components/ui/AnsiSegment.tsx": {
+      "no-inline-style-attribute": 1
+    },
+    "components/ui/DynamicStyleVars.tsx": {
+      "no-inline-style-attribute": 1
+    },
+    "components/MermaidBlock.tsx": {
+      "no-react-syntax-highlighter-style-map": {
+        "style": 1,
+        "lineNumberStyle": 1,
+        "customStyle": 1,
+        "codeTagProps": 1
+      }
+    },
+    "hooks/useTheme.ts": {
+      "no-dom-style-mutation": 2
+    },
+    "hooks/useViewportHeight.ts": {
+      "no-dom-style-mutation": 3
+    },
+    "lib/clipboard.ts": {
+      "no-dom-style-mutation": 2
+    },
+    "lib/omp-theme.ts": {
+      "no-color-literal": 0
+    }
+  }
+}

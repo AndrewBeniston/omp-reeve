@@ -1,0 +1,161 @@
+.modelStack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.testSummaryBadge {
+  max-width: 260px;
+  height: 24px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.testSummaryBadge > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.testStateButton[data-state="success"] {
+  border-color: var(--ui-success);
+  background: var(--ui-success);
+  color: var(--ui-canvas);
+}
+
+.identityGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.catalogSection {
+  padding: 10px 0;
+  border-top: 1px solid var(--ui-border);
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.catalogActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.catalogSourceLink {
+  margin-left: auto;
+  color: var(--ui-text-dim);
+  font-size: 10px;
+  text-decoration: none;
+}
+.catalogSourceLink:hover {
+  color: var(--ui-accent);
+  text-decoration: underline;
+}
+.catalogSourceLink:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+  border-radius: 3px;
+}
+
+.catalogStatusRow {
+  margin-top: 6px;
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ui-text-dim);
+  font-size: 10px;
+}
+.catalogStatusRow[data-status="error"] {
+  color: var(--ui-danger);
+}
+.catalogStatusRow[data-status="warning"] {
+  color: var(--ui-warning);
+}
+
+.catalogStatusText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toggleRow {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.thinkingHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.limitsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.costGrid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .modelHeader {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .headerActions,
+  .catalogActions,
+  .catalogStatusRow,
+  .thinkingHeader {
+    flex-wrap: wrap;
+  }
+
+  .identityGrid,
+  .limitsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .costGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (pointer: coarse) {
+  .headerActions button,
+  .catalogActions button,
+  .catalogStatusRow button,
+  .thinkingHeader button {
+    min-height: var(--ui-control-touch);
+  }
+
+  .catalogSourceLink {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--ui-control-touch);
+  }
+}

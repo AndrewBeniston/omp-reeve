@@ -1,0 +1,32 @@
+name: Bug report
+description: Something in Reeve does not work as it should.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Reeve version
+      description: Shown in the sidebar header when you hover the Reeve wordmark, and in the What's New title.
+      placeholder: 0.5.0
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options: [macOS, Windows, Linux, Browser]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: On desktop the log is omp-desktop.log in your temporary folder (macOS $TMPDIR, Windows %TEMP%, Linux /tmp). Paste the last lines.
+      render: text

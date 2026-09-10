@@ -1,0 +1,161 @@
+.rail {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  z-index: 20;
+  transform: translateY(-50%);
+  animation: railEnter 150ms var(--ease-enter);
+}
+
+.list {
+  --rail-fade-top: transparent;
+  --rail-fade-bottom: transparent;
+  max-height: min(70vh, 640px);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to bottom, var(--rail-fade-top), black 40px, black calc(100% - 40px), var(--rail-fade-bottom));
+}
+
+.list:has(.item[data-current="true"]),
+.list:hover,
+.list:focus-within,
+.list[data-scrubbing="true"] {
+  --rail-fade-top: black;
+  --rail-fade-bottom: black;
+}
+
+.list::-webkit-scrollbar { display: none; }
+
+.item {
+  width: 36px;
+  height: 10px;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.marker {
+  --marker-progress: 0;
+  position: relative;
+  width: 26px;
+  height: 2px;
+  display: flex;
+  color: var(--ui-text-dim);
+  opacity: 0.4;
+}
+
+.markerLine {
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  transform: scaleX(calc(0.2308 + 0.7692 * var(--marker-progress)));
+  transform-origin: left;
+  transition: transform 160ms linear(0, .398 10%, .682 20%, .843 30%, .925 40%, .972 50%, 1.004 60%, 1.008 70%, 1.003 80%, 1);
+}
+
+.item[data-current="true"] .marker {
+  color: var(--ui-text);
+  opacity: 0.6;
+}
+
+.list:has(.item[data-scrub-target="true"])
+  .item[data-current="true"]:not([data-scrub-target="true"])
+  .marker {
+  color: var(--ui-text-dim);
+  opacity: 0.4;
+}
+
+.item:hover .markerLine,
+.item:focus-visible .markerLine,
+.item[data-scrub-target="true"] .markerLine { --marker-progress: 1; }
+
+.item:hover .marker,
+.item:focus-visible .marker,
+.item[data-scrub-target="true"] .marker {
+  color: var(--ui-text);
+  opacity: 1;
+}
+
+.item:has(+ .item:hover) .markerLine,
+.item:hover + .item .markerLine,
+.item:has(+ .item[data-scrub-target="true"]) .markerLine,
+.item[data-scrub-target="true"] + .item .markerLine { --marker-progress: .7; }
+
+.item:has(+ .item + .item:hover) .markerLine,
+.item:hover + .item + .item .markerLine,
+.item:has(+ .item + .item[data-scrub-target="true"]) .markerLine,
+.item[data-scrub-target="true"] + .item + .item .markerLine { --marker-progress: .4; }
+
+.item:has(+ .item + .item + .item:hover) .markerLine,
+.item:hover + .item + .item + .item .markerLine,
+.item:has(+ .item + .item + .item[data-scrub-target="true"]) .markerLine,
+.item[data-scrub-target="true"] + .item + .item + .item .markerLine { --marker-progress: .2; }
+
+.list[data-scrubbing="true"] .markerLine { transition-duration: 0ms; }
+
+@media (hover: hover) {
+  .list:not([data-scrubbing="true"]):not(:has(.item[data-scrub-target="true"])):hover
+    .item[data-current="true"]:not(:hover):not(:focus-visible)
+    .marker {
+    color: var(--ui-text-dim);
+    opacity: 0.4;
+  }
+}
+
+.tooltipPosition {
+  position: absolute;
+  top: var(--ui-minimap-offset);
+  left: 36px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.tooltip {
+  width: 320px;
+  max-width: calc(100vw - 16px);
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  padding: 8px;
+  background: color-mix(in srgb, var(--ui-surface-elevated) 95%, transparent);
+  color: var(--ui-text);
+  font-size: var(--text-sm);
+  line-height: 20px;
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--ui-backdrop) 45%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.tooltipTitle {
+  overflow: hidden;
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tooltipResponse {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 4px;
+  color: var(--ui-text-muted);
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+@keyframes railEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail { animation: none; }
+  .markerLine { transition-duration: 0ms; }
+}

@@ -1,0 +1,170 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useState } from "react";
+import styles from "./recover.module.css";
+
+/**
+ * Password recovery, reachable without credentials.
+ *
+ * The page cannot let anyone in on its own. Asking for a code makes the server
+ * print one on its own console. The terminal running Reeve receives the code.
+ * Completing the flow proves the person driving it can see that machine. See
+ * `app/api/web-access/recovery/route.ts`.
+ */
+
+const MIN_PASSWORD_LENGTH = 8;
+
+type Stage = "idle" | "code-sent" | "done";
+
+export default function RecoverPage() {
+  const [stage, setStage] = useState<Stage>("idle");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+
+  const post = useCallback(async (body: Record<string, unknown>) => {
+    const response = await fetch("/api/web-access/recovery", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json() as { ok?: boolean; expiresAt?: number; error?: string };
+    if (!response.ok || data.error) throw new Error(data.error ?? `HTTP ${response.status}`);
+    return data;
+  }, []);
+
+  const requestCode = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const data = await post({ action: "request" });
+      setExpiresAt(data.expiresAt ?? null);
+      setStage("code-sent");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setBusy(false);
+    }
+  }, [post]);
+
+  const completeRecovery = useCallback(async () => {
+    if (password !== confirmation) {
+      setError("The two passwords do not match.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await post({ action: "complete", code, password });
+      setCode("");
+      setPassword("");
+      setConfirmation("");
+      setStage("done");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setBusy(false);
+    }
+  }, [code, confirmation, password, post]);
+
+  const canSubmit = !busy
+    && code.trim().length > 0
+    && password.length >= MIN_PASSWORD_LENGTH
+    && password === confirmation;
+
+  return (
+    <main className={styles.page}>
+      <div className={styles.card}>
+        <div className={styles.eyebrow}>Reeve</div>
+        <h1 className={styles.title}>Recover access</h1>
+
+        {stage === "done" ? (
+          <>
+            <p className={styles.lead}>
+              The password was changed and password access is on. Open Reeve and sign in with the
+              username <code>omp</code> and your new password.
+            </p>
+            <Link className={styles.primary} href="/">Back to Reeve</Link>
+          </>
+        ) : (
+          <>
+            <p className={styles.lead}>
+              Reeve stores your password as a hash and cannot read it back. To set a new one, it prints a one-time
+              recovery code <strong>on its own console</strong>. Read the code from the terminal running Reeve
+              and enter it below.
+            </p>
+            <p className={styles.aside}>
+              No terminal at hand? Run <code>reeve --reset-password</code> on that machine instead.
+            </p>
+
+            <button type="button" className={styles.secondary} disabled={busy} onClick={() => void requestCode()}>
+              {busy && stage === "idle" ? "Requesting…" : stage === "code-sent" ? "Send another code" : "Print a recovery code"}
+            </button>
+
+            {stage === "code-sent" && (
+              <p role="status" className={styles.notice}>
+                A code was printed on the server console
+                {expiresAt ? ` and is valid until ${new Date(expiresAt).toLocaleTimeString()}` : ""}.
+              </p>
+            )}
+
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (canSubmit) void completeRecovery();
+              }}
+            >
+            <label className={styles.field} htmlFor="recovery-code">
+              <span>Recovery code</span>
+              <input
+                id="recovery-code"
+                className={styles.input}
+                value={code}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="XXXX-XXXX-XXXX"
+                disabled={busy}
+                onChange={(event) => setCode(event.target.value)}
+              />
+            </label>
+            <label className={styles.field} htmlFor="recovery-new-password">
+              <span>New password</span>
+              <input
+                id="recovery-new-password"
+                className={styles.input}
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                disabled={busy}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </label>
+            <label className={styles.field} htmlFor="recovery-confirm-password">
+              <span>Confirm password</span>
+              <input
+                id="recovery-confirm-password"
+                className={styles.input}
+                type="password"
+                autoComplete="new-password"
+                value={confirmation}
+                disabled={busy}
+                onChange={(event) => setConfirmation(event.target.value)}
+              />
+            </label>
+
+            {error && <p role="alert" className={styles.error}>{error}</p>}
+
+            <button type="submit" className={styles.primary} disabled={!canSubmit}>
+              {busy && stage === "code-sent" ? "Setting…" : "Set new password"}
+            </button>
+            </form>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}

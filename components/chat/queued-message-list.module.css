@@ -1,0 +1,226 @@
+.tray {
+  position: relative;
+  z-index: 3;
+  max-height: 30dvh;
+  margin: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, var(--ui-text) 12%, transparent);
+  border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+  background: color-mix(in srgb, var(--ui-composer) 92%, var(--ui-main));
+  color: var(--ui-text);
+  scrollbar-width: none;
+}
+
+.tray::-webkit-scrollbar {
+  display: none;
+}
+
+@supports (corner-shape: superellipse(1.5)) {
+  .tray {
+    border-radius: 20px 20px 0 0;
+    corner-shape: superellipse(1.5);
+  }
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 32px;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 10px;
+  background: transparent;
+  transform: translate3d(var(--ui-queue-translate-x), var(--ui-queue-translate-y), 0);
+  transition: var(--ui-queue-transition);
+}
+
+.row[data-dragging] {
+  z-index: 2;
+  opacity: 0;
+  transition: none;
+}
+
+.dragOverlay {
+  width: 100%;
+  box-sizing: border-box;
+  opacity: 0.6;
+  pointer-events: none;
+  transform: none;
+  transition: none;
+}
+
+.dragOverlay .dragDots {
+  opacity: 1;
+}
+
+.dragHandle,
+.iconAction,
+.steerAction,
+.resumeAction {
+  border: 0;
+  background: transparent;
+  color: var(--ui-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.dragHandle {
+  position: relative;
+  display: inline-flex;
+  width: 24px;
+  height: 16px;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  margin-inline-start: -10px;
+  padding: 0 0 0 10px;
+  cursor: grab;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.dragDots {
+  position: absolute;
+  inset-inline-start: 6px;
+  opacity: 0;
+  color: var(--ui-text-dim);
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.row:hover .dragDots,
+.dragHandle:focus-visible .dragDots {
+  opacity: 1;
+}
+
+.imagePreview {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 5px;
+  object-fit: cover;
+}
+
+.message {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--ui-text);
+  font-size: 14px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.steerAction,
+.resumeAction {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 5px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.iconAction {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 8px;
+  padding: 0;
+}
+
+.steerAction:hover,
+.resumeAction:hover,
+.iconAction:hover {
+  color: var(--ui-text);
+  background: var(--ui-hover);
+}
+
+.dragHandle:focus-visible,
+.steerAction:focus-visible,
+.resumeAction:focus-visible,
+.iconAction:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.menuWrap {
+  position: relative;
+}
+
+.actionsMenu {
+  width: 190px;
+}
+
+.actionsMenuPortal {
+  position: fixed;
+  z-index: 80;
+  top: var(--ui-hover-card-top);
+  left: var(--ui-hover-card-left);
+}
+
+.pausedHeader {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--ui-border-subtle);
+  padding: 2px 10px;
+  color: var(--ui-text-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.pausedTitle {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.pausedHeader .resumeAction {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+@media (max-width: 640px) {
+  .message {
+    font-size: 13px;
+  }
+
+  .steerAction {
+    width: 28px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row,
+  .dragDots {
+    transition: none;
+  }
+}

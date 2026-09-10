@@ -1,0 +1,119 @@
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldGroupLabel {
+  font-size: 11px;
+  color: var(--ui-text-muted);
+  font-weight: 500;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ui-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+
+.fieldHint {
+  font-size: 10px;
+  color: var(--ui-text-dim);
+  margin-top: 2px;
+}
+
+.textInput {
+  padding: 6px 9px;
+  background: var(--ui-sidebar);
+  border: 1px solid var(--ui-border);
+  border-radius: 5px;
+  color: var(--ui-text);
+  font-size: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.textInput:hover:not(:disabled) {
+  border-color: var(--ui-text-dim);
+}
+
+.textInput:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.textInputMono {
+  font-family: var(--font-mono);
+}
+
+.secretInputWrapper {
+  position: relative;
+  width: 100%;
+}
+
+.secretInput {
+  padding: 6px 34px 6px 9px;
+  background: var(--ui-sidebar);
+  border: 1px solid var(--ui-border);
+  border-radius: 5px;
+  color: var(--ui-text);
+  font-size: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.secretInput:hover:not(:disabled) {
+  border-color: var(--ui-text-dim);
+}
+
+.secretInput:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.secretVisibilityButton {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--ui-text-muted);
+}
+
+.checkboxInput {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--ui-accent);
+  cursor: pointer;
+}
+
+.checkboxInput:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+@media (pointer: coarse) {
+  .textInput,
+  .secretInput {
+    min-height: var(--ui-control-touch);
+  }
+
+  .checkboxLabel {
+    min-height: var(--ui-control-touch);
+  }
+
+  .checkboxInput {
+    width: 20px;
+    height: 20px;
+  }
+}

@@ -1,0 +1,190 @@
+{
+  "darwin-arm64": {
+    "id": "darwin-arm64",
+    "platform": "darwin",
+    "arch": "arm64",
+    "universal": false,
+    "bunBinary": "bun-darwin-aarch64",
+    "bunTriples": [
+      "darwin-aarch64"
+    ],
+    "builderArgs": [
+      "--mac",
+      "dmg",
+      "zip",
+      "--arm64"
+    ],
+    "appOutputDirectories": [
+      "mac-arm64"
+    ],
+    "prunePackages": [
+      "lightningcss-darwin-arm64"
+    ],
+    "nativePackages": [
+      {
+        "name": "@next/swc-darwin-arm64",
+        "versionHost": "next"
+      },
+      {
+        "name": "@oh-my-pi/pi-natives-darwin-arm64",
+        "versionHost": "@oh-my-pi/pi-natives"
+      },
+      {
+        "name": "@oh-my-pi/omp-stats",
+        "versionHost": "@oh-my-pi/omp-stats"
+      }
+    ]
+  },
+  "darwin-x64": {
+    "id": "darwin-x64",
+    "platform": "darwin",
+    "arch": "x64",
+    "universal": false,
+    "bunBinary": "bun-darwin-x64",
+    "bunTriples": [
+      "darwin-x64"
+    ],
+    "builderArgs": [
+      "--mac",
+      "dmg",
+      "zip",
+      "--x64"
+    ],
+    "appOutputDirectories": [
+      "mac",
+      "mac-x64"
+    ],
+    "prunePackages": [
+      "lightningcss-darwin-x64"
+    ],
+    "nativePackages": [
+      {
+        "name": "@next/swc-darwin-x64",
+        "versionHost": "next"
+      },
+      {
+        "name": "@oh-my-pi/pi-natives-darwin-x64",
+        "versionHost": "@oh-my-pi/pi-natives"
+      },
+      {
+        "name": "@oh-my-pi/omp-stats",
+        "versionHost": "@oh-my-pi/omp-stats"
+      }
+    ]
+  },
+  "darwin-universal": {
+    "id": "darwin-universal",
+    "platform": "darwin",
+    "arch": "universal",
+    "universal": true,
+    "bunTriples": [
+      "darwin-aarch64",
+      "darwin-x64"
+    ],
+    "builderArgs": [
+      "--mac",
+      "dmg",
+      "zip",
+      "--universal"
+    ],
+    "appOutputDirectories": [
+      "mac-universal"
+    ],
+    "prunePackages": [
+      "lightningcss-darwin-arm64",
+      "lightningcss-darwin-x64"
+    ],
+    "nativePackages": [
+      {
+        "name": "@next/swc-darwin-arm64",
+        "versionHost": "next"
+      },
+      {
+        "name": "@oh-my-pi/pi-natives-darwin-arm64",
+        "versionHost": "@oh-my-pi/pi-natives"
+      },
+      {
+        "name": "@next/swc-darwin-x64",
+        "versionHost": "next"
+      },
+      {
+        "name": "@oh-my-pi/pi-natives-darwin-x64",
+        "versionHost": "@oh-my-pi/pi-natives"
+      },
+      {
+        "name": "@oh-my-pi/omp-stats",
+        "versionHost": "@oh-my-pi/omp-stats"
+      }
+    ]
+  },
+  "win32-x64": {
+    "id": "win32-x64",
+    "platform": "win32",
+    "arch": "x64",
+    "universal": false,
+    "bunBinary": "bun-windows-x64.exe",
+    "bunTriples": [
+      "windows-x64"
+    ],
+    "builderArgs": [
+      "--win",
+      "nsis",
+      "--x64"
+    ],
+    "appOutputDirectories": [
+      "win-unpacked"
+    ],
+    "prunePackages": [
+      "lightningcss-win32-x64-msvc"
+    ],
+    "nativePackages": [
+      {
+        "name": "@next/swc-win32-x64-msvc",
+        "versionHost": "next"
+      },
+      {
+        "name": "@oh-my-pi/pi-natives-win32-x64",
+        "versionHost": "@oh-my-pi/pi-natives"
+      },
+      {
+        "name": "@oh-my-pi/omp-stats",
+        "versionHost": "@oh-my-pi/omp-stats"
+      }
+    ]
+  },
+  "linux-x64": {
+    "id": "linux-x64",
+    "platform": "linux",
+    "arch": "x64",
+    "universal": false,
+    "bunBinary": "bun-linux-x64",
+    "bunTriples": [
+      "linux-x64"
+    ],
+    "builderArgs": [
+      "--linux",
+      "AppImage",
+      "--x64"
+    ],
+    "appOutputDirectories": [
+      "linux-unpacked"
+    ],
+    "prunePackages": [
+      "lightningcss-linux-x64-gnu"
+    ],
+    "nativePackages": [
+      {
+        "name": "@next/swc-linux-x64-gnu",
+        "versionHost": "next"
+      },
+      {
+        "name": "@oh-my-pi/pi-natives-linux-x64",
+        "versionHost": "@oh-my-pi/pi-natives"
+      },
+      {
+        "name": "@oh-my-pi/omp-stats",
+        "versionHost": "@oh-my-pi/omp-stats"
+      }
+    ]
+  }
+}

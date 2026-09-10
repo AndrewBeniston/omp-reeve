@@ -1,0 +1,42 @@
+/* The scope carries the palette tokens that ThemePreview.tsx writes. */
+.scope {
+  display: block;
+}
+
+.preview {
+  height: 118px;
+  overflow: hidden;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--ui-canvas);
+}
+
+.bar {
+  width: 62%;
+  height: var(--space-2);
+  border-radius: var(--radius-xs);
+  background: var(--ui-accent);
+}
+
+.panel {
+  height: 62px;
+  margin-top: var(--space-3);
+  padding: var(--space-2-5);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-sm);
+  background: var(--ui-sidebar);
+}
+
+.line {
+  width: 74%;
+  height: var(--space-1-5);
+  margin-bottom: var(--space-1-5);
+  border-radius: var(--radius-xs);
+  background: var(--ui-text);
+}
+
+.line:last-child {
+  width: 44%;
+  margin-bottom: 0;
+  background: var(--ui-text-muted);
+}

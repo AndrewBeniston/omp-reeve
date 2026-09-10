@@ -1,0 +1,211 @@
+.modelsModalWrapper {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+  background: var(--ui-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modelsModalWrapper[data-embedded="true"] {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  background: none;
+}
+
+.modelsModalCard {
+  width: 860px;
+  max-width: calc(100vw - 16px);
+  height: 78vh;
+  max-height: calc(100dvh - 16px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modelsModalCard[data-embedded="true"] {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.modelsModalCard[data-embedded="true"] .modalHeader {
+  width: 100%;
+  max-width: 1060px;
+  margin-inline: auto;
+  padding: 60px clamp(24px, 5vw, 56px) 28px;
+  border-bottom: 0;
+  box-sizing: border-box;
+}
+
+.modelsModalCard[data-embedded="true"] .modalTitle {
+  font-size: 28px;
+  font-weight: var(--font-weight-medium);
+  line-height: 36px;
+}
+
+.modelsModalCard[data-embedded="true"] .modalPath {
+  font-size: var(--settings-text-description, 12px);
+}
+
+.modelsModalCard[data-embedded="true"] .modelsModalBody {
+  width: 100%;
+  max-width: 1060px;
+  min-height: 0;
+  margin-inline: auto;
+  gap: var(--space-5);
+  padding: 0 clamp(24px, 5vw, 56px) var(--space-6);
+  box-sizing: border-box;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--ui-border);
+  flex-shrink: 0;
+}
+
+.modalHeading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.modalTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ui-text);
+}
+
+.modalPath {
+  font-size: 11px;
+  color: var(--ui-text-muted);
+  font-family: var(--font-mono);
+}
+
+.modelsModalBody {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+
+.modelsSidebarTree {
+  width: 210px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--settings-radius-card, 12px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  background: var(--settings-card-bg, var(--ui-sidebar));
+}
+
+.addProviderRow {
+  border-top: 1px solid var(--ui-border);
+  padding: 8px 6px;
+}
+
+.addProviderButton {
+  border: 1px dashed var(--ui-border);
+}
+
+.addProviderButton:hover {
+  border-color: var(--ui-accent);
+  color: var(--ui-accent);
+}
+
+.detailPane {
+  min-width: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.detailPlaceholder {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-text-dim);
+  font-size: 13px;
+}
+
+.modalFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 10px clamp(24px, 5vw, 56px);
+  background: var(--ui-canvas);
+  border-top: 1px solid var(--ui-border);
+  flex-shrink: 0;
+}
+
+.saveError {
+  font-size: 12px;
+  color: var(--ui-danger);
+  flex: 1;
+}
+
+.modalSaveBtn {
+  position: relative;
+  min-width: 92px;
+}
+.modalSaveBtn[data-state="saved"] {
+  background: var(--ui-success);
+  color: var(--ui-text);
+  cursor: default;
+  animation: saved-pop 0.45s ease;
+}
+
+.savedCheckIcon {
+  stroke-dasharray: 18;
+  animation: saved-check-draw 0.35s ease forwards;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .modelsModalCard:not([data-embedded="true"]) {
+    width: calc(100vw - 16px);
+    height: calc(100dvh - 16px);
+  }
+  .modelsModalBody {
+    flex-direction: column;
+  }
+  .modelsSidebarTree {
+    width: 100%;
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid var(--ui-border);
+  }
+}
+
+@media (pointer: coarse) {
+  .modalHeader button,
+  .modalFooter button,
+  .addProviderButton {
+    min-height: var(--ui-control-touch);
+  }
+  .modalHeader button {
+    min-width: var(--ui-control-touch);
+  }
+}
+
+/* Both saved-state animations carry a literal duration, so the reduced-motion
+   duration tokens cannot shorten them. The check keeps its drawn end state,
+   because stroke-dashoffset rests at 0 with no animation. */
+@media (prefers-reduced-motion: reduce) {
+  .modalSaveBtn[data-state="saved"],
+  .savedCheckIcon {
+    animation: none;
+  }
+}

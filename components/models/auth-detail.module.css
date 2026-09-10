@@ -1,0 +1,151 @@
+.authStack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.authHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.statusArea {
+  min-height: 48px;
+}
+
+.statusBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.statusText {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  line-height: 1.5;
+}
+
+.statusHint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--ui-text-dim);
+  line-height: 1.5;
+}
+
+.authLink {
+  color: var(--ui-accent);
+  word-break: break-all;
+}
+.authLink:hover {
+  text-decoration: underline;
+}
+.authLink:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+  border-radius: 3px;
+}
+
+.selectOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.promptRow {
+  display: flex;
+  gap: 6px;
+}
+
+.promptInput {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 9px;
+  background: var(--ui-canvas);
+  border: 1px solid var(--ui-border);
+  border-radius: 5px;
+  color: var(--ui-text);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  box-sizing: border-box;
+}
+.promptInput:hover {
+  border-color: var(--ui-text-dim);
+}
+.promptInput:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.deviceCode {
+  padding: 8px 10px;
+  background: var(--ui-canvas);
+  border: 1px solid var(--ui-border);
+  border-radius: 5px;
+  color: var(--ui-text);
+  font-size: 16px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+}
+
+.successText {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ui-success);
+}
+
+.errorText {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ui-danger);
+}
+
+.actionRow {
+  display: flex;
+  gap: 8px;
+}
+
+.apiKeyRow {
+  display: flex;
+  gap: 6px;
+}
+
+.apiKeyInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.apiKeySaveState[data-state="saved"] {
+  border-color: var(--ui-success);
+  background: var(--ui-success);
+  color: var(--ui-canvas);
+}
+
+@media (max-width: 640px) {
+  .actionRow,
+  .promptRow,
+  .apiKeyRow {
+    flex-wrap: wrap;
+  }
+}
+
+@media (pointer: coarse) {
+  .promptInput {
+    min-height: var(--ui-control-touch);
+  }
+
+  .actionRow button,
+  .promptRow button,
+  .apiKeyRow button,
+  .selectOptions button,
+  .authStack > button {
+    min-height: var(--ui-control-touch);
+  }
+
+  .authLink {
+    display: inline-block;
+    min-height: var(--ui-control-touch);
+  }
+}

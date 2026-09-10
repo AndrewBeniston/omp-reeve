@@ -1,0 +1,76 @@
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.item {
+  position: relative;
+  transform: translate3d(var(--ui-project-translate-x), var(--ui-project-translate-y), 0);
+  transition: var(--ui-project-transition);
+}
+
+.item[data-dragging] {
+  opacity: 0.2;
+}
+
+.dropIndicator {
+  position: absolute;
+  z-index: 4;
+  right: var(--padding-row-cell-x);
+  left: var(--padding-row-cell-x);
+  height: 2px;
+  border-radius: 999px;
+  corner-shape: var(--corner-round);
+  background: var(--ui-accent);
+  pointer-events: none;
+}
+
+.dropIndicator[data-position="before"] {
+  top: -2px;
+}
+
+.dropIndicator[data-position="after"] {
+  bottom: -2px;
+}
+
+.dragOverlay {
+  display: flex;
+  width: max-content;
+  max-width: 320px;
+  height: var(--height-token-row);
+  align-items: center;
+  gap: var(--sidebar-item-gap);
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-project-row);
+  padding: 0 var(--padding-row-cell-x);
+  background: var(--ui-surface-elevated);
+  box-shadow: 0 8px 28px var(--ui-border-subtle);
+  color: var(--ui-sidebar-row-foreground);
+  font-family: var(--font-sans);
+  font-size: var(--text-ui);
+  line-height: 21px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.dragOverlayIcon {
+  display: grid;
+  width: var(--sidebar-item-icon-size);
+  height: 20px;
+  flex: 0 0 var(--sidebar-item-icon-size);
+  place-items: center;
+}
+
+.dragOverlayLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item {
+    transition: none;
+  }
+}

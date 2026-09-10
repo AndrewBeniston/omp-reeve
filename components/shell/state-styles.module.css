@@ -1,0 +1,37 @@
+.sidebarPanel {
+  --sidebar-width: var(--ui-panel-width);
+  display: flex;
+  z-index: 200;
+  flex-direction: column;
+  flex-shrink: 0;
+  border-right: 1px solid var(--ui-border);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--ui-sidebar);
+}
+
+.rightPanel {
+  --right-panel-width: var(--ui-panel-width);
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--ui-border);
+  background: var(--ui-canvas);
+}
+
+.topBarIconButton,
+.filePanelToggle {
+  color: var(--ui-text-muted);
+  transition:
+    background var(--duration-fast),
+    color var(--duration-fast),
+    border-color var(--duration-fast);
+}
+
+.topBarIconButton:hover,
+.filePanelToggle:hover {
+  color: var(--ui-text);
+}
+
+.filePanelToggle[aria-expanded="true"] {
+  color: var(--ui-text);
+}

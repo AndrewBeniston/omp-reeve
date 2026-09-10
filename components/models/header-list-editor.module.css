@@ -1,0 +1,51 @@
+.headerList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.headerRow {
+  display: flex;
+  gap: 6px;
+}
+
+.headerInput {
+  padding: 6px 9px;
+  background: var(--ui-sidebar);
+  border: 1px solid var(--ui-border);
+  border-radius: 5px;
+  color: var(--ui-text);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.headerInput:hover:not(:disabled) {
+  border-color: var(--ui-text-dim);
+}
+
+.headerInput:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.addHeaderButton {
+  align-self: flex-start;
+}
+
+@media (pointer: coarse) {
+  .headerInput {
+    min-height: var(--ui-control-touch);
+  }
+
+  .headerRow > button {
+    min-width: var(--ui-control-touch);
+    min-height: var(--ui-control-touch);
+  }
+
+  .addHeaderButton {
+    min-height: var(--ui-control-touch);
+  }
+}

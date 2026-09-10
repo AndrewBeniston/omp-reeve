@@ -1,0 +1,55 @@
+.footer {
+  position: relative;
+  height: var(--sidebar-footer-height);
+  flex: 0 0 var(--sidebar-footer-height);
+  border-top: 1px solid var(--ui-border);
+}
+
+.footerRow {
+  display: flex;
+  height: 46px;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--padding-row-x);
+}
+
+.settingsButton.settingsButton {
+  min-width: 0;
+  height: var(--height-token-row);
+  justify-content: flex-start;
+  border: 0;
+  padding: 0 var(--padding-row-cell-x);
+  color: var(--ui-text);
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-regular);
+}
+
+.settingsButton.settingsButton > span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--sidebar-item-gap);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.helpButton.helpButton {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  padding: 0;
+  color: var(--ui-sidebar-icon);
+}
+
+@media (max-width: 640px) and (pointer: coarse) {
+  .settingsButton.settingsButton,
+  .helpButton.helpButton {
+    min-height: var(--ui-control-touch);
+  }
+
+  .helpButton.helpButton {
+    width: var(--ui-control-touch);
+    flex-basis: var(--ui-control-touch);
+  }
+}

@@ -1,0 +1,83 @@
+.host {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: var(--ui-composer-height, auto);
+  min-height: 44px;
+  max-height: var(--composer-max-height);
+  margin-bottom: var(--composer-editor-gap);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.editor {
+  box-sizing: border-box;
+  min-height: 44px;
+  max-height: var(--composer-max-height);
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ui-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-ui);
+  line-height: var(--leading-ui);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  caret-color: var(--ui-text);
+}
+
+.editor p {
+  min-height: var(--leading-ui);
+  margin: 0;
+}
+
+.editor[data-empty="true"]::before {
+  position: absolute;
+  color: var(--ui-text-dim);
+  content: attr(data-placeholder);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.mentionChip {
+  display: inline;
+  padding-inline: 2px;
+  color: var(--ui-inline-mention);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  user-select: all;
+}
+
+.mentionIcon {
+  position: relative;
+  width: 16px;
+  height: 1lh;
+  display: inline-block;
+  margin-inline-end: 3px;
+  vertical-align: bottom;
+}
+
+.mentionIcon > svg {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+}
+
+.mentionLabel {
+  min-width: 0;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+.editor :global(.ProseMirror-selectednode).mentionChip {
+  outline: none;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}

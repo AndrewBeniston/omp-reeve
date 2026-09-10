@@ -1,0 +1,24 @@
+.providerFallbackIcon {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--ui-border);
+  border-radius: 4px;
+  color: var(--ui-text-dim);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.providerFallbackIcon[data-size="16"] {
+  width: 16px;
+  height: 16px;
+  font-size: 8px;
+}
+
+.monoProviderIcon {
+  color: var(--ui-text-muted);
+}

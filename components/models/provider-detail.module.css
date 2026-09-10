@@ -1,0 +1,180 @@
+.providerStack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.providerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nameField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.renameButton {
+  margin-top: 4px;
+  align-self: flex-start;
+}
+
+.inlineCode {
+  font-family: var(--font-mono);
+}
+
+.discoverySection {
+  border-top: 1px solid var(--ui-border);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.discoveryError {
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--ui-danger) 30%, var(--ui-border));
+  border-radius: 5px;
+  color: var(--ui-danger);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.discoveryFilterInput {
+  width: 100%;
+  min-width: 0;
+}
+
+.discoveryList {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  background: var(--ui-sidebar);
+}
+
+.discoverySelectAllLabel {
+  min-height: 32px;
+  padding: 5px 9px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-canvas);
+  cursor: default;
+  color: var(--ui-text-muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+.discoverySelectAllLabel[data-has-items="true"] {
+  cursor: pointer;
+}
+.discoverySelectAllLabel:hover[data-has-items="true"] {
+  color: var(--ui-text);
+}
+
+.discoveredModelLabel {
+  min-height: 36px;
+  padding: 6px 9px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--ui-border);
+  cursor: pointer;
+}
+.discoveredModelLabel:first-of-type {
+  border-top: none;
+}
+.discoveredModelLabel:hover:not([data-added="true"]) {
+  background: var(--ui-hover);
+}
+.discoveredModelLabel[data-added="true"] {
+  cursor: default;
+  opacity: 0.65;
+}
+
+.discoveryCheckbox {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--ui-accent);
+  flex-shrink: 0;
+}
+.discoveryCheckbox:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.discoveryEmpty {
+  padding: 12px;
+  color: var(--ui-text-dim);
+  font-size: 11px;
+}
+
+.discoveredModelText {
+  min-width: 0;
+  flex: 1;
+}
+
+.discoveredModelName {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ui-text);
+  font-size: 11px;
+}
+
+.discoveredModelId {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ui-text-dim);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.discoveredModelAdded {
+  color: var(--ui-text-dim);
+  font-size: 10px;
+}
+
+.discoveryFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.discoveryEndpoint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ui-text-dim);
+  font-size: 10px;
+}
+
+@media (pointer: coarse) {
+  .discoverySelectAllLabel,
+  .discoveredModelLabel {
+    min-height: var(--ui-control-touch);
+  }
+
+  .discoveryCheckbox {
+    width: 20px;
+    height: 20px;
+  }
+
+  .providerHeader button,
+  .discoveryFooter button,
+  .discoverySection > button,
+  .renameButton {
+    min-height: var(--ui-control-touch);
+  }
+}

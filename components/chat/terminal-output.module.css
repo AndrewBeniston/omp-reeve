@@ -1,0 +1,242 @@
+.preview {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--ui-surface-inset);
+  color: var(--ui-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  box-shadow: 0 1px 0 var(--ui-border-subtle);
+}
+
+.preview[data-error="true"] {
+  border-color: color-mix(in srgb, var(--ui-danger) 52%, var(--ui-border));
+}
+
+.commandLine {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+  padding: 11px 13px 9px;
+  background: color-mix(in srgb, var(--ui-surface-inset) 80%, var(--ui-sidebar));
+}
+
+.commandPrompt {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--ui-text-dim);
+  font-size: var(--text-2xs);
+  line-height: 1.55;
+  user-select: none;
+}
+
+.commandCode {
+  flex: 1;
+  min-width: 0;
+  overflow: visible;
+  color: var(--ui-syntax-text);
+  font-family: var(--font-mono);
+}
+
+.commandCode > :global([class^="language-"]) {
+  color: inherit;
+  font-family: inherit;
+}
+
+.commandLine :global(.shell-local-label) {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  border: 1px solid color-mix(in srgb, var(--ui-warning) 45%, var(--ui-border));
+  border-radius: var(--radius-xs);
+  padding: 1px 5px;
+  color: var(--ui-syntax-warning);
+  font-size: var(--text-2xs);
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.outputPanel {
+  padding: 0 0 var(--space-2);
+  background: var(--ui-surface-inset);
+}
+
+.outputDivider {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 var(--space-3);
+  color: var(--ui-text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+.outputDivider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--ui-border-strong);
+}
+
+.outputLabel {
+  flex: 0 0 auto;
+  margin-top: -1px;
+  padding-right: 2px;
+  background: var(--ui-surface-inset);
+}
+
+.outputStatus {
+  flex: 0 0 auto;
+  color: var(--ui-text-dim);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.outputStatus[data-state="pending"] {
+  color: var(--ui-syntax-accent);
+}
+
+.outputStatus[data-state="error"] {
+  color: var(--ui-syntax-danger);
+}
+
+.outputBody {
+  max-height: 420px;
+  overflow: auto;
+  padding: var(--space-2) 13px 0;
+  color: var(--ui-text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.outputBody :global(.shell-output-line) {
+  min-height: 1.55em;
+}
+
+.outputBody :global(.shell-output-line.is-success) {
+  color: var(--ui-syntax-success);
+}
+
+.outputBody :global(.shell-output-line.is-warning) {
+  color: var(--ui-syntax-warning);
+}
+
+.outputBody :global(.shell-output-line.is-error) {
+  color: var(--ui-syntax-danger);
+}
+
+.outputEmpty {
+  color: var(--ui-text-dim);
+  font-style: italic;
+}
+
+.outputBody :global(.shell-output-pending) {
+  display: inline-block;
+  color: var(--ui-syntax-accent);
+  animation: terminalPulse 1.2s infinite;
+}
+
+.preview > :global(.shell-output-footer) {
+  padding: 0 13px var(--space-2);
+  color: var(--ui-text-dim);
+  font-size: var(--text-2xs);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.commandCode :global(.token.comment),
+.commandCode :global(.token.prolog),
+.commandCode :global(.token.doctype),
+.commandCode :global(.token.cdata) {
+  color: var(--ui-syntax-text-muted);
+  font-style: italic;
+}
+
+.commandCode :global(.token.punctuation) {
+  color: var(--ui-syntax-text-muted);
+}
+
+.commandCode :global(.token.property),
+.commandCode :global(.token.tag),
+.commandCode :global(.token.constant),
+.commandCode :global(.token.environment),
+.commandCode :global(.token.symbol),
+.commandCode :global(.token.deleted) {
+  color: var(--ui-syntax-danger);
+}
+
+.commandCode :global(.token.boolean),
+.commandCode :global(.token.number) {
+  color: var(--ui-syntax-warning);
+  font-variant-numeric: tabular-nums;
+}
+
+.commandCode :global(.token.selector),
+.commandCode :global(.token.attr-name),
+.commandCode :global(.token.string),
+.commandCode :global(.token.char),
+.commandCode :global(.token.builtin),
+.commandCode :global(.token.inserted) {
+  color: var(--ui-syntax-success);
+}
+
+.commandCode :global(.token.operator),
+.commandCode :global(.token.entity),
+.commandCode :global(.token.url),
+.commandCode :global(.token.variable) {
+  color: var(--ui-syntax-accent);
+}
+
+.commandCode :global(.token.atrule),
+.commandCode :global(.token.attr-value),
+.commandCode :global(.token.keyword) {
+  color: var(--ui-syntax-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+.commandCode :global(.token.function),
+.commandCode :global(.token.class-name) {
+  color: var(--ui-syntax-warning);
+}
+
+.commandCode :global(.token.regex),
+.commandCode :global(.token.important) {
+  color: var(--ui-syntax-danger);
+}
+
+.commandCode :global(.token.deleted) {
+  text-decoration: line-through;
+}
+
+.commandCode :global(.token.inserted) {
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+}
+
+.commandCode :global(.token.important),
+.commandCode :global(.token.bold) {
+  font-weight: var(--font-weight-bold);
+}
+
+.commandCode :global(.token.italic) {
+  font-style: italic;
+}
+
+.commandCode :global(.token.entity) {
+  cursor: help;
+}
+
+@keyframes terminalPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .outputBody :global(.shell-output-pending) {
+    animation: none;
+  }
+}

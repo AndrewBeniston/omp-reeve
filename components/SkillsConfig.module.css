@@ -1,0 +1,488 @@
+.skillRow {
+  min-height: auto;
+  justify-content: flex-start;
+  padding: var(--space-2);
+  text-align: left;
+}
+
+.skillRow > span {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.skillRow:hover:not([data-selected="true"]) {
+  background: var(--ui-hover);
+}
+
+.skillRow[data-selected="true"] {
+  background: var(--ui-active);
+}
+
+.addSkillButton {
+  justify-content: flex-start;
+}
+
+.addSkillButton:hover:not([data-active="true"]) {
+  background: var(--ui-hover);
+}
+
+.addSkillButton[data-active="true"] {
+  background: var(--ui-active);
+  color: var(--ui-accent);
+}
+
+.addSkillButton > span,
+.dormantButton > span {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: var(--ui-backdrop); }
+.backdrop[data-embedded="true"] { position: relative; background: transparent; }
+.dialog { width: min(860px, calc(100vw - 16px)); height: min(78dvh, calc(100dvh - 16px)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--ui-border); border-radius: var(--radius-lg); background: var(--ui-main); box-shadow: 0 8px 32px var(--ui-border-subtle); }
+.dialog[data-embedded="true"] { width: 100%; height: 100%; max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+.dialogBody { min-height: 0; flex: 1; display: flex; overflow: hidden; }
+.sidebar { width: 210px; display: flex; flex: 0 0 auto; flex-direction: column; border-right: 1px solid var(--ui-border); background: var(--ui-sidebar); }
+.visibilityToggle.visibilityToggle { width: 40px; height: 28px; }
+.toggleTrack { position: relative; width: 40px; height: 22px; border-radius: var(--radius-round); corner-shape: var(--corner-round); background: var(--ui-border); }
+.visibilityToggle[data-on="true"] .toggleTrack { background: var(--ui-accent); }
+.toggleThumb { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: var(--radius-round); corner-shape: var(--corner-round); background: var(--ui-canvas); box-shadow: 0 1px 4px var(--ui-border-subtle); transition: transform var(--duration-enter) var(--ease-standard); }
+.visibilityToggle[data-on="true"] .toggleThumb { transform: translateX(18px); }
+.scopeTag { flex: 0 0 auto; text-transform: capitalize; }
+.scopeButton.scopeButton { min-height: 28px; border-radius: 0; background: transparent; color: var(--ui-text-dim); font-size: var(--text-xs); }
+.scopeButton:first-child { border-right: 1px solid var(--ui-border); }
+.scopeButton[data-active="true"] { background: var(--ui-active); color: var(--ui-text); font-weight: var(--font-weight-semibold); }
+.updateState { font-size: var(--text-xs); }
+.versionBadge { font-family: var(--font-mono); }
+.skillStatus { width: 7px; height: 7px; flex: 0 0 auto; border-radius: var(--radius-round); corner-shape: var(--corner-round); background: var(--ui-accent); box-shadow: 0 0 4px var(--ui-accent); }
+.skillStatus[data-disabled="true"] { background: var(--ui-border); box-shadow: none; }
+.skillName { min-width: 0; flex: 1; overflow: hidden; color: var(--ui-text); font-family: var(--font-mono); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
+.skillName[data-selected="true"] { font-weight: var(--font-weight-semibold); }
+.skillName[data-disabled="true"] { color: var(--ui-text-dim); }
+
+@media (max-width: 760px) {
+  .dialogBody { flex-direction: column; }
+  .sidebar { width: 100%; max-height: 40dvh; border-right: 0; border-bottom: 1px solid var(--ui-border); }
+  .dialog button { min-width: var(--ui-control-touch); min-height: var(--ui-control-touch); }
+  .visibilityToggle.visibilityToggle { width: var(--ui-control-touch); height: var(--ui-control-touch); }
+  .scopeButton.scopeButton { min-width: var(--ui-control-touch); min-height: var(--ui-control-touch); }
+  .searchInput { min-height: var(--ui-control-touch); font-size: var(--text-base); }
+  .sourceLink,
+  .searchResultLink,
+  .discoveryLink { min-width: var(--ui-control-touch); min-height: var(--ui-control-touch); }
+}
+
+.detailPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.visibilitySection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.visibilityControlRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.skillPath {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ui-text-dim);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visibilityStatusRow {
+  min-height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  text-align: right;
+}
+
+.saveError {
+  font-size: 12px;
+  color: var(--ui-danger);
+  overflow-wrap: anywhere;
+}
+
+.metadataSection {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.metadataLabel {
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  font-weight: 500;
+}
+
+.sourceLink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  color: var(--ui-accent);
+  text-decoration: none;
+}
+
+.sourceUrl {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.versionSection {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.versionControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.versionValue {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ui-text-muted);
+}
+
+.updateError {
+  font-size: 12px;
+  color: var(--ui-danger);
+}
+
+.skillTitle {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--ui-text);
+}
+
+.descriptionSection {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.skillDescription {
+  font-size: 14px;
+  color: var(--ui-text-muted);
+  line-height: 1.6;
+}
+
+.discoveryPanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.discoveryHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.discoveryTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ui-text);
+}
+
+.searchRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.searchField {
+  flex: 1;
+}
+
+.searchAction {
+  flex: 0 0 auto;
+}
+
+.searchInput {
+  flex: 1;
+  padding: 7px 10px;
+  font-size: 13px;
+  background: var(--ui-sidebar);
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  color: var(--ui-text);
+  outline: none;
+}
+
+.searchInput:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.scopeRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.scopeSelector {
+  display: flex;
+  border-radius: 5px;
+  border: 1px solid var(--ui-border);
+  overflow: visible;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.installPath {
+  font-size: 12px;
+  color: var(--ui-text-dim);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.searchError {
+  font-size: 12px;
+  color: var(--ui-danger);
+}
+
+.installError {
+  font-size: 12px;
+  color: var(--ui-danger);
+  word-break: break-word;
+}
+
+.searchResults {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.searchResult {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.searchResultContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.searchResultName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ui-text);
+  margin-bottom: 3px;
+}
+
+.searchResultMetadata {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.searchResultRepository {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ui-text-dim);
+}
+
+.searchResultInstalls {
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  font-weight: 500;
+}
+
+.searchResultLink {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--ui-accent);
+  text-decoration: none;
+}
+
+.discoveryEmptyState {
+  font-size: 13px;
+  color: var(--ui-text-dim);
+  line-height: 1.8;
+}
+
+.discoveryLink {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ui-accent);
+  text-decoration: none;
+}
+
+.sourceLink:focus-visible,
+.searchResultLink:focus-visible,
+.discoveryLink:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.dialogHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--ui-border);
+  flex-shrink: 0;
+}
+
+.dialogHeading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.dialogTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ui-text);
+}
+
+.dialogPath {
+  font-size: 11px;
+  color: var(--ui-text-muted);
+  font-family: var(--font-mono);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projectWarning {
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-sidebar);
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+.skillList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 6px;
+}
+
+.skillListLoading {
+  padding: 10px 8px;
+  font-size: 12px;
+  color: var(--ui-text-muted);
+}
+
+.skillListError {
+  padding: 10px 8px;
+  font-size: 11px;
+  color: var(--ui-danger);
+}
+
+.skillListEmpty {
+  padding: 10px 8px;
+  font-size: 11px;
+  color: var(--ui-text-dim);
+}
+
+.updateAvailableBadge {
+  color: var(--ui-warning);
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.skillGroup {
+  margin-bottom: 6px;
+}
+
+.skillGroupLabel {
+  padding: 4px 8px 3px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ui-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.dormantButton {
+  min-height: 0;
+  justify-content: flex-start;
+  padding: 4px 8px 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  user-select: none;
+}
+
+.dormantMarker {
+  font-size: 8px;
+}
+
+.addSkillArea {
+  padding: 8px 6px;
+  border-top: 1px solid var(--ui-border);
+  flex-shrink: 0;
+}
+
+.contentPanel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.selectSkillPrompt {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-text-dim);
+  font-size: 13px;
+}
+
+.dialogFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  border-top: 1px solid var(--ui-border);
+  flex-shrink: 0;
+}
+
+.updateSummary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.updateCount {
+  font-size: 12px;
+  color: var(--ui-warning);
+}

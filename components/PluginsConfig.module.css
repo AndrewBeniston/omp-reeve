@@ -1,0 +1,492 @@
+.exampleButton {
+  justify-content: flex-start;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-align: left;
+}
+
+.packageItem {
+  min-height: auto;
+  justify-content: flex-start;
+  padding: var(--space-2);
+  text-align: left;
+}
+
+.packageItem > span {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.packageItem:hover:not([data-selected="true"]) {
+  background: var(--ui-hover);
+}
+
+.packageItem[data-selected="true"] {
+  background: var(--ui-active);
+}
+
+.addPluginButton {
+  justify-content: flex-start;
+}
+
+.addPluginButton > span {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.addPluginButton:hover:not([data-active="true"]) {
+  background: var(--ui-hover);
+}
+
+.addPluginButton[data-active="true"] {
+  background: var(--ui-active);
+  color: var(--ui-accent);
+}
+
+.backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: var(--ui-backdrop); }
+.backdrop[data-embedded="true"] { position: relative; background: transparent; }
+.dialog { width: min(860px, calc(100vw - 16px)); height: min(76dvh, calc(100dvh - 16px)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--ui-border); border-radius: var(--radius-lg); background: var(--ui-main); box-shadow: 0 8px 32px var(--ui-border-subtle); }
+.dialog[data-embedded="true"] { width: 100%; height: 100%; max-width: none; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+.dialogBody { min-height: 0; flex: 1; display: flex; overflow: hidden; }
+.sidebar { width: 245px; display: flex; flex: 0 0 auto; flex-direction: column; border-right: 1px solid var(--ui-border); background: var(--ui-sidebar); }
+.resourceGroup { padding-top: var(--space-3); border-top: 1px solid var(--ui-border); }
+.resourceGroup[data-first="true"] { padding-top: 0; border-top: 0; }
+.scopeTag { flex: 0 0 auto; text-transform: capitalize; }
+.toggle.toggle { width: 40px; height: 22px; border-radius: var(--radius-round); corner-shape: var(--corner-round); background: transparent; }
+.toggleTrack { position: relative; width: 40px; height: 22px; border-radius: var(--radius-round); corner-shape: var(--corner-round); background: var(--ui-border); }
+.toggle[data-on="true"] .toggleTrack { background: var(--ui-accent); }
+.toggleThumb { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: var(--radius-round); corner-shape: var(--corner-round); background: var(--ui-canvas); box-shadow: 0 1px 4px var(--ui-border-subtle); transition: transform var(--duration-enter) var(--ease-standard); }
+.toggle[data-on="true"] .toggleThumb { transform: translateX(18px); }
+.scopeButton.scopeButton { width: 76px; min-height: 28px; border-radius: 0; background: transparent; color: var(--ui-text-muted); font-size: var(--text-xs); }
+.scopeButton:first-child { border-right: 1px solid var(--ui-border); }
+.scopeButton[data-active="true"] { background: var(--ui-active); color: var(--ui-text); }
+.packageStatus { text-transform: capitalize; }
+.statusDot[data-status="loaded"] { background: var(--ui-accent); }
+.statusDot[data-status="installed"] { background: var(--ui-warning); }
+.statusDot[data-status="disabled"] { background: var(--ui-text-dim); }
+.installedPath { color: var(--ui-text-muted); font-family: var(--font-mono); overflow-wrap: anywhere; }
+.installedPath[data-missing="true"] { color: var(--ui-danger); }
+.statusDot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: var(--radius-round); corner-shape: var(--corner-round); background: var(--ui-danger); }
+.packageName { min-width: 0; overflow: hidden; color: var(--ui-text); font-family: var(--font-mono); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
+.packageName[data-selected="true"] { font-weight: var(--font-weight-semibold); }
+.diagnosticDetail { display: block; white-space: pre-wrap; }
+
+@media (max-width: 760px) {
+  .dialogBody { flex-direction: column; }
+  .sidebar { width: 100%; max-height: 40dvh; border-right: 0; border-bottom: 1px solid var(--ui-border); }
+}
+
+.emptyResources {
+  font-size: 12px;
+  color: var(--ui-text-dim);
+}
+
+.resourceGroups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.resourceGroupLabel {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ui-text-dim);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.resourceList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.resourceItem {
+  min-width: 0;
+}
+
+.resourceName {
+  font-size: 12px;
+  color: var(--ui-text);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resourcePath {
+  font-size: 10px;
+  color: var(--ui-text-dim);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 1px;
+}
+
+.scopeSelector {
+  display: inline-flex;
+  border: 1px solid var(--ui-border);
+  border-radius: 7px;
+  height: 30px;
+}
+
+.addPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 660px;
+  min-height: 100%;
+}
+
+.addPanelHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.addPanelTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.addPanelTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ui-text);
+}
+
+.docsLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ui-accent);
+  font-size: 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.docsIcon {
+  flex-shrink: 0;
+}
+
+.installLocation {
+  font-size: 12px;
+  color: var(--ui-text-dim);
+  font-family: var(--font-mono);
+}
+
+.sourceField {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.sourceInput {
+  width: 100%;
+  height: 36px;
+  padding: 0 11px;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  background: var(--ui-sidebar);
+  color: var(--ui-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  outline: none;
+}
+
+.sourceInput:focus-visible,
+.docsLink:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.installActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.examplesSection {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.sectionLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ui-text-muted);
+}
+
+.exampleList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.actionError {
+  font-size: 12px;
+  color: var(--ui-danger);
+  white-space: pre-wrap;
+}
+
+.packageDetail {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 680px;
+}
+
+.packageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.packageIdentity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 180px;
+  flex: 1;
+}
+
+.packageSource {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ui-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.packageActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.metadataGrid {
+  display: grid;
+  grid-template-columns: minmax(96px, 130px) minmax(0, 1fr);
+  gap: 9px 14px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.metadataLabel {
+  color: var(--ui-text-dim);
+}
+
+.metadataCode {
+  color: var(--ui-text-muted);
+  font-family: var(--font-mono);
+}
+
+.metadataCodeWrap {
+  color: var(--ui-text-muted);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.metadataValue {
+  color: var(--ui-text-muted);
+}
+
+.metadataPath {
+  color: var(--ui-text-dim);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.resourcesSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ui-text);
+}
+
+.actionMessage {
+  font-size: 12px;
+  color: var(--ui-success);
+}
+
+.dialogHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--ui-border);
+  flex-shrink: 0;
+}
+
+.dialogTitleRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dialogTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ui-text);
+}
+
+.dialogPath {
+  font-size: 11px;
+  color: var(--ui-text-muted);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.projectNotice {
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-sidebar);
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+.packageList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 6px;
+}
+
+.loadingState {
+  padding: 10px 8px;
+  font-size: 12px;
+  color: var(--ui-text-muted);
+}
+
+.listError {
+  padding: 10px 8px;
+  font-size: 11px;
+  color: var(--ui-danger);
+}
+
+.emptyList {
+  padding: 10px 8px;
+  font-size: 11px;
+  color: var(--ui-text-dim);
+}
+
+.packageGroup {
+  margin-bottom: 6px;
+}
+
+.packageGroupLabel {
+  padding: 4px 8px 3px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ui-text-dim);
+  text-transform: uppercase;
+}
+
+.packageSummary {
+  display: block;
+  min-width: 0;
+  flex: 1;
+}
+
+.resourceSummary {
+  display: block;
+  font-size: 10px;
+  color: var(--ui-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.versionSummary {
+  display: block;
+  font-size: 10px;
+  color: var(--ui-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.sidebarFooter {
+  padding: 8px 6px;
+  border-top: 1px solid var(--ui-border);
+  flex-shrink: 0;
+}
+
+.detailPanel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.emptyDetail {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-text-dim);
+  font-size: 13px;
+}
+
+.dialogFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--ui-border);
+  flex-shrink: 0;
+}
+
+.footerSummary {
+  min-width: 0;
+  flex: 1;
+  font-size: 11px;
+  color: var(--ui-text-dim);
+  overflow: hidden;
+}
+
+@media (max-width: 760px) {
+  .dialog button,
+  .docsLink,
+  .sourceInput {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .toggle.toggle {
+    width: 44px;
+    height: 44px;
+  }
+
+  .scopeSelector {
+    height: 44px;
+  }
+
+  .scopeButton.scopeButton,
+  .packageItem {
+    min-height: 44px;
+  }
+}

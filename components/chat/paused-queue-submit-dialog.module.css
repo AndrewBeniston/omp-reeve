@@ -1,0 +1,59 @@
+.dialog {
+  position: relative;
+  width: min(520px, calc(100vw - 32px));
+  padding: 20px;
+  border-radius: 24px;
+  background: var(--ui-surface-elevated);
+}
+
+.closeButton {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.clearButton {
+  min-width: 112px;
+  border-color: var(--ui-danger);
+  background: transparent;
+  color: var(--ui-danger);
+}
+
+.clearButton:hover:not(:disabled) {
+  background: var(--ui-danger-wash);
+}
+
+.sendButton {
+  min-width: 124px;
+  background: var(--ui-text);
+  color: var(--ui-main);
+}
+
+.sendButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ui-text) 88%, var(--ui-main));
+}
+
+.error {
+  margin-top: 10px;
+  color: var(--ui-danger);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+
+@media (max-width: 640px) {
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .clearButton,
+  .sendButton {
+    width: 100%;
+  }
+}

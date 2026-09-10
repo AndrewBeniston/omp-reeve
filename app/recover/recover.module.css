@@ -1,0 +1,179 @@
+.page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+  background: var(--ui-canvas);
+  color: var(--ui-text);
+  font-family: var(--font-sans);
+}
+
+.card {
+  width: 100%;
+  max-width: 470px;
+  padding: var(--space-6);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-card);
+  background: var(--ui-surface-elevated);
+  box-shadow: 0 16px 48px var(--ui-backdrop);
+}
+
+.eyebrow {
+  color: var(--ui-text-dim);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: .16em;
+  line-height: var(--leading-2xs);
+  text-transform: uppercase;
+}
+
+.title {
+  margin: var(--space-1-5) 0 var(--space-3);
+  color: var(--ui-text);
+  font-size: var(--text-title);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--leading-title);
+}
+
+.lead, .aside, .notice, .error {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-xs);
+  line-height: var(--leading-base);
+}
+
+.lead { color: var(--ui-text-muted); }
+.aside { color: var(--ui-text-dim); }
+.notice { color: var(--ui-success); }
+.error { color: var(--ui-danger); }
+
+.lead code, .aside code {
+  padding: var(--space-0-5) var(--space-1);
+  border-radius: var(--radius-xs);
+  background: var(--ui-subtle);
+  color: var(--ui-text);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+.field {
+  display: block;
+  margin-bottom: var(--space-3);
+}
+
+.field > span {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--ui-text-muted);
+}
+
+.input {
+  width: 100%;
+  height: var(--ui-control-md);
+  padding: 0 var(--space-2-5);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-md);
+  background: var(--ui-surface-inset);
+  color: var(--ui-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  transition: border-color var(--duration-fast) var(--ease-standard), outline var(--duration-fast) var(--ease-standard);
+}
+
+.input:hover:not(:disabled) {
+  border-color: var(--ui-border-strong);
+}
+
+.input:focus-visible {
+  border-color: var(--ui-accent);
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.input:disabled {
+  cursor: not-allowed;
+  opacity: var(--ui-disabled-opacity);
+}
+
+.primary, .secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--ui-control-md);
+  margin-bottom: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-sm);
+  text-align: center;
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: background-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), transform var(--duration-press) var(--ease-standard);
+}
+
+.primary {
+  background: var(--ui-accent);
+  color: var(--ui-canvas);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--ui-accent-hover);
+}
+
+.secondary {
+  border-color: var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--ui-hover);
+  border-color: var(--ui-border-strong);
+}
+
+.primary:active:not(:disabled),
+.secondary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.primary:focus-visible,
+.secondary:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.primary:disabled,
+.secondary:disabled {
+  cursor: not-allowed;
+  opacity: var(--ui-disabled-opacity);
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: var(--space-4);
+  }
+
+  .card {
+    padding: var(--space-4);
+  }
+
+  .input,
+  .primary,
+  .secondary {
+    min-height: var(--ui-control-touch);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primary,
+  .secondary,
+  .input {
+    transition: none;
+    transform: none;
+  }
+}
