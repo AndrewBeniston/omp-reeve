@@ -176,12 +176,20 @@ test("the sidebar bar and the second toggle stay off Windows and Linux", () => {
 });
 
 test("the Windows and Linux header clears the native caption buttons", () => {
-  // The main surface rounds its top left corner, where it meets the sidebar.
-  // The reference applies the same radius on Windows at every window state.
+  // The main surface rounds its top left corner and carries the divider, so
+  // the line follows the curve. The sidebar draws no border beside it.
   assert.match(
     shellStyles,
-    /:global\(html\[data-omp-desktop="win32"\]\) \.centerColumn,\s*:global\(html\[data-omp-desktop="linux"\]\) \.centerColumn\s*\{[^}]*border-top-left-radius:\s*var\(--radius-lg\);/,
+    /:global\(html\[data-omp-desktop="win32"\]\) \.centerColumn,\s*:global\(html\[data-omp-desktop="linux"\]\) \.centerColumn\s*\{[^}]*border-top-left-radius:\s*var\(--radius-shell-corner\);[^}]*border-left:\s*1px solid[^}]*background-clip:\s*padding-box;/,
   );
+  assert.match(
+    shellStyles,
+    /:global\(html\[data-omp-desktop="win32"\]\) \.sidebarPanel,\s*:global\(html\[data-omp-desktop="linux"\]\) \.sidebarPanel\s*\{[^}]*border-right:\s*0;/,
+  );
+  // The squircle stays. Only the radius grows, because a superellipse draws a
+  // shorter arc than a circle at the same radius.
+  assert.doesNotMatch(shellStyles, /\.centerColumn\s*\{[^}]*corner-shape/);
+  assert.match(globalStyles, /@supports \(corner-shape: superellipse\(1\.5\)\)/);
   // The caption buttons sit on the menu bar above, so the header reserves
   // nothing. It still drags the window, and every button in it opts out.
   // No fixed reserve ships anywhere. ADR-0008.

@@ -163,16 +163,43 @@
 
 /*
  * Windows and Linux round the top left corner of the main surface, where it
- * meets the sidebar under the menu bar. The reference applies the same radius
+ * meets the sidebar under the menu bar. The reference applies the same corner
  * on Windows, with no condition on the window state, so a maximised window
- * keeps the corner. The value is --radius-lg, which is 10px in both.
+ * keeps it. The corner is inside the window and never touches the system
+ * frame. The column already clips its children, so the header follows it.
  *
- * The corner is inside the window, so it never touches the system frame. The
- * column already clips its children, so the header corner follows it.
+ * The divider belongs to this surface, not to the sidebar.
+ *
+ * A border on the sidebar is a straight line. It runs past the rounded corner
+ * and leaves a straight line beside a curve, which is what the Windows build
+ * showed. A border on the surface follows the corner instead, because the
+ * radius belongs to the same box. The line thins to nothing where it meets the
+ * top edge, because that edge carries no border.
+ *
+ * The reference draws it this way. Measured from the running reference on a
+ * Windows machine: the line sits one pixel left of the surface, it curves
+ * around the corner, and it fades out at the top. The same rule carries
+ * background-clip: padding-box there, which is what keeps the surface colour
+ * from painting under its own border.
+ *
+ * The radius is larger than --radius-lg on purpose. globals.css gives every
+ * element corner-shape: superellipse(1.5), and a superellipse hugs the corner,
+ * so the same radius draws a much shorter arc than a circle. --radius-lg drew
+ * an arc of 6 pixels here, against 13 in the reference, which draws a circle.
+ * Reeve keeps its own shape and matches the size instead: 16 pixels of
+ * superellipse spans about 12 pixels of arc. Every number here was measured on
+ * a Windows machine.
  */
+:global(html[data-omp-desktop="win32"]) .sidebarPanel,
+:global(html[data-omp-desktop="linux"]) .sidebarPanel {
+  border-right: 0;
+}
+
 :global(html[data-omp-desktop="win32"]) .centerColumn,
 :global(html[data-omp-desktop="linux"]) .centerColumn {
-  border-top-left-radius: var(--radius-lg);
+  border-top-left-radius: var(--radius-shell-corner);
+  border-left: 1px solid color-mix(in srgb, var(--ui-sidebar) 92%, var(--ui-text));
+  background-clip: padding-box;
 }
 
 /*

@@ -19,6 +19,9 @@ the What's New dialog adds a second page that invites support.
   buttons. Each name opens its menu.
 - The main surface on Windows and Linux rounds its top left corner, where it
   meets the sidebar under the menu bar.
+- The divider between the sidebar and the main surface follows that corner on
+  Windows and Linux. It curves with the surface and fades where it meets the
+  top edge.
 
 ### Fixed
 - Windows no longer draws two sidebar toggles. One toggle sits on the menu bar,
