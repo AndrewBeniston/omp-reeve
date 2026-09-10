@@ -12,7 +12,7 @@ import { SubagentPanel } from "./SubagentPanel";
 import { ChatWindow } from "./ChatWindow";
 import { FileViewer } from "./FileViewer";
 import { TabBar, assertNeverTab, type BrowserTab, type Tab } from "./TabBar";
-import { BrowserTabs, supportsBrowserTab } from "./browser/BrowserTabs";
+import { BrowserTabs, useSupportsBrowserTab } from "./browser/BrowserTabs";
 import { SettingsConfig } from "./SettingsConfig";
 import { ProjectTrustDialog } from "./ProjectTrustDialog";
 import { SummaryPanel } from "./SummaryPanel";
@@ -44,6 +44,7 @@ import type { SummarySource } from "@/lib/session-summary";
 import { clearLastOpen, getLastOpenSession, setLastOpenSession } from "@/lib/workspace-memory";
 import {
   getDefaultRightPanelWidth,
+  getBrowserTabPanelWidth,
   getRightPanelMaxWidth,
   getSidebarMaxWidth,
   RIGHT_PANEL_FALLBACK_WIDTH,
@@ -113,6 +114,9 @@ export function AppShell() {
   const [initialNavigation] = useState(() => getInitialNavigation(searchParams));
   const { t: translate } = useI18n();
   const isMobile = useIsMobile();
+  // False on the server and the first client render, so the strip's trailing
+  // control cannot differ between the two trees.
+  const supportsBrowserTabs = useSupportsBrowserTab();
   useViewportHeight();
   // Audio ownership lives here (not in ChatWindow) so the completion tone can
   // also fire for tasks finishing in a non-active workspace whose ChatWindow
@@ -221,13 +225,18 @@ export function AppShell() {
     getDefaultWidth: getResponsiveRightPanelWidth,
     getMaxWidth: getResponsiveRightPanelMaxWidth,
     growthDirection: "left",
-    maxWidth: RIGHT_PANEL_MAX_WIDTH,
+    // No absolute ceiling. The responsive maximum above already encodes the
+    // real limit — the workspace less the chat's reserve — and a fixed ceiling
+    // on top of it stopped the panel growing part-way across a wide display,
+    // which is where a web page most wants the room.
+    maxWidth: Number.POSITIVE_INFINITY,
     minWidth: RIGHT_PANEL_MIN_WIDTH,
     storageKey: "omp-right-panel-width",
     widthRef: rightPanelWidthRef,
   });
   const reclampSidebarWidth = sidebarResizer.reclampWidth;
   const reclampRightPanelWidth = rightPanelResizer.reclampWidth;
+  const growRightPanelToAtLeast = rightPanelResizer.growToAtLeast;
   // On mobile the sidebar is an overlay drawer; hide it by default so the chat
   // is visible on load. Runs once the breakpoint resolves after hydration.
   useEffect(() => {
@@ -777,8 +786,17 @@ export function AppShell() {
     }]);
     setActiveTabId(tabId);
     setRightPanelOpen(true);
+    // A web page is laid out for a window, not for a gutter. Widen the panel to
+    // the width the reference application opens a page into, unless the human
+    // has already made it wider.
+    if (!isMobile) {
+      growRightPanelToAtLeast(getBrowserTabPanelWidth({
+        shellHeight: window.innerHeight,
+        workspaceWidth: window.innerWidth - (sidebarOpen ? sidebarWidthRef.current : 0),
+      }));
+    }
     if (isMobile) setSidebarOpen(false);
-  }, [isMobile, translate]);
+  }, [growRightPanelToAtLeast, isMobile, sidebarOpen, translate]);
 
   /** The guest navigated. The Tab's URL follows the page, its id never does. */
   const handleBrowserNavigate = useCallback((tabId: string, url: string) => {
@@ -1323,7 +1341,7 @@ export function AppShell() {
               activeTabId={activeTabId ?? ""}
               onSelectTab={setActiveTabId}
               onCloseTab={handleCloseTab}
-              onNewBrowserTab={supportsBrowserTab() ? () => handleOpenBrowserTab("https://duckduckgo.com") : undefined}
+              onNewBrowserTab={supportsBrowserTabs ? () => handleOpenBrowserTab("https://duckduckgo.com") : undefined}
             />
           ),
           label: activeTab?.kind === "sources" ? translate("summary.sources") : translate("files.panel"),

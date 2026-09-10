@@ -24,6 +24,11 @@ the What's New dialog adds a second page that invites support.
   browsing session, so a login is still there in the next tab and after a
   restart. Desktop application only.
 
+### Fixed
+
+- The panel beside a Session no longer stops widening part-way across a wide
+  display. It now grows to the room available, less a reserve for the chat.
+
 ### Security
 
 - The desktop window can now host a web page guest, in preparation for a

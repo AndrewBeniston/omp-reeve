@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/hooks/useI18n";
 import type { BrowserTab } from "@/components/TabBar";
 import styles from "./browser.module.css";
@@ -22,13 +22,23 @@ interface WebviewElement extends HTMLElement {
 }
 
 /**
- * True when the renderer is running inside the desktop shell, which is the only
- * place a guest can exist. In a browser the element is unknown and would render
- * as an empty inline box, so the panel says so instead of showing nothing.
+ * True once the renderer is known to be running inside the desktop shell, which
+ * is the only place a guest can exist. In a browser the element is unknown and
+ * would render as an empty inline box, so the panel says so instead of showing
+ * nothing.
+ *
+ * It reports false on the server and on the first client render, then true.
+ * Reading `window` during render would make the server and client trees differ
+ * and fail hydration, so the answer arrives in an effect instead.
  */
-export function supportsBrowserTab(): boolean {
-  if (typeof window === "undefined") return false;
-  return Boolean((window as { ompDesktop?: unknown }).ompDesktop);
+export function useSupportsBrowserTab(): boolean {
+  const [supported, setSupported] = useState(false);
+
+  useEffect(() => {
+    setSupported(Boolean((window as { ompDesktop?: unknown }).ompDesktop));
+  }, []);
+
+  return supported;
 }
 
 interface Props {
@@ -47,8 +57,9 @@ interface Props {
  */
 export function BrowserTabs({ tabs, activeTabId, onNavigate, onTitleChange }: Props) {
   const { t } = useI18n();
+  const supported = useSupportsBrowserTab();
 
-  if (!supportsBrowserTab()) {
+  if (!supported) {
     return <div className={styles.browserUnavailable}>{t("browser.desktopOnly")}</div>;
   }
 
@@ -151,8 +162,7 @@ function BrowserGuest({ tab, isActive, onNavigate, onTitleChange }: GuestProps) 
           }}
         />
       </div>
-      <div ref={hostRef} className={styles.browserGuest} />
+      <div ref={hostRef} className={styles.browserHost} />
     </div>
   );
 }
-
