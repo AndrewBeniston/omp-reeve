@@ -22,6 +22,7 @@ const {
 const { STATE_CHANNEL: UPDATE_STATE_CHANNEL, createUpdateController } = require("./update-controller.cjs");
 const { createTerminalRegistry, loadPty } = require("./terminal-host.cjs");
 const { createBrowserViewRegistry } = require("./browser-views.cjs");
+const { BROWSER_PARTITION } = require("./desktop-runtime.cjs");
 
 const DEFAULT_DEV_URL = "http://127.0.0.1:30141";
 const LOG_PATH = path.join(os.tmpdir(), "omp-desktop.log");
@@ -565,10 +566,17 @@ function registerBrowserViewHandlers() {
 }
 
 function registerPermissionHandler() {
-  session.defaultSession.setPermissionCheckHandler(() => false);
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
-    callback(false);
-  });
+  // Every session, not only the default one. A Browser tab runs in its own
+  // partition, and a session with no handler grants whatever a page asks for,
+  // so an ordinary web page could have taken the camera or the microphone
+  // without anybody being asked. Reeve has no surface for granting these, so
+  // the honest answer is no rather than a silent yes.
+  for (const target of [session.defaultSession, session.fromPartition(BROWSER_PARTITION)]) {
+    target.setPermissionCheckHandler(() => false);
+    target.setPermissionRequestHandler((_webContents, _permission, callback) => {
+      callback(false);
+    });
+  }
 }
 
 if (!app.commandLine.hasSwitch("user-data-dir")) {

@@ -63,3 +63,14 @@ test("a Browser tab is a page the main process owns, and no guest may exist", ()
   assert.match(source, /contents\.setWindowOpenHandler/);
   assert.match(source, /view\.webContents\.close\(\)/);
 });
+
+test("a page in a Browser tab is refused a camera as firmly as the application is", () => {
+  const source = readFileSync(join(import.meta.dir, "main.cjs"), "utf8");
+
+  // A Browser tab runs in its own partition. A session with no permission
+  // handler grants whatever a page asks for, so denying only the default
+  // session left an ordinary web page able to take the camera or microphone.
+  assert.match(source, /session\.fromPartition\(BROWSER_PARTITION\)/);
+  assert.match(source, /setPermissionCheckHandler\(\(\) => false\)/);
+  assert.match(source, /setPermissionRequestHandler/);
+});
