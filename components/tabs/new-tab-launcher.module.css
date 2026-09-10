@@ -1,0 +1,42 @@
+/*
+ * The plus control at the end of the Tab strip.
+ *
+ * The button itself is 28px square with a 4px radius and its own surface,
+ * measured from the reference application. It carries a background at rest,
+ * unlike an inactive Tab, so it reads as a control rather than another Tab.
+ */
+.launcher {
+  position: relative;
+  flex: 0 0 auto;
+  align-self: center;
+  margin-inline-start: var(--space-0-5);
+}
+
+.trigger {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--ui-text) 8%, var(--ui-canvas));
+  color: var(--ui-text-muted);
+}
+
+.trigger:hover {
+  background: color-mix(in srgb, var(--ui-text) 13%, var(--ui-canvas));
+  color: var(--ui-text);
+}
+
+/*
+ * The plus control shows the launcher over the panel rather than as a dropdown,
+ * so both ways to reach it look the same.
+ */
+.sheet {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 20;
+  width: min(536px, calc(100vw - var(--space-4)));
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-lg);
+  background: var(--ui-canvas);
+  box-shadow: 0 12px 32px var(--ui-backdrop);
+}

@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useGlobalKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { useShortcutLabel } from "@/hooks/useShortcutLabel";
+import { useAcceleratorLabel, useShortcutLabel } from "@/hooks/useShortcutLabel";
 import { SessionSidebar } from "./SessionSidebar";
 import { CommandPalette } from "./navigation/CommandPalette";
 import { OpenProjectPicker } from "./navigation/OpenProjectPicker";
@@ -12,6 +12,7 @@ import { SubagentPanel } from "./SubagentPanel";
 import { ChatWindow } from "./ChatWindow";
 import { FileViewer } from "./FileViewer";
 import { TabBar, assertNeverTab, type BrowserTab, type Tab } from "./TabBar";
+import { Launcher, type LauncherAction } from "./tabs/Launcher";
 import { BrowserTabs, useSupportsBrowserTab } from "./browser/BrowserTabs";
 import { SettingsConfig } from "./SettingsConfig";
 import { ProjectTrustDialog } from "./ProjectTrustDialog";
@@ -144,6 +145,7 @@ export function AppShell() {
   const [settingsConfigOpen, setSettingsConfigOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const shortcutLabel = useShortcutLabel();
+  const acceleratorLabel = useAcceleratorLabel();
   const [paletteFiles, setPaletteFiles] = useState(false);
   const [openProjectPicker, setOpenProjectPicker] = useState(false);
   const [quickChatOpen, setQuickChatOpen] = useState(false);
@@ -812,6 +814,15 @@ export function AppShell() {
     )));
   }, []);
 
+  /** The page declared an icon, so the Tab shows it the way a browser does. */
+  const handleBrowserFavicon = useCallback((tabId: string, faviconUrl: string) => {
+    setTabs((prev) => prev.map((t) => (
+      t.id === tabId && t.kind === "browser" && t.faviconUrl !== faviconUrl
+        ? { ...t, faviconUrl }
+        : t
+    )));
+  }, []);
+
   const handleCloseTab = useCallback((tabId: string) => {
     setTabs((prev) => {
       const next = prev.filter((t) => t.id !== tabId);
@@ -921,6 +932,68 @@ export function AppShell() {
   const browserTabs = tabs.filter((t): t is BrowserTab => t.kind === "browser");
 
   /**
+   * The launcher's entries: what the empty panel offers, and what the plus
+   * control at the end of the strip opens.
+   *
+   * The order, the labels and the accelerators all come from the reference
+   * application's own command registry, read from its shipped bundle. Its
+   * order map puts review first for a git-backed project, which every Reeve
+   * Project is.
+   *
+   * An entry whose feature is not built yet stays listed and says why: this is
+   * how a human learns what the panel can hold.
+   */
+  const launcherActions: LauncherAction[] = [
+    {
+      id: "review",
+      label: translate("tabs.review"),
+      keys: acceleratorLabel("Ctrl+Shift+G"),
+      // Reeve has no review surface. Declared in the Tab union, unbuilt.
+      unavailableReason: translate("tabs.notYetBuilt"),
+      run: () => {},
+    },
+    {
+      id: "terminal",
+      label: translate("tabs.terminal"),
+      keys: acceleratorLabel("Control+`"),
+      // A Terminal spawns a pty in the desktop process, and an untrusted
+      // Project may not get one at all. Both are a later ticket.
+      unavailableReason: translate("tabs.notYetBuilt"),
+      run: () => {},
+    },
+    {
+      id: "browser",
+      label: translate("tabs.browser"),
+      keys: acceleratorLabel("CmdOrCtrl+T"),
+      unavailableReason: supportsBrowserTabs ? undefined : translate("tabs.desktopOnly"),
+      // The reference opens its own new tab page. Reeve has none, so a new
+      // Browser tab opens empty with the address focused, which is the same
+      // act: the human says where to go.
+      run: () => handleOpenBrowserTab(""),
+    },
+    {
+      id: "files",
+      label: translate("tabs.files"),
+      keys: acceleratorLabel("CmdOrCtrl+P"),
+      // The command palette already searches files in the active Project, so
+      // this opens it there rather than adding a second picker. Without a
+      // Project there is nothing to search, and saying so is more use than
+      // saying the feature does not exist.
+      unavailableReason: activeCwd ? undefined : translate("tabs.needsProject"),
+      run: () => { setPaletteFiles(true); setCommandPaletteOpen(true); },
+    },
+    {
+      id: "side-chat",
+      label: translate("tabs.sideChat"),
+      keys: acceleratorLabel("CmdOrCtrl+Alt+S"),
+      // Reeve has Quick chat, which is a window rather than a Tab. Whether it
+      // becomes one is a decision, not an oversight.
+      unavailableReason: translate("tabs.notYetBuilt"),
+      run: () => {},
+    },
+  ];
+
+  /**
    * The active Tab's own surface.
    *
    * A Browser tab renders nothing here: its guest is mounted separately and
@@ -930,7 +1003,9 @@ export function AppShell() {
    */
   function renderActiveTab(): ReactNode {
     if (!activeTab) {
-      return <div className={shellStyles.fileEmpty}>{translate("files.noneOpen")}</div>;
+      // The empty panel is the launcher, not a sentence. Before this, it said
+      // "No file open", which told a human nothing about what the panel holds.
+      return <Launcher actions={launcherActions} label={translate("tabs.suggested")} />;
     }
     switch (activeTab.kind) {
       case "browser":
@@ -1330,6 +1405,7 @@ export function AppShell() {
                   activeTabId={activeTab?.kind === "browser" ? activeTab.id : null}
                   onNavigate={handleBrowserNavigate}
                   onTitleChange={handleBrowserTitle}
+                  onFaviconChange={handleBrowserFavicon}
                 />
               )}
               {renderActiveTab()}
@@ -1341,7 +1417,7 @@ export function AppShell() {
               activeTabId={activeTabId ?? ""}
               onSelectTab={setActiveTabId}
               onCloseTab={handleCloseTab}
-              onNewBrowserTab={supportsBrowserTabs ? () => handleOpenBrowserTab("https://duckduckgo.com") : undefined}
+              newTabActions={launcherActions}
             />
           ),
           label: activeTab?.kind === "sources" ? translate("summary.sources") : translate("files.panel"),

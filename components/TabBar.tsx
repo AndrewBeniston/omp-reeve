@@ -5,6 +5,8 @@ import { Surface } from "@/components/ui/Surface";
 import { getFileIcon } from "./FileIcons";
 import { useI18n } from "@/hooks/useI18n";
 import type { SummarySource } from "@/lib/session-summary";
+import { NewTabLauncher } from "./tabs/NewTabLauncher";
+import type { LauncherAction } from "./tabs/Launcher";
 import styles from "./navigation/navigation.module.css";
 
 interface TabBase {
@@ -36,6 +38,8 @@ export interface SourcesTab extends TabBase {
 export interface BrowserTab extends TabBase {
   kind: "browser";
   url: string;
+  /** The page's own icon, as the guest reported it. */
+  faviconUrl?: string;
 }
 
 /**
@@ -64,6 +68,14 @@ function TabIcon({ tab }: { tab: Tab }) {
     case "sources":
       return <SourcesIcon />;
     case "browser":
+      // The page's own icon when it has one, the way a browser shows it.
+      if (tab.faviconUrl) {
+        // Not next/image: a favicon is an arbitrary remote URL from whatever
+        // page the human opened, so it cannot go through the optimiser, and it
+        // is 16px, so there is nothing to optimise.
+        // eslint-disable-next-line @next/next/no-img-element
+        return <img className={styles.fileTabFavicon} src={tab.faviconUrl} alt="" aria-hidden="true" />;
+      }
       return <BrowserIcon />;
     case "file":
       return getFileIcon(tab.label, 13);
@@ -87,21 +99,23 @@ interface Props {
   activeTabId: string;
   onSelectTab: (id: string) => void;
   onCloseTab: (id: string) => void;
-  /**
-   * Open a new Browser tab. Temporary: the plus menu that offers every kind is
-   * a later ticket, and this control becomes its trigger.
-   */
-  onNewBrowserTab?: () => void;
+  /** Entries for the control at the end of the strip. Empty hides it. */
+  newTabActions?: LauncherAction[];
 }
 
-export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab, onNewBrowserTab }: Props) {
+export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab, newTabActions }: Props) {
   const { t } = useI18n();
   const closeLabel = t("i18n.close");
 
   return (
     <Surface
       className={styles.tabBar}
-      tone="sidebar"
+      /*
+        * The strip shares the panel's own surface, so it reads as one piece
+        * with the chat and the title bar rather than as a lighter band across
+        * the top. Only the active Tab lifts above it.
+        */
+      tone="canvas"
       border="none"
       radius="none"
       data-component="tab-bar"
@@ -159,7 +173,7 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab, onNewBrowse
                 onCloseTab(tab.id);
               }}
             >
-              <svg width="11" height="11" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+              <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" aria-hidden="true">
                 <line x1="2" y1="2" x2="8" y2="8" />
                 <line x1="8" y1="2" x2="2" y2="8" />
               </svg>
@@ -167,18 +181,8 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab, onNewBrowse
           </div>
         );
       })}
-      {onNewBrowserTab && (
-        <IconButton
-          className={styles.tabBarNew}
-          label={t("browser.newTab")}
-          title={t("browser.newTab")}
-          onClick={onNewBrowserTab}
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
-            <line x1="6" y1="2" x2="6" y2="10" />
-            <line x1="2" y1="6" x2="10" y2="6" />
-          </svg>
-        </IconButton>
+      {newTabActions && newTabActions.length > 0 && (
+        <NewTabLauncher actions={newTabActions} />
       )}
     </Surface>
   );

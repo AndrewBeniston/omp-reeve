@@ -21,26 +21,77 @@
   pointer-events: none;
 }
 
+/*
+ * The navigation row.
+ *
+ * 40px tall, matching the reference application's own `--height-toolbar-pane`
+ * read from its stylesheet. Back and forward glyphs are 11px, reload is 13px,
+ * and the address is centred rather than filling the row.
+ *
+ * There is no boxed field and no divider above: the strip and this row are one
+ * continuous surface, with a single rule beneath the whole chrome.
+ */
 .browserChrome {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
+  height: 40px;
+  padding-inline: var(--space-2);
   border-bottom: 1px solid var(--ui-border);
   flex: 0 0 auto;
 }
 
+.browserNav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  flex: 0 0 auto;
+}
+
+.browserNavButton {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  color: var(--ui-text-dim);
+}
+
+.browserNavButton:hover {
+  background: var(--ui-hover);
+  color: var(--ui-text);
+}
+
+/*
+ * The address is a pill that fills the rest of the row: a 1px border, no fill,
+ * and its text aligned to the start. Measured from the reference, which draws
+ * the same outline whether the field is empty or showing a page.
+ *
+ * It is not centred and it is not invisible. An earlier attempt made it a
+ * centred label because a screenshot of a loaded page happened to look that
+ * way; the empty state showed the outline plainly.
+ */
 .browserUrl {
   flex: 1 1 auto;
   min-width: 0;
+  height: 28px;
+  margin-inline-start: var(--space-2);
   border: 1px solid var(--ui-border);
-  border-radius: var(--radius-sm);
-  background: var(--ui-surface);
+  border-radius: var(--radius-round);
+  /* A pill stays a true round, never a superellipse. DESIGN.md corner shape. */
+  corner-shape: var(--corner-round);
+  background: transparent;
   color: var(--ui-text);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
   line-height: var(--leading-xs);
-  padding: var(--space-1) var(--space-2);
+  padding-inline: var(--space-3);
+  text-overflow: ellipsis;
+}
+
+.browserUrl::placeholder {
+  color: var(--ui-text-dim);
+}
+
+.browserUrl:hover {
+  border-color: var(--ui-border-strong);
 }
 
 .browserUrl:focus-visible {
