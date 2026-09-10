@@ -30,6 +30,11 @@ the What's New dialog adds a second page that invites support.
   they carry work again, because the menu is hidden and never removed.
 - The sidebar drag handle lightens the border instead of painting an accent
   line. The mark no longer stays after you release the pointer.
+- Windows groups the worktrees of one repository together again. Git prints a
+  path with forward slashes, and Reeve compared it to a backslash path, so
+  every worktree on Windows lost its identity.
+- A path written with forward slashes now resolves its parent correctly on
+  Windows.
 
 ## [0.5.0] - 2026-09-08 support: true
 

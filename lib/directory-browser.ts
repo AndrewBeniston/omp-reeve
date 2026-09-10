@@ -57,7 +57,10 @@ export function normalizeDirectory(directory: string): string {
 export function getParentDirectory(directory: string): string | null {
   const pathApi = /^[a-zA-Z]:[\\/]/.test(directory) || directory.startsWith("\\\\")
     ? path.win32
-    : path;
+    // A path that is not Windows-shaped is a POSIX path, whatever platform
+    // reads it. Plain "path" is the Windows API on Windows, so it turned
+    // "/Users/alex/project" into "\Users\alex" there.
+    : path.posix;
   const normalized = pathApi.normalize(directory);
   const parent = pathApi.dirname(normalized);
   return parent === normalized ? null : parent;
