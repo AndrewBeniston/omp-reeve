@@ -36,3 +36,24 @@ test("the Electron lifecycle owns one stable desktop instance", () => {
   assert.match(source, /\[DESKTOP_CHALLENGE_HEADER\]: challenge/);
   assert.doesNotMatch(source, /headers:\s*\{\s*\[DESKTOP_CHALLENGE_HEADER\]: launchToken/);
 });
+
+test("enabling a webview guest does not weaken the host window", () => {
+  const source = readFileSync(join(import.meta.dir, "main.cjs"), "utf8");
+
+  // Permission to create a guest for a Browser tab.
+  assert.match(source, /webviewTag:\s*true/);
+
+  // The three guarantees the host keeps regardless. Enabling the flag above is
+  // not allowed to trade any of them away.
+  assert.match(source, /contextIsolation:\s*true/);
+  assert.match(source, /nodeIntegration:\s*false/);
+  assert.match(source, /sandbox:\s*true/);
+
+  // Containment runs on attach, before a guest exists.
+  assert.match(source, /on\("will-attach-webview"/);
+  assert.match(source, /containWebviewGuest\(webPreferences, params\)/);
+
+  // A guest's popups leave for the system browser rather than opening a window.
+  assert.match(source, /on\("did-attach-webview"/);
+  assert.match(source, /guestWebContents\.setWindowOpenHandler/);
+});

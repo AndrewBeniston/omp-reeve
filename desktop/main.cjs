@@ -9,6 +9,7 @@ const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, session, shell }
 const {
   DESKTOP_PORT,
   DESKTOP_CHALLENGE_HEADER,
+  containWebviewGuest,
   createExternalLinkHandler,
   createProjectMenuTemplate,
   createSessionMenuTemplate,
@@ -168,6 +169,10 @@ function createMainWindow() {
       nodeIntegration: false,
       preload: path.join(__dirname, "preload.cjs"),
       sandbox: true,
+      // Permission to create a <webview> guest for a Browser tab. It does not
+      // change this window: the three guarantees above are unchanged. Every
+      // guest is contained by containWebviewGuest on attach, below.
+      webviewTag: true,
     },
   };
   if (process.platform === "darwin") {
@@ -201,6 +206,22 @@ function createMainWindow() {
   window.webContents.on("will-navigate", guardNavigation);
   window.webContents.on("will-redirect", guardFrameNavigation);
   window.webContents.on("will-frame-navigate", guardFrameNavigation);
+  // Runs before any guest exists. Discards whatever the element asked for.
+  window.webContents.on("will-attach-webview", (_event, webPreferences, params) => {
+    containWebviewGuest(webPreferences, params);
+  });
+  // A guest is a plain web page: it navigates freely inside itself, and its
+  // popups leave for the system browser rather than opening a window here.
+  window.webContents.on("did-attach-webview", (_event, guestWebContents) => {
+    guestWebContents.setWindowOpenHandler(({ url }) => {
+      if (isExternalUrlAllowed(url)) {
+        void shell.openExternal(url).catch((error) => {
+          appendDesktopLog(`[omp-desktop] guest external URL failed: ${error.message}`);
+        });
+      }
+      return { action: "deny" };
+    });
+  });
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (isExternalUrlAllowed(url)) {
       void shell.openExternal(url).catch((error) => {

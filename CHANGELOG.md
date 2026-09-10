@@ -15,6 +15,15 @@ the What's New dialog adds a second page that invites support.
   "Open files", and the name is translated. It is about to carry more than
   files.
 
+### Security
+
+- The desktop window can now host a web page guest, in preparation for a
+  Browser tab. The window keeps context isolation, renderer sandboxing and
+  disabled renderer Node access unchanged. Every guest has its privileges
+  forced by the main process and its own requested settings discarded, so a
+  page cannot ask for more than it is given, cannot nest another guest, and
+  cannot choose which browsing session it reads.
+
 ## [0.5.0] - 2026-09-08 support: true
 
 ### Summary

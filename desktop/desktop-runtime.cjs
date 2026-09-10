@@ -143,6 +143,70 @@ function isNavigationAllowed(value, applicationUrl, isMainFrame) {
   return !isMainFrame && (value === "about:blank" || value === "about:srcdoc");
 }
 
+/**
+ * The one session partition every Browser tab shares.
+ *
+ * It is persistent, so a login survives a restart, and it is deliberately not
+ * the application's own session: the renderer holds the desktop launch token
+ * and talks to the local server, and no web page may share a cookie jar with
+ * that. A partition per tab was rejected because it logs the human out of
+ * everything every time they open a tab.
+ */
+const BROWSER_PARTITION = "persist:omp-browser";
+
+/**
+ * Force a webview guest's privileges, discarding whatever the element asked
+ * for.
+ *
+ * Enabling `webviewTag` is permission to create a guest, not a change to the
+ * host: the window keeps contextIsolation, sandboxing and disabled renderer
+ * Node access either way. This function is the containment that makes that
+ * permission safe, so it must run on every attach before a guest exists.
+ *
+ * It does not validate what the element requested. A `<webview>`'s attributes
+ * are attacker-controlled the moment a page can influence them, so the handler
+ * overwrites the privileges outright and deletes the rest. Negotiating with
+ * them would be the bug.
+ *
+ * @param webPreferences the guest's preferences, mutated in place
+ * @param params the element's own attributes, mutated in place
+ */
+function containWebviewGuest(webPreferences, params) {
+  const preferences = webPreferences ?? {};
+  const attributes = params ?? {};
+
+  // Privileges the guest gets, whatever it asked for.
+  preferences.sandbox = true;
+  preferences.contextIsolation = true;
+  preferences.webSecurity = true;
+  preferences.nodeIntegration = false;
+  preferences.nodeIntegrationInSubFrames = false;
+  preferences.nodeIntegrationInWorker = false;
+  preferences.allowRunningInsecureContent = false;
+  preferences.plugins = false;
+  // A guest may never create another guest.
+  preferences.webviewTag = false;
+  // The partition is ours to assign. An element that picks its own could read
+  // another tab's cookies, or the application's own session.
+  preferences.partition = BROWSER_PARTITION;
+
+  // A sidebar Browser tab is a plain web page. It needs no bridge into the
+  // application, and the agent reaches the page from outside over CDP rather
+  // than through an injected script, so there is nothing for a preload to do.
+  delete preferences.preload;
+
+  // Whatever the element asked for is discarded rather than inspected.
+  delete attributes.preload;
+  delete attributes.webpreferences;
+  delete attributes.disablewebsecurity;
+  delete attributes.partition;
+  delete attributes.nodeintegration;
+  delete attributes.nodeintegrationinsubframes;
+  delete attributes.allowpopups;
+
+  return { webPreferences: preferences, params: attributes };
+}
+
 function createExternalLinkHandler({ getApplicationUrl, openExternal }) {
   return async (event, url) => {
     if (!event.senderFrame) {
@@ -227,6 +291,8 @@ module.exports = {
   DESKTOP_PORT,
   DESKTOP_CHALLENGE_HEADER,
   DESKTOP_PROOF_HEADER,
+  BROWSER_PARTITION,
+  containWebviewGuest,
   createExternalLinkHandler,
   createProjectMenuTemplate,
   createSessionMenuTemplate,
