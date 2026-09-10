@@ -141,10 +141,13 @@ test("the Windows and Linux shell draws its own title bar", () => {
 test("the Windows and Linux header clears the native caption buttons", () => {
   // Windows keeps its caption buttons and draws them over the top right, so the
   // header reserves that width. macOS puts them on the left instead.
+  // The reserve is measured, never fixed: a caption strip changes with the
+  // window zoom and with the system's own metrics. ADR-0008.
   assert.match(
     shellStyles,
-    /:global\(html\[data-omp-desktop="win32"\]\) \.headerBar,\s*:global\(html\[data-omp-desktop="linux"\]\) \.headerBar\s*\{[^}]*-webkit-app-region:\s*drag;[^}]*padding-right:\s*calc\(var\(--space-2-5\) \+ 138px\);/,
+    /:global\(html\[data-omp-desktop="win32"\]\) \.headerBar,\s*:global\(html\[data-omp-desktop="linux"\]\) \.headerBar\s*\{[^}]*-webkit-app-region:\s*drag;[^}]*padding-right:\s*calc\(var\(--space-2-5\) \+ var\(--ui-caption-inset-end, 0px\)\);/,
   );
+  assert.doesNotMatch(shellStyles, /138px/);
   assert.match(
     shellStyles,
     /:global\(html\[data-omp-desktop="win32"\]\) \.headerBar button,\s*:global\(html\[data-omp-desktop="linux"\]\) \.headerBar button\s*\{[^}]*-webkit-app-region:\s*no-drag;/,

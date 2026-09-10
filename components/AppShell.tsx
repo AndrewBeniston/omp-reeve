@@ -29,6 +29,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useViewportHeight } from "@/hooks/useViewportHeight";
+import { useCaptionInsets } from "@/hooks/useCaptionInsets";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
 import { useAudio } from "@/hooks/useAudio";
 import { getFileName } from "@/lib/file-paths";
@@ -113,6 +114,7 @@ export function AppShell() {
   const { t: translate } = useI18n();
   const isMobile = useIsMobile();
   useViewportHeight();
+  useCaptionInsets();
   // Audio ownership lives here (not in ChatWindow) so the completion tone can
   // also fire for tasks finishing in a non-active workspace whose ChatWindow
   // is not mounted. ChatWindow receives the audio callbacks as props.

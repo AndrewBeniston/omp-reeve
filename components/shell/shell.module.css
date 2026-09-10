@@ -98,14 +98,19 @@
 }
 
 /*
- * Windows and Linux keep the native caption buttons and draw them over the
- * top right of the window. The header reserves that width so a control never
- * lands under them. Three buttons at 46px is the Windows caption metric.
+ * Windows and Linux keep the native caption buttons and draw them over the top
+ * right of the window. The header reserves that width so a control never lands
+ * under them.
+ *
+ * The width is measured, never fixed: a caption strip changes with the window
+ * zoom, with a right-to-left layout, and with the system's own metrics.
+ * --ui-caption-inset-end carries the measured value and defaults to zero, so a
+ * window with no overlay reserves nothing. ADR-0008 records why.
  */
 :global(html[data-omp-desktop="win32"]) .headerBar,
 :global(html[data-omp-desktop="linux"]) .headerBar {
   -webkit-app-region: drag;
-  padding-right: calc(var(--space-2-5) + 138px);
+  padding-right: calc(var(--space-2-5) + var(--ui-caption-inset-end, 0px));
 }
 
 :global(html[data-omp-desktop="win32"]) .headerBar button,

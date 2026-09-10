@@ -19,6 +19,7 @@ const INLINE_STYLE_WAIVERS = [
 const STYLE_MUTATION_WAIVERS = [
   "hooks/useTheme.ts",
   "hooks/useViewportHeight.ts",
+  "hooks/useCaptionInsets.ts",
   "lib/clipboard.ts",
   "app/layout.tsx",
 ];
