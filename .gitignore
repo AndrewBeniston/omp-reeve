@@ -48,3 +48,6 @@ desktop/server.previous/
 
 # private working tickets, never published
 desktop/node_modules/
+
+# throwaway prototypes and scratch artifacts, never published
+.scratch/
