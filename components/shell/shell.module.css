@@ -161,6 +161,20 @@
   background: var(--ui-main);
 }
 
+/*
+ * Windows and Linux round the top left corner of the main surface, where it
+ * meets the sidebar under the menu bar. The reference applies the same radius
+ * on Windows, with no condition on the window state, so a maximised window
+ * keeps the corner. The value is --radius-lg, which is 10px in both.
+ *
+ * The corner is inside the window, so it never touches the system frame. The
+ * column already clips its children, so the header corner follows it.
+ */
+:global(html[data-omp-desktop="win32"]) .centerColumn,
+:global(html[data-omp-desktop="linux"]) .centerColumn {
+  border-top-left-radius: var(--radius-lg);
+}
+
 .header {
   position: relative;
   z-index: 300;

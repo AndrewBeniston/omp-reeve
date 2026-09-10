@@ -168,6 +168,12 @@ test("the sidebar bar and the second toggle stay off Windows and Linux", () => {
 });
 
 test("the Windows and Linux header clears the native caption buttons", () => {
+  // The main surface rounds its top left corner, where it meets the sidebar.
+  // The reference applies the same radius on Windows at every window state.
+  assert.match(
+    shellStyles,
+    /:global\(html\[data-omp-desktop="win32"\]\) \.centerColumn,\s*:global\(html\[data-omp-desktop="linux"\]\) \.centerColumn\s*\{[^}]*border-top-left-radius:\s*var\(--radius-lg\);/,
+  );
   // The caption buttons sit on the menu bar above, so the header reserves
   // nothing. It still drags the window, and every button in it opts out.
   // No fixed reserve ships anywhere. ADR-0008.

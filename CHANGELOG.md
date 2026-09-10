@@ -17,6 +17,8 @@ the What's New dialog adds a second page that invites support.
 - Windows and Linux draw one menu bar above the application. It carries File,
   Edit, View and Help, the sidebar toggle, the history arrows, and the window
   buttons. Each name opens its menu.
+- The main surface on Windows and Linux rounds its top left corner, where it
+  meets the sidebar under the menu bar.
 
 ### Fixed
 - Windows no longer draws two sidebar toggles. One toggle sits on the menu bar,
