@@ -198,7 +198,7 @@
 :global(html[data-omp-desktop="win32"]) .centerColumn,
 :global(html[data-omp-desktop="linux"]) .centerColumn {
   border-top-left-radius: var(--radius-shell-corner);
-  border-left: 1px solid color-mix(in srgb, var(--ui-sidebar) 92%, var(--ui-text));
+  border-left: 1px solid var(--ui-border-shell);
   background-clip: padding-box;
 }
 

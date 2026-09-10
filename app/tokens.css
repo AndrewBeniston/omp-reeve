@@ -37,6 +37,11 @@
   --ui-border: var(--border);
   --ui-border-strong: color-mix(in srgb, var(--border) 60%, var(--text));
   --ui-border-subtle: color-mix(in srgb, var(--border) 55%, transparent);
+  /* The divider that follows the rounded corner of the main surface on
+     Windows and Linux. It is measured against the surface, not the sidebar,
+     so it reads the same in every theme. The reference sits about twice the
+     surface value. See components/shell/shell.module.css. */
+  --ui-border-shell: color-mix(in srgb, var(--ui-main) 88%, var(--ui-text));
   --ui-text: var(--text);
   --ui-text-muted: var(--text-muted);
   --ui-text-dim: var(--text-dim);
