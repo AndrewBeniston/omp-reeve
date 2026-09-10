@@ -175,6 +175,18 @@
   border-top-left-radius: var(--radius-lg);
 }
 
+/*
+ * The corner only reads if the colour behind it differs from the surface. In
+ * the titanium theme --ui-canvas and --ui-main are the same colour, so the
+ * curve would be invisible. The area behind the surface takes the chrome
+ * colour instead, which is the colour of the menu bar above and the sidebar
+ * beside it. Nothing else shows this background: the panels cover the rest.
+ */
+:global(html[data-omp-desktop="win32"]) .shell,
+:global(html[data-omp-desktop="linux"]) .shell {
+  background: var(--ui-sidebar);
+}
+
 .header {
   position: relative;
   z-index: 300;
