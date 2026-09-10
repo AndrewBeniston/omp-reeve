@@ -125,7 +125,7 @@
   /* The main surface corner on Windows and Linux. It is larger than
      --radius-lg because a superellipse draws a shorter arc than a circle at
      the same radius. See components/shell/shell.module.css. */
-  --radius-shell-corner: 16px;
+  --radius-shell-corner: 18px; /* fills the same arc as a 12.5px circle */
   --radius-nav-row: 12.5px;
   --radius-project-row: 15px;
   --radius-control: 12.5px;

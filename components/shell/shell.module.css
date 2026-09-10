@@ -184,11 +184,15 @@
  *
  * The radius is larger than --radius-lg on purpose. globals.css gives every
  * element corner-shape: superellipse(1.5), and a superellipse hugs the corner,
- * so the same radius draws a much shorter arc than a circle. --radius-lg drew
- * an arc of 6 pixels here, against 13 in the reference, which draws a circle.
- * Reeve keeps its own shape and matches the size instead: 16 pixels of
- * superellipse spans about 12 pixels of arc. Every number here was measured on
- * a Windows machine.
+ * so the same radius draws a shorter arc than a circle. --radius-lg drew an
+ * arc of 6 pixels here. The reference draws a circle of 12.5 pixels, which is
+ * its own 10 pixel token times its 1.25 corner scale, and that fills a 12 by
+ * 13 pixel arc.
+ *
+ * Reeve keeps its own shape and matches that size instead. 18 pixels of
+ * superellipse fills the same 12 by 13 pixel arc. The two profiles differ by
+ * one pixel at two points and match everywhere else. Every number here was
+ * measured from both running applications on a Windows machine.
  */
 :global(html[data-omp-desktop="win32"]) .sidebarPanel,
 :global(html[data-omp-desktop="linux"]) .sidebarPanel {
