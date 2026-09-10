@@ -10,6 +10,9 @@ the What's New dialog adds a second page that invites support.
 ## [Unreleased]
 
 ### Changed
+- The desktop window shows Reeve's own page when it cannot load the
+  application. The window showed the browser's "This page couldn't load"
+  screen before. The new page names the error and offers Try again.
 - A desktop build refuses to stage from a directory inside a home directory.
   Next records the build directory inside the server bundle, so such a build
   would carry the name of the person who made it. The message names a neutral

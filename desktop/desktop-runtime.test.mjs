@@ -16,11 +16,13 @@ const {
   createProjectMenuTemplate,
   createSessionMenuTemplate,
   createServerCommand,
+  createLoadFailurePage,
   isExternalUrlAllowed,
   isExpectedServerResponse,
   isNavigationAllowed,
   isTrustedRendererUrl,
   prepareWritableNext,
+  shouldReportLoadFailure,
 } = require("./desktop-runtime.cjs");
 
 test("the packaged desktop uses one stable browser origin", () => {
@@ -327,4 +329,58 @@ test("the IPC handler validates its sender and its external URL", async () => {
     ),
     /Only HTTP and HTTPS URLs/,
   );
+});
+
+test("a failed window load shows Reeve's own page, not the browser's", () => {
+  // The tester saw Chromium's "This page couldn't load" screen. Issue 7. The
+  // window must show Reeve's own page, and the page must offer a way back.
+
+  // A sub-frame that fails must not replace the whole window.
+  assert.equal(shouldReportLoadFailure({ errorCode: -102, isMainFrame: false }), false);
+
+  // ERR_ABORTED is what a normal navigation away reports. It is not a failure.
+  assert.equal(shouldReportLoadFailure({ errorCode: -3, isMainFrame: true }), false);
+
+  // The failure page is itself a document. If it fails, a second replacement
+  // would loop, so a data URL never reports a failure.
+  assert.equal(shouldReportLoadFailure({
+    errorCode: -102,
+    isMainFrame: true,
+    validatedUrl: "data:text/html;charset=utf-8,%3Chtml%3E",
+  }), false);
+
+  // A refused connection means the server stopped. That is the reported crash.
+  assert.equal(shouldReportLoadFailure({ errorCode: -102, isMainFrame: true }), true);
+  assert.equal(shouldReportLoadFailure({ errorCode: -7, isMainFrame: true }), true);
+
+  const page = createLoadFailurePage({
+    errorCode: -102,
+    errorDescription: "ERR_CONNECTION_REFUSED",
+    retryUrl: "http://127.0.0.1:30142",
+  });
+
+  // Electron loads it as a document, so it must be a data URL.
+  assert.match(page, /^data:text\/html;charset=utf-8,/);
+  const prefix = "data:text/html;charset=utf-8,";
+  const html = decodeURIComponent(page.slice(prefix.length));
+
+  assert.match(html, /Reeve/);
+  assert.match(html, /ERR_CONNECTION_REFUSED/);
+  assert.match(html, /-102/);
+  // The way back is a plain link. The page runs no script.
+  assert.match(html, /href="http:\/\/127\.0\.0\.1:30142"/);
+  assert.doesNotMatch(html, /<script/);
+
+  // A description carries no markup into the page.
+  const hostile = createLoadFailurePage({
+    errorCode: -1,
+    errorDescription: '<img src=x onerror="boom">',
+    retryUrl: "http://127.0.0.1:30142",
+  });
+  const hostileHtml = decodeURIComponent(hostile.slice(prefix.length));
+  assert.doesNotMatch(hostileHtml, /<img/);
+  assert.match(hostileHtml, /&lt;img/);
+
+  // The navigation guard must let the retry link back into the application.
+  assert.equal(isNavigationAllowed("http://127.0.0.1:30142", "http://127.0.0.1:30142", true), true);
 });

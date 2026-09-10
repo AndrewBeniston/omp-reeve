@@ -20,6 +20,10 @@ test("the Electron lifecycle owns one stable desktop instance", () => {
   assert.match(source, /randomUUID/);
   assert.match(source, /isExpectedServerResponse/);
   assert.match(source, /api\/desktop-health/);
+  // The window must never show the browser's own failure screen. Issue 7.
+  assert.match(source, /webContents\.on\("did-fail-load"/);
+  assert.match(source, /shouldReportLoadFailure/);
+  assert.match(source, /createLoadFailurePage/);
   assert.match(source, /trafficLightPosition\s*=\s*\{ x: 16, y: 16 \}/);
   assert.match(source, /backgroundColor:\s*"#00000000"/);
   assert.match(source, /windowOptions\.vibrancy\s*=\s*"menu"/);

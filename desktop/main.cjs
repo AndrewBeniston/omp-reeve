@@ -14,11 +14,13 @@ const {
   createProjectMenuTemplate,
   createSessionMenuTemplate,
   createServerCommand,
+  createLoadFailurePage,
   isExternalUrlAllowed,
   isExpectedServerResponse,
   isNavigationAllowed,
   isTrustedRendererUrl,
   prepareWritableNext,
+  shouldReportLoadFailure,
 } = require("./desktop-runtime.cjs");
 const { STATE_CHANNEL: UPDATE_STATE_CHANNEL, createUpdateController } = require("./update-controller.cjs");
 
@@ -249,6 +251,20 @@ function createMainWindow() {
   window.webContents.on("will-navigate", guardNavigation);
   window.webContents.on("will-redirect", guardFrameNavigation);
   window.webContents.on("will-frame-navigate", guardFrameNavigation);
+  // Without this the window shows the browser's own "This page couldn't load"
+  // screen, which names Chromium and offers no way back into Reeve. Issue 7.
+  window.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedUrl, isMainFrame) => {
+    if (!shouldReportLoadFailure({ errorCode, isMainFrame, validatedUrl })) return;
+    appendDesktopLog(`[omp-desktop] window load failed: ${errorDescription} (${errorCode}) at ${validatedUrl}`);
+    if (window.isDestroyed()) return;
+    void window.loadURL(createLoadFailurePage({
+      errorCode,
+      errorDescription,
+      retryUrl: desktopUrl || DEFAULT_DEV_URL,
+    })).then(() => {
+      if (!window.isDestroyed()) window.show();
+    });
+  });
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (isExternalUrlAllowed(url)) {
       void shell.openExternal(url).catch((error) => {
