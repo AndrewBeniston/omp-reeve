@@ -78,8 +78,10 @@ const eslintConfig = [
   ...coreWebVitals,
   ...typescript,
   {
-    // desktop/server and desktop/dist are generated packaging output.
-    ignores: ["**/desktop/server", "**/desktop/dist"],
+    // Generated packaging output. server.staging belongs here too: a build
+    // leaves it in place, and eslint then reports tens of thousands of
+    // problems from the copied dependency tree.
+    ignores: ["**/desktop/server", "**/desktop/server.staging", "**/desktop/dist"],
   },
   {
     rules: {
