@@ -6,6 +6,15 @@
   flex-shrink: 0;
 }
 
+/* Sits after the last Tab and does not scroll away with them. */
+.tabBarNew {
+  position: sticky;
+  right: 0;
+  flex: 0 0 auto;
+  align-self: center;
+  margin-inline: var(--space-1);
+}
+
 .fileTab {
   display: flex;
   align-items: center;

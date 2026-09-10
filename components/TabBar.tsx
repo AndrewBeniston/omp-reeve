@@ -26,19 +26,45 @@ export interface SourcesTab extends TabBase {
 }
 
 /**
+ * A web page rendered in an Electron guest beside a Session.
+ *
+ * The id is stable and assigned when the Tab opens. It is deliberately not the
+ * URL: the human navigates, and the agent addresses this Tab over the debugging
+ * protocol, so an identity that moved with the page would break the moment a
+ * link was clicked.
+ */
+export interface BrowserTab extends TabBase {
+  kind: "browser";
+  url: string;
+}
+
+/**
  * A surface in the Tab strip, of exactly one kind. A Session is never a Tab:
  * the navigation tree selects Sessions, and the Session view is not in the
  * strip. Adding a kind here is deliberately a typecheck failure everywhere the
  * new kind is unhandled — that exhaustiveness is what makes the union safe to
  * extend, so do not replace it with a runtime registry.
  */
-export type Tab = FileTab | SourcesTab;
+export type Tab = FileTab | SourcesTab | BrowserTab;
+
+/**
+ * Refuse to compile when a Tab kind is unhandled.
+ *
+ * Call it from the default branch of any switch over a Tab. The parameter is
+ * `never`, so a newly added kind that reaches it is a type error at that call
+ * site rather than a surprise at runtime.
+ */
+export function assertNeverTab(tab: never): never {
+  throw new Error(`Unhandled Tab kind: ${JSON.stringify(tab)}`);
+}
 
 /** The icon for a Tab, chosen by kind rather than by guessing from its label. */
 function TabIcon({ tab }: { tab: Tab }) {
   switch (tab.kind) {
     case "sources":
       return <SourcesIcon />;
+    case "browser":
+      return <BrowserIcon />;
     case "file":
       return getFileIcon(tab.label, 13);
   }
@@ -49,6 +75,8 @@ function tabTitle(tab: Tab): string {
   switch (tab.kind) {
     case "file":
       return tab.filePath;
+    case "browser":
+      return tab.url;
     case "sources":
       return tab.label;
   }
@@ -59,9 +87,14 @@ interface Props {
   activeTabId: string;
   onSelectTab: (id: string) => void;
   onCloseTab: (id: string) => void;
+  /**
+   * Open a new Browser tab. Temporary: the plus menu that offers every kind is
+   * a later ticket, and this control becomes its trigger.
+   */
+  onNewBrowserTab?: () => void;
 }
 
-export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab }: Props) {
+export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab, onNewBrowserTab }: Props) {
   const { t } = useI18n();
   const closeLabel = t("i18n.close");
 
@@ -134,6 +167,19 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab }: Props) {
           </div>
         );
       })}
+      {onNewBrowserTab && (
+        <IconButton
+          className={styles.tabBarNew}
+          label={t("browser.newTab")}
+          title={t("browser.newTab")}
+          onClick={onNewBrowserTab}
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+            <line x1="6" y1="2" x2="6" y2="10" />
+            <line x1="2" y1="6" x2="10" y2="6" />
+          </svg>
+        </IconButton>
+      )}
     </Surface>
   );
 }
@@ -143,6 +189,16 @@ function SourcesIcon() {
     <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M6.5 5.5 4.8 7.2a2.4 2.4 0 1 0 3.4 3.4l1.7-1.7" />
       <path d="m9.5 10.5 1.7-1.7a2.4 2.4 0 1 0-3.4-3.4L6.1 7.1" />
+    </svg>
+  );
+}
+
+function BrowserIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="8" cy="8" r="5.6" />
+      <path d="M2.4 8h11.2" />
+      <path d="M8 2.4a8.6 8.6 0 0 1 0 11.2a8.6 8.6 0 0 1 0-11.2" />
     </svg>
   );
 }
