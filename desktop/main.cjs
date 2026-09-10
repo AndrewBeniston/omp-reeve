@@ -379,6 +379,25 @@ function registerTerminalHandlers() {
     if (!contents.isDestroyed()) contents.send(channel, payload);
   };
 
+  /**
+   * Windows whose shells are already bound to their own destruction.
+   *
+   * The binding belongs to the window, not to the Terminal, so it is made once.
+   * Registering it per Terminal instead stacked a listener for every Tab a human
+   * opened, and Node warns about a leak at eleven.
+   *
+   * Weak, so a closed window is collectable rather than held here forever.
+   */
+  const boundToWindow = new WeakSet();
+
+  const endShellsWithWindow = (contents) => {
+    if (boundToWindow.has(contents)) return;
+    boundToWindow.add(contents);
+    // A pty outlives the process that spawned it unless it is killed, so an
+    // orphaned login shell would sit there holding the Project directory open.
+    contents.once("destroyed", () => terminalRegistry?.closeAllFor(contents.id));
+  };
+
   ipcMain.handle("omp-desktop:terminal-open", (event, request) => {
     if (!trusted(event)) return { ok: false, reason: "untrusted-sender" };
 
@@ -409,11 +428,7 @@ function registerTerminalHandlers() {
       onExit: (id, exitCode) => send(contents, "omp-desktop:terminal-exit", { id, exitCode }),
     });
 
-    if (opened.ok) {
-      // Every shell this window owns ends with the window. A pty outlives the
-      // process that spawned it otherwise.
-      contents.once("destroyed", () => terminalRegistry?.closeAllFor(contents.id));
-    }
+    if (opened.ok) endShellsWithWindow(contents);
     return opened;
   });
 
