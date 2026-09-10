@@ -530,13 +530,19 @@
   transition: background var(--duration-fast) var(--ease-standard);
 }
 
+/*
+ * The handle lightens the border. It does not paint an accent colour, which is
+ * what the reference does and what the theme asks for.
+ *
+ * :focus-visible is not in this list on purpose. The hook focuses the handle on
+ * pointer down, so the line stayed after the pointer release. The keyboard
+ * focus ring below still marks the handle for a keyboard user.
+ */
 .sidebarResizeHandle:hover::after,
-.sidebarResizeHandle:focus-visible::after,
 .sidebarResizeHandle[data-resizing="true"]::after,
 .rightPanelResizeHandle:hover::after,
-.rightPanelResizeHandle:focus-visible::after,
 .rightPanelResizeHandle[data-resizing="true"]::after {
-  background: var(--ui-accent);
+  background: var(--ui-border-strong);
 }
 
 .sidebarResizeHandle:focus-visible,

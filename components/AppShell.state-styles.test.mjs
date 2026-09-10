@@ -59,6 +59,14 @@ test("visible chat header controls use the current Codex geometry", () => {
 });
 
 test("shell state styles use selectors instead of event style mutations", () => {
+  // The resize handle lightens the border. It never paints the accent colour,
+  // and it never keeps a mark after the pointer release. Issue 11.
+  assert.match(
+    shellStyles,
+    /\.sidebarResizeHandle:hover::after,\s*\.sidebarResizeHandle\[data-resizing="true"\]::after,\s*\.rightPanelResizeHandle:hover::after,\s*\.rightPanelResizeHandle\[data-resizing="true"\]::after\s*\{[^}]*background:\s*var\(--ui-border-strong\);/,
+  );
+  assert.doesNotMatch(resizerSource, /target\.focus\(/);
+
   for (const [name, source] of [
     ["AppShell", appShellSource],
     ["useResizablePanel", resizerSource],

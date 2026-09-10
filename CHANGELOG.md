@@ -25,6 +25,8 @@ the What's New dialog adds a second page that invites support.
   at every sidebar state.
 - File, Edit, View and Help return on Windows and Linux. The keyboard shortcuts
   they carry work again, because the menu is hidden and never removed.
+- The sidebar drag handle lightens the border instead of painting an accent
+  line. The mark no longer stays after you release the pointer.
 
 ## [0.5.0] - 2026-09-08 support: true
 
