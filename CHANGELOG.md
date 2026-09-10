@@ -11,6 +11,13 @@ the What's New dialog adds a second page that invites support.
 
 ### Changed
 
+- A browser tab is now drawn by the application itself rather than embedded in
+  the interface. Nothing changes in how it looks or behaves, but the agent can
+  now see the page: with a debugging port open, OMP's browser tool finds the tab
+  you are looking at instead of finding Reeve's own window. Browser tabs also no
+  longer run as embedded guests, so the interface can no longer create one at
+  all.
+
 - The tab strip beside a Session announces itself as "Open tabs" rather than
   "Open files", and the name is translated. It is about to carry more than
   files.

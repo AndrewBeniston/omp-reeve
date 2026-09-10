@@ -5,6 +5,19 @@ window.addEventListener("DOMContentLoaded", () => {
   document.documentElement.dataset.ompDesktop = process.platform;
 }, { once: true });
 
+/**
+ * Listen to one tab's events on a shared channel.
+ *
+ * Every Browser tab reports on the same channel, so each listener filters by
+ * the tab it belongs to. Without that, every tab would show every page's title.
+ */
+function subscribe(channel, tabId, callback) {
+  const listener = (_event, payload) => {
+    if (payload?.tabId === tabId) callback(payload);
+  };
+  ipcRenderer.on(channel, listener);
+  return () => ipcRenderer.removeListener(channel, listener);
+}
 contextBridge.exposeInMainWorld(
   "ompDesktop",
   Object.freeze({
@@ -47,6 +60,38 @@ contextBridge.exposeInMainWorld(
      * the Project's trust and this window's ownership on every call, so nothing
      * here is a permission — it is a request.
      */
+    browser: Object.freeze({
+      open(request) {
+        return ipcRenderer.invoke("omp-desktop:browser-open", request);
+      },
+      setBounds(tabId, bounds) {
+        return ipcRenderer.invoke("omp-desktop:browser-bounds", { tabId, bounds });
+      },
+      setVisible(tabId, visible) {
+        return ipcRenderer.invoke("omp-desktop:browser-visible", { tabId, visible });
+      },
+      navigate(tabId, url) {
+        return ipcRenderer.invoke("omp-desktop:browser-navigate", { tabId, url });
+      },
+      command(tabId, name) {
+        return ipcRenderer.invoke("omp-desktop:browser-command", { tabId, name });
+      },
+      close(tabId) {
+        return ipcRenderer.invoke("omp-desktop:browser-close", { tabId });
+      },
+      /** Where the page went. Returns the function that stops listening. */
+      onNavigated(tabId, callback) {
+        return subscribe("omp-desktop:browser-navigated", tabId, callback);
+      },
+      /** The page named itself. */
+      onTitle(tabId, callback) {
+        return subscribe("omp-desktop:browser-title", tabId, (payload) => callback(payload.title));
+      },
+      /** The page declared an icon. */
+      onFavicon(tabId, callback) {
+        return subscribe("omp-desktop:browser-favicon", tabId, (payload) => callback(payload.faviconUrl));
+      },
+    }),
     terminal: Object.freeze({
       open(request) {
         return ipcRenderer.invoke("omp-desktop:terminal-open", request);
