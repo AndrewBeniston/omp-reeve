@@ -25,7 +25,34 @@ export interface SourcesTab extends TabBase {
   sources: SummarySource[];
 }
 
+/**
+ * A surface in the Tab strip, of exactly one kind. A Session is never a Tab:
+ * the navigation tree selects Sessions, and the Session view is not in the
+ * strip. Adding a kind here is deliberately a typecheck failure everywhere the
+ * new kind is unhandled — that exhaustiveness is what makes the union safe to
+ * extend, so do not replace it with a runtime registry.
+ */
 export type Tab = FileTab | SourcesTab;
+
+/** The icon for a Tab, chosen by kind rather than by guessing from its label. */
+function TabIcon({ tab }: { tab: Tab }) {
+  switch (tab.kind) {
+    case "sources":
+      return <SourcesIcon />;
+    case "file":
+      return getFileIcon(tab.label, 13);
+  }
+}
+
+/** The tooltip for a Tab's label: its most specific identity, by kind. */
+function tabTitle(tab: Tab): string {
+  switch (tab.kind) {
+    case "file":
+      return tab.filePath;
+    case "sources":
+      return tab.label;
+  }
+}
 
 interface Props {
   tabs: Tab[];
@@ -46,7 +73,7 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab }: Props) {
       radius="none"
       data-component="tab-bar"
       role="tablist"
-      aria-label="Open files"
+      aria-label={t("tabs.strip")}
     >
       {tabs.map((tab, index) => {
         const isActive = tab.id === activeTabId;
@@ -82,11 +109,11 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab }: Props) {
             }}
           >
             <span className={styles.fileTabIcon}>
-              {tab.kind === "sources" ? <SourcesIcon /> : getFileIcon(tab.label, 13)}
+              <TabIcon tab={tab} />
             </span>
             <span
               className={styles.fileTabLabel}
-              title={tab.kind === "file" ? tab.filePath : tab.label}
+              title={tabTitle(tab)}
             >
               {tab.label}
             </span>

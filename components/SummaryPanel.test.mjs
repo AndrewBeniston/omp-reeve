@@ -145,5 +145,5 @@ test("Summary receives sources through the ChatWindow data seam", () => {
   assert.match(appShellSource, /sourceInputId=\{COMPOSER_IMAGE_INPUT_ID\}/);
   assert.match(appShellSource, /onViewAllSources=\{handleViewAllSources\}/);
   assert.match(appShellSource, /kind:\s*"sources"/);
-  assert.match(appShellSource, /<SourcesView[\s\S]*?sources=\{activeFileTab\.sources\}/);
+  assert.match(appShellSource, /<SourcesView[\s\S]*?sources=\{activeTab\.sources\}/);
 });
