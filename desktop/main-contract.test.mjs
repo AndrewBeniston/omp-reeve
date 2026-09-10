@@ -37,23 +37,29 @@ test("the Electron lifecycle owns one stable desktop instance", () => {
   assert.doesNotMatch(source, /headers:\s*\{\s*\[DESKTOP_CHALLENGE_HEADER\]: launchToken/);
 });
 
-test("enabling a webview guest does not weaken the host window", () => {
+test("a Browser tab is a page the main process owns, and no guest may exist", () => {
   const source = readFileSync(join(import.meta.dir, "main.cjs"), "utf8");
 
-  // Permission to create a guest for a Browser tab.
-  assert.match(source, /webviewTag:\s*true/);
+  // A Browser tab used to be a <webview> guest. Chromium reports a guest as a
+  // webview target and OMP browser tool keeps only page targets, so the agent
+  // could see nothing but Reeve own interface. A WebContentsView is a page.
+  assert.match(source, /new WebContentsView\(\{ webPreferences \}\)/);
+  assert.match(source, /contentView\.addChildView\(view\)/);
 
-  // The three guarantees the host keeps regardless. Enabling the flag above is
-  // not allowed to trade any of them away.
+  // Nothing needs to create a guest any more, so nothing may. Refusing
+  // outright is stronger than containing one after it attaches.
+  assert.match(source, /webviewTag:\s*false/);
+  assert.doesNotMatch(source, /webviewTag:\s*true/);
+  assert.match(source, /on\("will-attach-webview"/);
+  assert.match(source, /event\.preventDefault\(\)/);
+
+  // The three guarantees the host keeps regardless.
   assert.match(source, /contextIsolation:\s*true/);
   assert.match(source, /nodeIntegration:\s*false/);
   assert.match(source, /sandbox:\s*true/);
 
-  // Containment runs on attach, before a guest exists.
-  assert.match(source, /on\("will-attach-webview"/);
-  assert.match(source, /containWebviewGuest\(webPreferences, params\)/);
-
-  // A guest's popups leave for the system browser rather than opening a window.
-  assert.match(source, /on\("did-attach-webview"/);
-  assert.match(source, /guestWebContents\.setWindowOpenHandler/);
+  // A page popups leave for the system browser rather than opening a window,
+  // and removing its view does not end it, so it is closed explicitly.
+  assert.match(source, /contents\.setWindowOpenHandler/);
+  assert.match(source, /view\.webContents\.close\(\)/);
 });

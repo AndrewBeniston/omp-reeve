@@ -19,39 +19,50 @@ function hostLabel(url: string): string {
   }
 }
 
-/**
- * Electron's <webview> element. It is not in React's JSX namespace, and it is
- * not a DOM type either, so the attributes we set are declared here rather than
- * asserted away at each call site.
- */
-interface WebviewElement extends HTMLElement {
-  src: string;
-  getURL(): string;
-  getTitle(): string;
-  canGoBack(): boolean;
-  canGoForward(): boolean;
-  goBack(): void;
-  goForward(): void;
-  reload(): void;
+/** The rectangle a page should be drawn in, in window coordinates. */
+interface PageBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 /**
- * True once the renderer is known to be running inside the desktop shell, which
- * is the only place a guest can exist. In a browser the element is unknown and
- * would render as an empty inline box, so the panel says so instead of showing
- * nothing.
+ * The desktop bridge for Browser tabs.
  *
- * It reports false on the server and on the first client render, then true.
- * Reading `window` during render would make the server and client trees differ
- * and fail hydration, so the answer arrives in an effect instead.
+ * A page is owned and drawn by the main process, not by this renderer. That is
+ * what makes it a first-class page target the agent can see; the cost is that
+ * layout becomes a conversation, and this side of it is measurement.
+ */
+interface BrowserBridge {
+  open(request: { tabId: string; url: string; bounds: PageBounds }): Promise<{ ok: boolean; reused?: boolean }>;
+  setBounds(tabId: string, bounds: PageBounds): Promise<boolean>;
+  setVisible(tabId: string, visible: boolean): Promise<boolean>;
+  navigate(tabId: string, url: string): Promise<boolean>;
+  command(tabId: string, name: "back" | "forward" | "reload"): Promise<boolean>;
+  close(tabId: string): Promise<boolean>;
+  onNavigated(tabId: string, callback: (payload: { url: string; canGoBack: boolean; canGoForward: boolean }) => void): () => void;
+  onTitle(tabId: string, callback: (title: string) => void): () => void;
+  onFavicon(tabId: string, callback: (faviconUrl: string) => void): () => void;
+}
+
+function browserBridge(): BrowserBridge | undefined {
+  return (window as { ompDesktop?: { browser?: BrowserBridge } }).ompDesktop?.browser;
+}
+
+/**
+ * True once the renderer is known to be running inside the desktop shell.
+ *
+ * Only the desktop process can own a page, so the browser version of Reeve has
+ * no Browser tab to offer. The answer arrives in an effect rather than during
+ * render, because reading the window while rendering would make the server and
+ * client trees differ.
  */
 export function useSupportsBrowserTab(): boolean {
   const [supported, setSupported] = useState(false);
-
   useEffect(() => {
-    setSupported(Boolean((window as { ompDesktop?: unknown }).ompDesktop));
+    setSupported(Boolean(browserBridge()));
   }, []);
-
   return supported;
 }
 
@@ -64,11 +75,11 @@ interface Props {
 }
 
 /**
- * Renders every open Browser tab, showing the active one.
+ * Every open Browser tab.
  *
- * All of them stay mounted on purpose: a guest reloads if it is remounted or
- * reparented, so switching tabs or collapsing the panel would otherwise throw
- * the page away and return the human to the top of it.
+ * All stay mounted. A page is a live process with the human place in it, and
+ * closing one to switch tabs would throw that away, so an inactive tab is
+ * hidden by the main process instead.
  */
 export function BrowserTabs({ tabs, activeTabId, onNavigate, onTitleChange, onFaviconChange }: Props) {
   const { t } = useI18n();
@@ -81,7 +92,7 @@ export function BrowserTabs({ tabs, activeTabId, onNavigate, onTitleChange, onFa
   return (
     <div className={styles.browserTabs}>
       {tabs.map((tab) => (
-        <BrowserGuest
+        <BrowserPage
           key={tab.id}
           tab={tab}
           isActive={tab.id === activeTabId}
@@ -94,7 +105,7 @@ export function BrowserTabs({ tabs, activeTabId, onNavigate, onTitleChange, onFa
   );
 }
 
-interface GuestProps {
+interface PageProps {
   tab: BrowserTab;
   isActive: boolean;
   onNavigate: (tabId: string, url: string) => void;
@@ -102,18 +113,26 @@ interface GuestProps {
   onFaviconChange: (tabId: string, faviconUrl: string) => void;
 }
 
-function BrowserGuest({ tab, isActive, onNavigate, onTitleChange, onFaviconChange }: GuestProps) {
+function BrowserPage({ tab, isActive, onNavigate, onTitleChange, onFaviconChange }: PageProps) {
   const { t } = useI18n();
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const guestRef = useRef<WebviewElement | null>(null);
   const urlRef = useRef<HTMLInputElement | null>(null);
-  // Focused, the field shows the whole address to edit. Otherwise it shows the
-  // host, which is what a human needs to know at a glance.
+  const [history, setHistory] = useState({ canGoBack: false, canGoForward: false });
 
-  // Read inside the guest's own listeners, which are bound once and must not
-  // close over a stale url.
-  const emptyRef = useRef(!tab.url);
-  emptyRef.current = !tab.url;
+  /**
+   * Which mount of this Tab owns the page.
+   *
+   * The page lives in the main process and is keyed by the Tab, not by this
+   * component, so two mounts of the same Tab name the same page. React mounts,
+   * unmounts and remounts an effect in development, and without this the first
+   * mount's cleanup closes the page the second mount just opened, leaving a Tab
+   * with nothing behind it.
+   */
+  const mountRef = useRef(0);
+
+  // Read inside listeners bound once, which must not close over stale props.
+  const callbacks = useRef({ onNavigate, onTitleChange, onFaviconChange });
+  callbacks.current = { onNavigate, onTitleChange, onFaviconChange };
 
   // An empty Tab puts the human in the address bar, because there is nothing
   // else for them to do with it.
@@ -122,83 +141,100 @@ function BrowserGuest({ tab, isActive, onNavigate, onTitleChange, onFaviconChang
     urlRef.current?.focus();
   }, [isActive, tab.url]);
 
-  // The guest is created imperatively and never re-created. React must not own
-  // it: a re-render that replaced the element would reload the page.
   useEffect(() => {
     const host = hostRef.current;
-    if (!host || guestRef.current) return;
+    const bridge = browserBridge();
+    if (!host || !bridge) return;
 
-    const guest = document.createElement("webview") as WebviewElement;
-    guest.className = styles.browserGuest;
-    // A Tab opened from the launcher has no address yet: the human types one.
-    // about:blank rather than no src at all, because a guest with no src never
-    // finishes attaching and its events would not fire.
-    guest.setAttribute("src", tab.url || "about:blank");
-    // Nothing else is set here. The main process assigns the partition and
-    // forces every privilege on attach, and an attribute set here would be
-    // discarded there anyway.
-    host.append(guest);
-    guestRef.current = guest;
 
-    const handleNavigated = (): void => {
-      const next = guest.getURL();
-      // about:blank is the empty Tab's resting state, not somewhere the human
-      // went, so it never becomes the Tab's address.
-      if (next && next !== "about:blank") onNavigate(tab.id, next);
+    // The page is drawn where this placeholder sits. Everything else in this
+    // effect exists to keep those two rectangles the same one.
+    const measure = (): PageBounds => {
+      const rect = host.getBoundingClientRect();
+      return { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+    };
+
+    const mine = mountRef.current + 1;
+    mountRef.current = mine;
+    const opening = bridge.open({ tabId: tab.id, url: tab.url, bounds: measure() });
+
+    const stopNavigated = bridge.onNavigated(tab.id, ({ url, canGoBack, canGoForward }) => {
+      setHistory({ canGoBack, canGoForward });
+      // about:blank is the empty Tab resting state, not somewhere the human
+      // went, so it never becomes the Tab address.
+      if (url && url !== "about:blank") callbacks.current.onNavigate(tab.id, url);
       if (urlRef.current && document.activeElement !== urlRef.current) {
-        // Not focused, so the address reads as a label: host only.
-        urlRef.current.value = next === "about:blank" ? "" : hostLabel(next);
+        urlRef.current.value = url === "about:blank" ? "" : hostLabel(url);
       }
-    };
-    const handleTitle = (event: Event): void => {
-      const title = (event as unknown as { title?: string }).title ?? guest.getTitle();
-      if (title) onTitleChange(tab.id, title);
-    };
-    const handleReady = (): void => {
-      if (!emptyRef.current) return;
-      urlRef.current?.focus();
-    };
-    const handleFavicon = (event: Event): void => {
-      // The guest reports every icon the page declares, largest last, so the
-      // final entry is the one to show.
-      const icons = (event as unknown as { favicons?: string[] }).favicons ?? [];
-      const icon = icons[icons.length - 1];
-      if (icon) onFaviconChange(tab.id, icon);
-    };
+    });
+    const stopTitle = bridge.onTitle(tab.id, (title) => {
+      if (title) callbacks.current.onTitleChange(tab.id, title);
+    });
+    const stopFavicon = bridge.onFavicon(tab.id, (faviconUrl) => {
+      callbacks.current.onFaviconChange(tab.id, faviconUrl);
+    });
 
-    guest.addEventListener("did-navigate", handleNavigated);
-    guest.addEventListener("did-navigate-in-page", handleNavigated);
-    guest.addEventListener("page-title-updated", handleTitle);
-    // The guest claims focus when it finishes attaching, after any effect in
-    // this component has run. An empty Tab wants the human in the address bar
-    // instead, so take it back at the one moment the guest has finished.
-    guest.addEventListener("dom-ready", handleReady);
-    guest.addEventListener("page-favicon-updated", handleFavicon);
+    // The panel resizes with a drag, the sidebar opens, the window moves. Any
+    // of those changes where the placeholder is, and the page must follow it
+    // in the same frame or it visibly lags behind the interface.
+    const report = () => {
+      const bounds = measure();
+      // A hidden Tab measures as zero. Reporting that would resize the page to
+      // nothing, so visibility is what hides it, not a zero rectangle.
+      if (bounds.width < 1 || bounds.height < 1) return;
+      void bridge.setBounds(tab.id, bounds);
+    };
+    const observer = new ResizeObserver(report);
+    observer.observe(host);
+    window.addEventListener("resize", report);
+    window.addEventListener("scroll", report, true);
 
     return () => {
-      guest.removeEventListener("did-navigate", handleNavigated);
-      guest.removeEventListener("did-navigate-in-page", handleNavigated);
-      guest.removeEventListener("page-title-updated", handleTitle);
-      guest.removeEventListener("dom-ready", handleReady);
-      guest.removeEventListener("page-favicon-updated", handleFavicon);
-      guest.remove();
-      guestRef.current = null;
+      observer.disconnect();
+      window.removeEventListener("resize", report);
+      window.removeEventListener("scroll", report, true);
+      stopNavigated();
+      stopTitle();
+      stopFavicon();
+      // Wait for the open to settle, or a Tab closed in the same tick as it
+      // opened would leave a page running that nothing can reach.
+      void opening.then(() => {
+        // A later mount of this same Tab owns the page now, so this cleanup is
+        // a remount rather than a closure and must leave the page alone.
+        if (mountRef.current !== mine) return;
+        void bridge.close(tab.id);
+      });
     };
-    // tab.url is the initial address only. Later changes come from the guest
-    // itself, so re-running this effect would fight the human's navigation.
+    // The page belongs to this Tab. tab.url is its opening address only: later
+    // changes come from the page itself, so re-running this would fight the
+    // human navigation and throw away their place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab.id, onNavigate, onTitleChange, onFaviconChange]);
+  }, [tab.id]);
+
+  // Switching tabs hides a page rather than closing it, and a Tab that becomes
+  // visible was measured as zero while hidden, so it re-measures on the way in.
+  useEffect(() => {
+    const bridge = browserBridge();
+    const host = hostRef.current;
+    if (!bridge || !host) return;
+    if (isActive) {
+      const rect = host.getBoundingClientRect();
+      if (rect.width >= 1 && rect.height >= 1) {
+        void bridge.setBounds(tab.id, { x: rect.left, y: rect.top, width: rect.width, height: rect.height });
+      }
+    }
+    void bridge.setVisible(tab.id, isActive);
+  }, [isActive, tab.id]);
 
   const submitUrl = useCallback((raw: string) => {
-    const guest = guestRef.current;
-    if (!guest) return;
-    const candidate = raw.trim();
-    if (!candidate) return;
-    // A bare host is what a human types. Anything without a scheme becomes
-    // https rather than being handed to the guest as a relative path.
-    const url = /^[a-z][a-z0-9+.-]*:/i.test(candidate) ? candidate : `https://${candidate}`;
-    guest.src = url;
-  }, []);
+    const bridge = browserBridge();
+    if (!bridge) return;
+    void bridge.navigate(tab.id, raw);
+  }, [tab.id]);
+
+  const run = useCallback((name: "back" | "forward" | "reload") => {
+    void browserBridge()?.command(tab.id, name);
+  }, [tab.id]);
 
   return (
     <div className={styles.browserTab} data-active={isActive} data-browser-tab={tab.id}>
@@ -208,7 +244,8 @@ function BrowserGuest({ tab, isActive, onNavigate, onTitleChange, onFaviconChang
             className={styles.browserNavButton}
             label={t("browser.back")}
             title={t("browser.back")}
-            onClick={() => guestRef.current?.goBack()}
+            disabled={!history.canGoBack}
+            onClick={() => run("back")}
           >
             {/* An arrow, not a chevron: shaft plus head, as the reference draws it. */}
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -220,7 +257,8 @@ function BrowserGuest({ tab, isActive, onNavigate, onTitleChange, onFaviconChang
             className={styles.browserNavButton}
             label={t("browser.forward")}
             title={t("browser.forward")}
-            onClick={() => guestRef.current?.goForward()}
+            disabled={!history.canGoForward}
+            onClick={() => run("forward")}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M2 7h10" />
@@ -231,9 +269,9 @@ function BrowserGuest({ tab, isActive, onNavigate, onTitleChange, onFaviconChang
             className={styles.browserNavButton}
             label={t("browser.reload")}
             title={t("browser.reload")}
-            onClick={() => guestRef.current?.reload()}
+            onClick={() => run("reload")}
           >
-            {/* Two opposed arcs, the reference's reload glyph. */}
+            {/* Two opposed arcs, the reference reload glyph. */}
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 6.2A5.2 5.2 0 0 0 3.3 3.6L2 4.9" />
               <path d="M2 7.8a5.2 5.2 0 0 0 8.7 2.6l1.3-1.3" />
@@ -273,6 +311,11 @@ function BrowserGuest({ tab, isActive, onNavigate, onTitleChange, onFaviconChang
           }}
         />
       </div>
+      {/*
+        * The page is not in this tree. This is the rectangle it is drawn in,
+        * measured and reported to the main process, which owns the page so the
+        * agent can see it as a page target.
+        */}
       <div ref={hostRef} className={styles.browserHost} />
     </div>
   );
