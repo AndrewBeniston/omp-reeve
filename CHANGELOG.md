@@ -9,6 +9,12 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+### Changed
+
+- The tab strip beside a Session announces itself as "Open tabs" rather than
+  "Open files", and the name is translated. It is about to carry more than
+  files.
+
 ## [0.5.0] - 2026-09-08 support: true
 
 ### Summary
