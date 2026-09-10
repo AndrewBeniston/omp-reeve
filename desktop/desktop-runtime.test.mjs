@@ -8,8 +8,10 @@ import { join } from "node:path";
 
 const require = createRequire(import.meta.url);
 const {
+  APPLICATION_MENU_IDS,
   DESKTOP_PORT,
   DESKTOP_PROOF_HEADER,
+  createApplicationMenuTemplate,
   createExternalLinkHandler,
   createProjectMenuTemplate,
   createSessionMenuTemplate,
@@ -163,6 +165,46 @@ test("the desktop shell opens only HTTP links externally", () => {
   assert.equal(isExternalUrlAllowed("file:///Users/omp/private"), false);
   assert.equal(isExternalUrlAllowed("javascript:alert(1)"), false);
   assert.equal(isExternalUrlAllowed("invalid"), false);
+});
+
+test("the application menu carries four names on every platform", () => {
+  const actions = [];
+  const links = [];
+  const build = (platform) => createApplicationMenuTemplate({
+    platform,
+    onAction: (action) => actions.push(action),
+    onOpenExternal: (url) => links.push(url),
+  });
+
+  const windows = build("win32");
+  assert.deepEqual(
+    windows.map((item) => item.id),
+    [...APPLICATION_MENU_IDS],
+  );
+  assert.deepEqual(windows.map((item) => item.label), ["File", "Edit", "View", "Help"]);
+
+  // macOS keeps the same four names and adds the system application menu.
+  const mac = build("darwin");
+  assert.equal(mac[0].role, "appMenu");
+  assert.deepEqual(mac.slice(1).map((item) => item.id), [...APPLICATION_MENU_IDS]);
+
+  // The shortcuts live on the menu items, so hiding the bar keeps them.
+  const newChat = windows[0].submenu.find((item) => item.id === "file-new-chat");
+  const toggleSidebar = windows[2].submenu.find((item) => item.id === "view-sidebar");
+  assert.equal(newChat.accelerator, "CmdOrCtrl+N");
+  assert.equal(toggleSidebar.accelerator, "CmdOrCtrl+B");
+  newChat.click();
+  toggleSidebar.click();
+  assert.deepEqual(actions, ["new-chat", "toggle-sidebar"]);
+
+  // Windows offers Quit on its File menu. macOS keeps Quit on the system menu.
+  assert.equal(windows[0].submenu.some((item) => item.role === "quit"), true);
+  assert.equal(mac[1].submenu.some((item) => item.role === "quit"), false);
+
+  // Every Help link goes through the external-URL guard.
+  windows[3].submenu.forEach((item) => item.click());
+  assert.equal(links.length, 2);
+  links.forEach((url) => assert.equal(isExternalUrlAllowed(url), true));
 });
 
 test("the native session menu contains only recoverable session actions", () => {

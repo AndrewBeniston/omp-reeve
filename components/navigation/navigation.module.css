@@ -453,20 +453,13 @@
 }
 
 /*
- * Windows and Linux draw the same bar, with two differences. The caption
- * buttons sit on the right instead of the left, so the leading padding is
- * small and nothing is reserved on this side. The height matches
- * DESKTOP_TITLE_BAR_HEIGHT in desktop/main.cjs; change both together or the
- * caption buttons misalign with the bar.
+ * Windows and Linux draw no bar inside the sidebar. Their toggle and history
+ * arrows sit on the application menu bar above the whole window, which is
+ * where the references put them. ADR-0008 supersedes the earlier 36px bar in
+ * this position.
  */
-:global(html[data-omp-desktop="win32"]) .desktopTitleBar,
-:global(html[data-omp-desktop="linux"]) .desktopTitleBar {
-  display: flex;
-  height: 36px;
-  align-items: center;
-  padding: 0 8px;
-  flex-shrink: 0;
-  -webkit-app-region: drag;
+:global(html[data-omp-menu="application-menu"]) .desktopTitleBar {
+  display: none;
 }
 
 .desktopSidebarToggle,

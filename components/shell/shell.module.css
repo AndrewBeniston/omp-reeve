@@ -14,6 +14,94 @@
   font-family: var(--font-sans);
 }
 
+/*
+ * The frame holds the application menu bar above the shell. Where the system
+ * owns the menu, the bar renders nothing and the frame is the shell alone.
+ */
+.shellFrame {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: var(--app-viewport-height, 100dvh);
+}
+
+.shellFrame .shell {
+  height: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/*
+ * The 36px menu bar. It renders only where the renderer owns the menu, which
+ * is Windows and Linux. The height matches DESKTOP_TITLE_BAR_HEIGHT in
+ * desktop/main.cjs, so the caption buttons sit on this bar. A test holds the
+ * two numbers together. ADR-0008.
+ */
+.applicationMenuBar {
+  display: flex;
+  height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-1);
+  padding-left: var(--space-2);
+  padding-right: calc(var(--space-2) + var(--ui-caption-inset-end, 0px));
+  background: var(--ui-sidebar);
+  -webkit-app-region: drag;
+}
+
+.applicationMenuBar button {
+  -webkit-app-region: no-drag;
+}
+
+.applicationMenuControl {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-nav-row);
+  padding: 0;
+  background: transparent;
+  color: var(--ui-sidebar-icon);
+  cursor: pointer;
+}
+
+.applicationMenuControl:hover {
+  background: var(--ui-row-hover);
+  color: var(--ui-text);
+}
+
+.applicationMenuControl:focus-visible,
+.applicationMenuName:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: calc(-1 * var(--ui-focus-offset));
+}
+
+.applicationMenuItems {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0-5);
+  margin-left: var(--space-2);
+}
+
+.applicationMenuName {
+  height: 24px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+  background: transparent;
+  color: var(--ui-text-muted);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: var(--text-ui);
+  line-height: var(--leading-ui);
+}
+
+.applicationMenuName:hover {
+  background: var(--ui-row-hover);
+  color: var(--ui-text);
+}
+
 :global(html[data-omp-desktop="darwin"]) .shell {
   background: transparent;
 }
@@ -98,24 +186,27 @@
 }
 
 /*
- * Windows and Linux keep the native caption buttons and draw them over the top
- * right of the window. The header reserves that width so a control never lands
- * under them.
- *
- * The width is measured, never fixed: a caption strip changes with the window
- * zoom, with a right-to-left layout, and with the system's own metrics.
- * --ui-caption-inset-end carries the measured value and defaults to zero, so a
- * window with no overlay reserves nothing. ADR-0008 records why.
+ * Windows and Linux draw the caption buttons on the menu bar above, so the
+ * header reserves nothing on its trailing edge. The header still drags the
+ * window, and every button in it opts out.
  */
 :global(html[data-omp-desktop="win32"]) .headerBar,
 :global(html[data-omp-desktop="linux"]) .headerBar {
   -webkit-app-region: drag;
-  padding-right: calc(var(--space-2-5) + var(--ui-caption-inset-end, 0px));
 }
 
 :global(html[data-omp-desktop="win32"]) .headerBar button,
 :global(html[data-omp-desktop="linux"]) .headerBar button {
   -webkit-app-region: no-drag;
+}
+
+/*
+ * One sidebar toggle, and it sits on the menu bar. The header toggle is hidden
+ * at every sidebar state where the renderer owns the menu, so Windows never
+ * draws two. macOS keeps its own rule below, untouched.
+ */
+:global(html[data-omp-menu="application-menu"]) .mainSidebarToggle {
+  display: none;
 }
 
 :global(html[data-omp-desktop="darwin"]) .headerLeading[data-sidebar-open="true"] .mainSidebarToggle {

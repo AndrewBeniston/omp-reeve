@@ -10,6 +10,7 @@ const {
   DESKTOP_PORT,
   DESKTOP_CHALLENGE_HEADER,
   createExternalLinkHandler,
+  createApplicationMenuTemplate,
   createProjectMenuTemplate,
   createSessionMenuTemplate,
   createServerCommand,
@@ -33,6 +34,9 @@ const DESKTOP_TITLE_BAR_HEIGHT = 36;
 const DESKTOP_TITLE_BAR_BACKGROUND = "#00000000";
 const DESKTOP_TITLE_BAR_SYMBOL_DARK = "#ffffff";
 const DESKTOP_TITLE_BAR_SYMBOL_LIGHT = "#1f1f1f";
+
+// The channel a menu item uses to reach the renderer.
+const MENU_ACTION_CHANNEL = "omp-desktop:menu-action";
 
 function desktopTitleBarOverlay() {
   return {
@@ -202,16 +206,19 @@ function createMainWindow() {
     // replaces the native caption strip and the native menu strip.
     windowOptions.titleBarStyle = "hidden";
     windowOptions.titleBarOverlay = desktopTitleBarOverlay();
-    windowOptions.autoHideMenuBar = true;
   }
 
   const window = new BrowserWindow(windowOptions);
   if (process.platform === "win32" || process.platform === "linux") {
-    // The application menu stays registered for its accelerators. Removing the
-    // bar from this window stops Windows drawing a second strip under the
-    // caption, which is the row the renderer's own bar replaces.
+    // The application menu stays registered for its keyboard shortcuts. Only
+    // the bar is hidden, because the renderer draws File, Edit, View and Help
+    // itself on these platforms. removeMenu() would take the shortcuts with
+    // it. ADR-0008.
+    //
+    // autoHideMenuBar is false on purpose. It is what lets the Alt key bring
+    // the native strip back, and one bar is the whole point.
+    window.autoHideMenuBar = false;
     window.setMenuBarVisibility(false);
-    window.removeMenu();
     const followTheme = () => {
       if (window.isDestroyed()) return;
       window.setTitleBarOverlay(desktopTitleBarOverlay());
@@ -295,6 +302,50 @@ function registerAttachmentPickerHandler() {
         : ["openFile", "multiSelections"],
     });
     return result.canceled ? [] : result.filePaths;
+  });
+}
+
+function registerApplicationMenu() {
+  const openExternal = (url) => {
+    if (!isExternalUrlAllowed(url)) return;
+    void shell.openExternal(url).catch((error) => {
+      appendDesktopLog(`[omp-desktop] menu link failed: ${error.message}`);
+    });
+  };
+  const sendAction = (action) => {
+    const window = mainWindow && !mainWindow.isDestroyed()
+      ? mainWindow
+      : BrowserWindow.getFocusedWindow();
+    if (!window || window.isDestroyed()) return;
+    window.webContents.send(MENU_ACTION_CHANNEL, action);
+  };
+  const menu = Menu.buildFromTemplate(createApplicationMenuTemplate({
+    platform: process.platform,
+    onAction: sendAction,
+    onOpenExternal: openExternal,
+  }));
+  // The menu is registered on every platform. macOS shows it as the system
+  // menu bar. Windows and Linux hide the bar and keep the shortcuts.
+  Menu.setApplicationMenu(menu);
+}
+
+function registerApplicationMenuHandler() {
+  ipcMain.handle("omp-desktop:show-application-menu", (event, state) => {
+    if (!event.senderFrame || !desktopUrl || !isTrustedRendererUrl(event.senderFrame.url, desktopUrl)) {
+      throw new Error("The application-menu request did not come from the application.");
+    }
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) throw new Error("The application-menu request has no application window.");
+
+    const applicationMenu = Menu.getApplicationMenu();
+    const item = applicationMenu?.items.find((entry) => entry.id === state?.id);
+    if (!item?.submenu) return false;
+    item.submenu.popup({
+      window,
+      x: Math.round(Number(state?.x) || 0),
+      y: Math.round(Number(state?.y) || 0),
+    });
+    return true;
   });
 }
 
@@ -421,6 +472,8 @@ if (!hasSingleInstanceLock) {
       registerAttachmentPickerHandler();
       registerProjectMenuHandler();
       registerSessionMenuHandler();
+      registerApplicationMenuHandler();
+      registerApplicationMenu();
       registerUpdateHandlers();
       registerPermissionHandler();
       mainWindow = createMainWindow();

@@ -8,6 +8,7 @@ const stateStyles = await readFile(new URL("./shell/state-styles.module.css", im
 const shellStyles = await readFile(new URL("./shell/shell.module.css", import.meta.url), "utf8");
 const shellLayoutSource = await readFile(new URL("./shell/ShellLayout.tsx", import.meta.url), "utf8");
 const navigationStyles = await readFile(new URL("./navigation/navigation.module.css", import.meta.url), "utf8");
+const menuBarSource = await readFile(new URL("./shell/ApplicationMenuBar.tsx", import.meta.url), "utf8");
 const globalStyles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
 
 test("shell controls expose public state attributes", () => {
@@ -128,24 +129,51 @@ test("the narrow macOS sidebar stays inside the shell layout", () => {
   );
 });
 
-test("the Windows and Linux shell draws its own title bar", () => {
-  // desktop/main.cjs hides the native caption and hands Electron the same 36px
-  // height. The renderer bar and the overlay must agree, or the caption buttons
-  // sit off the bar.
+test("the renderer draws one menu bar where it owns the menu", () => {
+  // The bar sits above the application, carries the drag region, and reserves
+  // the measured caption width on its trailing edge. ADR-0008.
+  assert.match(
+    shellStyles,
+    /\.applicationMenuBar\s*\{[^}]*height:\s*36px;[^}]*padding-right:\s*calc\(var\(--space-2\) \+ var\(--ui-caption-inset-end, 0px\)\);[^}]*-webkit-app-region:\s*drag;/,
+  );
+  assert.match(
+    shellStyles,
+    /\.applicationMenuBar button\s*\{[^}]*-webkit-app-region:\s*no-drag;/,
+  );
+  assert.match(shellStyles, /\.shellFrame\s*\{[^}]*flex-direction:\s*column;/);
+  assert.match(menuBarSource, /readMenuOwner\(\) === "application-menu"/);
+  assert.doesNotMatch(menuBarSource, /process\.platform|navigator\.platform|win32/);
+});
+
+test("the sidebar bar and the second toggle stay off Windows and Linux", () => {
+  // One toggle, at every sidebar state. The menu bar carries it, so the chat
+  // header toggle is hidden wherever the renderer owns the menu. The darwin
+  // rules below it are untouched.
   assert.match(
     navigationStyles,
-    /:global\(html\[data-omp-desktop="win32"\]\) \.desktopTitleBar,\s*:global\(html\[data-omp-desktop="linux"\]\) \.desktopTitleBar\s*\{[^}]*display:\s*flex;[^}]*height:\s*36px;[^}]*-webkit-app-region:\s*drag;/,
+    /:global\(html\[data-omp-menu="application-menu"\]\) \.desktopTitleBar\s*\{[^}]*display:\s*none;/,
+  );
+  assert.match(
+    shellStyles,
+    /:global\(html\[data-omp-menu="application-menu"\]\) \.mainSidebarToggle\s*\{[^}]*display:\s*none;/,
+  );
+  assert.match(
+    shellStyles,
+    /:global\(html\[data-omp-desktop="darwin"\]\) \.desktopTitleBar|:global\(html\[data-omp-desktop="darwin"\]\) \.headerLeading\[data-sidebar-open="true"\] \.mainSidebarToggle/,
+  );
+  assert.match(
+    navigationStyles,
+    /:global\(html\[data-omp-desktop="darwin"\]\) \.desktopTitleBar\s*\{[^}]*display:\s*flex;[^}]*height:\s*46px;/,
   );
 });
 
 test("the Windows and Linux header clears the native caption buttons", () => {
-  // Windows keeps its caption buttons and draws them over the top right, so the
-  // header reserves that width. macOS puts them on the left instead.
-  // The reserve is measured, never fixed: a caption strip changes with the
-  // window zoom and with the system's own metrics. ADR-0008.
+  // The caption buttons sit on the menu bar above, so the header reserves
+  // nothing. It still drags the window, and every button in it opts out.
+  // No fixed reserve ships anywhere. ADR-0008.
   assert.match(
     shellStyles,
-    /:global\(html\[data-omp-desktop="win32"\]\) \.headerBar,\s*:global\(html\[data-omp-desktop="linux"\]\) \.headerBar\s*\{[^}]*-webkit-app-region:\s*drag;[^}]*padding-right:\s*calc\(var\(--space-2-5\) \+ var\(--ui-caption-inset-end, 0px\)\);/,
+    /:global\(html\[data-omp-desktop="win32"\]\) \.headerBar,\s*:global\(html\[data-omp-desktop="linux"\]\) \.headerBar\s*\{[^}]*-webkit-app-region:\s*drag;/,
   );
   assert.doesNotMatch(shellStyles, /138px/);
   assert.match(

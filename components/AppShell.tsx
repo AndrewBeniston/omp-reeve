@@ -22,6 +22,7 @@ import { UpdateCard } from "./UpdateCard";
 import { WhatsNewDialog } from "./WhatsNewDialog";
 import { AppHeader, HeaderAction } from "./shell/AppHeader";
 import { ShellLayout } from "./shell/ShellLayout";
+import { ApplicationMenuBar } from "./shell/ApplicationMenuBar";
 import { TypographyTunerPrototype } from "./debug/TypographyTunerPrototype";
 import shellStyles from "./shell/shell.module.css";
 import shellStateStyles from "./shell/state-styles.module.css";
@@ -30,6 +31,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useViewportHeight } from "@/hooks/useViewportHeight";
 import { useCaptionInsets } from "@/hooks/useCaptionInsets";
+import { subscribeApplicationMenuAction } from "@/lib/desktop-application-menu";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
 import { useAudio } from "@/hooks/useAudio";
 import { getFileName } from "@/lib/file-paths";
@@ -896,6 +898,17 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", navigate);
   }, [activeCwd, handleNewSession, handleNewProjectlessSession]);
 
+  // The application menu lives in the main process, so an item that needs the
+  // browser sends its action here. ADR-0008.
+  useEffect(() => subscribeApplicationMenuAction((action) => {
+    if (action === "toggle-sidebar") {
+      handleSidebarToggle();
+      return;
+    }
+    if (activeCwd) handleNewSession(`menu:${Date.now()}`, activeCwd);
+    else void handleNewProjectlessSession();
+  }), [activeCwd, handleNewSession, handleNewProjectlessSession, handleSidebarToggle]);
+
   useEffect(() => {
     const syncWindowTitle = () => {
       if (document.title !== windowTitle) document.title = windowTitle;
@@ -989,6 +1002,12 @@ export function AppShell() {
       <WhatsNewDialog />
       <ShellLayout
         isMobile={isMobile}
+        topBar={(
+          <ApplicationMenuBar
+            sidebarOpen={sidebarOpen}
+            onSidebarToggle={handleSidebarToggle}
+          />
+        )}
         sidebar={{
           content: sidebarContent,
           label: translate("sidebar.projects"),

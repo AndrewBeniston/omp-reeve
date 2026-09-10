@@ -223,10 +223,90 @@ function createProjectMenuTemplate({ archiveEnabled, icons, worktrees, onAction 
   return template;
 }
 
+// The four menus the renderer draws on Windows and Linux. The identifier is
+// what the renderer sends back when a person clicks one of its buttons, and
+// the main process pops the matching submenu. ADR-0008.
+const APPLICATION_MENU_IDS = ["file", "edit", "view", "help"];
+
+const REEVE_DOCUMENTATION_URL = "https://github.com/AndrewBeniston/omp-reeve#readme";
+const REEVE_ISSUE_URL = "https://github.com/AndrewBeniston/omp-reeve/issues/new";
+
+/**
+ * The one application menu, registered on every platform.
+ *
+ * macOS draws it as the system menu bar. Windows and Linux hide the bar and
+ * the renderer draws the same four names itself. The menu is never removed,
+ * because it carries the keyboard shortcuts.
+ */
+function createApplicationMenuTemplate({ platform, onAction, onOpenExternal } = {}) {
+  const isMac = platform === "darwin";
+  const send = (action) => () => { if (onAction) onAction(action); };
+  const open = (url) => () => { if (onOpenExternal) onOpenExternal(url); };
+  const template = [];
+
+  if (isMac) template.push({ role: "appMenu" });
+
+  template.push({
+    id: "file",
+    label: "File",
+    submenu: [
+      { id: "file-new-chat", label: "New chat", accelerator: "CmdOrCtrl+N", click: send("new-chat") },
+      { type: "separator" },
+      { role: "close" },
+      ...(isMac ? [] : [{ role: "quit" }]),
+    ],
+  });
+
+  template.push({
+    id: "edit",
+    label: "Edit",
+    submenu: [
+      { role: "undo" },
+      { role: "redo" },
+      { type: "separator" },
+      { role: "cut" },
+      { role: "copy" },
+      { role: "paste" },
+      { role: "selectAll" },
+    ],
+  });
+
+  template.push({
+    id: "view",
+    label: "View",
+    submenu: [
+      { id: "view-sidebar", label: "Toggle sidebar", accelerator: "CmdOrCtrl+B", click: send("toggle-sidebar") },
+      { type: "separator" },
+      { role: "reload" },
+      { role: "forceReload" },
+      { role: "toggleDevTools" },
+      { type: "separator" },
+      { role: "resetZoom" },
+      { role: "zoomIn" },
+      { role: "zoomOut" },
+      { type: "separator" },
+      { role: "togglefullscreen" },
+    ],
+  });
+
+  template.push({
+    id: "help",
+    label: "Help",
+    submenu: [
+      { id: "help-documentation", label: "Documentation", click: open(REEVE_DOCUMENTATION_URL) },
+      { id: "help-report-issue", label: "Report an issue", click: open(REEVE_ISSUE_URL) },
+    ],
+  });
+
+  return template;
+}
+
 module.exports = {
+  APPLICATION_MENU_IDS,
   DESKTOP_PORT,
   DESKTOP_CHALLENGE_HEADER,
   DESKTOP_PROOF_HEADER,
+  createApplicationMenuTemplate,
   createExternalLinkHandler,
   createProjectMenuTemplate,
   createSessionMenuTemplate,

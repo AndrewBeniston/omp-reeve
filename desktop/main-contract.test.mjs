@@ -33,6 +33,29 @@ test("the Electron lifecycle owns one stable desktop instance", () => {
   assert.match(source, /isTrustedRendererUrl\(event\.senderFrame\.url, desktopUrl\)/);
   assert.match(source, /Menu\.buildFromTemplate\(createSessionMenuTemplate/);
   assert.match(source, /Menu\.buildFromTemplate\(createProjectMenuTemplate/);
+  // The application menu stays registered on every platform, because it
+  // carries the keyboard shortcuts. Windows hides the bar only. ADR-0008.
+  assert.match(source, /Menu\.setApplicationMenu\(menu\)/);
+  assert.doesNotMatch(source, /window\.removeMenu\(\)/);
+  assert.match(source, /window\.setMenuBarVisibility\(false\)/);
+  assert.match(source, /ipcMain\.handle\("omp-desktop:show-application-menu"/);
   assert.match(source, /\[DESKTOP_CHALLENGE_HEADER\]: challenge/);
   assert.doesNotMatch(source, /headers:\s*\{\s*\[DESKTOP_CHALLENGE_HEADER\]: launchToken/);
+});
+
+test("the menu bar height is one number, held by the main process and the renderer", () => {
+  // The system draws its caption buttons on the overlay. The renderer draws
+  // the menu on its own bar. The two heights must agree, or the buttons sit
+  // off the bar. ADR-0008.
+  const source = readFileSync(join(import.meta.dir, "main.cjs"), "utf8");
+  const shellStyles = readFileSync(
+    join(import.meta.dir, "..", "components", "shell", "shell.module.css"),
+    "utf8",
+  );
+  const height = source.match(/const DESKTOP_TITLE_BAR_HEIGHT = (\d+);/)?.[1];
+  assert.equal(height, "36");
+  assert.match(
+    shellStyles,
+    new RegExp(`\\.applicationMenuBar\\s*\\{[^}]*height:\\s*${height}px;`),
+  );
 });

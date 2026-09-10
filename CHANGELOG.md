@@ -14,6 +14,15 @@ the What's New dialog adds a second page that invites support.
   strip and the File / Edit / View / Window strip are gone, so the application
   starts at the top of the window and the close, minimise, and maximise buttons
   sit on Reeve's own colour.
+- Windows and Linux draw one menu bar above the application. It carries File,
+  Edit, View and Help, the sidebar toggle, the history arrows, and the window
+  buttons. Each name opens its menu.
+
+### Fixed
+- Windows no longer draws two sidebar toggles. One toggle sits on the menu bar,
+  at every sidebar state.
+- File, Edit, View and Help return on Windows and Linux. The keyboard shortcuts
+  they carry work again, because the menu is hidden and never removed.
 
 ## [0.5.0] - 2026-09-08 support: true
 
