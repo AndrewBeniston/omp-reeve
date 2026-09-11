@@ -48,7 +48,7 @@ test("the preload exposes only the protected external-link command", async () =>
   onDomReady();
   assert.equal(document.documentElement.dataset.ompDesktop, "darwin");
   assert.equal(document.documentElement.dataset.ompMenu, "native");
-  assert.deepEqual(Object.keys(exposed.value), ["openExternal", "selectDirectory", "selectAttachments", "showProjectMenu", "showSessionMenu", "showApplicationMenu", "onMenuAction", "updater", "browser", "terminal", "agentBrowser"]);
+  assert.deepEqual(Object.keys(exposed.value), ["openExternal", "selectDirectory", "selectAttachments", "showProjectMenu", "showBrowserTabMenu", "showSessionMenu", "showApplicationMenu", "onMenuAction", "updater", "browser", "terminal", "clearBrowsingData", "agentBrowser"]);
   assert.deepEqual(Object.keys(exposed.value.updater), ["getState", "check", "install", "onState"]);
   assert.deepEqual(Object.keys(exposed.value.terminal), ["open", "write", "resize", "close", "onData", "onExit"]);
   assert.deepEqual(Object.keys(exposed.value.browser), ["open", "setBounds", "setVisible", "navigate", "command", "close", "onNavigated", "onTitle", "onFavicon"]);
@@ -57,6 +57,7 @@ test("the preload exposes only the protected external-link command", async () =>
   await exposed.value.selectDirectory();
   await exposed.value.selectAttachments();
   await exposed.value.showProjectMenu({ archiveEnabled: true, worktrees: [] });
+  await exposed.value.showBrowserTabMenu({ hasUrl: true });
   await exposed.value.showSessionMenu({ pinned: false, unread: true });
   await exposed.value.showApplicationMenu({ id: "file", x: 8, y: 36 });
   await exposed.value.updater.getState();
@@ -83,6 +84,7 @@ test("the preload exposes only the protected external-link command", async () =>
     ["omp-desktop:select-directory"],
     ["omp-desktop:select-attachments"],
     ["omp-desktop:show-project-menu", { archiveEnabled: true, worktrees: [] }],
+    ["omp-desktop:show-browser-tab-menu", { hasUrl: true }],
     ["omp-desktop:show-session-menu", { pinned: false, unread: true }],
     ["omp-desktop:show-application-menu", { id: "file", x: 8, y: 36 }],
     ["omp-desktop:update-get-state"],

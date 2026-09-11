@@ -20,6 +20,7 @@ import { tmpdir } from "node:os";
 import { basename, join, relative } from "node:path";
 
 import { readDesktopTargetArgs, resolvePackagedApplication } from "./desktop-targets.mjs";
+import { namesAPerson } from "./build-path.mjs";
 import { spawnHelperDirectories } from "./pty-package.mjs";
 
 const require = createRequire(import.meta.url);
@@ -253,6 +254,49 @@ async function terminateApplication(applicationProcess) {
 }
 
 /**
+ * Refuse a package that names the machine which built it.
+ *
+ * Next.js writes the project directory into the server bundle, so a release
+ * built from a home directory ships that path to everyone who downloads it.
+ * Reeve 0.5.0 did exactly that, in 159 files, because the pre-release scan
+ * checked the source tree rather than the built output.
+ *
+ * Checking here makes it part of every build rather than something somebody
+ * has to remember.
+ */
+function verifyNoPersonalPaths(resources) {
+  const next = join(resources, "server", ".next");
+  if (!existsSync(next)) return;
+
+  const offenders = [];
+  const visit = (directory) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) { visit(path); continue; }
+      if (!entry.isFile()) continue;
+      // The path is written into JavaScript and JSON, not into binaries.
+      if (!/\.(js|json|mjs|cjs|map|txt)$/.test(entry.name)) continue;
+      let contents;
+      try { contents = readFileSync(path, "utf8"); } catch { continue; }
+      if (namesAPerson(contents)) offenders.push(relative(resources, path));
+      if (offenders.length >= 5) return;
+    }
+  };
+  visit(next);
+
+  assert.equal(
+    offenders.length,
+    0,
+    [
+      `The package names the machine that built it, in ${offenders.length === 5 ? "at least 5" : String(offenders.length)} file(s):`,
+      ...offenders.map((file) => `  ${file}`),
+      "",
+      "Build a release from a neutral path. RELEASING.md has the steps.",
+    ].join("\n"),
+  );
+}
+
+/**
  * Prove the packaged terminal binding loads and can spawn.
  *
  * node-pty is native. A binding that was built for the wrong ABI, or a
@@ -365,6 +409,7 @@ async function verifyPackage() {
   let origin;
   let verificationError;
   try {
+    verifyNoPersonalPaths(resources);
     await verifyTerminalBinding(application, resources);
     origin = await waitForOrigin(logStart, applicationProcess);
     await verifySessions(origin);

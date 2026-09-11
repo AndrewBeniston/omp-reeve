@@ -29,7 +29,7 @@ import { SortableProjectList } from "./navigation/SortableProjectList";
 import { ActivityArchiveDialog } from "./navigation/ActivityArchiveDialog";
 import { DirectoryPicker } from "./DirectoryPicker";
 import { ReeveWordmark } from "./ReeveWordmark";
-import { SessionRenameDialog } from "./SessionRenameDialog";
+import { RenameDialog } from "./RenameDialog";
 import styles from "./navigation/navigation.module.css";
 
 declare global {
@@ -2390,7 +2390,7 @@ function SessionItem({
           unread={isUnread}
         />
       </RichHoverCard>
-      <SessionRenameDialog
+      <RenameDialog
         initialName={title}
         open={renaming}
         onCancel={() => setRenaming(false)}

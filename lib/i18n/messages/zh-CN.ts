@@ -151,6 +151,8 @@ export const zhCNLocale: LocalePlugin = {
     "browser.desktopOnly": "浏览器标签页需要桌面应用。",
     "browser.newTab": "新建浏览器标签页",
     "browser.untitled": "新标签页",
+    "browser.renameTab": "重命名标签页",
+    "browser.renameTabDescription": "浏览时标签页将保留此名称",
     "tabs.newTab": "新建标签页",
     "tabs.suggested": "建议",
     "tabs.review": "审查",

@@ -10,6 +10,29 @@ the What's New dialog adds a second page that invites support.
 ## [Unreleased]
 
 ### Added
+
+- The agent browser panel now says to tell the agent which page to work on.
+  Asked to browse without naming one, it attaches to Reeve's own window rather
+  than your browser tab.
+
+- Releases are now built from a neutral path, so a package no longer carries the
+  home directory of the machine that built it. The build refuses a personal path
+  and the package check refuses a package containing one.
+
+- Browser tabs now belong to a project. Reeve remembers their addresses and
+  order, so reopening a project brings its pages back, still signed in.
+  Switching project puts one set away and takes the other out. Terminals are
+  never restored: a restored terminal would be a dead shell that looks alive.
+
+- Clear browsing data, in Settings under Access. It removes the cookies, logins
+  and cached pages behind every browser tab, and reloads any open tab so none is
+  left looking signed in. The tabs share one session, so this is all of them:
+  the control says so before you press it.
+
+- A right-click menu on a browser tab: new tab to the right, reload, duplicate,
+  rename, copy the address, and open it in your own browser. A tab you rename
+  keeps that name as you browse, instead of the page renaming it back.
+
 - A control in Settings under Access that lets the agent drive Reeve's browser
   tabs. It is off, and turning it on takes effect when you next start Reeve,
   because the door can only be opened as the application launches. The panel

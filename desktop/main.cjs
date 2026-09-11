@@ -12,6 +12,7 @@ const {
   createExternalLinkHandler,
   createApplicationMenuTemplate,
   createProjectMenuTemplate,
+  createBrowserTabMenuTemplate,
   createSessionMenuTemplate,
   createServerCommand,
   createLoadFailurePage,
@@ -719,6 +720,51 @@ function registerBrowserViewHandlers() {
   });
 }
 
+function registerBrowserTabMenuHandler() {
+  ipcMain.handle('omp-desktop:show-browser-tab-menu', (event, state) => {
+    if (!event.senderFrame || !desktopUrl || !isTrustedRendererUrl(event.senderFrame.url, desktopUrl)) {
+      throw new Error('The browser-tab-menu request did not come from the application.');
+    }
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) throw new Error('The browser-tab-menu request has no application window.');
+
+    return new Promise((resolve) => {
+      let selectedAction = null;
+      const menu = Menu.buildFromTemplate(createBrowserTabMenuTemplate({
+        hasUrl: state?.hasUrl === true,
+        onAction: (action) => { selectedAction = action; },
+      }));
+      menu.popup({ window, callback: () => resolve(selectedAction) });
+    });
+  });
+}
+
+/**
+ * Clear everything the built-in browser has stored.
+ *
+ * Every Browser tab shares one partition, so there is no smaller honest unit
+ * than all of it: clearing one site's cookies is not something Reeve can offer
+ * without a per-site surface it does not have. The human is told that plainly
+ * rather than given a control that looks more precise than it is.
+ */
+function registerBrowsingDataHandler() {
+  ipcMain.handle('omp-desktop:clear-browsing-data', async (event) => {
+    if (!event.senderFrame || !desktopUrl || !isTrustedRendererUrl(event.senderFrame.url, desktopUrl)) {
+      throw new Error('The clear-browsing-data request did not come from the application.');
+    }
+    const browsing = session.fromPartition(BROWSER_PARTITION);
+    // Storage is the part that signs somebody in. The cache is cleared with it
+    // so a page cannot be served from disk as though nothing had happened.
+    await browsing.clearStorageData();
+    await browsing.clearCache();
+    // A page already on screen keeps its own memory of being signed in until it
+    // reloads, so every open Browser tab is reloaded rather than left looking
+    // signed in against a store that no longer says so.
+    const reloaded = browserViewRegistry ? browserViewRegistry.reloadAll() : 0;
+    return { ok: true, reloaded };
+  });
+}
+
 function registerPermissionHandler() {
   // Every session, not only the default one. A Browser tab runs in its own
   // partition, and a session with no handler grants whatever a page asks for,
@@ -801,6 +847,8 @@ if (!hasSingleInstanceLock) {
       registerUpdateHandlers();
       registerTerminalHandlers();
       registerBrowserViewHandlers();
+      registerBrowserTabMenuHandler();
+      registerBrowsingDataHandler();
       registerAgentBrowserHandlers();
       registerPermissionHandler();
       mainWindow = createMainWindow();

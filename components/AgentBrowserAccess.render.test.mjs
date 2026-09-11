@@ -75,3 +75,20 @@ test("the browser version says so and cannot be toggled", () => {
   assert.match(text(markup), /desktop application/);
   assert.match(markup, /disabled=""/);
 });
+
+test("every state tells the human to name the page the agent should work on", () => {
+  // Measured against OMP's own picker: asked to browse without naming a page,
+  // the tool attaches to whichever reports itself visible, and that is Reeve's
+  // own window rather than the Browser tab. Three runs out of three.
+  // Reeve cannot fix that from its side, so the panel has to carry the rule.
+  const states = [
+    { granted: false, openThisLaunch: false, restartRequired: false, cdpUrl: null },
+    { granted: true, openThisLaunch: true, restartRequired: false, cdpUrl: "http://127.0.0.1:1" },
+    { granted: false, openThisLaunch: true, restartRequired: true, cdpUrl: "http://127.0.0.1:1" },
+  ];
+  for (const state of states) {
+    const body = text(render(state));
+    assert.match(body, /Tell the agent which page to work on/, JSON.stringify(state));
+    assert.match(body, /attaches to Reeve/);
+  }
+});

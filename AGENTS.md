@@ -11,6 +11,7 @@ This repository is public. Every change is visible to anyone.
 - Releases follow `RELEASING.md`. Only `bun run release` writes a version number or a tag.
 - Packages are built on Andrew's own machines and uploaded with `gh release`. The GitHub workflow is a paid manual fallback. Never start it without Andrew's approval for that run.
 - Work is tracked in GitHub issues. There is no local ticket folder.
+- More than one agent works in this repository. Before you start a ticket, read the open pull requests and their changed files. Two agents fixed the same issue two different ways on 2026-09-11, and the merge kept both.
 - Write user-facing text and docs in plain, short sentences.
 
 ## Agent skills

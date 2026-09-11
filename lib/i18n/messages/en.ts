@@ -150,6 +150,8 @@ export const enLocale: LocalePlugin = {
     "browser.desktopOnly": "A browser tab needs the desktop application.",
     "browser.newTab": "New browser tab",
     "browser.untitled": "New tab",
+    "browser.renameTab": "Rename tab",
+    "browser.renameTabDescription": "The tab keeps this name as you browse",
     "tabs.newTab": "New tab",
     "tabs.suggested": "Suggested",
     "tabs.review": "Review",

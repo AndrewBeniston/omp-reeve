@@ -13,7 +13,12 @@ import { ChatWindow } from "./ChatWindow";
 import { FileViewer } from "./FileViewer";
 import { TabBar, assertNeverTab, type BrowserTab, type Tab, type TerminalTab } from "./TabBar";
 import { Launcher, type LauncherAction } from "./tabs/Launcher";
-import { BrowserTabs, useSupportsBrowserTab } from "./browser/BrowserTabs";
+import { BrowserTabs, browserTabCommand, useSupportsBrowserTab } from "./browser/BrowserTabs";
+import { RenameDialog } from "./RenameDialog";
+import { applyPageTitle, insertTabAfter, renameBrowserTab } from "@/lib/browser-tabs";
+import { toStoredBrowserTabs } from "@/lib/browser-tab-store";
+import { hasBrowserTabMenu, showBrowserTabMenu } from "@/lib/desktop-browser-tab-menu";
+import { openExternal } from "@/lib/open-external";
 import { TerminalTabs, useSupportsTerminalTab } from "./terminal/TerminalTabs";
 import { SettingsConfig } from "./SettingsConfig";
 import { ProjectTrustDialog } from "./ProjectTrustDialog";
@@ -123,6 +128,8 @@ export function AppShell() {
   // control cannot differ between the two trees.
   const supportsBrowserTabs = useSupportsBrowserTab();
   const supportsTerminalTabs = useSupportsTerminalTab();
+  /** The Browser tab whose name the human is editing, if any. */
+  const [renamingBrowserTab, setRenamingBrowserTab] = useState<string | null>(null);
   useViewportHeight();
   useCaptionInsets();
   // Audio ownership lives here (not in ChatWindow) so the completion tone can
@@ -784,14 +791,17 @@ export function AppShell() {
    * may want the same page twice, and the id is what the agent addresses, so it
    * is minted per Tab rather than derived from the URL.
    */
-  const handleOpenBrowserTab = useCallback((url: string) => {
+  const handleOpenBrowserTab = useCallback((url: string, options?: { after?: string }) => {
     const tabId = `browser:${crypto.randomUUID()}`;
-    setTabs((prev) => [...prev, {
-      id: tabId,
-      kind: "browser",
-      label: translate("browser.untitled"),
-      url,
-    }]);
+    setTabs((prev) => {
+      const tab: BrowserTab = {
+        id: tabId,
+        kind: "browser",
+        label: translate("browser.untitled"),
+        url,
+      };
+      return insertTabAfter(prev, tab, options?.after);
+    });
     setActiveTabId(tabId);
     setRightPanelOpen(true);
     // A web page is laid out for a window, not for a gutter. Widen the panel to
@@ -842,9 +852,7 @@ export function AppShell() {
 
   /** The page named itself, so the Tab takes that name. */
   const handleBrowserTitle = useCallback((tabId: string, title: string) => {
-    setTabs((prev) => prev.map((t) => (
-      t.id === tabId && t.kind === "browser" && t.label !== title ? { ...t, label: title } : t
-    )));
+    setTabs((prev) => applyPageTitle(prev, tabId, title));
   }, []);
 
   /** The page declared an icon, so the Tab shows it the way a browser does. */
@@ -855,6 +863,131 @@ export function AppShell() {
         : t
     )));
   }, []);
+
+
+  /**
+   * The context menu on a Browser tab.
+   *
+   * The entries and their order come from the reference application. The menu
+   * itself is drawn by the desktop process, so a browser-only Reeve has none
+   * and the strip does not offer one.
+   */
+  const handleBrowserTabMenu = useCallback((tabId: string) => {
+    const tab = tabs.find((t): t is BrowserTab => t.id === tabId && t.kind === "browser");
+    if (!tab) return;
+
+    void showBrowserTabMenu({ hasUrl: Boolean(tab.url) }).then((action) => {
+      switch (action) {
+        case "new-tab-right":
+          handleOpenBrowserTab("", { after: tab.id });
+          return;
+        case "duplicate":
+          // A second Tab on the same address, with its own id and its own
+          // page. The original keeps its history; this one starts fresh.
+          handleOpenBrowserTab(tab.url, { after: tab.id });
+          return;
+        case "reload":
+          void browserTabCommand(tab.id, "reload");
+          return;
+        case "rename":
+          setRenamingBrowserTab(tab.id);
+          return;
+        case "copy-url":
+          void navigator.clipboard.writeText(tab.url);
+          return;
+        case "open-external":
+          openExternal(tab.url);
+          return;
+        default:
+          return;
+      }
+    });
+  }, [handleOpenBrowserTab, tabs]);
+
+  /** The human named a Tab, so its label stops following the page. */
+  const handleRenameBrowserTab = useCallback(async (name: string) => {
+    const tabId = renamingBrowserTab;
+    if (!tabId) return false;
+    setTabs((prev) => renameBrowserTab(prev, tabId, name));
+    setRenamingBrowserTab(null);
+    return true;
+  }, [renamingBrowserTab]);
+
+
+  /**
+   * Browser tabs belong to a Project, and follow it.
+   *
+   * Reeve remembers the addresses and their order in its own registry, so
+   * reopening a Project brings its pages back. Switching Project puts the
+   * outgoing one's Tabs away and takes the incoming one's out, which is what
+   * makes them the Project's rather than the window's.
+   *
+   * Terminals are never remembered. A restored Terminal would be a dead shell
+   * wearing a live one's clothes, and the human would find out by typing.
+   */
+  const restoredProjectRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const project = activeCwd;
+    if (!project || restoredProjectRef.current === project) return;
+
+    const previous = restoredProjectRef.current;
+    restoredProjectRef.current = project;
+    const controller = new AbortController();
+
+    setTabs((prev) => {
+      // Put the outgoing Project's pages away before they are closed, or
+      // switching away would be indistinguishable from closing them for good.
+      if (previous) {
+        const outgoing = toStoredBrowserTabs(prev);
+        void fetch("/api/browser-tabs", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cwd: previous, tabs: outgoing }),
+        }).catch(() => {});
+      }
+      return prev.filter((tab) => tab.kind !== "browser");
+    });
+
+    void fetch(`/api/browser-tabs?cwd=${encodeURIComponent(project)}`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() as Promise<{ tabs?: { url: string }[] }> : null)
+      .then((data) => {
+        const restored = data?.tabs ?? [];
+        if (restored.length === 0) return;
+        setTabs((prev) => [
+          ...prev,
+          ...restored.map((entry) => ({
+            id: `browser:${crypto.randomUUID()}`,
+            kind: "browser" as const,
+            label: translate("browser.untitled"),
+            url: entry.url,
+          })),
+        ]);
+      })
+      .catch(() => {});
+
+    return () => controller.abort();
+  }, [activeCwd, translate]);
+
+  /**
+   * Remember the current Project's pages as they change.
+   *
+   * Only once this Project's own Tabs have been restored, or an empty panel
+   * during the restore would be written down as "no Tabs" and lose them.
+   */
+  useEffect(() => {
+    const project = activeCwd;
+    if (!project || restoredProjectRef.current !== project) return;
+    const stored = toStoredBrowserTabs(tabs);
+    const timer = setTimeout(() => {
+      void fetch("/api/browser-tabs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cwd: project, tabs: stored }),
+      }).catch(() => {});
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [activeCwd, tabs]);
 
   const handleCloseTab = useCallback((tabId: string) => {
     setTabs((prev) => {
@@ -1489,6 +1622,7 @@ export function AppShell() {
               onSelectTab={setActiveTabId}
               onCloseTab={handleCloseTab}
               newTabActions={launcherActions}
+              onBrowserTabMenu={hasBrowserTabMenu() ? handleBrowserTabMenu : undefined}
             />
           ),
           label: activeTab?.kind === "sources" ? translate("summary.sources") : translate("files.panel"),
@@ -1566,6 +1700,16 @@ export function AppShell() {
           if (!projectTrustBusy) setProjectTrustDialogOpen(false);
         }}
         onConfirm={() => void handleTrustProject()}
+      />
+    )}
+    {renamingBrowserTab !== null && (
+      <RenameDialog
+        open
+        initialName={tabs.find((t) => t.id === renamingBrowserTab)?.label ?? ""}
+        title={translate("browser.renameTab")}
+        description={translate("browser.renameTabDescription")}
+        onCancel={() => setRenamingBrowserTab(null)}
+        onSave={handleRenameBrowserTab}
       />
     )}
     </>

@@ -32,17 +32,23 @@ at 10x and 2x clock time.
 Each package is built on a machine with that operating system, from a clean checkout of the tag.
 The command is the same on every machine. Bun 1.4.0 must match the lockfile.
 
-Clone into a neutral directory, never into a home directory. Next writes the
-absolute build directory into the server bundle, and this repository is public,
-so a build from a home directory ships the name of the person who made it. Use
-`/tmp/reeve/build` on macOS and Linux, and `C:\reeve\build` on Windows.
-Staging refuses a home directory and names `REEVE_ALLOW_PERSONAL_BUILD_PATH`
-as the deliberate override.
+**Build from the neutral path, not from your home directory.** Next.js writes the
+project directory into the server bundle, so a package built from `/Users/you/...`
+ships that path to everyone who downloads it. 0.5.0 shipped a home directory in 159
+files this way. `bun run desktop:build` refuses a personal path, and
+`desktop:verify-package` refuses a package that contains one.
+
+| Platform | Build from |
+| --- | --- |
+| macOS and Linux | `/tmp/reeve/build` |
+| Windows | `C:\reeve\build` |
+
+For a local build you do not intend to ship, set `REEVE_ALLOW_PERSONAL_BUILD_PATH=1`.
 
 ```bash
-mkdir -p /tmp/reeve/build && cd /tmp/reeve/build
-git clone --branch v<version> git@github.com:AndrewBeniston/omp-reeve.git reeve-release
-cd reeve-release
+mkdir -p /tmp/reeve && cd /tmp/reeve
+git clone --branch v<version> git@github.com:AndrewBeniston/omp-reeve.git build
+cd build
 bun install --frozen-lockfile
 (cd desktop && bun install --frozen-lockfile)
 bun run desktop:fetch-bun

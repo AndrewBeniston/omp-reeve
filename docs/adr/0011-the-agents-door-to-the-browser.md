@@ -60,6 +60,33 @@ The settings panel says so in those words. Anything the human is signed in to in
 a tab, the agent is signed in to, because the tabs share one persistent partition
 (see the browser tab work in #36 and #39).
 
+### Naming the page is not optional
+
+It is worse than "could reach". Measured against a live Reeve on 2026-09-11
+with OMP's own `pickElectronTarget`, with one Browser tab open on a real page:
+
+| How the tool is asked | What it attaches to |
+| --- | --- |
+| no options | the Browser tab |
+| `matcher: "example.com"` | the Browser tab |
+| `preferVisible: true` | **Reeve's own window**, three runs out of three |
+
+The third row is the default path. `tab-supervisor.ts` sets
+`preferVisible: !activateForScreenshot`, and for a connected browser with no
+explicit target that resolves to `true`. So an agent handed `app.cdp_url` and
+asked to do something without naming a page attaches to the application and
+starts driving it.
+
+Reeve cannot fix this from its side. The picker prefers the first page that
+reports `document.visibilityState === "visible"`, Reeve's renderer is genuinely
+visible and is enumerated first, and the skip pattern it filters with matches
+devtools and service workers rather than applications. Hiding Reeve's own window
+from the endpoint would mean proxying the protocol, which is the relay that
+decision #13 rejected.
+
+So the rule is a rule for the human, and the panel has to carry it: **tell the
+agent which page to work on.** Recorded as #49.
+
 ## The trap that would have shipped a bug
 
 Chromium writes the port it bound to `DevToolsActivePort` in the user-data
