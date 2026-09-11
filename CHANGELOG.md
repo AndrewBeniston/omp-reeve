@@ -24,6 +24,10 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Releases are now built from a neutral path, so a package no longer carries the
+  home directory of the machine that built it. The build refuses a personal path
+  and the package check refuses a package containing one.
+
 - Browser tabs now belong to a project. Reeve remembers their addresses and
   order, so reopening a project brings its pages back, still signed in.
   Switching project puts one set away and takes the other out. Terminals are
