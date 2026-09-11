@@ -24,6 +24,11 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Clear browsing data, in Settings under Access. It removes the cookies, logins
+  and cached pages behind every browser tab, and reloads any open tab so none is
+  left looking signed in. The tabs share one session, so this is all of them:
+  the control says so before you press it.
+
 - A right-click menu on a browser tab: new tab to the right, reload, duplicate,
   rename, copy the address, and open it in your own browser. A tab you rename
   keeps that name as you browse, instead of the page renaming it back.

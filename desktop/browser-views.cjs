@@ -178,6 +178,21 @@ function createBrowserViewRegistry({ createView, attach, detach }) {
       }
     },
 
+    /**
+     * Reload every open page, and report how many.
+     *
+     * A page already on screen keeps its own memory of being signed in until
+     * it reloads, so clearing the stored data without this leaves a tab
+     * looking signed in against a store that no longer agrees.
+     */
+    reloadAll() {
+      let reloaded = 0;
+      for (const page of pages.values()) {
+        page.view.webContents.reload();
+        reloaded += 1;
+      }
+      return reloaded;
+    },
     /** The page behind a tab, for wiring its events. */
     contentsFor(ownerId, tabId) {
       const page = get(ownerId, tabId);

@@ -132,6 +132,10 @@ contextBridge.exposeInMainWorld(
      * Nothing here can open the door on a running application, which is the
      * point rather than a shortcoming.
      */
+    /** Clear everything the built-in browser has stored, for every Tab. */
+    clearBrowsingData() {
+      return ipcRenderer.invoke("omp-desktop:clear-browsing-data");
+    },
     agentBrowser: Object.freeze({
       getState() {
         return ipcRenderer.invoke("omp-desktop:agent-browser-get");
