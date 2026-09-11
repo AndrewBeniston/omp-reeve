@@ -122,5 +122,20 @@ contextBridge.exposeInMainWorld(
         return () => ipcRenderer.removeListener("omp-desktop:terminal-exit", listener);
       },
     }),
+    /**
+     * Whether the agent may drive this browser.
+     *
+     * Setting it records a decision that takes effect at the next launch.
+     * Nothing here can open the door on a running application, which is the
+     * point rather than a shortcoming.
+     */
+    agentBrowser: Object.freeze({
+      getState() {
+        return ipcRenderer.invoke("omp-desktop:agent-browser-get");
+      },
+      set(granted) {
+        return ipcRenderer.invoke("omp-desktop:agent-browser-set", granted);
+      },
+    }),
   }),
 );
