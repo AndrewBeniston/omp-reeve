@@ -143,6 +143,18 @@ function isNavigationAllowed(value, applicationUrl, isMainFrame) {
   return !isMainFrame && (value === "about:blank" || value === "about:srcdoc");
 }
 
+/**
+ * The one session partition every Browser tab shares.
+ *
+ * It is persistent, so a login survives a restart, and it is deliberately not
+ * the application's own session: the renderer holds the desktop launch token
+ * and talks to the local server, and no web page may share a cookie jar with
+ * that. A partition per tab was rejected because it logs the human out of
+ * everything every time they open a tab.
+ */
+const BROWSER_PARTITION = "persist:omp-browser";
+
+
 function createExternalLinkHandler({ getApplicationUrl, openExternal }) {
   return async (event, url) => {
     if (!event.senderFrame) {
@@ -382,6 +394,7 @@ module.exports = {
   DESKTOP_PORT,
   DESKTOP_CHALLENGE_HEADER,
   DESKTOP_PROOF_HEADER,
+  BROWSER_PARTITION,
   createApplicationMenuTemplate,
   createExternalLinkHandler,
   createLoadFailurePage,

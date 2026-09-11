@@ -4,6 +4,7 @@
   "private": true,
   "main": "main.cjs",
   "dependencies": {
-    "electron-updater": "6"
+    "electron-updater": "6",
+    "node-pty": "^1.1.0"
   }
 }

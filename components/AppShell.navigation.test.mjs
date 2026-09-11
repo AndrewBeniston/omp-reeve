@@ -184,11 +184,14 @@ test("the Files resize limit responds when the Projects panel closes", async (t)
   const view = await mountAppShell(t, { viewportWidth: 1200 });
   await click(view.container.querySelector("[aria-label='Show file panel']"));
   const filesResize = view.container.querySelector("[data-resize-handle='right-panel']");
-  assert.equal(filesResize.getAttribute("aria-valuemax"), "505");
+  // 1200 viewport - 275 sidebar - 352 reserved for the chat. The reserve
+  // matches the reference application, measured from its shipped bundle.
+  assert.equal(filesResize.getAttribute("aria-valuemax"), "573");
 
   await click(view.container.querySelector("[aria-label='Hide sidebar']"));
   await settle();
 
-  assert.equal(filesResize.getAttribute("aria-valuemax"), "780");
+  // With the sidebar hidden the whole viewport less the same reserve is free.
+  assert.equal(filesResize.getAttribute("aria-valuemax"), "848");
   await view.unmount();
 });

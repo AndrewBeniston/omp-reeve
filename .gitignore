@@ -51,3 +51,6 @@ desktop/node_modules/
 
 # local study notes and extracted references, never published
 .study/
+
+# throwaway prototypes and scratch artifacts, never published
+.scratch/

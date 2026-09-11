@@ -183,6 +183,20 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
     commitWidth(widthRef.current);
   }, [commitWidth, widthRef]);
 
+  /**
+   * Widen the panel to at least `width`, never narrowing it.
+   *
+   * A panel that has been dragged narrow keeps that width, which is right for a
+   * file and wrong for a web page: the human is left with a column too thin to
+   * read. This raises the floor for the content that needs the room and leaves
+   * a panel that is already wide enough alone, so it never fights a deliberate
+   * choice to make it wider.
+   */
+  const growToAtLeast = useCallback((minimum: number) => {
+    if (widthRef.current >= minimum) return;
+    commitWidth(minimum, { forcePersist: true });
+  }, [commitWidth, widthRef]);
+
   const onKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
     const step = event.shiftKey ? 32 : 12;
     const growKey = growthDirection === "right" ? "ArrowRight" : "ArrowLeft";
@@ -256,6 +270,7 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
   }, [restoreBodyState]);
 
   return {
+    growToAtLeast,
     isResizing,
     reclampWidth,
     resetWidth,

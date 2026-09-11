@@ -5,7 +5,7 @@ const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme, session, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme, session, shell, webContents, WebContentsView } = require("electron");
 const {
   DESKTOP_PORT,
   DESKTOP_CHALLENGE_HEADER,
@@ -23,6 +23,9 @@ const {
   shouldReportLoadFailure,
 } = require("./desktop-runtime.cjs");
 const { STATE_CHANNEL: UPDATE_STATE_CHANNEL, createUpdateController } = require("./update-controller.cjs");
+const { createTerminalRegistry, loadPty } = require("./terminal-host.cjs");
+const { createBrowserViewRegistry } = require("./browser-views.cjs");
+const { BROWSER_PARTITION } = require("./desktop-runtime.cjs");
 
 const DEFAULT_DEV_URL = "http://127.0.0.1:30141";
 const LOG_PATH = path.join(os.tmpdir(), "omp-desktop.log");
@@ -54,6 +57,8 @@ let serverProcess;
 let desktopUrl;
 let updateController = null;
 let shuttingDown = false;
+let terminalRegistry = null;
+let browserViewRegistry = null;
 
 function createMenuIcon(png) {
   const image = nativeImage.createFromDataURL(`data:image/png;base64,${png}`).resize({ width: 16, height: 16 });
@@ -193,6 +198,12 @@ function createMainWindow() {
       nodeIntegration: false,
       preload: path.join(__dirname, "preload.cjs"),
       sandbox: true,
+      // Permission to create a <webview> guest for a Browser tab. It does not
+      // change this window: the three guarantees above are unchanged. Every
+      // No guest is ever created. A Browser tab is a WebContentsView the main
+      // process owns, so the renderer has no reason to be able to make one, and
+      // refusing outright is stronger than containing a guest after the fact.
+      webviewTag: false,
     },
   };
   if (process.platform === "darwin") {
@@ -264,6 +275,13 @@ function createMainWindow() {
     })).then(() => {
       if (!window.isDestroyed()) window.show();
     });
+  });
+  // A guest cannot be created at all, so there is nothing to contain on
+  // attach. This handler refuses the attach outright rather than negotiating
+  // with preferences that should never arrive.
+  window.webContents.on("will-attach-webview", (event) => {
+    appendDesktopLog("[omp-desktop] refused a webview attach; Browser tabs are not guests");
+    event.preventDefault();
   });
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (isExternalUrlAllowed(url)) {
@@ -445,11 +463,228 @@ function startUpdater() {
   updateController.start();
 }
 
-function registerPermissionHandler() {
-  session.defaultSession.setPermissionCheckHandler(() => false);
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
-    callback(false);
+/**
+ * The Terminal tab's shells.
+ *
+ * Every handler checks that the request came from the application's own
+ * renderer, exactly as the pickers and menus do, and then hands the decision to
+ * terminal-host.cjs, which reads the Project's trust from disk. The renderer
+ * names a directory; it never grants itself one.
+ *
+ * The owner of a Terminal is the webContents that opened it, so its output is
+ * sent back only there and no window can reach another window's shell.
+ */
+function registerTerminalHandlers() {
+  const trusted = (event) =>
+    Boolean(event.senderFrame && desktopUrl && isTrustedRendererUrl(event.senderFrame.url, desktopUrl));
+
+  const send = (contents, channel, payload) => {
+    if (!contents.isDestroyed()) contents.send(channel, payload);
+  };
+
+  /**
+   * Windows whose shells are already bound to their own destruction.
+   *
+   * The binding belongs to the window, not to the Terminal, so it is made once.
+   * Registering it per Terminal instead stacked a listener for every Tab a human
+   * opened, and Node warns about a leak at eleven.
+   *
+   * Weak, so a closed window is collectable rather than held here forever.
+   */
+  const boundToWindow = new WeakSet();
+
+  const endShellsWithWindow = (contents) => {
+    if (boundToWindow.has(contents)) return;
+    boundToWindow.add(contents);
+    // A pty outlives the process that spawned it unless it is killed, so an
+    // orphaned login shell would sit there holding the Project directory open.
+    contents.once("destroyed", () => terminalRegistry?.closeAllFor(contents.id));
+  };
+
+  ipcMain.handle("omp-desktop:terminal-open", (event, request) => {
+    if (!trusted(event)) return { ok: false, reason: "untrusted-sender" };
+
+    const binding = loadPty();
+    if (!binding.ok) {
+      // A native binding built for the wrong ABI. The human gets a message in
+      // the Tab rather than a dead panel, and the reason reaches the log.
+      appendDesktopLog("[omp-desktop] node-pty unavailable: " + binding.error);
+      return { ok: false, reason: "pty-unavailable" };
+    }
+
+    const contents = event.sender;
+    if (!terminalRegistry) {
+      terminalRegistry = createTerminalRegistry({
+        spawn: (shell, args, options) => binding.pty.spawn(shell, args, options),
+        mintId: () => randomUUID(),
+      });
+    }
+
+    const opened = terminalRegistry.open({
+      cwd: typeof request?.cwd === "string" ? request.cwd : "",
+      ownerId: contents.id,
+      platform: process.platform,
+      env: process.env,
+      cols: Number.isInteger(request?.cols) ? request.cols : undefined,
+      rows: Number.isInteger(request?.rows) ? request.rows : undefined,
+      onData: (id, data) => send(contents, "omp-desktop:terminal-data", { id, data }),
+      onExit: (id, exitCode) => send(contents, "omp-desktop:terminal-exit", { id, exitCode }),
+    });
+
+    if (opened.ok) endShellsWithWindow(contents);
+    return opened;
   });
+
+  ipcMain.handle("omp-desktop:terminal-write", (event, request) => {
+    if (!trusted(event) || !terminalRegistry) return false;
+    return terminalRegistry.write(request?.id, event.sender.id, request?.data);
+  });
+
+  ipcMain.handle("omp-desktop:terminal-resize", (event, request) => {
+    if (!trusted(event) || !terminalRegistry) return false;
+    return terminalRegistry.resize(request?.id, event.sender.id, request?.cols, request?.rows);
+  });
+
+  ipcMain.handle("omp-desktop:terminal-close", (event, request) => {
+    if (!trusted(event) || !terminalRegistry) return false;
+    return terminalRegistry.close(request?.id, event.sender.id);
+  });
+}
+
+/**
+ * Browser tabs, drawn by the main process.
+ *
+ * A page is a WebContentsView rather than a guest so the agent can see it:
+ * Chromium reports a guest as a webview target and OMP browser tool keeps only
+ * page targets. See browser-views.cjs.
+ *
+ * The renderer owns the layout question and answers it by measurement: it
+ * reports the rectangle its placeholder occupies, and the page is drawn there.
+ */
+function registerBrowserViewHandlers() {
+  const trusted = (event) =>
+    Boolean(event.senderFrame && desktopUrl && isTrustedRendererUrl(event.senderFrame.url, desktopUrl));
+
+  const windowFor = (ownerId) => {
+    const contents = webContents.fromId(ownerId);
+    return contents ? BrowserWindow.fromWebContents(contents) : null;
+  };
+
+  browserViewRegistry = createBrowserViewRegistry({
+    createView: (webPreferences) => new WebContentsView({ webPreferences }),
+    attach: (view, ownerId) => {
+      const window = windowFor(ownerId);
+      if (window) window.contentView.addChildView(view);
+    },
+    detach: (view, ownerId) => {
+      const window = windowFor(ownerId);
+      if (window) window.contentView.removeChildView(view);
+      // The page is a live process. Removing the view from the tree does not
+      // end it, and a page nobody can see is still running scripts.
+      view.webContents.close();
+    },
+  });
+
+  /**
+   * Wire one page events back to the renderer that owns it.
+   *
+   * The renderer draws the tab strip and the address bar, so it needs to know
+   * where the page went and what it calls itself. This is the same set the
+   * guest reported.
+   */
+  const wirePage = (contents, sender, tabId) => {
+    const send = (channel, payload) => {
+      if (!sender.isDestroyed()) sender.send(channel, Object.assign({ tabId }, payload));
+    };
+    const navigated = () => send('omp-desktop:browser-navigated', {
+      url: contents.getURL(),
+      canGoBack: contents.canGoBack(),
+      canGoForward: contents.canGoForward(),
+    });
+    contents.on('did-navigate', navigated);
+    contents.on('did-navigate-in-page', navigated);
+    contents.on('page-title-updated', (_event, title) => send('omp-desktop:browser-title', { title }));
+    contents.on('page-favicon-updated', (_event, favicons) => {
+      // Largest last, as the guest reported them.
+      const faviconUrl = favicons[favicons.length - 1];
+      if (faviconUrl) send('omp-desktop:browser-favicon', { faviconUrl });
+    });
+    // A page is a plain web page: it navigates freely inside itself, and its
+    // popups leave for the system browser rather than opening a window here.
+    contents.setWindowOpenHandler(({ url }) => {
+      if (isExternalUrlAllowed(url)) {
+        void shell.openExternal(url).catch((error) => {
+          appendDesktopLog('[omp-desktop] page external URL failed: ' + error.message);
+        });
+      }
+      return { action: 'deny' };
+    });
+  };
+
+  const boundToWindow = new WeakSet();
+  const endPagesWithWindow = (contents) => {
+    if (boundToWindow.has(contents)) return;
+    boundToWindow.add(contents);
+    contents.once('destroyed', () => browserViewRegistry?.closeAllFor(contents.id));
+  };
+
+  ipcMain.handle('omp-desktop:browser-open', (event, request) => {
+    if (!trusted(event)) return { ok: false, reason: 'untrusted-sender' };
+    const sender = event.sender;
+    const tabId = typeof request?.tabId === 'string' ? request.tabId : '';
+    if (!tabId) return { ok: false, reason: 'no-tab' };
+
+    const opened = browserViewRegistry.open({
+      ownerId: sender.id,
+      tabId,
+      url: typeof request?.url === 'string' ? request.url : '',
+      bounds: request?.bounds,
+    });
+    if (opened.ok && !opened.reused) {
+      wirePage(browserViewRegistry.contentsFor(sender.id, tabId), sender, tabId);
+      endPagesWithWindow(sender);
+    }
+    return opened;
+  });
+
+  ipcMain.handle('omp-desktop:browser-bounds', (event, request) => {
+    if (!trusted(event) || !browserViewRegistry) return false;
+    return browserViewRegistry.setBounds(event.sender.id, request?.tabId, request?.bounds);
+  });
+
+  ipcMain.handle('omp-desktop:browser-visible', (event, request) => {
+    if (!trusted(event) || !browserViewRegistry) return false;
+    return browserViewRegistry.setVisible(event.sender.id, request?.tabId, request?.visible);
+  });
+
+  ipcMain.handle('omp-desktop:browser-navigate', (event, request) => {
+    if (!trusted(event) || !browserViewRegistry) return false;
+    return browserViewRegistry.navigate(event.sender.id, request?.tabId, request?.url);
+  });
+
+  ipcMain.handle('omp-desktop:browser-command', (event, request) => {
+    if (!trusted(event) || !browserViewRegistry) return false;
+    return browserViewRegistry.command(event.sender.id, request?.tabId, request?.name);
+  });
+
+  ipcMain.handle('omp-desktop:browser-close', (event, request) => {
+    if (!trusted(event) || !browserViewRegistry) return false;
+    return browserViewRegistry.close(event.sender.id, request?.tabId);
+  });
+}
+
+function registerPermissionHandler() {
+  // Every session, not only the default one. A Browser tab runs in its own
+  // partition, and a session with no handler grants whatever a page asks for,
+  // so an ordinary web page could have taken the camera or the microphone
+  // without anybody being asked. Reeve has no surface for granting these, so
+  // the honest answer is no rather than a silent yes.
+  for (const target of [session.defaultSession, session.fromPartition(BROWSER_PARTITION)]) {
+    target.setPermissionCheckHandler(() => false);
+    target.setPermissionRequestHandler((_webContents, _permission, callback) => {
+      callback(false);
+    });
+  }
 }
 
 if (!app.commandLine.hasSwitch("user-data-dir")) {
@@ -469,6 +704,7 @@ if (!hasSingleInstanceLock) {
   });
   app.on("before-quit", () => {
     shuttingDown = true;
+    if (mainWindow && !mainWindow.isDestroyed()) terminalRegistry?.closeAllFor(mainWindow.webContents.id);
     terminateServerTree();
   });
   app.on("window-all-closed", () => {
@@ -491,6 +727,8 @@ if (!hasSingleInstanceLock) {
       registerApplicationMenuHandler();
       registerApplicationMenu();
       registerUpdateHandlers();
+      registerTerminalHandlers();
+      registerBrowserViewHandlers();
       registerPermissionHandler();
       mainWindow = createMainWindow();
 

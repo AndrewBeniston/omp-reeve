@@ -9,18 +9,22 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+### Added
+- A Terminal tab. The panel beside a Session can now hold a real shell, opened
+  from the panel's own launcher or the plus control at the end of the strip. It
+  starts your own login shell in the project's directory, so your aliases,
+  path and prompt are the ones you already have. Control keys reach the shell,
+  the shell is told when you resize the panel, and closing the tab ends it.
+  Several can run at once. A project you have not trusted is refused a shell.
+  Desktop application only.
+- A Browser tab. The tab strip beside a Session can now hold a web page as well
+  as a file, opened from a new control at the end of the strip. Type an address
+  and press Enter to go somewhere; the tab takes the page's own name, and
+  follows the page as you navigate. Every browser tab shares one signed-in
+  browsing session, so a login is still there in the next tab and after a
+  restart. Desktop application only.
+
 ### Changed
-- Opening a drive from the Windows drive picker works. The file browser
-  answered an error before, because the resolved path lost the separator
-  after the drive letter.
-- The desktop window shows Reeve's own page when it cannot load the
-  application. The window showed the browser's "This page couldn't load"
-  screen before. The new page names the error and offers Try again.
-- A desktop build refuses to stage from a directory inside a home directory.
-  Next records the build directory inside the server bundle, so such a build
-  would carry the name of the person who made it. The message names a neutral
-  path to build from, and names the override for a machine that has no other
-  choice.
 - The Windows and Linux window draws its own title bar. The native caption
   strip and the File / Edit / View / Window strip are gone, so the application
   starts at the top of the window and the close, minimise, and maximise buttons
@@ -33,6 +37,23 @@ the What's New dialog adds a second page that invites support.
 - The divider between the sidebar and the main surface follows that corner on
   Windows and Linux. It curves with the surface and fades where it meets the
   top edge.
+- The desktop window shows Reeve's own page when it cannot load the
+  application. The window showed the browser's "This page couldn't load"
+  screen before. The new page names the error and offers Try again.
+- A desktop build refuses to stage from a directory inside a home directory.
+  Next records the build directory inside the server bundle, so such a build
+  would carry the name of the person who made it. The message names a neutral
+  path to build from, and names the override for a machine that has no other
+  choice.
+- A browser tab is now drawn by the application itself rather than embedded in
+  the interface. Nothing changes in how it looks or behaves, but the agent can
+  now see the page: with a debugging port open, OMP's browser tool finds the tab
+  you are looking at instead of finding Reeve's own window. Browser tabs also no
+  longer run as embedded guests, so the interface can no longer create one at
+  all.
+- The tab strip beside a Session announces itself as "Open tabs" rather than
+  "Open files", and the name is translated. It is about to carry more than
+  files.
 
 ### Fixed
 - Windows no longer draws two sidebar toggles. One toggle sits on the menu bar,
@@ -41,11 +62,29 @@ the What's New dialog adds a second page that invites support.
   they carry work again, because the menu is hidden and never removed.
 - The sidebar drag handle lightens the border instead of painting an accent
   line. The mark no longer stays after you release the pointer.
+- Opening a drive from the Windows drive picker works. The file browser
+  answered an error before, because the resolved path lost the separator
+  after the drive letter.
 - Windows groups the worktrees of one repository together again. Git prints a
   path with forward slashes, and Reeve compared it to a backslash path, so
   every worktree on Windows lost its identity.
 - A path written with forward slashes now resolves its parent correctly on
   Windows.
+- The panel beside a Session no longer stops widening part-way across a wide
+  display. It now grows to the room available, less a reserve for the chat.
+- The panel beside a Session is no longer empty when nothing is open. It lists
+  what it can hold, which is Review, Terminal, Browser, Files and Side chat,
+  each with its keyboard shortcut, and says which are not built yet. It used to
+  say "No file open", which told you nothing.
+
+### Security
+- The desktop window can now host a web page guest, in preparation for a
+  Browser tab. The window keeps context isolation, renderer sandboxing and
+  disabled renderer Node access unchanged. Every guest has its privileges
+  forced by the main process and its own requested settings discarded, so a
+  page cannot ask for more than it is given, cannot nest another guest, and
+  cannot choose which browsing session it reads.
+
 
 ## [0.5.0] - 2026-09-08 support: true
 

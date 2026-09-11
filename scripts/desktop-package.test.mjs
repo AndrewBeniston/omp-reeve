@@ -48,10 +48,21 @@ test("desktop commands package the Electron shell with the staged Bun server", (
   assert.equal(desktopPkg.name, "reeve");
   assert.equal(desktopPkg.version, pkg.version);
   assert.equal(desktopPkg.main, "main.cjs");
-  // electron-updater is the only runtime dependency the Electron shell may carry.
-  // The OMP SDK must never enter this process (AGENTS.md, desktop shell).
-  assert.deepEqual(Object.keys(desktopPkg.dependencies), ["electron-updater"]);
+  // Exactly two runtime dependencies may enter the Electron shell, and this
+  // list is the gate: electron-updater, which owns self-update, and node-pty,
+  // which owns the Terminal tab's shells because only the desktop process may
+  // spawn one. The OMP SDK must never enter this process (AGENTS.md, desktop
+  // shell). Adding a third is a decision, not a convenience.
+  assert.deepEqual(Object.keys(desktopPkg.dependencies), ["electron-updater", "node-pty"]);
   assert.match(desktopPkg.dependencies["electron-updater"], /^6/);
+  assert.match(desktopPkg.dependencies["node-pty"], /^\^?1\./);
+
+  // A native binary cannot be executed or loaded from inside an asar archive,
+  // so node-pty ships unpacked beside it.
+  assert.ok(
+    pkg.build.asarUnpack?.some((pattern) => pattern.includes("node-pty")),
+    "node-pty must be unpacked from the asar or every Terminal fails at runtime.",
+  );
 
   const developmentLauncher = readFileSync(join(root, "scripts", "dev-desktop.mjs"), "utf8");
   assert.match(developmentLauncher, /\.bin", "electron"\), \["desktop"\]/);

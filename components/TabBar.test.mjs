@@ -19,16 +19,22 @@ const tabs = [
   { id: "sources", kind: "sources", label: "Sources", sourceSessionId: "session-1", sources: [] },
 ];
 
-function render(activeTabId = "notes") {
+const browserTabs = [
+  ...tabs,
+  { id: "browser:1", kind: "browser", label: "Electron", url: "https://electronjs.org/docs" },
+];
+
+function render(activeTabId = "notes", list = tabs, extraProps = {}) {
   return renderToStaticMarkup(
     React.createElement(
       I18nProvider,
       null,
       React.createElement(TabBar, {
-        tabs,
+        tabs: list,
         activeTabId,
         onSelectTab() {},
         onCloseTab() {},
+        ...extraProps,
       }),
     ),
   );
@@ -49,6 +55,31 @@ test("renders file labels, close labels, and active tab markup", () => {
   assert.match(html, /data-tab-id="alpha"[^>]*aria-selected="false"[^>]*tabindex="-1"/);
 });
 
+test("a browser tab shows its page name and its address", () => {
+  const html = render("browser:1", browserTabs);
+
+  // The page named itself, so the Tab carries that name rather than a URL.
+  assert.match(html, />Electron</);
+  // The address is the tooltip: it is the Tab's most specific identity, the way
+  // a path is for a file.
+  assert.match(html, /title="https:\/\/electronjs\.org\/docs"/);
+  assert.match(html, /data-tab-id="browser:1"[^>]*data-active="true"/);
+});
+
+test("the new browser tab control appears only when it can be used", () => {
+  const without = render("notes", tabs);
+  assert.doesNotMatch(without, /aria-label="New tab"/);
+
+  const withControl = render("notes", tabs, {
+    newTabActions: [{ id: "browser", label: "Browser", keys: "⌘T", run() {} }],
+  });
+  assert.match(withControl, /aria-label="New tab"/);
+});
+
+test("the launcher is absent when nothing can be opened", () => {
+  assert.doesNotMatch(render("notes", tabs, { newTabActions: [] }), /aria-label="New tab"/);
+});
+
 test("selects and closes tabs through the callback props", () => {
   const selected = [];
   const closed = [];
@@ -66,8 +97,16 @@ test("selects and closes tabs through the callback props", () => {
       onSelectTab: (id) => selected.push(id),
       onCloseTab: (id) => closed.push(id),
     });
-  const alphaTab = tree.props.children[0];
-    const closeButton = alphaTab.props.children[2];
+    // Find the Tab and its close control rather than indexing by position: the
+    // strip gained a trailing control, and a positional index makes an
+    // unrelated addition look like a regression.
+    const children = [tree.props.children].flat(2).filter(Boolean);
+    const alphaTab = children.find((child) => child?.props?.["data-tab-id"] === "alpha");
+    assert.ok(alphaTab, "the alpha tab is rendered");
+    const closeButton = [alphaTab.props.children]
+      .flat(2)
+      .find((child) => typeof child?.props?.label === "string" && child.props.label.includes("alpha.ts"));
+    assert.ok(closeButton, "the alpha tab has a close control");
     let propagationStopped = false;
 
     alphaTab.props.onClick();

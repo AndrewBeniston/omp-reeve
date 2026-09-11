@@ -32,6 +32,32 @@ export interface AnsiSegment {
   style: CSSProperties;
 }
 
+/**
+ * The sixteen ANSI colours, in the order a terminal names them.
+ *
+ * Reeve already renders the agent's own command output with this palette, so a
+ * Terminal tab uses it too and the same `ls` looks the same in both places.
+ */
+export interface AnsiPalette {
+  black: string; red: string; green: string; yellow: string;
+  blue: string; magenta: string; cyan: string; white: string;
+  brightBlack: string; brightRed: string; brightGreen: string; brightYellow: string;
+  brightBlue: string; brightMagenta: string; brightCyan: string; brightWhite: string;
+}
+
+export function ansiPalette(): AnsiPalette {
+  const [black, red, green, yellow, blue, magenta, cyan, white] = ANSI_8_COLORS;
+  const [
+    brightBlack, brightRed, brightGreen, brightYellow,
+    brightBlue, brightMagenta, brightCyan, brightWhite,
+  ] = ANSI_BRIGHT_COLORS;
+  return {
+    black, red, green, yellow, blue, magenta, cyan, white,
+    brightBlack, brightRed, brightGreen, brightYellow,
+    brightBlue, brightMagenta, brightCyan, brightWhite,
+  };
+}
+
 export function stripAnsi(text: string): string {
   return text.replace(TUI_CURSOR_MARKER_RE, "").replace(ANSI_ESCAPE_RE, "");
 }

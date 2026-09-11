@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useGlobalKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { useShortcutLabel } from "@/hooks/useShortcutLabel";
+import { useAcceleratorLabel, useShortcutLabel } from "@/hooks/useShortcutLabel";
 import { SessionSidebar } from "./SessionSidebar";
 import { CommandPalette } from "./navigation/CommandPalette";
 import { OpenProjectPicker } from "./navigation/OpenProjectPicker";
@@ -11,7 +11,10 @@ import { QuickChat } from "./chat/QuickChat";
 import { SubagentPanel } from "./SubagentPanel";
 import { ChatWindow } from "./ChatWindow";
 import { FileViewer } from "./FileViewer";
-import { TabBar, type Tab } from "./TabBar";
+import { TabBar, assertNeverTab, type BrowserTab, type Tab, type TerminalTab } from "./TabBar";
+import { Launcher, type LauncherAction } from "./tabs/Launcher";
+import { BrowserTabs, useSupportsBrowserTab } from "./browser/BrowserTabs";
+import { TerminalTabs, useSupportsTerminalTab } from "./terminal/TerminalTabs";
 import { SettingsConfig } from "./SettingsConfig";
 import { ProjectTrustDialog } from "./ProjectTrustDialog";
 import { SummaryPanel } from "./SummaryPanel";
@@ -46,6 +49,7 @@ import type { SummarySource } from "@/lib/session-summary";
 import { clearLastOpen, getLastOpenSession, setLastOpenSession } from "@/lib/workspace-memory";
 import {
   getDefaultRightPanelWidth,
+  getBrowserTabPanelWidth,
   getRightPanelMaxWidth,
   getSidebarMaxWidth,
   RIGHT_PANEL_FALLBACK_WIDTH,
@@ -115,6 +119,10 @@ export function AppShell() {
   const [initialNavigation] = useState(() => getInitialNavigation(searchParams));
   const { t: translate } = useI18n();
   const isMobile = useIsMobile();
+  // False on the server and the first client render, so the strip's trailing
+  // control cannot differ between the two trees.
+  const supportsBrowserTabs = useSupportsBrowserTab();
+  const supportsTerminalTabs = useSupportsTerminalTab();
   useViewportHeight();
   useCaptionInsets();
   // Audio ownership lives here (not in ChatWindow) so the completion tone can
@@ -143,6 +151,7 @@ export function AppShell() {
   const [settingsConfigOpen, setSettingsConfigOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const shortcutLabel = useShortcutLabel();
+  const acceleratorLabel = useAcceleratorLabel();
   const [paletteFiles, setPaletteFiles] = useState(false);
   const [openProjectPicker, setOpenProjectPicker] = useState(false);
   const [quickChatOpen, setQuickChatOpen] = useState(false);
@@ -224,13 +233,18 @@ export function AppShell() {
     getDefaultWidth: getResponsiveRightPanelWidth,
     getMaxWidth: getResponsiveRightPanelMaxWidth,
     growthDirection: "left",
-    maxWidth: RIGHT_PANEL_MAX_WIDTH,
+    // No absolute ceiling. The responsive maximum above already encodes the
+    // real limit — the workspace less the chat's reserve — and a fixed ceiling
+    // on top of it stopped the panel growing part-way across a wide display,
+    // which is where a web page most wants the room.
+    maxWidth: Number.POSITIVE_INFINITY,
     minWidth: RIGHT_PANEL_MIN_WIDTH,
     storageKey: "omp-right-panel-width",
     widthRef: rightPanelWidthRef,
   });
   const reclampSidebarWidth = sidebarResizer.reclampWidth;
   const reclampRightPanelWidth = rightPanelResizer.reclampWidth;
+  const growRightPanelToAtLeast = rightPanelResizer.growToAtLeast;
   // On mobile the sidebar is an overlay drawer; hide it by default so the chat
   // is visible on load. Runs once the breakpoint resolves after hydration.
   useEffect(() => {
@@ -312,8 +326,8 @@ export function AppShell() {
   }, [activeTopPanel, rightPanelOpen, sidebarOpen]);
 
   // Right panel tabs
-  const [fileTabs, setFileTabs] = useState<Tab[]>([]);
-  const [activeFileTabId, setActiveFileTabId] = useState<string | null>(null);
+  const [tabs, setTabs] = useState<Tab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
   // Same @mention format as the chat input's @ autocomplete, so the agent's
   // read tool resolves it the same way (it strips the @ prefix).
@@ -467,13 +481,13 @@ export function AppShell() {
     setBranchActiveLeafId(null);
     setSystemPrompt(null);
     setActiveTopPanel(null);
-    // File tabs are keyed by absolute path, so tabs opened in the previous
+    // A file Tab is keyed by absolute path, so Tabs opened in the previous
     // project would otherwise linger after switching to a different project.
     // Reached only past the same-project early return above, so worktrees of
-    // one repo keep their open tabs. Mirror handleCloseFileTab and close the
+    // one repo keep their open tabs. Mirror handleCloseTab and close the
     // now-empty right panel.
-    setFileTabs([]);
-    setActiveFileTabId(null);
+    setTabs([]);
+    setActiveTabId(null);
     setRightPanelOpen(false);
     // Restore the workspace we switched to: its last open session, or keep
     // the default welcome page when none is remembered.
@@ -729,7 +743,7 @@ export function AppShell() {
     const sourceSessionId = options?.sourceSessionId;
     const modeHint = options?.modeHint;
     const tabId = `file:${filePath}`;
-    setFileTabs((prev) => {
+    setTabs((prev) => {
       const existing = prev.find((t) => t.id === tabId);
       if (!existing) {
         return [...prev, {
@@ -753,7 +767,7 @@ export function AppShell() {
         return next;
       });
     });
-    setActiveFileTabId(tabId);
+    setActiveTabId(tabId);
     setRightPanelOpen(true);
     // On mobile the file panel is full-screen; close the drawer so it shows.
     if (isMobile) setSidebarOpen(false);
@@ -763,18 +777,97 @@ export function AppShell() {
     handleOpenFile(filePath, getFileName(filePath), { sourceSessionId: selectedSession?.id ?? null });
   }, [handleOpenFile, selectedSession?.id]);
 
-  const handleCloseFileTab = useCallback((tabId: string) => {
-    setFileTabs((prev) => {
+  /**
+   * Open a Browser tab.
+   *
+   * Unlike a file, two Browser tabs on the same address are two Tabs: the human
+   * may want the same page twice, and the id is what the agent addresses, so it
+   * is minted per Tab rather than derived from the URL.
+   */
+  const handleOpenBrowserTab = useCallback((url: string) => {
+    const tabId = `browser:${crypto.randomUUID()}`;
+    setTabs((prev) => [...prev, {
+      id: tabId,
+      kind: "browser",
+      label: translate("browser.untitled"),
+      url,
+    }]);
+    setActiveTabId(tabId);
+    setRightPanelOpen(true);
+    // A web page is laid out for a window, not for a gutter. Widen the panel to
+    // the width the reference application opens a page into, unless the human
+    // has already made it wider.
+    if (!isMobile) {
+      growRightPanelToAtLeast(getBrowserTabPanelWidth({
+        shellHeight: window.innerHeight,
+        workspaceWidth: window.innerWidth - (sidebarOpen ? sidebarWidthRef.current : 0),
+      }));
+    }
+    if (isMobile) setSidebarOpen(false);
+  }, [growRightPanelToAtLeast, isMobile, sidebarOpen, translate]);
+
+  /**
+   * Open a Terminal in the active Project.
+   *
+   * The directory is fixed now, not followed: a shell whose cwd changed when
+   * the human selected another Session would move underneath a running
+   * command. The desktop process still checks the Project's trust before it
+   * spawns anything, so this is a request, not a grant.
+   */
+  const handleOpenTerminalTab = useCallback((cwd: string) => {
+    const tabId = `terminal:${crypto.randomUUID()}`;
+    setTabs((prev) => [...prev, {
+      id: tabId,
+      kind: "terminal",
+      label: translate("tabs.terminal"),
+      cwd,
+    }]);
+    setActiveTabId(tabId);
+    setRightPanelOpen(true);
+    if (isMobile) setSidebarOpen(false);
+  }, [isMobile, translate]);
+
+  /** The shell named itself, the way a terminal tab is titled by its program. */
+  const handleTerminalTitle = useCallback((tabId: string, title: string) => {
+    setTabs((prev) => prev.map((t) => (
+      t.id === tabId && t.kind === "terminal" && t.label !== title ? { ...t, label: title } : t
+    )));
+  }, []);
+  /** The guest navigated. The Tab's URL follows the page, its id never does. */
+  const handleBrowserNavigate = useCallback((tabId: string, url: string) => {
+    setTabs((prev) => prev.map((t) => (
+      t.id === tabId && t.kind === "browser" && t.url !== url ? { ...t, url } : t
+    )));
+  }, []);
+
+  /** The page named itself, so the Tab takes that name. */
+  const handleBrowserTitle = useCallback((tabId: string, title: string) => {
+    setTabs((prev) => prev.map((t) => (
+      t.id === tabId && t.kind === "browser" && t.label !== title ? { ...t, label: title } : t
+    )));
+  }, []);
+
+  /** The page declared an icon, so the Tab shows it the way a browser does. */
+  const handleBrowserFavicon = useCallback((tabId: string, faviconUrl: string) => {
+    setTabs((prev) => prev.map((t) => (
+      t.id === tabId && t.kind === "browser" && t.faviconUrl !== faviconUrl
+        ? { ...t, faviconUrl }
+        : t
+    )));
+  }, []);
+
+  const handleCloseTab = useCallback((tabId: string) => {
+    setTabs((prev) => {
       const next = prev.filter((t) => t.id !== tabId);
       if (next.length === 0) setRightPanelOpen(false);
       return next;
     });
-    setActiveFileTabId((cur) => {
+    setActiveTabId((cur) => {
       if (cur !== tabId) return cur;
-      const remaining = fileTabs.filter((t) => t.id !== tabId);
+      const remaining = tabs.filter((t) => t.id !== tabId);
       return remaining.length > 0 ? remaining[remaining.length - 1].id : null;
     });
-  }, [fileTabs]);
+  }, [tabs]);
 
   const handleViewFullHistory = useCallback(() => {
     if (!selectedSession) return;
@@ -867,7 +960,134 @@ export function AppShell() {
     }
   }, [projectTrustBusy, projectTrustCwd]);
 
-  const activeFileTab = fileTabs.find((t) => t.id === activeFileTabId) ?? null;
+  const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
+  /** Every open Browser tab, kept for the persistent guests above. */
+  const browserTabs = tabs.filter((t): t is BrowserTab => t.kind === "browser");
+  /** Every open Terminal, kept for the persistent shells above. */
+  const terminalTabs = tabs.filter((t): t is TerminalTab => t.kind === "terminal");
+
+  /**
+   * The launcher's entries: what the empty panel offers, and what the plus
+   * control at the end of the strip opens.
+   *
+   * The order, the labels and the accelerators all come from the reference
+   * application's own command registry, read from its shipped bundle. Its
+   * order map puts review first for a git-backed project, which every Reeve
+   * Project is.
+   *
+   * An entry whose feature is not built yet stays listed and says why: this is
+   * how a human learns what the panel can hold.
+   */
+  const launcherActions: LauncherAction[] = [
+    {
+      id: "review",
+      label: translate("tabs.review"),
+      keys: acceleratorLabel("Ctrl+Shift+G"),
+      // Reeve has no review surface. Declared in the Tab union, unbuilt.
+      unavailableReason: translate("tabs.notYetBuilt"),
+      run: () => {},
+    },
+    {
+      id: "terminal",
+      label: translate("tabs.terminal"),
+      keys: acceleratorLabel("Control+`"),
+      // The pty lives in the desktop process, so the browser version has no
+      // shell to offer, and a shell needs a directory to start in. An
+      // untrusted Project is refused later, by the desktop process itself.
+      unavailableReason: !supportsTerminalTabs
+        ? translate("tabs.desktopOnly")
+        : (activeCwd ? undefined : translate("tabs.needsProject")),
+      run: () => { if (activeCwd) handleOpenTerminalTab(activeCwd); },
+    },
+    {
+      id: "browser",
+      label: translate("tabs.browser"),
+      keys: acceleratorLabel("CmdOrCtrl+T"),
+      unavailableReason: supportsBrowserTabs ? undefined : translate("tabs.desktopOnly"),
+      // The reference opens its own new tab page. Reeve has none, so a new
+      // Browser tab opens empty with the address focused, which is the same
+      // act: the human says where to go.
+      run: () => handleOpenBrowserTab(""),
+    },
+    {
+      id: "files",
+      label: translate("tabs.files"),
+      keys: acceleratorLabel("CmdOrCtrl+P"),
+      // The command palette already searches files in the active Project, so
+      // this opens it there rather than adding a second picker. Without a
+      // Project there is nothing to search, and saying so is more use than
+      // saying the feature does not exist.
+      unavailableReason: activeCwd ? undefined : translate("tabs.needsProject"),
+      run: () => { setPaletteFiles(true); setCommandPaletteOpen(true); },
+    },
+    {
+      id: "side-chat",
+      label: translate("tabs.sideChat"),
+      keys: acceleratorLabel("CmdOrCtrl+Alt+S"),
+      // Reeve has Quick chat, which is a window rather than a Tab. Whether it
+      // becomes one is a decision, not an oversight.
+      unavailableReason: translate("tabs.notYetBuilt"),
+      run: () => {},
+    },
+  ];
+
+  /**
+   * The active Tab's own surface.
+   *
+   * A Browser tab renders nothing here: its guest is mounted separately and
+   * always, and this would unmount it. The switch is exhaustive on purpose, so
+   * a new Tab kind is a typecheck failure at this line rather than a silent
+   * fall through to the empty state.
+   */
+  function renderActiveTab(): ReactNode {
+    if (!activeTab) {
+      // The empty panel is the launcher, not a sentence. Before this, it said
+      // "No file open", which told a human nothing about what the panel holds.
+      return <Launcher actions={launcherActions} label={translate("tabs.suggested")} />;
+    }
+    switch (activeTab.kind) {
+      case "browser":
+        return null;
+      case "terminal":
+        // Mounted separately and always, like a Browser tab, because the shell
+        // behind it is a live process.
+        return null;
+      case "sources":
+        return (
+          <SourcesView
+            sources={activeTab.sources}
+            onOpenFile={(filePath) => handleOpenFile(
+              filePath,
+              getFileName(filePath),
+              { sourceSessionId: activeTab.sourceSessionId },
+            )}
+          />
+        );
+      case "file":
+        return (
+          <FileViewer
+            filePath={activeTab.filePath}
+            cwd={activeCwd ?? undefined}
+            sourceSessionId={activeTab.sourceSessionId}
+            gitRefreshKey={fileViewerRefreshKey}
+            initialDisplayMode={activeTab.initialDisplayMode}
+            onMentionLines={rightPanelOpen ? handleFileLineMention : undefined}
+            onAtMention={handleAtMention}
+            onOpenFile={(filePath) => handleOpenFile(
+              filePath,
+              getFileName(filePath),
+              { sourceSessionId: activeTab.sourceSessionId },
+            )}
+          />
+        );
+      default:
+        // A new Tab kind must be handled above. This line stops compiling when
+        // one is added, which is the point: ReactNode includes undefined, so
+        // falling out of the switch would otherwise be silently legal and the
+        // new kind would render as the empty state.
+        return assertNeverTab(activeTab);
+    }
+  }
   const activeCwdName = activeCwd
     ? (isManagedChatCwd(activeCwd) ? translate("workspace.chats") : getFileName(activeCwd) || activeCwd)
     : null;
@@ -969,7 +1189,7 @@ export function AppShell() {
 
   useEffect(() => {
     const sourceSessionId = selectedSession?.id ?? null;
-    setFileTabs((current) => current.map((tab) => {
+    setTabs((current) => current.map((tab) => {
       if (tab.kind !== "sources" || tab.sourceSessionId !== sourceSessionId) return tab;
       if (tab.sources === visibleSummarySources) return tab;
       return { ...tab, sources: visibleSummarySources };
@@ -979,7 +1199,7 @@ export function AppShell() {
   const handleViewAllSources = useCallback(() => {
     const sourceSessionId = selectedSession?.id ?? null;
     const tabId = `sources:${sourceSessionId ?? "new"}`;
-    setFileTabs((current) => {
+    setTabs((current) => {
       const nextTab: Tab = {
         id: tabId,
         kind: "sources",
@@ -991,7 +1211,7 @@ export function AppShell() {
         ? current.map((tab) => tab.id === tabId ? nextTab : tab)
         : [...current, nextTab];
     });
-    setActiveFileTabId(tabId);
+    setActiveTabId(tabId);
     setRightPanelOpen(true);
     if (isMobile) setSidebarOpen(false);
   }, [isMobile, selectedSession?.id, translate, visibleSummarySources]);
@@ -1230,44 +1450,48 @@ export function AppShell() {
           />
         ) : undefined}
         rightPanel={{
-          content: activeFileTab?.kind === "sources" ? (
-            <SourcesView
-              sources={activeFileTab.sources}
-              onOpenFile={(filePath) => handleOpenFile(
-                filePath,
-                getFileName(filePath),
-                { sourceSessionId: activeFileTab.sourceSessionId },
+          content: (
+            <>
+              {/*
+                * Every Browser tab is mounted whenever one exists, not only
+                * when a Browser tab is active. A guest reloads if it is
+                * unmounted, so switching to a file and back would otherwise
+                * throw the page away.
+                */}
+              {browserTabs.length > 0 && (
+                <BrowserTabs
+                  tabs={browserTabs}
+                  activeTabId={activeTab?.kind === "browser" ? activeTab.id : null}
+                  onNavigate={handleBrowserNavigate}
+                  onTitleChange={handleBrowserTitle}
+                  onFaviconChange={handleBrowserFavicon}
+                />
               )}
-            />
-          ) : activeFileTab?.kind === "file" ? (
-            <FileViewer
-              filePath={activeFileTab.filePath}
-              cwd={activeCwd ?? undefined}
-              sourceSessionId={activeFileTab.sourceSessionId}
-              gitRefreshKey={fileViewerRefreshKey}
-              initialDisplayMode={activeFileTab.initialDisplayMode}
-              onMentionLines={rightPanelOpen ? handleFileLineMention : undefined}
-              onAtMention={handleAtMention}
-              onOpenFile={(filePath) => handleOpenFile(
-                filePath,
-                getFileName(filePath),
-                { sourceSessionId: activeFileTab.sourceSessionId },
+              {/*
+                * Every Terminal is mounted whenever one exists, for the same
+                * reason: a shell is a live process, and unmounting its view
+                * would throw away the scrollback the human is reading.
+                */}
+              {terminalTabs.length > 0 && (
+                <TerminalTabs
+                  tabs={terminalTabs}
+                  activeTabId={activeTab?.kind === "terminal" ? activeTab.id : null}
+                  onTitleChange={handleTerminalTitle}
+                />
               )}
-            />
-          ) : (
-            <div className={shellStyles.fileEmpty}>
-              {translate("files.noneOpen")}
-            </div>
+              {renderActiveTab()}
+            </>
           ),
           header: (
             <TabBar
-              tabs={fileTabs}
-              activeTabId={activeFileTabId ?? ""}
-              onSelectTab={setActiveFileTabId}
-              onCloseTab={handleCloseFileTab}
+              tabs={tabs}
+              activeTabId={activeTabId ?? ""}
+              onSelectTab={setActiveTabId}
+              onCloseTab={handleCloseTab}
+              newTabActions={launcherActions}
             />
           ),
-          label: activeFileTab?.kind === "sources" ? translate("summary.sources") : translate("files.panel"),
+          label: activeTab?.kind === "sources" ? translate("summary.sources") : translate("files.panel"),
           onBackdropClick: () => setRightPanelOpen(false),
           open: rightPanelOpen,
           resize: {

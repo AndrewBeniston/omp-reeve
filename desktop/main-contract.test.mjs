@@ -63,3 +63,40 @@ test("the menu bar height is one number, held by the main process and the render
     new RegExp(`\\.applicationMenuBar\\s*\\{[^}]*height:\\s*${height}px;`),
   );
 });
+test("a Browser tab is a page the main process owns, and no guest may exist", () => {
+  const source = readFileSync(join(import.meta.dir, "main.cjs"), "utf8");
+
+  // A Browser tab used to be a <webview> guest. Chromium reports a guest as a
+  // webview target and OMP browser tool keeps only page targets, so the agent
+  // could see nothing but Reeve own interface. A WebContentsView is a page.
+  assert.match(source, /new WebContentsView\(\{ webPreferences \}\)/);
+  assert.match(source, /contentView\.addChildView\(view\)/);
+
+  // Nothing needs to create a guest any more, so nothing may. Refusing
+  // outright is stronger than containing one after it attaches.
+  assert.match(source, /webviewTag:\s*false/);
+  assert.doesNotMatch(source, /webviewTag:\s*true/);
+  assert.match(source, /on\("will-attach-webview"/);
+  assert.match(source, /event\.preventDefault\(\)/);
+
+  // The three guarantees the host keeps regardless.
+  assert.match(source, /contextIsolation:\s*true/);
+  assert.match(source, /nodeIntegration:\s*false/);
+  assert.match(source, /sandbox:\s*true/);
+
+  // A page popups leave for the system browser rather than opening a window,
+  // and removing its view does not end it, so it is closed explicitly.
+  assert.match(source, /contents\.setWindowOpenHandler/);
+  assert.match(source, /view\.webContents\.close\(\)/);
+});
+
+test("a page in a Browser tab is refused a camera as firmly as the application is", () => {
+  const source = readFileSync(join(import.meta.dir, "main.cjs"), "utf8");
+
+  // A Browser tab runs in its own partition. A session with no permission
+  // handler grants whatever a page asks for, so denying only the default
+  // session left an ordinary web page able to take the camera or microphone.
+  assert.match(source, /session\.fromPartition\(BROWSER_PARTITION\)/);
+  assert.match(source, /setPermissionCheckHandler\(\(\) => false\)/);
+  assert.match(source, /setPermissionRequestHandler/);
+});
