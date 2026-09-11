@@ -40,6 +40,13 @@ export interface BrowserTab extends TabBase {
   url: string;
   /** The page's own icon, as the guest reported it. */
   faviconUrl?: string;
+  /**
+   * The human named this Tab, so its label stops following the page.
+   *
+   * Without this the next title the page announces would quietly undo the
+   * rename, which is the whole point of having renamed it.
+   */
+  titleLocked?: boolean;
 }
 
 /**
@@ -123,9 +130,11 @@ interface Props {
   onCloseTab: (id: string) => void;
   /** Entries for the control at the end of the strip. Empty hides it. */
   newTabActions?: LauncherAction[];
+  /** A Browser tab was right-clicked. Absent where there is no native menu. */
+  onBrowserTabMenu?: (id: string) => void;
 }
 
-export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab, newTabActions }: Props) {
+export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab, newTabActions, onBrowserTabMenu }: Props) {
   const { t } = useI18n();
   const closeLabel = t("i18n.close");
 
@@ -156,6 +165,15 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab, newTabActio
             aria-selected={isActive}
             tabIndex={isActive ? 0 : -1}
             onClick={() => onSelectTab(tab.id)}
+            onContextMenu={onBrowserTabMenu && tab.kind === "browser"
+              ? (event) => {
+                  event.preventDefault();
+                  // Right-clicking a Tab selects it first, the way every tab
+                  // strip does, so the menu always acts on what is in front.
+                  onSelectTab(tab.id);
+                  onBrowserTabMenu(tab.id);
+                }
+              : undefined}
             onKeyDown={(event) => {
               let nextIndex: number | null = null;
               if (event.key === "ArrowLeft") nextIndex = index > 0 ? index - 1 : tabs.length - 1;

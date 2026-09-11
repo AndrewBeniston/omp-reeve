@@ -33,6 +33,9 @@ contextBridge.exposeInMainWorld(
     showProjectMenu(state) {
       return ipcRenderer.invoke("omp-desktop:show-project-menu", state);
     },
+    showBrowserTabMenu(state) {
+      return ipcRenderer.invoke("omp-desktop:show-browser-tab-menu", state);
+    },
     showSessionMenu(state) {
       return ipcRenderer.invoke("omp-desktop:show-session-menu", state);
     },

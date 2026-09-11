@@ -24,6 +24,10 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- A right-click menu on a browser tab: new tab to the right, reload, duplicate,
+  rename, copy the address, and open it in your own browser. A tab you rename
+  keeps that name as you browse, instead of the page renaming it back.
+
 - A control in Settings under Access that lets the agent drive Reeve's browser
   tabs. It is off, and turning it on takes effect when you next start Reeve,
   because the door can only be opened as the application launches. The panel

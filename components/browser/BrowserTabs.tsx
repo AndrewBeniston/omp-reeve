@@ -51,6 +51,19 @@ function browserBridge(): BrowserBridge | undefined {
 }
 
 /**
+ * Send one navigation command to a Browser tab.
+ *
+ * Exported so the Tab context menu can reload a page without reaching for the
+ * bridge itself. Returns false where there is no desktop process.
+ */
+export async function browserTabCommand(
+  tabId: string,
+  name: "back" | "forward" | "reload",
+): Promise<boolean> {
+  const bridge = browserBridge();
+  return bridge ? bridge.command(tabId, name) : false;
+}
+/**
  * True once the renderer is known to be running inside the desktop shell.
  *
  * Only the desktop process can own a page, so the browser version of Reeve has

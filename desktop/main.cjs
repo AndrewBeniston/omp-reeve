@@ -11,6 +11,7 @@ const {
   DESKTOP_CHALLENGE_HEADER,
   createExternalLinkHandler,
   createProjectMenuTemplate,
+  createBrowserTabMenuTemplate,
   createSessionMenuTemplate,
   createServerCommand,
   isExternalUrlAllowed,
@@ -611,6 +612,25 @@ function registerBrowserViewHandlers() {
   });
 }
 
+function registerBrowserTabMenuHandler() {
+  ipcMain.handle('omp-desktop:show-browser-tab-menu', (event, state) => {
+    if (!event.senderFrame || !desktopUrl || !isTrustedRendererUrl(event.senderFrame.url, desktopUrl)) {
+      throw new Error('The browser-tab-menu request did not come from the application.');
+    }
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) throw new Error('The browser-tab-menu request has no application window.');
+
+    return new Promise((resolve) => {
+      let selectedAction = null;
+      const menu = Menu.buildFromTemplate(createBrowserTabMenuTemplate({
+        hasUrl: state?.hasUrl === true,
+        onAction: (action) => { selectedAction = action; },
+      }));
+      menu.popup({ window, callback: () => resolve(selectedAction) });
+    });
+  });
+}
+
 function registerPermissionHandler() {
   // Every session, not only the default one. A Browser tab runs in its own
   // partition, and a session with no handler grants whatever a page asks for,
@@ -691,6 +711,7 @@ if (!hasSingleInstanceLock) {
       registerUpdateHandlers();
       registerTerminalHandlers();
       registerBrowserViewHandlers();
+      registerBrowserTabMenuHandler();
       registerAgentBrowserHandlers();
       registerPermissionHandler();
       mainWindow = createMainWindow();

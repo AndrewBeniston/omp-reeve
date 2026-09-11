@@ -8,14 +8,14 @@ const jiti = createJiti(import.meta.url, {
   jsx: { runtime: "automatic" },
   tsconfigPaths: true,
 });
-const { SessionRenameDialog } = await jiti.import("./SessionRenameDialog.tsx");
+const { RenameDialog } = await jiti.import("./RenameDialog.tsx");
 const { I18nProvider } = await jiti.import("../hooks/useI18n.tsx");
 
 test("the rename dialog contains the Codex title, input, and actions", () => {
   const html = renderToStaticMarkup(React.createElement(
     I18nProvider,
     null,
-    React.createElement(SessionRenameDialog, {
+    React.createElement(RenameDialog, {
       initialName: "Fixture session",
       open: true,
       onCancel() {},

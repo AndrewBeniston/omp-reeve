@@ -358,7 +358,7 @@ test("session rows expose Pin and Archive without Delete", () => {
 
 test("double-click opens the rename dialog", () => {
   assert.match(sessionItemSource, /onDoubleClick=\{\(event\) => \{[\s\S]*?startRename\(\);/);
-  assert.match(sessionItemSource, /<SessionRenameDialog[\s\S]*?open=\{renaming\}[\s\S]*?onSave=\{commitRename\}/);
+  assert.match(sessionItemSource, /<RenameDialog[\s\S]*?open=\{renaming\}[\s\S]*?onSave=\{commitRename\}/);
 });
 
 test("pinned sessions sort before recent sessions", () => {
