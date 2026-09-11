@@ -135,6 +135,40 @@ A Settings row the browser owns and stores, shown beside OMP's own rows. It
 never reaches OMP's config file.
 _Avoid_: web setting, local preference, client setting
 
+**Right panel**:
+The resizable column beside a Session view that holds Tabs.
+_Avoid_: sidebar, file panel, drawer, inspector
+
+**Tab**:
+One surface in the Right panel, of exactly one kind. A Session is never a Tab.
+_Avoid_: pane, view, window, panel
+
+**Tab strip**:
+The row across the top of the Right panel listing open Tabs, ending with the
+control that opens the Launcher.
+_Avoid_: tab bar, file tabs, open files
+
+**Launcher**:
+The list of every kind a Tab can be, shown as the Right panel's empty state and
+from the Tab strip. It lists kinds that are not built yet.
+_Avoid_: new tab menu, plus menu, add menu
+
+**Browser tab**:
+A Tab holding a web page that the desktop process owns and draws, so the page is
+an ordinary Chromium page target.
+_Avoid_: webview, guest, embedded browser, iframe
+
+**Terminal tab**:
+A Tab holding the human's own login shell, fixed to the Project directory it was
+opened in.
+_Avoid_: console, shell pane, command window
+
+**Agent browser access**:
+The recorded grant that lets an agent drive this application over Chromium's
+debugging protocol. It takes effect at the next launch, never the one that
+recorded it.
+_Avoid_: CDP toggle, debug mode, remote control
+
 **Dictate control**:
 The microphone control in the Composer footer, rendered hidden until a
 dictation path exists.
