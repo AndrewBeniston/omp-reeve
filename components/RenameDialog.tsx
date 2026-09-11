@@ -6,18 +6,30 @@ import { Button } from "./ui/Button";
 import { Dialog } from "./ui/Dialog";
 import styles from "./navigation/session-rename-dialog.module.css";
 
-export function SessionRenameDialog({
+/**
+ * Rename something that has a short human-set name.
+ *
+ * It was written for a Session and was never Session-specific: the words are
+ * the only part that was. They are props now, defaulting to the Session
+ * wording so that call site reads exactly as it did.
+ */
+export function RenameDialog({
   initialName,
   open,
+  title,
+  description,
   onCancel,
   onSave,
 }: {
   initialName: string;
   open: boolean;
+  title?: string;
+  description?: string;
   onCancel: () => void;
   onSave: (name: string) => Promise<boolean>;
 }) {
   const { t } = useI18n();
+  const heading = title ?? t("sidebar.renameChat");
   const inputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(initialName);
   const [saving, setSaving] = useState(false);
@@ -40,8 +52,8 @@ export function SessionRenameDialog({
   return (
     <Dialog
       open={open}
-      title={t("sidebar.renameChat")}
-      description={t("sidebar.renameDescription")}
+      title={heading}
+      description={description ?? t("sidebar.renameDescription")}
       size="sm"
       className={styles.dialog}
       dismissible={!saving}
@@ -72,7 +84,7 @@ export function SessionRenameDialog({
           value={name}
           onChange={(event) => setName(event.target.value)}
           disabled={saving}
-          aria-label={t("sidebar.renameChat")}
+          aria-label={heading}
         />
         <div className={styles.actions}>
           <Button type="button" size="md" tone="ghost" onClick={onCancel} disabled={saving}>

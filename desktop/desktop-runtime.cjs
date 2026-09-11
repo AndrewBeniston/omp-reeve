@@ -171,6 +171,30 @@ function createExternalLinkHandler({ getApplicationUrl, openExternal }) {
   };
 }
 
+/**
+ * The context menu on a Browser tab.
+ *
+ * The entries, their order, their wording and the separator all come from the
+ * reference application's own menu, read from its shipped bundle. Its last
+ * group forks a conversation from the tab, which is a concept Reeve does not
+ * have, so those two entries are left out rather than invented.
+ *
+ * Reload is offered even on a blank tab: a tab that failed to load is exactly
+ * when somebody reaches for it.
+ */
+function createBrowserTabMenuTemplate({ hasUrl, onAction }) {
+  return [
+    { label: "New tab to the right", click: () => onAction("new-tab-right") },
+    { type: "separator" },
+    { label: "Reload", click: () => onAction("reload") },
+    // Nothing to duplicate, copy or hand over until the tab has been somewhere.
+    { label: "Duplicate", enabled: hasUrl === true, click: () => onAction("duplicate") },
+    { label: "Rename", click: () => onAction("rename") },
+    { label: "Copy URL", enabled: hasUrl === true, click: () => onAction("copy-url") },
+    { label: "Open in external browser", enabled: hasUrl === true, click: () => onAction("open-external") },
+  ];
+}
+
 function createSessionMenuTemplate({ icons, pinned, unread, onAction }) {
   return [
     {
@@ -240,6 +264,7 @@ module.exports = {
   DESKTOP_CHALLENGE_HEADER,
   DESKTOP_PROOF_HEADER,
   BROWSER_PARTITION,
+  createBrowserTabMenuTemplate,
   createExternalLinkHandler,
   createProjectMenuTemplate,
   createSessionMenuTemplate,

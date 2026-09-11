@@ -13,7 +13,11 @@ import { ChatWindow } from "./ChatWindow";
 import { FileViewer } from "./FileViewer";
 import { TabBar, assertNeverTab, type BrowserTab, type Tab, type TerminalTab } from "./TabBar";
 import { Launcher, type LauncherAction } from "./tabs/Launcher";
-import { BrowserTabs, useSupportsBrowserTab } from "./browser/BrowserTabs";
+import { BrowserTabs, browserTabCommand, useSupportsBrowserTab } from "./browser/BrowserTabs";
+import { RenameDialog } from "./RenameDialog";
+import { applyPageTitle, insertTabAfter, renameBrowserTab } from "@/lib/browser-tabs";
+import { hasBrowserTabMenu, showBrowserTabMenu } from "@/lib/desktop-browser-tab-menu";
+import { openExternal } from "@/lib/open-external";
 import { TerminalTabs, useSupportsTerminalTab } from "./terminal/TerminalTabs";
 import { SettingsConfig } from "./SettingsConfig";
 import { ProjectTrustDialog } from "./ProjectTrustDialog";
@@ -120,6 +124,8 @@ export function AppShell() {
   // control cannot differ between the two trees.
   const supportsBrowserTabs = useSupportsBrowserTab();
   const supportsTerminalTabs = useSupportsTerminalTab();
+  /** The Browser tab whose name the human is editing, if any. */
+  const [renamingBrowserTab, setRenamingBrowserTab] = useState<string | null>(null);
   useViewportHeight();
   // Audio ownership lives here (not in ChatWindow) so the completion tone can
   // also fire for tasks finishing in a non-active workspace whose ChatWindow
@@ -780,14 +786,17 @@ export function AppShell() {
    * may want the same page twice, and the id is what the agent addresses, so it
    * is minted per Tab rather than derived from the URL.
    */
-  const handleOpenBrowserTab = useCallback((url: string) => {
+  const handleOpenBrowserTab = useCallback((url: string, options?: { after?: string }) => {
     const tabId = `browser:${crypto.randomUUID()}`;
-    setTabs((prev) => [...prev, {
-      id: tabId,
-      kind: "browser",
-      label: translate("browser.untitled"),
-      url,
-    }]);
+    setTabs((prev) => {
+      const tab: BrowserTab = {
+        id: tabId,
+        kind: "browser",
+        label: translate("browser.untitled"),
+        url,
+      };
+      return insertTabAfter(prev, tab, options?.after);
+    });
     setActiveTabId(tabId);
     setRightPanelOpen(true);
     // A web page is laid out for a window, not for a gutter. Widen the panel to
@@ -838,9 +847,7 @@ export function AppShell() {
 
   /** The page named itself, so the Tab takes that name. */
   const handleBrowserTitle = useCallback((tabId: string, title: string) => {
-    setTabs((prev) => prev.map((t) => (
-      t.id === tabId && t.kind === "browser" && t.label !== title ? { ...t, label: title } : t
-    )));
+    setTabs((prev) => applyPageTitle(prev, tabId, title));
   }, []);
 
   /** The page declared an icon, so the Tab shows it the way a browser does. */
@@ -851,6 +858,55 @@ export function AppShell() {
         : t
     )));
   }, []);
+
+
+  /**
+   * The context menu on a Browser tab.
+   *
+   * The entries and their order come from the reference application. The menu
+   * itself is drawn by the desktop process, so a browser-only Reeve has none
+   * and the strip does not offer one.
+   */
+  const handleBrowserTabMenu = useCallback((tabId: string) => {
+    const tab = tabs.find((t): t is BrowserTab => t.id === tabId && t.kind === "browser");
+    if (!tab) return;
+
+    void showBrowserTabMenu({ hasUrl: Boolean(tab.url) }).then((action) => {
+      switch (action) {
+        case "new-tab-right":
+          handleOpenBrowserTab("", { after: tab.id });
+          return;
+        case "duplicate":
+          // A second Tab on the same address, with its own id and its own
+          // page. The original keeps its history; this one starts fresh.
+          handleOpenBrowserTab(tab.url, { after: tab.id });
+          return;
+        case "reload":
+          void browserTabCommand(tab.id, "reload");
+          return;
+        case "rename":
+          setRenamingBrowserTab(tab.id);
+          return;
+        case "copy-url":
+          void navigator.clipboard.writeText(tab.url);
+          return;
+        case "open-external":
+          openExternal(tab.url);
+          return;
+        default:
+          return;
+      }
+    });
+  }, [handleOpenBrowserTab, tabs]);
+
+  /** The human named a Tab, so its label stops following the page. */
+  const handleRenameBrowserTab = useCallback(async (name: string) => {
+    const tabId = renamingBrowserTab;
+    if (!tabId) return false;
+    setTabs((prev) => renameBrowserTab(prev, tabId, name));
+    setRenamingBrowserTab(null);
+    return true;
+  }, [renamingBrowserTab]);
 
   const handleCloseTab = useCallback((tabId: string) => {
     setTabs((prev) => {
@@ -1468,6 +1524,7 @@ export function AppShell() {
               onSelectTab={setActiveTabId}
               onCloseTab={handleCloseTab}
               newTabActions={launcherActions}
+              onBrowserTabMenu={hasBrowserTabMenu() ? handleBrowserTabMenu : undefined}
             />
           ),
           label: activeTab?.kind === "sources" ? translate("summary.sources") : translate("files.panel"),
@@ -1545,6 +1602,16 @@ export function AppShell() {
           if (!projectTrustBusy) setProjectTrustDialogOpen(false);
         }}
         onConfirm={() => void handleTrustProject()}
+      />
+    )}
+    {renamingBrowserTab !== null && (
+      <RenameDialog
+        open
+        initialName={tabs.find((t) => t.id === renamingBrowserTab)?.label ?? ""}
+        title={translate("browser.renameTab")}
+        description={translate("browser.renameTabDescription")}
+        onCancel={() => setRenamingBrowserTab(null)}
+        onSave={handleRenameBrowserTab}
       />
     )}
     </>
