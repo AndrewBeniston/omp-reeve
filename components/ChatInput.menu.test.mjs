@@ -169,6 +169,11 @@ test("native attachment selection inserts every chosen path without replacing th
   try {
     view = await mountComposer({ ref, cwd: "/tmp", onSend: value => sent.push(value), onLoadSlashCommands: async () => [] });
     await React.act(async () => { ref.current.insertText("See these"); });
+    // insertText places the caret in a requestAnimationFrame, so until a frame
+    // has passed the caret is still at the start. Without this wait the menu
+    // reads position zero and the paths land in front of the draft, which is
+    // what made this flake in a full run but never on its own.
+    await settle();
     await click(triggerFor(view.container, "Add"));
     await click(Array.from(view.container.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("Files and folders")));
     await click(Array.from(view.container.querySelectorAll("[role='menuitem']")).find(button => textOf(button) === "Files and folders"));
