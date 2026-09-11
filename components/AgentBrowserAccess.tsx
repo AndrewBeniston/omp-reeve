@@ -125,6 +125,16 @@ export function AgentBrowserAccessView({ state, supported, busy, onToggle }: Age
             This exposes the whole application window, not only your browser tabs, to any
             program on this computer that can reach the address. It has no password of its own.
           </p>
+          {/*
+            * Measured, not guessed. Asked to act without naming a page, OMP
+            * browser tool attaches to whichever page reports itself visible,
+            * and that is Reeve own window rather than the Browser tab. See
+            * ADR-0011.
+            */}
+          <p className={styles.sectionWarning}>
+            Tell the agent which page to work on. Asked to browse without naming one, it
+            attaches to Reeve own window instead of your browser tab.
+          </p>
         </div>
         <div className={styles.titleRow}>
           <StatusBadge tone={badge.tone}>{badge.label}</StatusBadge>

@@ -24,6 +24,10 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The agent browser panel now says to tell the agent which page to work on.
+  Asked to browse without naming one, it attaches to Reeve's own window rather
+  than your browser tab.
+
 - Releases are now built from a neutral path, so a package no longer carries the
   home directory of the machine that built it. The build refuses a personal path
   and the package check refuses a package containing one.
