@@ -23,8 +23,15 @@ import {
   validateStagedDesktop,
 } from "./desktop-stage-contract.mjs";
 import { bunRuntimeName, nativeInstallFlags, readDesktopTargetArgs } from "./desktop-targets.mjs";
+import { refuseBuildPath } from "./build-path.mjs";
 
 const root = join(import.meta.dir, "..");
+
+const personalPath = refuseBuildPath(root, process.env);
+if (personalPath) {
+  console.error(`[stage-desktop] ${personalPath}`);
+  process.exit(1);
+}
 const server = join(root, "desktop", "server");
 const staging = join(root, "desktop", "server.staging");
 const previous = join(root, "desktop", "server.previous");
