@@ -2,6 +2,10 @@
 
 This is the full release procedure. `AGENTS.md` points here. ADR-0006 holds the decisions.
 
+> ADR-0013 changes how the update feed works, so that one platform can ship
+> alone. It is proposed and not built yet. Until it lands, a published release
+> must carry every platform, because every platform reads the newest release.
+
 ## Before every release
 
 1. Every user-visible change has an entry under `## [Unreleased]` in `CHANGELOG.md`.
