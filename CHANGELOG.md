@@ -24,6 +24,14 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- A control in Settings under Access that lets the agent drive Reeve's browser
+  tabs. It is off, and turning it on takes effect when you next start Reeve,
+  because the door can only be opened as the application launches. The panel
+  shows the address to give the agent, which changes every time Reeve starts,
+  and it is blunt about what you are granting: the whole application window,
+  not only your browsing, to anything on this computer that can reach it.
+  Desktop application only.
+
 - A Terminal tab. The panel beside a Session can now hold a real shell, opened
   from the panel's own launcher or the plus control at the end of the strip. It
   starts your own login shell in the project's directory, so your aliases,

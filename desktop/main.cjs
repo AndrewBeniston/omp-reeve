@@ -647,7 +647,12 @@ const agentBrowserAccess = (() => {
   }
   if (plan.removeStalePortFile) removeStalePortFile(userDataDir);
 
-  return { userDataDir, open: plan.open };
+  // Whether a debugging port is open is asked of the command line, not
+  // inferred from the grant. A port opened any other way, by a developer flag
+  // or a wrapper script, is still a port, and a panel that reported it as shut
+  // would be reassuring at exactly the wrong moment.
+  const open = app.commandLine.hasSwitch("remote-debugging-port");
+  return { userDataDir, open };
 })();
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
