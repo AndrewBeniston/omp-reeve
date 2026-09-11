@@ -64,7 +64,7 @@ OMP_DESKTOP_TARGET=<target> bun run desktop:verify-package
 | --- | --- | --- |
 | `darwin-arm64` | An Apple Silicon Mac | Set `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`. The Developer ID identity must be in the login keychain. Run `ulimit -n 65536` first. |
 | `darwin-x64` | The same Mac | Same. The verify step cannot run on Apple Silicon; open the app once under Rosetta instead. |
-| `win32-x64` | The Linux build machine through Wine 10 with `wine32:i386`, or a Windows machine | Windows ships unsigned at 0.5.0. On Windows call `bun.cmd` if PowerShell blocks `bun.ps1`. Test the installer on Windows either way. |
+| `win32-x64` | A Windows machine, or the Linux build machine through Wine 10 with `wine32:i386` | Windows ships unsigned at 0.5.0. On Windows call `bun.cmd` if PowerShell blocks `bun.ps1`. Test the installer on Windows either way. |
 | `linux-x64` | The Linux build machine | On a machine with no display and no FUSE, verify with `xvfb-run` and `APPIMAGE_EXTRACT_AND_RUN=1`. |
 
 Machines are named by role here and in issues. Never by hostname or owner.

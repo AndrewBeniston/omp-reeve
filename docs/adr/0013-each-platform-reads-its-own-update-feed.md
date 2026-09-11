@@ -9,6 +9,10 @@ GitHub Releases as the update feed, and that choice tied the three platforms
 together. This records how they come apart, and why the packages stay where
 they are.
 
+This replaces one point of ADR-0006, which is point 8, and only the provider
+named there. The rest of point 8 still holds: one stable channel, a check on
+launch and every four hours, a background download, and the sidebar card.
+
 Every claim below was read from the shipped `electron-updater` in
 `desktop/node_modules`, or measured by running it, on 2026-09-11.
 

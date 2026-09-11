@@ -35,7 +35,7 @@ identity, and nothing in the application code branches on it.
 | Product name | Reeve | Reeve Dev |
 | Settings directory | `omp-desktop` | `omp-desktop-dev` |
 | Port | 30142 | 30143 |
-| Update feed | the repository's GitHub Releases | none |
+| Update feed | its own platform feed, see ADR-0013 | none |
 
 Both appear in the Start menu at once. Neither can damage the other.
 
@@ -83,4 +83,3 @@ change that.
 
 Nothing here changes the release channel. ADR-0006 still owns it: one stable
 channel, a check on launch and every four hours, and a background download.
-
