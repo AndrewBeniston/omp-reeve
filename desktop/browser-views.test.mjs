@@ -195,3 +195,20 @@ test("two windows may use the same tab id without meeting", () => {
   assert.deepEqual(created[0].view.loaded, ["https://one.example/"]);
   assert.deepEqual(created[1].view.loaded, ["https://two.example/"]);
 });
+
+test("clearing browsing data reloads every open page, so none still looks signed in", () => {
+  const { instance, created } = registry();
+  instance.open({ ownerId: 1, tabId: "a", url: "https://a.example/", bounds: { x: 0, y: 0, width: 10, height: 10 } });
+  instance.open({ ownerId: 2, tabId: "b", url: "https://b.example/", bounds: { x: 0, y: 0, width: 10, height: 10 } });
+
+  // Every window, not only one: the partition is shared, so clearing it
+  // affects every Tab there is.
+  assert.equal(instance.reloadAll(), 2);
+  assert.equal(created[0].view.webContents.reloads, 1);
+  assert.equal(created[1].view.webContents.reloads, 1);
+});
+
+test("reloading when nothing is open is not an error", () => {
+  const { instance } = registry();
+  assert.equal(instance.reloadAll(), 0);
+});
