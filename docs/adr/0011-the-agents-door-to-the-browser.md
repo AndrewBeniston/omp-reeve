@@ -24,9 +24,21 @@ the human's decision in a file and reads that file in `main.cjs` at module
 scope, ahead of `app.whenReady()`.
 
 So a decision made now takes effect at the next launch. That is the security
-property, not a limitation to design around. A renderer that had been taken
-over cannot grant a browser that was not already granted, because by the time
-any page runs, the decision is old and was made by a human in a settings panel.
+property, not a limitation to design around, and it is worth stating precisely
+rather than generously.
+
+It does **not** mean nothing but a human can write the grant. The settings panel
+asks the main process to record it, and any code running in Reeve's own renderer
+could ask the same way. What the delay buys is that no such request can open a
+port in the session that made it. A compromise that lasts one run yields nothing
+to connect to, and the grant it left behind is shown in the panel, on by itself,
+the next time the human looks.
+
+A web page in a Browser tab is not part of this. It has no preload and no bridge
+into the application, so it cannot reach the handler at all (ADR-0012).
+
+A torn write leaves a file that does not parse, and anything that does not parse
+as exactly `true` reads as no grant. The failure direction is closed.
 
 An earlier note on the ticket concluded a separate launcher process was needed
 to append the switch. It is not. `main.cjs` itself runs early enough.
