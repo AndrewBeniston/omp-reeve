@@ -49,5 +49,11 @@ desktop/server.previous/
 # private working tickets, never published
 desktop/node_modules/
 
+# local study notes and extracted references, never published
+.study/
+
+# scratch logs from a development run, never published
+tmp-*.log
+
 # throwaway prototypes and scratch artifacts, never published
 .scratch/

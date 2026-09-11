@@ -47,7 +47,8 @@ test("the preload exposes only the protected external-link command", async () =>
   assert.equal(exposed.name, "ompDesktop");
   onDomReady();
   assert.equal(document.documentElement.dataset.ompDesktop, "darwin");
-  assert.deepEqual(Object.keys(exposed.value), ["openExternal", "selectDirectory", "selectAttachments", "showProjectMenu", "showBrowserTabMenu", "showSessionMenu", "updater", "browser", "terminal", "clearBrowsingData", "agentBrowser"]);
+  assert.equal(document.documentElement.dataset.ompMenu, "native");
+  assert.deepEqual(Object.keys(exposed.value), ["openExternal", "selectDirectory", "selectAttachments", "showProjectMenu", "showBrowserTabMenu", "showSessionMenu", "showApplicationMenu", "onMenuAction", "updater", "browser", "terminal", "clearBrowsingData", "agentBrowser"]);
   assert.deepEqual(Object.keys(exposed.value.updater), ["getState", "check", "install", "onState"]);
   assert.deepEqual(Object.keys(exposed.value.terminal), ["open", "write", "resize", "close", "onData", "onExit"]);
   assert.deepEqual(Object.keys(exposed.value.browser), ["open", "setBounds", "setVisible", "navigate", "command", "close", "onNavigated", "onTitle", "onFavicon"]);
@@ -58,6 +59,7 @@ test("the preload exposes only the protected external-link command", async () =>
   await exposed.value.showProjectMenu({ archiveEnabled: true, worktrees: [] });
   await exposed.value.showBrowserTabMenu({ hasUrl: true });
   await exposed.value.showSessionMenu({ pinned: false, unread: true });
+  await exposed.value.showApplicationMenu({ id: "file", x: 8, y: 36 });
   await exposed.value.updater.getState();
   await exposed.value.updater.check();
   await exposed.value.updater.install();
@@ -66,9 +68,16 @@ test("the preload exposes only the protected external-link command", async () =>
   listeners[0][2]({}, { phase: "ready" });
   unsubscribe();
   assert.deepEqual(seen, [{ phase: "ready" }]);
+  const menuActions = [];
+  const unsubscribeMenu = exposed.value.onMenuAction((action) => menuActions.push(action));
+  listeners[2][2]({}, "toggle-sidebar");
+  unsubscribeMenu();
+  assert.deepEqual(menuActions, ["toggle-sidebar"]);
   assert.deepEqual(listeners.map(([kind, channel]) => [kind, channel]), [
     ["on", "omp-desktop:update-state"],
     ["off", "omp-desktop:update-state"],
+    ["on", "omp-desktop:menu-action"],
+    ["off", "omp-desktop:menu-action"],
   ]);
   assert.deepEqual(invocations, [
     ["omp-desktop:open-external", "https://example.com/login"],
@@ -77,6 +86,7 @@ test("the preload exposes only the protected external-link command", async () =>
     ["omp-desktop:show-project-menu", { archiveEnabled: true, worktrees: [] }],
     ["omp-desktop:show-browser-tab-menu", { hasUrl: true }],
     ["omp-desktop:show-session-menu", { pinned: false, unread: true }],
+    ["omp-desktop:show-application-menu", { id: "file", x: 8, y: 36 }],
     ["omp-desktop:update-get-state"],
     ["omp-desktop:update-check"],
     ["omp-desktop:update-install"],

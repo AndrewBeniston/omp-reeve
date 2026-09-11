@@ -14,6 +14,94 @@
   font-family: var(--font-sans);
 }
 
+/*
+ * The frame holds the application menu bar above the shell. Where the system
+ * owns the menu, the bar renders nothing and the frame is the shell alone.
+ */
+.shellFrame {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: var(--app-viewport-height, 100dvh);
+}
+
+.shellFrame .shell {
+  height: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/*
+ * The 36px menu bar. It renders only where the renderer owns the menu, which
+ * is Windows and Linux. The height matches DESKTOP_TITLE_BAR_HEIGHT in
+ * desktop/main.cjs, so the caption buttons sit on this bar. A test holds the
+ * two numbers together. ADR-0008.
+ */
+.applicationMenuBar {
+  display: flex;
+  height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-1);
+  padding-left: var(--space-2);
+  padding-right: calc(var(--space-2) + var(--ui-caption-inset-end, 0px));
+  background: var(--ui-sidebar);
+  -webkit-app-region: drag;
+}
+
+.applicationMenuBar button {
+  -webkit-app-region: no-drag;
+}
+
+.applicationMenuControl {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-nav-row);
+  padding: 0;
+  background: transparent;
+  color: var(--ui-sidebar-icon);
+  cursor: pointer;
+}
+
+.applicationMenuControl:hover {
+  background: var(--ui-row-hover);
+  color: var(--ui-text);
+}
+
+.applicationMenuControl:focus-visible,
+.applicationMenuName:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: calc(-1 * var(--ui-focus-offset));
+}
+
+.applicationMenuItems {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0-5);
+  margin-left: var(--space-2);
+}
+
+.applicationMenuName {
+  height: 24px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+  background: transparent;
+  color: var(--ui-text-muted);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: var(--text-ui);
+  line-height: var(--leading-ui);
+}
+
+.applicationMenuName:hover {
+  background: var(--ui-row-hover);
+  color: var(--ui-text);
+}
+
 :global(html[data-omp-desktop="darwin"]) .shell {
   background: transparent;
 }
@@ -73,6 +161,63 @@
   background: var(--ui-main);
 }
 
+/*
+ * Windows and Linux round the top left corner of the main surface, where it
+ * meets the sidebar under the menu bar. The reference applies the same corner
+ * on Windows, with no condition on the window state, so a maximised window
+ * keeps it. The corner is inside the window and never touches the system
+ * frame. The column already clips its children, so the header follows it.
+ *
+ * The divider belongs to this surface, not to the sidebar.
+ *
+ * A border on the sidebar is a straight line. It runs past the rounded corner
+ * and leaves a straight line beside a curve, which is what the Windows build
+ * showed. A border on the surface follows the corner instead, because the
+ * radius belongs to the same box. The line thins to nothing where it meets the
+ * top edge, because that edge carries no border.
+ *
+ * The reference draws it this way. Measured from the running reference on a
+ * Windows machine: the line sits one pixel left of the surface, it curves
+ * around the corner, and it fades out at the top. The same rule carries
+ * background-clip: padding-box there, which is what keeps the surface colour
+ * from painting under its own border.
+ *
+ * The radius is larger than --radius-lg on purpose. globals.css gives every
+ * element corner-shape: superellipse(1.5), and a superellipse hugs the corner,
+ * so the same radius draws a shorter arc than a circle. --radius-lg drew an
+ * arc of 6 pixels here. The reference draws a circle of 12.5 pixels, which is
+ * its own 10 pixel token times its 1.25 corner scale, and that fills a 12 by
+ * 13 pixel arc.
+ *
+ * Reeve keeps its own shape and matches that size instead. 18 pixels of
+ * superellipse fills the same 12 by 13 pixel arc. The two profiles differ by
+ * one pixel at two points and match everywhere else. Every number here was
+ * measured from both running applications on a Windows machine.
+ */
+:global(html[data-omp-desktop="win32"]) .sidebarPanel,
+:global(html[data-omp-desktop="linux"]) .sidebarPanel {
+  border-right: 0;
+}
+
+:global(html[data-omp-desktop="win32"]) .centerColumn,
+:global(html[data-omp-desktop="linux"]) .centerColumn {
+  border-top-left-radius: var(--radius-shell-corner);
+  border-left: 1px solid var(--ui-border-shell);
+  background-clip: padding-box;
+}
+
+/*
+ * The corner only reads if the colour behind it differs from the surface. In
+ * the titanium theme --ui-canvas and --ui-main are the same colour, so the
+ * curve would be invisible. The area behind the surface takes the chrome
+ * colour instead, which is the colour of the menu bar above and the sidebar
+ * beside it. Nothing else shows this background: the panels cover the rest.
+ */
+:global(html[data-omp-desktop="win32"]) .shell,
+:global(html[data-omp-desktop="linux"]) .shell {
+  background: var(--ui-sidebar);
+}
+
 .header {
   position: relative;
   z-index: 300;
@@ -95,6 +240,30 @@
 
 :global(html[data-omp-desktop="darwin"]) .headerBar button {
   -webkit-app-region: no-drag;
+}
+
+/*
+ * Windows and Linux draw the caption buttons on the menu bar above, so the
+ * header reserves nothing on its trailing edge. The header still drags the
+ * window, and every button in it opts out.
+ */
+:global(html[data-omp-desktop="win32"]) .headerBar,
+:global(html[data-omp-desktop="linux"]) .headerBar {
+  -webkit-app-region: drag;
+}
+
+:global(html[data-omp-desktop="win32"]) .headerBar button,
+:global(html[data-omp-desktop="linux"]) .headerBar button {
+  -webkit-app-region: no-drag;
+}
+
+/*
+ * One sidebar toggle, and it sits on the menu bar. The header toggle is hidden
+ * at every sidebar state where the renderer owns the menu, so Windows never
+ * draws two. macOS keeps its own rule below, untouched.
+ */
+:global(html[data-omp-menu="application-menu"]) .mainSidebarToggle {
+  display: none;
 }
 
 :global(html[data-omp-desktop="darwin"]) .headerLeading[data-sidebar-open="true"] .mainSidebarToggle {
@@ -392,13 +561,19 @@
   transition: background var(--duration-fast) var(--ease-standard);
 }
 
+/*
+ * The handle lightens the border. It does not paint an accent colour, which is
+ * what the reference does and what the theme asks for.
+ *
+ * :focus-visible is not in this list on purpose. The hook focuses the handle on
+ * pointer down, so the line stayed after the pointer release. The keyboard
+ * focus ring below still marks the handle for a keyboard user.
+ */
 .sidebarResizeHandle:hover::after,
-.sidebarResizeHandle:focus-visible::after,
 .sidebarResizeHandle[data-resizing="true"]::after,
 .rightPanelResizeHandle:hover::after,
-.rightPanelResizeHandle:focus-visible::after,
 .rightPanelResizeHandle[data-resizing="true"]::after {
-  background: var(--ui-accent);
+  background: var(--ui-border-strong);
 }
 
 .sidebarResizeHandle:focus-visible,

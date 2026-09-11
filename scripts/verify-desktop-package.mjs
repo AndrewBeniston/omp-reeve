@@ -65,6 +65,44 @@ function snapshotTree(directory) {
   return snapshot;
 }
 
+// Next writes the build directory into the server bundle. A package built from
+// a home directory therefore carries the name of the person who built it, and
+// this repository is public. The release build runs from a neutral path, and
+// this check is what proves it, on every build rather than from memory.
+const PERSONAL_PATH_PATTERNS = [
+  // The leading separator or drive letter is required. Reeve serves a route at
+  // /api/home, and the bundle names it, so a bare "/home/" matches the product
+  // and not a person.
+  { name: "a macOS home directory", pattern: /(?:^|[^A-Za-z0-9])\/Users\/[A-Za-z0-9._-]+/ },
+  { name: "a Linux home directory", pattern: /(?:^|[^A-Za-z0-9])\/home\/[A-Za-z0-9._-]+\// },
+  // One backslash or two. A JavaScript string escapes it, a manifest may not.
+  { name: "a Windows home directory", pattern: /[A-Za-z]:\\{1,2}Users\\{1,2}[A-Za-z0-9._-]+/ },
+];
+
+function findPersonalPaths(directory) {
+  const findings = [];
+  const visit = (path) => {
+    const stats = lstatSync(path);
+    if (stats.isDirectory()) {
+      for (const entry of readdirSync(path).sort()) visit(join(path, entry));
+      return;
+    }
+    if (stats.isSymbolicLink() || stats.size > 8_000_000) return;
+    let contents;
+    try {
+      contents = readFileSync(path, "utf8");
+    } catch {
+      return;
+    }
+    for (const { name, pattern } of PERSONAL_PATH_PATTERNS) {
+      const match = pattern.exec(contents);
+      if (match) findings.push(`${relative(directory, path)} carries ${name}`);
+    }
+  };
+  visit(directory);
+  return findings;
+}
+
 function writeFixture(agentDirectory, fixtureDirectory) {
   const sessionDirectory = join(agentDirectory, "sessions", "-desktop-package-fixture");
   mkdirSync(sessionDirectory, { recursive: true });
@@ -329,6 +367,13 @@ async function verifyPackage() {
   const application = resolvePackagedApplication(plan, { root });
   const resources = resourcesPath(application);
   const beforeResources = snapshotTree(resources);
+
+  const personalPaths = findPersonalPaths(join(resources, "server", ".next"));
+  if (personalPaths.length > 0) {
+    throw new Error(
+      `The package carries a personal build path. Build from a neutral directory.\n${personalPaths.slice(0, 10).join("\n")}`,
+    );
+  }
   const temporaryRoot = mkdtempSync(join(tmpdir(), "omp-desktop-package-"));
   const agentDirectory = join(temporaryRoot, "agent");
   const fixtureDirectory = join(temporaryRoot, "fixture-project");

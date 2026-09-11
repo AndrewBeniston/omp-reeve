@@ -142,3 +142,32 @@ test("package verification owns and terminates its complete process tree", () =>
     /async function terminateApplication[^]*?\{\s*if \(applicationProcess\.exitCode !== null \|\| applicationProcess\.signalCode !== null\) return;/,
   );
 });
+
+test("package verification refuses a personal build path", () => {
+  // Next writes the build directory into the server bundle. A package built
+  // from a home directory carries the name of the person who built it, and
+  // this repository is public. Issue 6.
+  const verifier = readFileSync(join(root, "scripts", "verify-desktop-package.mjs"), "utf8");
+  assert.match(verifier, /findPersonalPaths\(join\(resources, "server", "\.next"\)\)/);
+  assert.match(verifier, /The package carries a personal build path/);
+
+  // The three shapes the check must catch, and the two it must not. Reeve
+  // serves a route at /api/home, and a neutral build path is allowed.
+  const patterns = [
+    /(?:^|[^A-Za-z0-9])\/Users\/[A-Za-z0-9._-]+/,
+    /(?:^|[^A-Za-z0-9])\/home\/[A-Za-z0-9._-]+\//,
+    /[A-Za-z]:\\{1,2}Users\\{1,2}[A-Za-z0-9._-]+/,
+  ];
+  for (const pattern of patterns) assert.ok(verifier.includes(pattern.source));
+
+  const caught = [
+    'const a = "/Users/alex/build/next";',
+    'const a = "/home/builder/reeve/.next";',
+    'const a = "C:\\\\Users\\\\alex\\\\reeve";',
+  ];
+  for (const contents of caught) {
+    assert.ok(patterns.some((pattern) => pattern.test(contents)), contents);
+  }
+  const allowed = 'const a = "/api/home/route"; const b = "C:/reeve/build"; const c = "/tmp/reeve/build";';
+  assert.ok(!patterns.some((pattern) => pattern.test(allowed)));
+});

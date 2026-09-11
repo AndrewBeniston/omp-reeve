@@ -3,6 +3,12 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 window.addEventListener("DOMContentLoaded", () => {
   document.documentElement.dataset.ompDesktop = process.platform;
+  // Which side owns the menu. macOS has a system menu bar, so the renderer
+  // draws none. Windows and Linux have no such bar, so the renderer draws
+  // File, Edit, View and Help itself. Every component reads this attribute
+  // rather than the platform name. ADR-0008.
+  document.documentElement.dataset.ompMenu =
+    process.platform === "darwin" ? "native" : "application-menu";
 }, { once: true });
 
 /**
@@ -38,6 +44,14 @@ contextBridge.exposeInMainWorld(
     },
     showSessionMenu(state) {
       return ipcRenderer.invoke("omp-desktop:show-session-menu", state);
+    },
+    showApplicationMenu(state) {
+      return ipcRenderer.invoke("omp-desktop:show-application-menu", state);
+    },
+    onMenuAction(callback) {
+      const listener = (_event, action) => callback(action);
+      ipcRenderer.on("omp-desktop:menu-action", listener);
+      return () => ipcRenderer.removeListener("omp-desktop:menu-action", listener);
     },
     updater: Object.freeze({
       getState() {

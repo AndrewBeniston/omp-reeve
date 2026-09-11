@@ -9,19 +9,6 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
-### Changed
-
-- A browser tab is now drawn by the application itself rather than embedded in
-  the interface. Nothing changes in how it looks or behaves, but the agent can
-  now see the page: with a debugging port open, OMP's browser tool finds the tab
-  you are looking at instead of finding Reeve's own window. Browser tabs also no
-  longer run as embedded guests, so the interface can no longer create one at
-  all.
-
-- The tab strip beside a Session announces itself as "Open tabs" rather than
-  "Open files", and the name is translated. It is about to carry more than
-  files.
-
 ### Added
 
 - The agent browser panel now says to tell the agent which page to work on.
@@ -53,7 +40,6 @@ the What's New dialog adds a second page that invites support.
   and it is blunt about what you are granting: the whole application window,
   not only your browsing, to anything on this computer that can reach it.
   Desktop application only.
-
 - A Terminal tab. The panel beside a Session can now hold a real shell, opened
   from the panel's own launcher or the plus control at the end of the strip. It
   starts your own login shell in the project's directory, so your aliases,
@@ -61,7 +47,6 @@ the What's New dialog adds a second page that invites support.
   the shell is told when you resize the panel, and closing the tab ends it.
   Several can run at once. A project you have not trusted is refused a shell.
   Desktop application only.
-
 - A Browser tab. The tab strip beside a Session can now hold a web page as well
   as a file, opened from a new control at the end of the strip. Type an address
   and press Enter to go somewhere; the tab takes the page's own name, and
@@ -69,24 +54,70 @@ the What's New dialog adds a second page that invites support.
   browsing session, so a login is still there in the next tab and after a
   restart. Desktop application only.
 
-### Fixed
+### Changed
+- The Windows and Linux window draws its own title bar. The native caption
+  strip and the File / Edit / View / Window strip are gone, so the application
+  starts at the top of the window and the close, minimise, and maximise buttons
+  sit on Reeve's own colour.
+- Windows and Linux draw one menu bar above the application. It carries File,
+  Edit, View and Help, the sidebar toggle, the history arrows, and the window
+  buttons. Each name opens its menu.
+- The main surface on Windows and Linux rounds its top left corner, where it
+  meets the sidebar under the menu bar.
+- The divider between the sidebar and the main surface follows that corner on
+  Windows and Linux. It curves with the surface and fades where it meets the
+  top edge.
+- The desktop window shows Reeve's own page when it cannot load the
+  application. The window showed the browser's "This page couldn't load"
+  screen before. The new page names the error and offers Try again.
+- A desktop build refuses to stage from a directory inside a home directory.
+  Next records the build directory inside the server bundle, so such a build
+  would carry the name of the person who made it. The message names a neutral
+  path to build from, and names the override for a machine that has no other
+  choice.
+- A browser tab is now drawn by the application itself rather than embedded in
+  the interface. Nothing changes in how it looks or behaves, but the agent can
+  now see the page: with a debugging port open, OMP's browser tool finds the tab
+  you are looking at instead of finding Reeve's own window. Browser tabs also no
+  longer run as embedded guests, so the interface can no longer create one at
+  all.
+- The tab strip beside a Session announces itself as "Open tabs" rather than
+  "Open files", and the name is translated. It is about to carry more than
+  files.
 
+### Fixed
+- The test that checks the agent browser grant no longer fails on Windows.
+  Windows does not carry POSIX mode bits, so the permission check ran there
+  and could never pass.
+- Windows no longer draws two sidebar toggles. One toggle sits on the menu bar,
+  at every sidebar state.
+- File, Edit, View and Help return on Windows and Linux. The keyboard shortcuts
+  they carry work again, because the menu is hidden and never removed.
+- The sidebar drag handle lightens the border instead of painting an accent
+  line. The mark no longer stays after you release the pointer.
+- Opening a drive from the Windows drive picker works. The file browser
+  answered an error before, because the resolved path lost the separator
+  after the drive letter.
+- Windows groups the worktrees of one repository together again. Git prints a
+  path with forward slashes, and Reeve compared it to a backslash path, so
+  every worktree on Windows lost its identity.
+- A path written with forward slashes now resolves its parent correctly on
+  Windows.
 - The panel beside a Session no longer stops widening part-way across a wide
   display. It now grows to the room available, less a reserve for the chat.
-
 - The panel beside a Session is no longer empty when nothing is open. It lists
-  what it can hold — Review, Terminal, Browser, Files and Side chat — each with
-  its keyboard shortcut, and says which are not built yet. It used to say "No
-  file open", which told you nothing.
+  what it can hold, which is Review, Terminal, Browser, Files and Side chat,
+  each with its keyboard shortcut, and says which are not built yet. It used to
+  say "No file open", which told you nothing.
 
 ### Security
-
 - The desktop window can now host a web page guest, in preparation for a
   Browser tab. The window keeps context isolation, renderer sandboxing and
   disabled renderer Node access unchanged. Every guest has its privileges
   forced by the main process and its own requested settings discarded, so a
   page cannot ask for more than it is given, cannot nest another guest, and
   cannot choose which browsing session it reads.
+
 
 ## [0.5.0] - 2026-09-08 support: true
 

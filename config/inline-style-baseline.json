@@ -25,6 +25,9 @@
         "codeTagProps": 1
       }
     },
+    "hooks/useCaptionInsets.ts": {
+      "no-dom-style-mutation": 6
+    },
     "hooks/useTheme.ts": {
       "no-dom-style-mutation": 2
     },

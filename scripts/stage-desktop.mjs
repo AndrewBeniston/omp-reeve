@@ -17,6 +17,7 @@ import { join } from "node:path";
 import {
   DESKTOP_STAGE_MANIFEST,
   createStageManifest,
+  describePersonalBuildPath,
   publishStagedDesktop,
   recoverInterruptedStage,
   validateStageFiles,
@@ -135,6 +136,9 @@ function stageDesktop() {
   const { options, plan } = readDesktopTargetArgs(process.argv.slice(2), ["--skip-build"]);
   const skipBuild = options.has("--skip-build");
   const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+
+  const personalPath = describePersonalBuildPath({ root });
+  if (personalPath) throw new Error(personalPath);
 
   recoverInterruptedStage({ previous, server });
   rmSync(staging, { recursive: true, force: true });

@@ -532,6 +532,16 @@
   -webkit-app-region: drag;
 }
 
+/*
+ * Windows and Linux draw no bar inside the sidebar. Their toggle and history
+ * arrows sit on the application menu bar above the whole window, which is
+ * where the references put them. ADR-0008 supersedes the earlier 36px bar in
+ * this position.
+ */
+:global(html[data-omp-menu="application-menu"]) .desktopTitleBar {
+  display: none;
+}
+
 .desktopSidebarToggle,
 .desktopHistoryButton {
   display: grid;

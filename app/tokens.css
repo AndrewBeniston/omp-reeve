@@ -37,6 +37,11 @@
   --ui-border: var(--border);
   --ui-border-strong: color-mix(in srgb, var(--border) 60%, var(--text));
   --ui-border-subtle: color-mix(in srgb, var(--border) 55%, transparent);
+  /* The divider that follows the rounded corner of the main surface on
+     Windows and Linux. It is measured against the surface, not the sidebar,
+     so it reads the same in every theme. The reference sits about twice the
+     surface value. See components/shell/shell.module.css. */
+  --ui-border-shell: color-mix(in srgb, var(--assistant-bg) 88%, var(--text));
   --ui-text: var(--text);
   --ui-text-muted: var(--text-muted);
   --ui-text-dim: var(--text-dim);
@@ -117,6 +122,10 @@
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 10px;
+  /* The main surface corner on Windows and Linux. It is larger than
+     --radius-lg because a superellipse draws a shorter arc than a circle at
+     the same radius. See components/shell/shell.module.css. */
+  --radius-shell-corner: 18px; /* fills the same arc as a 12.5px circle */
   --radius-nav-row: 12.5px;
   --radius-project-row: 15px;
   --radius-control: 12.5px;

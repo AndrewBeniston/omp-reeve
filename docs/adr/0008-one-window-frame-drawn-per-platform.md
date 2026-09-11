@@ -100,8 +100,9 @@ else that must stay clickable.
    `geometrychange`. The handler is slowed down, because that event fires many
    times in one resize.
 5. The space reserved for the caption buttons is a CSS variable set from the
-   measured overlay, never a fixed number. The current 138 pixel constant is
-   removed.
+   measured overlay, never a fixed number. An earlier revision of the Windows
+   branch used a fixed 138 pixels. `useCaptionInsets` replaced it, and no fixed
+   reserve remains.
 6. The application menu stays registered in the main process on every platform,
    for its keyboard shortcuts. Windows hides only the bar.
 7. Heights follow the references: 46 for the toolbar, 36 for the menu bar. One
@@ -132,6 +133,6 @@ The Windows menu becomes renderer work. It is the largest part of this decision.
 A macOS change and a Windows change touch different rules in the same files. A
 reviewer can see which platform a change reaches by reading its selector.
 
-The fixed 138 pixel reserve is removed before it ships, because it is a guess
-and the measured variable is not.
-
+No fixed reserve ships. `useCaptionInsets` measures the caption strip and
+publishes it as `--ui-caption-inset-end`, and a style test asserts that no fixed
+pixel value returns.

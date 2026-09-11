@@ -85,6 +85,36 @@ function readOriginUrlFromConfigFile(configPath: string): string | null {
  * Read the current branch from the Git HEAD file.
  * Returns the branch name, or null for detached HEAD.
  */
+/**
+ * Compare two absolute paths for the same location.
+ *
+ * Git prints an absolute path with forward slashes on every platform. Windows
+ * gives back a backslash path, and its file names do not carry case. A plain
+ * string comparison therefore says two names for one directory are different,
+ * and every Windows worktree loses its identity.
+ */
+function isSamePath(left: string, right: string): boolean {
+  const normalize = (value: string) => {
+    const resolved = resolve(value).replace(/[\\/]+$/, "");
+    return process.platform === "win32"
+      ? resolved.replace(/\//g, "\\").toLowerCase()
+      : resolved;
+  };
+  return normalize(left) === normalize(right);
+}
+
+/**
+ * Turn a path that Git printed into a path this platform writes.
+ *
+ * Git prints forward slashes everywhere. Every other path in Reeve comes from
+ * node, which writes backslashes on Windows. A project root that keeps Git's
+ * slashes never matches a session cwd, so the sidebar draws the same
+ * repository twice.
+ */
+function toPlatformPath(value: string): string {
+  return resolve(value);
+}
+
 function readBranchFromHeadFile(gitDir: string): string | null {
   try {
     const headPath = join(gitDir, "HEAD");
@@ -188,8 +218,8 @@ export async function resolveProject(cwd: string): Promise<ProjectInfo> {
     // cwd is a subdirectory of a repo keeps its own project identity —
     // grouping subdirs under the repo root would change where new sessions
     // are created for existing users.
-    const isTopLevel = toplevel === realCwd;
-    const isWorktreeTopLevel = gitDir !== commonDir && isTopLevel;
+    const isTopLevel = isSamePath(toplevel, realCwd);
+    const isWorktreeTopLevel = !isSamePath(gitDir, commonDir) && isTopLevel;
     let branch = readBranchFromHeadFile(gitDir);
     if (!branch) {
       try {
@@ -210,7 +240,7 @@ export async function resolveProject(cwd: string): Promise<ProjectInfo> {
     }
     const repositoryLabel = parseRepositoryLabel(originUrl);
     info = {
-      projectRoot: isWorktreeTopLevel ? dirname(commonDir) : cwd,
+      projectRoot: isWorktreeTopLevel ? toPlatformPath(dirname(commonDir)) : cwd,
       branch,
       isWorktree: isWorktreeTopLevel,
       isTopLevel,

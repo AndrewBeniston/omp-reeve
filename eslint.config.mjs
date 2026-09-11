@@ -19,6 +19,7 @@ const INLINE_STYLE_WAIVERS = [
 const STYLE_MUTATION_WAIVERS = [
   "hooks/useTheme.ts",
   "hooks/useViewportHeight.ts",
+  "hooks/useCaptionInsets.ts",
   "lib/clipboard.ts",
   "app/layout.tsx",
 ];
@@ -81,7 +82,8 @@ const eslintConfig = [
     // Generated packaging output. server.staging belongs here too: a build
     // leaves it in place, and eslint then reports tens of thousands of
     // problems from the copied dependency tree.
-    ignores: ["**/desktop/server", "**/desktop/server.staging", "**/desktop/dist"],
+    // .study holds local reference material and never ships.
+    ignores: ["**/desktop/server", "**/desktop/server.staging", "**/desktop/dist", "**/.study"],
   },
   {
     rules: {

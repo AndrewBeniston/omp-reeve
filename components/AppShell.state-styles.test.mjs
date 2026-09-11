@@ -8,6 +8,7 @@ const stateStyles = await readFile(new URL("./shell/state-styles.module.css", im
 const shellStyles = await readFile(new URL("./shell/shell.module.css", import.meta.url), "utf8");
 const shellLayoutSource = await readFile(new URL("./shell/ShellLayout.tsx", import.meta.url), "utf8");
 const navigationStyles = await readFile(new URL("./navigation/navigation.module.css", import.meta.url), "utf8");
+const menuBarSource = await readFile(new URL("./shell/ApplicationMenuBar.tsx", import.meta.url), "utf8");
 const globalStyles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
 
 test("shell controls expose public state attributes", () => {
@@ -58,6 +59,14 @@ test("visible chat header controls use the current Codex geometry", () => {
 });
 
 test("shell state styles use selectors instead of event style mutations", () => {
+  // The resize handle lightens the border. It never paints the accent colour,
+  // and it never keeps a mark after the pointer release. Issue 11.
+  assert.match(
+    shellStyles,
+    /\.sidebarResizeHandle:hover::after,\s*\.sidebarResizeHandle\[data-resizing="true"\]::after,\s*\.rightPanelResizeHandle:hover::after,\s*\.rightPanelResizeHandle\[data-resizing="true"\]::after\s*\{[^}]*background:\s*var\(--ui-border-strong\);/,
+  );
+  assert.doesNotMatch(resizerSource, /target\.focus\(/);
+
   for (const [name, source] of [
     ["AppShell", appShellSource],
     ["useResizablePanel", resizerSource],
@@ -125,5 +134,72 @@ test("the narrow macOS sidebar stays inside the shell layout", () => {
   assert.match(
     shellStyles,
     /:global\(html\[data-omp-desktop="darwin"\]\) \.sidebarPanel\[data-open="false"\]\s*\{[^}]*width:\s*0;[^}]*min-width:\s*0;/,
+  );
+});
+
+test("the renderer draws one menu bar where it owns the menu", () => {
+  // The bar sits above the application, carries the drag region, and reserves
+  // the measured caption width on its trailing edge. ADR-0008.
+  assert.match(
+    shellStyles,
+    /\.applicationMenuBar\s*\{[^}]*height:\s*36px;[^}]*padding-right:\s*calc\(var\(--space-2\) \+ var\(--ui-caption-inset-end, 0px\)\);[^}]*-webkit-app-region:\s*drag;/,
+  );
+  assert.match(
+    shellStyles,
+    /\.applicationMenuBar button\s*\{[^}]*-webkit-app-region:\s*no-drag;/,
+  );
+  assert.match(shellStyles, /\.shellFrame\s*\{[^}]*flex-direction:\s*column;/);
+  assert.match(menuBarSource, /readMenuOwner\(\) === "application-menu"/);
+  assert.doesNotMatch(menuBarSource, /process\.platform|navigator\.platform|win32/);
+});
+
+test("the sidebar bar and the second toggle stay off Windows and Linux", () => {
+  // One toggle, at every sidebar state. The menu bar carries it, so the chat
+  // header toggle is hidden wherever the renderer owns the menu. The darwin
+  // rules below it are untouched.
+  assert.match(
+    navigationStyles,
+    /:global\(html\[data-omp-menu="application-menu"\]\) \.desktopTitleBar\s*\{[^}]*display:\s*none;/,
+  );
+  assert.match(
+    shellStyles,
+    /:global\(html\[data-omp-menu="application-menu"\]\) \.mainSidebarToggle\s*\{[^}]*display:\s*none;/,
+  );
+  assert.match(
+    shellStyles,
+    /:global\(html\[data-omp-desktop="darwin"\]\) \.desktopTitleBar|:global\(html\[data-omp-desktop="darwin"\]\) \.headerLeading\[data-sidebar-open="true"\] \.mainSidebarToggle/,
+  );
+  assert.match(
+    navigationStyles,
+    /:global\(html\[data-omp-desktop="darwin"\]\) \.desktopTitleBar\s*\{[^}]*display:\s*flex;[^}]*height:\s*46px;/,
+  );
+});
+
+test("the Windows and Linux header clears the native caption buttons", () => {
+  // The main surface rounds its top left corner and carries the divider, so
+  // the line follows the curve. The sidebar draws no border beside it.
+  assert.match(
+    shellStyles,
+    /:global\(html\[data-omp-desktop="win32"\]\) \.centerColumn,\s*:global\(html\[data-omp-desktop="linux"\]\) \.centerColumn\s*\{[^}]*border-top-left-radius:\s*var\(--radius-shell-corner\);[^}]*border-left:\s*1px solid[^}]*background-clip:\s*padding-box;/,
+  );
+  assert.match(
+    shellStyles,
+    /:global\(html\[data-omp-desktop="win32"\]\) \.sidebarPanel,\s*:global\(html\[data-omp-desktop="linux"\]\) \.sidebarPanel\s*\{[^}]*border-right:\s*0;/,
+  );
+  // The squircle stays. Only the radius grows, because a superellipse draws a
+  // shorter arc than a circle at the same radius.
+  assert.doesNotMatch(shellStyles, /\.centerColumn\s*\{[^}]*corner-shape/);
+  assert.match(globalStyles, /@supports \(corner-shape: superellipse\(1\.5\)\)/);
+  // The caption buttons sit on the menu bar above, so the header reserves
+  // nothing. It still drags the window, and every button in it opts out.
+  // No fixed reserve ships anywhere. ADR-0008.
+  assert.match(
+    shellStyles,
+    /:global\(html\[data-omp-desktop="win32"\]\) \.headerBar,\s*:global\(html\[data-omp-desktop="linux"\]\) \.headerBar\s*\{[^}]*-webkit-app-region:\s*drag;/,
+  );
+  assert.doesNotMatch(shellStyles, /138px/);
+  assert.match(
+    shellStyles,
+    /:global\(html\[data-omp-desktop="win32"\]\) \.headerBar button,\s*:global\(html\[data-omp-desktop="linux"\]\) \.headerBar button\s*\{[^}]*-webkit-app-region:\s*no-drag;/,
   );
 });

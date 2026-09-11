@@ -72,6 +72,11 @@ export const UI_STYLE_EXCEPTIONS = [
     reason: "The viewport hook writes the measured viewport height variable.",
   },
   {
+    file: "hooks/useCaptionInsets.ts",
+    rule: "no-dom-style-mutation",
+    reason: "The caption hook writes the measured width the system reserves for its window buttons. ADR-0008 requires a measured value, because a fixed one is wrong at a different window zoom.",
+  },
+  {
     file: "lib/clipboard.ts",
     rule: "no-dom-style-mutation",
     reason: "The clipboard fallback hides the temporary textarea element.",

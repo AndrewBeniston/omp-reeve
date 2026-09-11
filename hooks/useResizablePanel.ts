@@ -126,11 +126,14 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
     event.preventDefault();
     event.stopPropagation();
 
+    // The handle takes no focus from a pointer. preventDefault above stops the
+    // browser's own focus, and a focus() call here made :focus-visible match,
+    // so the accent ring stayed on the handle after the pointer release. A
+    // keyboard user still reaches the handle with Tab and sees the ring.
     const activeDrag = dragRef.current;
     if (activeDrag) finishResize(activeDrag.pointerId);
 
     const target = event.currentTarget;
-    target.focus({ preventScroll: true });
     target.setPointerCapture(event.pointerId);
     dragRef.current = {
       pointerId: event.pointerId,

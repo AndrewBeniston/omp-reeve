@@ -20,6 +20,10 @@ test("the Electron lifecycle owns one stable desktop instance", () => {
   assert.match(source, /randomUUID/);
   assert.match(source, /isExpectedServerResponse/);
   assert.match(source, /api\/desktop-health/);
+  // The window must never show the browser's own failure screen. Issue 7.
+  assert.match(source, /webContents\.on\("did-fail-load"/);
+  assert.match(source, /shouldReportLoadFailure/);
+  assert.match(source, /createLoadFailurePage/);
   assert.match(source, /trafficLightPosition\s*=\s*\{ x: 16, y: 16 \}/);
   assert.match(source, /backgroundColor:\s*"#00000000"/);
   assert.match(source, /windowOptions\.vibrancy\s*=\s*"menu"/);
@@ -33,10 +37,32 @@ test("the Electron lifecycle owns one stable desktop instance", () => {
   assert.match(source, /isTrustedRendererUrl\(event\.senderFrame\.url, desktopUrl\)/);
   assert.match(source, /Menu\.buildFromTemplate\(createSessionMenuTemplate/);
   assert.match(source, /Menu\.buildFromTemplate\(createProjectMenuTemplate/);
+  // The application menu stays registered on every platform, because it
+  // carries the keyboard shortcuts. Windows hides the bar only. ADR-0008.
+  assert.match(source, /Menu\.setApplicationMenu\(menu\)/);
+  assert.doesNotMatch(source, /window\.removeMenu\(\)/);
+  assert.match(source, /window\.setMenuBarVisibility\(false\)/);
+  assert.match(source, /ipcMain\.handle\("omp-desktop:show-application-menu"/);
   assert.match(source, /\[DESKTOP_CHALLENGE_HEADER\]: challenge/);
   assert.doesNotMatch(source, /headers:\s*\{\s*\[DESKTOP_CHALLENGE_HEADER\]: launchToken/);
 });
 
+test("the menu bar height is one number, held by the main process and the renderer", () => {
+  // The system draws its caption buttons on the overlay. The renderer draws
+  // the menu on its own bar. The two heights must agree, or the buttons sit
+  // off the bar. ADR-0008.
+  const source = readFileSync(join(import.meta.dir, "main.cjs"), "utf8");
+  const shellStyles = readFileSync(
+    join(import.meta.dir, "..", "components", "shell", "shell.module.css"),
+    "utf8",
+  );
+  const height = source.match(/const DESKTOP_TITLE_BAR_HEIGHT = (\d+);/)?.[1];
+  assert.equal(height, "36");
+  assert.match(
+    shellStyles,
+    new RegExp(`\\.applicationMenuBar\\s*\\{[^}]*height:\\s*${height}px;`),
+  );
+});
 test("a Browser tab is a page the main process owns, and no guest may exist", () => {
   const source = readFileSync(join(import.meta.dir, "main.cjs"), "utf8");
 

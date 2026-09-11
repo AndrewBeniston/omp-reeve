@@ -5,20 +5,23 @@ const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, session, shell, webContents, WebContentsView } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, nativeTheme, session, shell, webContents, WebContentsView } = require("electron");
 const {
   DESKTOP_PORT,
   DESKTOP_CHALLENGE_HEADER,
   createExternalLinkHandler,
+  createApplicationMenuTemplate,
   createProjectMenuTemplate,
   createBrowserTabMenuTemplate,
   createSessionMenuTemplate,
   createServerCommand,
+  createLoadFailurePage,
   isExternalUrlAllowed,
   isExpectedServerResponse,
   isNavigationAllowed,
   isTrustedRendererUrl,
   prepareWritableNext,
+  shouldReportLoadFailure,
 } = require("./desktop-runtime.cjs");
 const { STATE_CHANNEL: UPDATE_STATE_CHANNEL, createUpdateController } = require("./update-controller.cjs");
 const { createTerminalRegistry, loadPty } = require("./terminal-host.cjs");
@@ -36,6 +39,28 @@ const {
 const DEFAULT_DEV_URL = "http://127.0.0.1:30141";
 const LOG_PATH = path.join(os.tmpdir(), "omp-desktop.log");
 const SERVER_READY_TIMEOUT_MS = 60_000;
+
+// The custom title bar on Windows and Linux. A transparent background lets the
+// renderer's own bar show through, so the caption buttons sit on our colour
+// instead of a system strip. The height matches the renderer bar in
+// navigation.module.css; change both together or the buttons misalign.
+const DESKTOP_TITLE_BAR_HEIGHT = 36;
+const DESKTOP_TITLE_BAR_BACKGROUND = "#00000000";
+const DESKTOP_TITLE_BAR_SYMBOL_DARK = "#ffffff";
+const DESKTOP_TITLE_BAR_SYMBOL_LIGHT = "#1f1f1f";
+
+// The channel a menu item uses to reach the renderer.
+const MENU_ACTION_CHANNEL = "omp-desktop:menu-action";
+
+function desktopTitleBarOverlay() {
+  return {
+    color: DESKTOP_TITLE_BAR_BACKGROUND,
+    symbolColor: nativeTheme.shouldUseDarkColors
+      ? DESKTOP_TITLE_BAR_SYMBOL_DARK
+      : DESKTOP_TITLE_BAR_SYMBOL_LIGHT,
+    height: DESKTOP_TITLE_BAR_HEIGHT,
+  };
+}
 let mainWindow;
 let serverProcess;
 let desktopUrl;
@@ -196,8 +221,33 @@ function createMainWindow() {
     windowOptions.vibrancy = "menu";
     windowOptions.acceptFirstMouse = true;
   }
+  if (process.platform === "win32" || process.platform === "linux") {
+    // The renderer draws its own title bar. Windows still owns the caption
+    // buttons, so the overlay hands them our height and a transparent
+    // background: the app colour behind them shows through, and one bar
+    // replaces the native caption strip and the native menu strip.
+    windowOptions.titleBarStyle = "hidden";
+    windowOptions.titleBarOverlay = desktopTitleBarOverlay();
+  }
 
   const window = new BrowserWindow(windowOptions);
+  if (process.platform === "win32" || process.platform === "linux") {
+    // The application menu stays registered for its keyboard shortcuts. Only
+    // the bar is hidden, because the renderer draws File, Edit, View and Help
+    // itself on these platforms. removeMenu() would take the shortcuts with
+    // it. ADR-0008.
+    //
+    // autoHideMenuBar is false on purpose. It is what lets the Alt key bring
+    // the native strip back, and one bar is the whole point.
+    window.autoHideMenuBar = false;
+    window.setMenuBarVisibility(false);
+    const followTheme = () => {
+      if (window.isDestroyed()) return;
+      window.setTitleBarOverlay(desktopTitleBarOverlay());
+    };
+    nativeTheme.on("updated", followTheme);
+    window.once("closed", () => nativeTheme.removeListener("updated", followTheme));
+  }
   const guardNavigation = (event, legacyUrl) => {
     const url = event.url || legacyUrl;
     if (desktopUrl && isNavigationAllowed(url, desktopUrl, true)) return;
@@ -221,6 +271,20 @@ function createMainWindow() {
   window.webContents.on("will-navigate", guardNavigation);
   window.webContents.on("will-redirect", guardFrameNavigation);
   window.webContents.on("will-frame-navigate", guardFrameNavigation);
+  // Without this the window shows the browser's own "This page couldn't load"
+  // screen, which names Chromium and offers no way back into Reeve. Issue 7.
+  window.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedUrl, isMainFrame) => {
+    if (!shouldReportLoadFailure({ errorCode, isMainFrame, validatedUrl })) return;
+    appendDesktopLog(`[omp-desktop] window load failed: ${errorDescription} (${errorCode}) at ${validatedUrl}`);
+    if (window.isDestroyed()) return;
+    void window.loadURL(createLoadFailurePage({
+      errorCode,
+      errorDescription,
+      retryUrl: desktopUrl || DEFAULT_DEV_URL,
+    })).then(() => {
+      if (!window.isDestroyed()) window.show();
+    });
+  });
   // A guest cannot be created at all, so there is nothing to contain on
   // attach. This handler refuses the attach outright rather than negotiating
   // with preferences that should never arrive.
@@ -281,6 +345,50 @@ function registerAttachmentPickerHandler() {
         : ["openFile", "multiSelections"],
     });
     return result.canceled ? [] : result.filePaths;
+  });
+}
+
+function registerApplicationMenu() {
+  const openExternal = (url) => {
+    if (!isExternalUrlAllowed(url)) return;
+    void shell.openExternal(url).catch((error) => {
+      appendDesktopLog(`[omp-desktop] menu link failed: ${error.message}`);
+    });
+  };
+  const sendAction = (action) => {
+    const window = mainWindow && !mainWindow.isDestroyed()
+      ? mainWindow
+      : BrowserWindow.getFocusedWindow();
+    if (!window || window.isDestroyed()) return;
+    window.webContents.send(MENU_ACTION_CHANNEL, action);
+  };
+  const menu = Menu.buildFromTemplate(createApplicationMenuTemplate({
+    platform: process.platform,
+    onAction: sendAction,
+    onOpenExternal: openExternal,
+  }));
+  // The menu is registered on every platform. macOS shows it as the system
+  // menu bar. Windows and Linux hide the bar and keep the shortcuts.
+  Menu.setApplicationMenu(menu);
+}
+
+function registerApplicationMenuHandler() {
+  ipcMain.handle("omp-desktop:show-application-menu", (event, state) => {
+    if (!event.senderFrame || !desktopUrl || !isTrustedRendererUrl(event.senderFrame.url, desktopUrl)) {
+      throw new Error("The application-menu request did not come from the application.");
+    }
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) throw new Error("The application-menu request has no application window.");
+
+    const applicationMenu = Menu.getApplicationMenu();
+    const item = applicationMenu?.items.find((entry) => entry.id === state?.id);
+    if (!item?.submenu) return false;
+    item.submenu.popup({
+      window,
+      x: Math.round(Number(state?.x) || 0),
+      y: Math.round(Number(state?.y) || 0),
+    });
+    return true;
   });
 }
 
@@ -734,6 +842,8 @@ if (!hasSingleInstanceLock) {
       registerAttachmentPickerHandler();
       registerProjectMenuHandler();
       registerSessionMenuHandler();
+      registerApplicationMenuHandler();
+      registerApplicationMenu();
       registerUpdateHandlers();
       registerTerminalHandlers();
       registerBrowserViewHandlers();

@@ -70,7 +70,12 @@ test("the grant is recorded privately and survives a read", () => {
   assert.equal(readAgentBrowserGrant(dir), true);
 
   // The file records a decision about this machine. Nobody else needs to read it.
-  assert.equal(statSync(grantFilePath(dir)).mode & 0o077, 0);
+  // Windows does not carry POSIX mode bits. The write still asks for 0600, and
+  // the file sits under the user's own application data, which the directory
+  // permissions already protect. Checking the mode there tests nothing.
+  if (process.platform !== "win32") {
+    assert.equal(statSync(grantFilePath(dir)).mode & 0o077, 0);
+  }
   assert.match(JSON.parse(readFileSync(grantFilePath(dir), "utf8")).decidedAt, /^\d{4}-\d{2}-\d{2}T/);
 
   assert.equal(writeAgentBrowserGrant(dir, false), false);

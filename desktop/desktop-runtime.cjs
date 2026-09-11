@@ -259,13 +259,170 @@ function createProjectMenuTemplate({ archiveEnabled, icons, worktrees, onAction 
   return template;
 }
 
+// The four menus the renderer draws on Windows and Linux. The identifier is
+// what the renderer sends back when a person clicks one of its buttons, and
+// the main process pops the matching submenu. ADR-0008.
+const APPLICATION_MENU_IDS = ["file", "edit", "view", "help"];
+
+// Chromium reports an aborted load whenever a navigation replaces another one.
+// It is normal, and it must not replace the window with an error page.
+const ERR_ABORTED = -3;
+
+// Reports whether a failed load must replace the window with Reeve's own page.
+// A sub-frame failure stays inside its frame. The failure page is a data URL,
+// and replacing it with itself would loop. Issue 7.
+function shouldReportLoadFailure({ errorCode, isMainFrame, validatedUrl }) {
+  if (isMainFrame === false) return false;
+  if (typeof validatedUrl === "string" && validatedUrl.startsWith("data:")) return false;
+  return errorCode !== ERR_ABORTED;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Builds the page the window shows when it cannot load the application. The
+// page runs no script, so the retry control is a link back to the application
+// URL. The navigation guard allows that URL, because it is the application
+// origin. Issue 7.
+function createLoadFailurePage({ errorCode, errorDescription, retryUrl }) {
+  const description = escapeHtml(errorDescription || "The server did not answer.");
+  const code = escapeHtml(errorCode);
+  const url = escapeHtml(retryUrl);
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+<title>Reeve cannot open</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: #16181c;
+    color: #e6e8ea;
+    font-family: system-ui, sans-serif;
+  }
+  main { max-width: 26rem; padding: 2rem; text-align: center; }
+  h1 { font-size: 1.125rem; font-weight: 600; margin: 0 0 0.75rem; }
+  p { margin: 0 0 1.25rem; line-height: 1.5; color: #a8adb4; font-size: 0.875rem; }
+  code { color: #8f959d; font-size: 0.75rem; }
+  a {
+    display: inline-block;
+    padding: 0.5rem 1.125rem;
+    border: 1px solid #3a3f46;
+    border-radius: 0.5rem;
+    background: #23262b;
+    color: #e6e8ea;
+    text-decoration: none;
+    font-size: 0.875rem;
+  }
+</style>
+</head>
+<body>
+<main>
+<h1>Reeve cannot reach its own server</h1>
+<p>The window could not load the application. Select Try again. If the problem stays, restart Reeve.</p>
+<p><code>${description} (${code})</code></p>
+<a href="${url}">Try again</a>
+</main>
+</body>
+</html>`;
+  return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+}
+
+const REEVE_DOCUMENTATION_URL = "https://github.com/AndrewBeniston/omp-reeve#readme";
+const REEVE_ISSUE_URL = "https://github.com/AndrewBeniston/omp-reeve/issues/new";
+
+/**
+ * The one application menu, registered on every platform.
+ *
+ * macOS draws it as the system menu bar. Windows and Linux hide the bar and
+ * the renderer draws the same four names itself. The menu is never removed,
+ * because it carries the keyboard shortcuts.
+ */
+function createApplicationMenuTemplate({ platform, onAction, onOpenExternal } = {}) {
+  const isMac = platform === "darwin";
+  const send = (action) => () => { if (onAction) onAction(action); };
+  const open = (url) => () => { if (onOpenExternal) onOpenExternal(url); };
+  const template = [];
+
+  if (isMac) template.push({ role: "appMenu" });
+
+  template.push({
+    id: "file",
+    label: "File",
+    submenu: [
+      { id: "file-new-chat", label: "New chat", accelerator: "CmdOrCtrl+N", click: send("new-chat") },
+      { type: "separator" },
+      { role: "close" },
+      ...(isMac ? [] : [{ role: "quit" }]),
+    ],
+  });
+
+  template.push({
+    id: "edit",
+    label: "Edit",
+    submenu: [
+      { role: "undo" },
+      { role: "redo" },
+      { type: "separator" },
+      { role: "cut" },
+      { role: "copy" },
+      { role: "paste" },
+      { role: "selectAll" },
+    ],
+  });
+
+  template.push({
+    id: "view",
+    label: "View",
+    submenu: [
+      { id: "view-sidebar", label: "Toggle sidebar", accelerator: "CmdOrCtrl+B", click: send("toggle-sidebar") },
+      { type: "separator" },
+      { role: "reload" },
+      { role: "forceReload" },
+      { role: "toggleDevTools" },
+      { type: "separator" },
+      { role: "resetZoom" },
+      { role: "zoomIn" },
+      { role: "zoomOut" },
+      { type: "separator" },
+      { role: "togglefullscreen" },
+    ],
+  });
+
+  template.push({
+    id: "help",
+    label: "Help",
+    submenu: [
+      { id: "help-documentation", label: "Documentation", click: open(REEVE_DOCUMENTATION_URL) },
+      { id: "help-report-issue", label: "Report an issue", click: open(REEVE_ISSUE_URL) },
+    ],
+  });
+
+  return template;
+}
+
 module.exports = {
+  APPLICATION_MENU_IDS,
   DESKTOP_PORT,
   DESKTOP_CHALLENGE_HEADER,
   DESKTOP_PROOF_HEADER,
   BROWSER_PARTITION,
+  createApplicationMenuTemplate,
   createBrowserTabMenuTemplate,
   createExternalLinkHandler,
+  createLoadFailurePage,
   createProjectMenuTemplate,
   createSessionMenuTemplate,
   createServerCommand,
@@ -274,4 +431,5 @@ module.exports = {
   isNavigationAllowed,
   isTrustedRendererUrl,
   prepareWritableNext,
+  shouldReportLoadFailure,
 };
