@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # Each platform reads its own update feed

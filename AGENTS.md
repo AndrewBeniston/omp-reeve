@@ -29,7 +29,9 @@ Issues live as GitHub issues in this repository. Use the `gh` CLI. See `docs/age
 
 ### Domain docs
 
-Single-context. `CONTEXT.md` and `docs/adr/` sit at the repository root. See `docs/agents/domain.md`.
+Single-context. `CONTEXT.md` holds the vocabulary. `docs/adr/` holds the decisions.
+Read the ADRs that touch the area you are about to change, before you change it.
+A decision you contradict costs a rewrite. See `docs/agents/domain.md`.
 
 ## Quick Start
 

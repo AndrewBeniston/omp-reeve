@@ -1,4 +1,12 @@
+---
+status: superseded by ADR-0009
+---
+
 # Keep the OMP engine and plan a plugin-based desktop as a second stage
+
+The first decision below still holds. The OMP SDK is the engine. The rest is
+history. The desktop shipped from this repository as an Electron application,
+which ADR-0009 records. The second-stage plugin desktop never started.
 
 Andrew asked on 2026-09-01 whether omp-web is a good foundation, whether
 DeepSeek Harness is a better one, and whether a fresh build on the Codex desktop

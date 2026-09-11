@@ -1,3 +1,7 @@
+---
+status: accepted
+---
+
 # Shipped Codex tokens supersede the screenshot measurements
 
 `DESIGN.md` section 2.2 recorded Codex geometry measured from one screenshot at

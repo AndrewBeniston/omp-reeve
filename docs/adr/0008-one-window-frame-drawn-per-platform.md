@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # One window frame, drawn per platform from runtime state

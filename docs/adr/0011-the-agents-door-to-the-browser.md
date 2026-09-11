@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 
 # The agent's door to the browser opens at launch, or not at all
