@@ -24,6 +24,11 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Browser tabs now belong to a project. Reeve remembers their addresses and
+  order, so reopening a project brings its pages back, still signed in.
+  Switching project puts one set away and takes the other out. Terminals are
+  never restored: a restored terminal would be a dead shell that looks alive.
+
 - Clear browsing data, in Settings under Access. It removes the cookies, logins
   and cached pages behind every browser tab, and reloads any open tab so none is
   left looking signed in. The tabs share one session, so this is all of them:

@@ -16,6 +16,7 @@ import { Launcher, type LauncherAction } from "./tabs/Launcher";
 import { BrowserTabs, browserTabCommand, useSupportsBrowserTab } from "./browser/BrowserTabs";
 import { RenameDialog } from "./RenameDialog";
 import { applyPageTitle, insertTabAfter, renameBrowserTab } from "@/lib/browser-tabs";
+import { toStoredBrowserTabs } from "@/lib/browser-tab-store";
 import { hasBrowserTabMenu, showBrowserTabMenu } from "@/lib/desktop-browser-tab-menu";
 import { openExternal } from "@/lib/open-external";
 import { TerminalTabs, useSupportsTerminalTab } from "./terminal/TerminalTabs";
@@ -907,6 +908,82 @@ export function AppShell() {
     setRenamingBrowserTab(null);
     return true;
   }, [renamingBrowserTab]);
+
+
+  /**
+   * Browser tabs belong to a Project, and follow it.
+   *
+   * Reeve remembers the addresses and their order in its own registry, so
+   * reopening a Project brings its pages back. Switching Project puts the
+   * outgoing one's Tabs away and takes the incoming one's out, which is what
+   * makes them the Project's rather than the window's.
+   *
+   * Terminals are never remembered. A restored Terminal would be a dead shell
+   * wearing a live one's clothes, and the human would find out by typing.
+   */
+  const restoredProjectRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const project = activeCwd;
+    if (!project || restoredProjectRef.current === project) return;
+
+    const previous = restoredProjectRef.current;
+    restoredProjectRef.current = project;
+    const controller = new AbortController();
+
+    setTabs((prev) => {
+      // Put the outgoing Project's pages away before they are closed, or
+      // switching away would be indistinguishable from closing them for good.
+      if (previous) {
+        const outgoing = toStoredBrowserTabs(prev);
+        void fetch("/api/browser-tabs", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cwd: previous, tabs: outgoing }),
+        }).catch(() => {});
+      }
+      return prev.filter((tab) => tab.kind !== "browser");
+    });
+
+    void fetch(`/api/browser-tabs?cwd=${encodeURIComponent(project)}`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() as Promise<{ tabs?: { url: string }[] }> : null)
+      .then((data) => {
+        const restored = data?.tabs ?? [];
+        if (restored.length === 0) return;
+        setTabs((prev) => [
+          ...prev,
+          ...restored.map((entry) => ({
+            id: `browser:${crypto.randomUUID()}`,
+            kind: "browser" as const,
+            label: translate("browser.untitled"),
+            url: entry.url,
+          })),
+        ]);
+      })
+      .catch(() => {});
+
+    return () => controller.abort();
+  }, [activeCwd, translate]);
+
+  /**
+   * Remember the current Project's pages as they change.
+   *
+   * Only once this Project's own Tabs have been restored, or an empty panel
+   * during the restore would be written down as "no Tabs" and lose them.
+   */
+  useEffect(() => {
+    const project = activeCwd;
+    if (!project || restoredProjectRef.current !== project) return;
+    const stored = toStoredBrowserTabs(tabs);
+    const timer = setTimeout(() => {
+      void fetch("/api/browser-tabs", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cwd: project, tabs: stored }),
+      }).catch(() => {});
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [activeCwd, tabs]);
 
   const handleCloseTab = useCallback((tabId: string) => {
     setTabs((prev) => {
