@@ -100,3 +100,24 @@ test("a page in a Browser tab is refused a camera as firmly as the application i
   assert.match(source, /setPermissionCheckHandler\(\(\) => false\)/);
   assert.match(source, /setPermissionRequestHandler/);
 });
+
+test("whether a port is open is asked of the command line, not inferred from the grant", () => {
+  const source = readFileSync(join(import.meta.dir, "main.cjs"), "utf8");
+
+  // A port opened any other way, by a developer flag or a wrapper script, is
+  // still a port. Reporting it as shut because Reeve did not open it would be
+  // reassuring at exactly the wrong moment.
+  assert.match(source, /app\.commandLine\.hasSwitch\("remote-debugging-port"\)/);
+
+  // The grant is read and applied before app-ready, which is the only moment
+  // Chromium still accepts the switch, and the reason a grant takes effect at
+  // the next launch rather than this one.
+  const grantRead = source.indexOf("readAgentBrowserGrant(userDataDir)");
+  const ready = source.indexOf("app.whenReady()");
+  assert.ok(grantRead >= 0 && ready >= 0);
+  assert.ok(grantRead < ready, "the grant must be read before the application is ready");
+
+  // A closed launch clears the port file Chromium leaves behind, or the agent
+  // would be handed a port that refuses every connection.
+  assert.match(source, /removeStalePortFile\(userDataDir\)/);
+});

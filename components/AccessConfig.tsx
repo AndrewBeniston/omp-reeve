@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import type { WebAccessStatus } from "@/lib/api-types";
+import { AgentBrowserAccess } from "./AgentBrowserAccess";
 import { Button } from "./ui/Button";
 import { FormField } from "./ui/FormField";
 import { StatusBadge } from "./ui/StatusBadge";
@@ -238,6 +239,8 @@ export function AccessConfigView({
             </div>
           </form>
         </Surface>
+
+        <AgentBrowserAccess />
 
         <Surface tone="surface" border="default" radius="card" padding="lg" className={styles.panel}>
           <div className={styles.sectionHeader}>

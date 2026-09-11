@@ -26,6 +26,14 @@ const { STATE_CHANNEL: UPDATE_STATE_CHANNEL, createUpdateController } = require(
 const { createTerminalRegistry, loadPty } = require("./terminal-host.cjs");
 const { createBrowserViewRegistry } = require("./browser-views.cjs");
 const { BROWSER_PARTITION } = require("./desktop-runtime.cjs");
+const {
+  cdpDiscoveryUrl,
+  planAgentBrowserAccess,
+  readActivePort,
+  readAgentBrowserGrant,
+  removeStalePortFile,
+  writeAgentBrowserGrant,
+} = require("./agent-browser-access.cjs");
 
 const DEFAULT_DEV_URL = "http://127.0.0.1:30141";
 const LOG_PATH = path.join(os.tmpdir(), "omp-desktop.log");
@@ -552,6 +560,44 @@ function registerTerminalHandlers() {
 }
 
 /**
+ * The control that grants, or withdraws, the agent's access to the browser.
+ *
+ * Reading is harmless. Writing records a decision that takes effect at the next
+ * launch, and the renderer is told so, because a control that appeared to do
+ * nothing would be worse than one that explains itself.
+ */
+function registerAgentBrowserHandlers() {
+  const trusted = (event) =>
+    Boolean(event.senderFrame && desktopUrl && isTrustedRendererUrl(event.senderFrame.url, desktopUrl));
+
+  const state = () => {
+    const granted = readAgentBrowserGrant(agentBrowserAccess.userDataDir);
+    // Open only when this launch actually carries the switch. A grant made
+    // since startup is recorded but not yet in effect, and saying otherwise
+    // would send the agent at a port nothing is listening on.
+    const port = agentBrowserAccess.open ? readActivePort(agentBrowserAccess.userDataDir) : null;
+    return {
+      granted,
+      openThisLaunch: agentBrowserAccess.open,
+      restartRequired: granted !== agentBrowserAccess.open,
+      cdpUrl: cdpDiscoveryUrl(port),
+    };
+  };
+
+  ipcMain.handle("omp-desktop:agent-browser-get", (event) => {
+    if (!trusted(event)) return null;
+    return state();
+  });
+
+  ipcMain.handle("omp-desktop:agent-browser-set", (event, granted) => {
+    if (!trusted(event)) return null;
+    writeAgentBrowserGrant(agentBrowserAccess.userDataDir, granted === true);
+    return state();
+  });
+}
+
+
+/**
  * Browser tabs, drawn by the main process.
  *
  * A page is a WebContentsView rather than a guest so the agent can see it:
@@ -691,6 +737,32 @@ if (!app.commandLine.hasSwitch("user-data-dir")) {
   app.setPath("userData", path.join(app.getPath("appData"), "omp-desktop"));
 }
 
+/**
+ * Decide the agent's browser access before Chromium reads its switches.
+ *
+ * This runs at module scope, ahead of app-ready, because that is the only
+ * moment the debugging switch can still be added. The grant itself was made in
+ * an earlier launch by a human, which is exactly the point: nothing running now
+ * can open this door.
+ */
+const agentBrowserAccess = (() => {
+  const userDataDir = app.getPath("userData");
+  const granted = readAgentBrowserGrant(userDataDir);
+  const plan = planAgentBrowserAccess(granted);
+
+  for (const [name, value] of plan.switches) {
+    app.commandLine.appendSwitch(name, value);
+  }
+  if (plan.removeStalePortFile) removeStalePortFile(userDataDir);
+
+  // Whether a debugging port is open is asked of the command line, not
+  // inferred from the grant. A port opened any other way, by a developer flag
+  // or a wrapper script, is still a port, and a panel that reported it as shut
+  // would be reassuring at exactly the wrong moment.
+  const open = app.commandLine.hasSwitch("remote-debugging-port");
+  return { userDataDir, open };
+})();
+
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!hasSingleInstanceLock) {
@@ -729,6 +801,7 @@ if (!hasSingleInstanceLock) {
       registerUpdateHandlers();
       registerTerminalHandlers();
       registerBrowserViewHandlers();
+      registerAgentBrowserHandlers();
       registerPermissionHandler();
       mainWindow = createMainWindow();
 
