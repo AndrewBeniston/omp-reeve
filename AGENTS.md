@@ -23,6 +23,11 @@ them. There is no install step. They are MIT licensed, and the notice is in
 `.agents/skills/LICENSE`. `skills-lock.json` records the source of each one.
 See `.agents/skills/README.md` to update them.
 
+`.agents/skills` is the source of truth for every skill in this repository.
+omp reads it, and Codex reads it. Claude Code reads `.claude/skills` only, so
+run `bun run skills:link` one time after a clone. The links stay on the
+machine and are never committed.
+
 ### Issue tracker
 
 Issues live as GitHub issues in this repository. Use the `gh` CLI. See `docs/agents/issue-tracker.md`.

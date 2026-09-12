@@ -47,6 +47,7 @@
     "lint": "eslint . && bun run check:ui-styles",
     "check:ui-styles": "bun scripts/check-ui-style-boundaries.mjs",
     "clean": "bun scripts/clean.mjs",
+    "skills:link": "bun scripts/link-skills.mjs",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "desktop:build": "bun scripts/build-desktop.mjs",
