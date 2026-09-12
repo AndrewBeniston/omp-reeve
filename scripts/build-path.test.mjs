@@ -48,6 +48,11 @@ test("the same rule finds a path baked into a built file", () => {
   assert.equal(namesAPerson("webpack://_N_E/home/someone/reeve/app"), true);
   assert.equal(namesAPerson("C:\\Users\\someone\\reeve\\app"), true);
   assert.equal(namesAPerson('{"clientModules":{"/tmp/reeve/build/app/page.tsx":1}}'), false);
+  // Reeve serves a route at /api/home. The server bundle names that route in
+  // four files, and it is not a person. This false match refused a correct
+  // Windows package once.
+  assert.equal(namesAPerson('{"/api/home/route":"/api/home"}'), false);
+  assert.equal(namesAPerson('bundlePath:"app/api/home/route"'), false);
 });
 
 test("both halves of the guard are wired in, not merely written", () => {

@@ -4,6 +4,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
+import { namesAPerson } from "./build-path.mjs";
+
 const root = join(import.meta.dir, "..");
 
 test("desktop commands package the Electron shell with the staged Bun server", () => {
@@ -150,26 +152,24 @@ test("package verification refuses a personal build path", () => {
   // from a home directory carries the name of the person who built it, and
   // this repository is public. Issue 6.
   const verifier = readFileSync(join(root, "scripts", "verify-desktop-package.mjs"), "utf8");
-  assert.match(verifier, /findPersonalPaths\(join\(resources, "server", "\.next"\)\)/);
-  assert.match(verifier, /The package carries a personal build path/);
+  assert.match(verifier, /verifyNoPersonalPaths\(resources\)/);
+  assert.match(verifier, /namesAPerson\(contents\)/);
 
-  // The three shapes the check must catch, and the two it must not. Reeve
-  // serves a route at /api/home, and a neutral build path is allowed.
-  const patterns = [
-    /(?:^|[^A-Za-z0-9])\/Users\/[A-Za-z0-9._-]+/,
-    /(?:^|[^A-Za-z0-9])\/home\/[A-Za-z0-9._-]+\//,
-    /[A-Za-z]:\\{1,2}Users\\{1,2}[A-Za-z0-9._-]+/,
-  ];
-  for (const pattern of patterns) assert.ok(verifier.includes(pattern.source));
-
+  // One rule lives in build-path.mjs. It reads the build root and the
+  // packaged output. Here are the three shapes it must catch, and the three
+  // it must not. Reeve serves a route at /api/home, and that route is not a
+  // person. A neutral build path is allowed.
   const caught = [
-    'const a = "/Users/alex/build/next";',
-    'const a = "/home/builder/reeve/.next";',
-    'const a = "C:\\\\Users\\\\alex\\\\reeve";',
+    String.raw`const a = "/Users/alex/build/next";`,
+    String.raw`const a = "/home/builder/reeve/.next";`,
+    String.raw`const a = "C:\\Users\\alex\\reeve";`,
   ];
-  for (const contents of caught) {
-    assert.ok(patterns.some((pattern) => pattern.test(contents)), contents);
-  }
-  const allowed = 'const a = "/api/home/route"; const b = "C:/reeve/build"; const c = "/tmp/reeve/build";';
-  assert.ok(!patterns.some((pattern) => pattern.test(allowed)));
+  for (const contents of caught) assert.equal(namesAPerson(contents), true, contents);
+
+  const allowed = [
+    String.raw`{"/api/home/route":"/api/home"}`,
+    String.raw`resolvedPagePath:"C:\\reeve\\build\\app\\api\\home\\route.ts"`,
+    String.raw`const c = "/tmp/reeve/build"; const d = "C:/reeve/build";`,
+  ];
+  for (const contents of allowed) assert.equal(namesAPerson(contents), false, contents);
 });

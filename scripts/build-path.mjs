@@ -11,11 +11,22 @@
  * secret, and not something a public product should carry.
  */
 
-/** Paths that name a person, on any of the three platforms. */
+/**
+ * Paths that name a person, on any of the three platforms.
+ *
+ * Each rule needs a name after the directory. Reeve serves a route at
+ * /api/home, and the server bundle names that route in four files. A bare
+ * "/home/" therefore reads the product as a person, and refuses a correct
+ * package. The lookbehind removes that route, and it keeps a real path such
+ * as "webpack://_N_E/home/someone/reeve".
+ *
+ * The Windows rule accepts one separator or two. A JavaScript string escapes
+ * the separator and a manifest does not.
+ */
 const PERSONAL_PATH_PATTERNS = [
-  /\/Users\//,
-  /\/home\//,
-  /[A-Za-z]:\\Users\\/,
+  /\/Users\/[A-Za-z0-9._-]+/,
+  /(?<!\/api)\/home\/[A-Za-z0-9._-]+/,
+  /[A-Za-z]:\\{1,2}Users\\{1,2}[A-Za-z0-9._-]+/,
 ];
 
 /** The escape hatch, for a developer building locally who does not care. */
