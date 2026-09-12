@@ -28,7 +28,9 @@ test("desktop commands package the Electron shell with the staged Bun server", (
   );
   assert.equal(pkg.build.directories.app, "desktop");
   assert.ok(pkg.build.files.includes("node_modules/**/*"), "electron-updater ships from desktop/node_modules");
-  assert.ok(pkg.build.files.includes("update-controller.cjs"));
+  // One pattern, so a new shell module is packaged without an edit here. The
+  // require graph is checked below.
+  assert.ok(pkg.build.files.includes("*.cjs"));
   assert.ok(pkg.build.files.includes("targets.json"));
   assert.equal(pkg.build.mac.notarize, true);
   assert.equal(pkg.build.mac.hardenedRuntime, true);
@@ -172,4 +174,33 @@ test("package verification refuses a personal build path", () => {
     String.raw`const c = "/tmp/reeve/build"; const d = "C:/reeve/build";`,
   ];
   for (const contents of allowed) assert.equal(namesAPerson(contents), false, contents);
+});
+
+test("every module the desktop shell requires is packaged", () => {
+  // The packaged list was written by hand. Three files that main.cjs requires
+  // were missing from it, so the installed application could not start at all.
+  // Walk the require graph instead of trusting the list.
+  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  const patterns = pkg.build.files;
+  const packaged = (name) =>
+    patterns.some((pattern) => pattern === name || (pattern === "*.cjs" && name.endsWith(".cjs")));
+
+  const seen = new Set();
+  const queue = ["main.cjs", "preload.cjs"];
+  while (queue.length > 0) {
+    const file = queue.pop();
+    if (seen.has(file) || !file.endsWith(".cjs")) continue;
+    seen.add(file);
+    assert.ok(packaged(file), `${file} is required by the desktop shell and is not packaged`);
+    const source = readFileSync(join(root, "desktop", file), "utf8");
+    for (const match of source.matchAll(/require\("\.\/([\w.-]+)"\)/g)) {
+      const name = match[1];
+      queue.push(name.includes(".") ? name : `${name}.cjs`);
+    }
+  }
+
+  // The three that were missing. A future move must not drop them again.
+  for (const file of ["terminal-host.cjs", "browser-views.cjs", "agent-browser-access.cjs"]) {
+    assert.ok(seen.has(file), file);
+  }
 });

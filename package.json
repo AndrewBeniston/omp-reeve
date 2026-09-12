@@ -131,12 +131,10 @@
       "buildResources": "desktop/icons"
     },
     "files": [
-      "main.cjs",
-      "preload.cjs",
-      "desktop-runtime.cjs",
+      "*.cjs",
+      "!*.test.cjs",
       "targets.json",
       "package.json",
-      "update-controller.cjs",
       "node_modules/**/*"
     ],
     "extraResources": [
