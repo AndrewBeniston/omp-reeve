@@ -1,0 +1,17 @@
+version: 0.5.0
+files:
+  - url: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.5.0/Reeve-0.5.0-arm64-mac.zip
+    sha512: LuIf9/DlgW21zXDItrzTqnoMXdqZxjIxHxFrPzBffDQ1SC//fZoY1QRS+S4Ryqf4aY2KOuXnyt8RkNYV9vW1nw==
+    size: 414510342
+  - url: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.5.0/Reeve-0.5.0-arm64.dmg
+    sha512: 47MpL+6VDcAtKK/diFJXft4A41TRi+m0iF2oWVgiwKab2gtbIva4e6ooTXcvlp94xMDzmQj7wdEfqtjan2Kahg==
+    size: 395366742
+  - url: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.5.0/Reeve-0.5.0-mac.zip
+    sha512: VsczCedrvV4YTiIQSRcNzU+wkKu8STqicud7juNrT/2STG7xeuiyGy6ZLGhNV8WIQDDgRE+KajvjaduRtNgz4Q==
+    size: 440039089
+  - url: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.5.0/Reeve-0.5.0.dmg
+    sha512: ER+adIgHQz0e62uyjlAcGAEaXkHnZP2v6Zz388c3qGommLE/Sa2WPrIn0JUZpFbMYTgVr8EZ1mXNWdzsDqoGVw==
+    size: 417756255
+path: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.5.0/Reeve-0.5.0-arm64-mac.zip
+sha512: LuIf9/DlgW21zXDItrzTqnoMXdqZxjIxHxFrPzBffDQ1SC//fZoY1QRS+S4Ryqf4aY2KOuXnyt8RkNYV9vW1nw==
+releaseDate: '2026-09-09T17:23:35.479Z'

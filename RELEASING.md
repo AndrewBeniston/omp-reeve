@@ -2,9 +2,8 @@
 
 This is the full release procedure. `AGENTS.md` points here. ADR-0006 holds the decisions.
 
-> ADR-0013 changes how the update feed works, so that one platform can ship
-> alone. It is proposed and not built yet. Until it lands, a published release
-> must carry every platform, because every platform reads the newest release.
+> Each platform reads its own feed, so one platform can ship alone. ADR-0013
+> holds the decision. The step is "Publish the feed" below.
 
 ## Before every release
 
@@ -74,20 +73,44 @@ packages come from one `desktop/dist`, the second build overwrites `latest-mac.y
 two `files` lists into one file with all four macOS entries before upload. electron-updater picks
 the arm64 entries by the word `arm64` in the file name.
 
-## Publish
+## Publish the packages
 
-Collect every `.dmg`, `.zip`, `.exe`, `.AppImage`, `.blockmap`, and `latest*.yml` in one
-folder on the Mac, then:
+A release may carry one platform or every platform. Upload only the packages
+you built. Collect every `.dmg`, `.zip`, `.exe`, `.AppImage`, `.blockmap`, and
+`latest*.yml` for those platforms in one folder, then:
 
 ```bash
 bun scripts/release-notes.mjs v<version> > release-notes.md
 gh release create v<version> --title "Reeve v<version>" --notes-file release-notes.md --draft <files...>
 ```
 
-Open the draft, check the file list, then publish it. The `latest*.yml` files in that release are
-the feed that installed copies of Reeve read.
+Open the draft, check the file list, then publish it.
 
 Delete `desktop/dist` after upload. Two macOS packages are about 2 GB.
+
+## Publish the feed
+
+An installed Reeve reads its Platform feed, not the release. Until this step
+runs, nobody is offered the new version. Run it once per platform you built,
+on the machine that built it, with the same target:
+
+```bash
+OMP_DESKTOP_TARGET=<target> bun run desktop:update-feed --tag v<version>
+```
+
+It reads the channel file from `desktop/dist`, names every package by its full
+address in the release, and writes `docs/updates/<platform>/`. Commit that file
+to `main` through a pull request. GitHub Pages serves `docs/`, so the merge is
+the publication.
+
+Publishing one platform leaves the other feeds untouched, which is the point.
+A macOS user is not offered a Windows-only release and reports no error.
+
+Check the feed answers before you tell anyone:
+
+```bash
+curl -sS https://andrewbeniston.github.io/omp-reeve/updates/win32/latest.yml
+```
 
 ## Fallback: the GitHub workflow
 

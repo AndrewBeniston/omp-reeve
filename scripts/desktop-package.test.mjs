@@ -31,7 +31,9 @@ test("desktop commands package the Electron shell with the staged Bun server", (
   assert.equal(pkg.build.mac.notarize, true);
   assert.equal(pkg.build.mac.hardenedRuntime, true);
   assert.equal(pkg.build.linux.executableName, "reeve");
-  assert.deepEqual(pkg.build.publish, { provider: "github", owner: "AndrewBeniston", repo: "omp-reeve" });
+  // Each platform publishes to its own feed now, so no shared one may return.
+  // scripts/update-feed.test.mjs holds the per-platform rule. ADR-0013.
+  assert.equal(pkg.build.publish, undefined);
   assert.equal(pkg.build.mac.target, undefined);
   assert.equal(pkg.build.win.target, undefined);
   assert.deepEqual(pkg.build.extraResources, [

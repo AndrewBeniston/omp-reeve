@@ -1,0 +1,9 @@
+version: 0.5.0
+files:
+  - url: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.5.0/Reeve-0.5.0-x86_64.AppImage
+    sha512: rifmHKbUBArvCsvHh1Wed6hI5I1/KWfXg+uJ65s15YXvqEmemkAIqlClEyX7B4MI2bJ5TLZ/9gokClatzNQqGA==
+    size: 459081055
+    blockMapSize: 488819
+path: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.5.0/Reeve-0.5.0-x86_64.AppImage
+sha512: rifmHKbUBArvCsvHh1Wed6hI5I1/KWfXg+uJ65s15YXvqEmemkAIqlClEyX7B4MI2bJ5TLZ/9gokClatzNQqGA==
+releaseDate: '2026-09-10T10:22:05.018Z'

@@ -54,6 +54,7 @@
     "desktop:dev": "bun scripts/dev-desktop.mjs",
     "desktop:fetch-bun": "bun scripts/fetch-bun.mjs",
     "desktop:sync-version": "bun scripts/sync-version.mjs",
+    "desktop:update-feed": "bun scripts/update-feed.mjs",
     "desktop:verify-package": "bun scripts/verify-desktop-package.mjs",
     "release": "bun scripts/release.mjs",
     "release:check": "bun scripts/release-check.mjs",
@@ -170,21 +171,28 @@
       "category": "public.app-category.developer-tools",
       "icon": "desktop/icons/icon.icns",
       "hardenedRuntime": true,
-      "notarize": true
+      "notarize": true,
+      "publish": {
+        "provider": "generic",
+        "url": "https://andrewbeniston.github.io/omp-reeve/updates/darwin/"
+      }
     },
     "win": {
-      "icon": "desktop/icons/icon.ico"
+      "icon": "desktop/icons/icon.ico",
+      "publish": {
+        "provider": "generic",
+        "url": "https://andrewbeniston.github.io/omp-reeve/updates/win32/"
+      }
     },
     "linux": {
       "category": "Development",
       "icon": "desktop/icons/icon.png",
       "executableName": "reeve",
+      "publish": {
+        "provider": "generic",
+        "url": "https://andrewbeniston.github.io/omp-reeve/updates/linux/"
+      },
       "artifactName": "Reeve-${version}-${arch}.${ext}"
-    },
-    "publish": {
-      "provider": "github",
-      "owner": "AndrewBeniston",
-      "repo": "omp-reeve"
     },
     "asarUnpack": [
       "node_modules/node-pty/**/*"

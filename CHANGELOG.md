@@ -10,6 +10,9 @@ the What's New dialog adds a second page that invites support.
 ## [Unreleased]
 
 ### Added
+- Each platform now reads its own update feed. A release can carry one platform
+  or every platform. A macOS copy is no longer disturbed by a Windows release,
+  and the reverse holds too.
 
 - The agent browser panel now says to tell the agent which page to work on.
   Asked to browse without naming one, it attaches to Reeve's own window rather
