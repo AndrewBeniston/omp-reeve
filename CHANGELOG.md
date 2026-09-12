@@ -9,6 +9,8 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-12
+
 ### Added
 - Each platform now reads its own update feed. A release can carry one platform
   or every platform. A macOS copy is no longer disturbed by a Windows release,
@@ -120,7 +122,6 @@ the What's New dialog adds a second page that invites support.
   forced by the main process and its own requested settings discarded, so a
   page cannot ask for more than it is given, cannot nest another guest, and
   cannot choose which browsing session it reads.
-
 
 ## [0.5.0] - 2026-09-08 support: true
 
