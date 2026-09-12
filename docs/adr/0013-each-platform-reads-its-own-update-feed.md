@@ -57,9 +57,9 @@ Three parts make this work.
 ### The shape
 
 ```
-https://andrewbeniston.github.io/omp-reeve/updates/win32-x64/latest.yml
+https://andrewbeniston.github.io/omp-reeve/updates/win32/latest.yml
 https://andrewbeniston.github.io/omp-reeve/updates/darwin/latest-mac.yml
-https://andrewbeniston.github.io/omp-reeve/updates/linux-x64/latest-linux.yml
+https://andrewbeniston.github.io/omp-reeve/updates/linux/latest-linux.yml
 ```
 
 Each file is a few hundred bytes. Each one points at a package in a release:
@@ -70,6 +70,9 @@ https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.6.0/Reeve-Setup
 
 Publishing Windows means writing one small file. The macOS file is untouched
 and the Mac keeps its own version until you say otherwise.
+
+One directory per platform, not per target. Both macOS packages write one
+channel file, so they share one feed.
 
 ## What was measured, not assumed
 

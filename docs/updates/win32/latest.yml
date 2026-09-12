@@ -1,0 +1,8 @@
+version: 0.5.0
+files:
+  - url: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.5.0/Reeve-Setup-0.5.0.exe
+    sha512: AFTysc54ou9487dIDCPqb6FMqAuJq+0yONex/tJpUFA0nnzZI+44yPa8liwVgeMP+l1HIdZJwSc6QLOdY52jkQ==
+    size: 343759754
+path: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.5.0/Reeve-Setup-0.5.0.exe
+sha512: AFTysc54ou9487dIDCPqb6FMqAuJq+0yONex/tJpUFA0nnzZI+44yPa8liwVgeMP+l1HIdZJwSc6QLOdY52jkQ==
+releaseDate: '2026-09-10T11:46:30.493Z'
