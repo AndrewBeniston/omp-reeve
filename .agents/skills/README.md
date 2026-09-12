@@ -7,6 +7,11 @@ the same skills from a clone. No install step is needed.
 - Licence: MIT. The notice is in `LICENSE` beside this file.
 - Count: 37 skills.
 
+One skill here belongs to this repository, not to that set: `release-reeve`. It
+carries the order and the gates of a release, and it sends the agent to
+`RELEASING.md` for every command. It is not in `skills-lock.json`, because it has
+no upstream source. Leave it in place when you update the set.
+
 `skills-lock.json` at the repository root records the source path and a hash
 for each skill. It is the record of what came from where.
 
@@ -37,4 +42,3 @@ Use `--copy`. Symbolic links need administrator rights on Windows.
 
 `setup-matt-pocock-skills` has already run for this repository. Its output is
 in `docs/agents/`. Read `AGENTS.md` under "Agent skills" for the summary.
-
