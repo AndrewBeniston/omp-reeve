@@ -32,7 +32,7 @@ test("a neutral path builds without complaint", () => {
 test("the refusal names the neutral path for the platform being built on", () => {
   assert.match(refuseBuildPath("/Users/a/x", {}, "darwin"), /\/tmp\/reeve\/build/);
   assert.match(refuseBuildPath("/home/a/x", {}, "linux"), /\/tmp\/reeve\/build/);
-  assert.match(refuseBuildPath("C:\\Users\\a\\x", {}, "win32"), /C:\\reeve\\build/);
+  assert.match(refuseBuildPath("C:\\Users\\a\\x", {}, "win32"), /C:\\Projects\\git\\omp-reeve-build/);
 });
 
 test("a developer building locally can say so", () => {
