@@ -204,3 +204,17 @@ test("every module the desktop shell requires is packaged", () => {
     assert.ok(seen.has(file), file);
   }
 });
+
+test("a packaged file name carries no space", () => {
+  // GitHub writes a space in an asset name as a dot. The update feed is built
+  // from the local file name, so a space makes the feed name a file the
+  // release does not hold, and no installed copy can update. Reeve 0.5.0
+  // shipped Reeve-Setup-0.5.0.exe and its feed matched.
+  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  const names = [pkg.build.win.artifactName, pkg.build.linux.artifactName];
+  for (const name of names) {
+    assert.ok(typeof name === "string" && name.length > 0);
+    assert.ok(!name.includes(" "), name);
+  }
+  assert.equal(pkg.build.win.artifactName, "Reeve-Setup-${version}.${ext}");
+});

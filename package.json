@@ -178,6 +178,7 @@
     },
     "win": {
       "icon": "desktop/icons/icon.ico",
+      "artifactName": "Reeve-Setup-${version}.${ext}",
       "publish": {
         "provider": "generic",
         "url": "https://andrewbeniston.github.io/omp-reeve/updates/win32/"
