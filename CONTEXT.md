@@ -177,8 +177,9 @@ _Avoid_: mic button, voice button, speech control
 ## Release
 
 **Release**:
-One tagged version of Reeve with its packages for every target, published on
-GitHub Releases. The tag is `v<version>` and only the release script writes it.
+One tagged version of Reeve with the packages built for it, published on
+GitHub Releases. A Release may carry one platform or every platform. The tag
+is `v<version>` and only the release script writes it.
 _Avoid_: build, version bump, deploy
 
 **Package**:
@@ -187,9 +188,15 @@ installer, or a Linux AppImage.
 _Avoid_: artifact, binary, bundle
 
 **Update feed**:
-The `latest*.yml` files in a Release that an installed Reeve reads to learn
-about a newer version. One file per platform, with the file hashes inside.
+Every Platform feed together. See ADR-0013.
 _Avoid_: manifest, update channel, release metadata
+
+**Platform feed**:
+The one `latest*.yml` file that an installed Reeve on one platform reads to
+learn about a newer version. It names the version, the file hashes, and the
+full address of each Package. One platform's feed never decides what another
+platform sees.
+_Avoid_: channel file, manifest, yml
 
 **Update card**:
 The sidebar card that reports a download in progress and offers Restart now
