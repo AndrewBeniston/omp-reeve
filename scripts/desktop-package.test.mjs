@@ -170,8 +170,8 @@ test("package verification refuses a personal build path", () => {
 
   const allowed = [
     String.raw`{"/api/home/route":"/api/home"}`,
-    String.raw`resolvedPagePath:"C:\\reeve\\build\\app\\api\\home\\route.ts"`,
-    String.raw`const c = "/tmp/reeve/build"; const d = "C:/reeve/build";`,
+    String.raw`resolvedPagePath:"C:\\Projects\\git\\omp-reeve-build\\app\\api\\home\\route.ts"`,
+    String.raw`const c = "/tmp/reeve/build"; const d = "C:/Projects/git/omp-reeve-build";`,
   ];
   for (const contents of allowed) assert.equal(namesAPerson(contents), false, contents);
 });

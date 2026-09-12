@@ -36,7 +36,7 @@ export const ALLOW_PERSONAL_BUILD_PATH = "REEVE_ALLOW_PERSONAL_BUILD_PATH";
 export const NEUTRAL_BUILD_PATHS = Object.freeze({
   darwin: "/tmp/reeve/build",
   linux: "/tmp/reeve/build",
-  win32: "C:\\reeve\\build",
+  win32: "C:\\Projects\\git\\omp-reeve-build",
 });
 
 /** True when this text names somebody's home directory. */

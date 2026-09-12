@@ -44,7 +44,7 @@ files this way. `bun run desktop:build` refuses a personal path, and
 | Platform | Build from |
 | --- | --- |
 | macOS and Linux | `/tmp/reeve/build` |
-| Windows | `C:\reeve\build` |
+| Windows | `C:\Projects\git\omp-reeve-build` |
 
 For a local build you do not intend to ship, set `REEVE_ALLOW_PERSONAL_BUILD_PATH=1`.
 
@@ -59,11 +59,25 @@ OMP_DESKTOP_TARGET=<target> bun run desktop:build
 OMP_DESKTOP_TARGET=<target> bun run desktop:verify-package
 ```
 
+On Windows the same steps run in PowerShell. The build directory sits beside the
+repository, never inside it.
+
+```powershell
+git clone --branch v<version> https://github.com/AndrewBeniston/omp-reeve.git C:\Projects\git\omp-reeve-build
+cd C:\Projects\git\omp-reeve-build
+bun install --frozen-lockfile
+cd desktop; bun install --frozen-lockfile; cd ..
+bun run desktop:fetch-bun
+$env:OMP_DESKTOP_TARGET = "win32-x64"
+bun run desktop:build
+bun run desktop:verify-package
+```
+
 | Target | Machine | Extra steps |
 | --- | --- | --- |
 | `darwin-arm64` | An Apple Silicon Mac | Set `APPLE_API_KEY`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`. The Developer ID identity must be in the login keychain. Run `ulimit -n 65536` first. |
 | `darwin-x64` | The same Mac | Same. The verify step cannot run on Apple Silicon; open the app once under Rosetta instead. |
-| `win32-x64` | A Windows machine, or the Linux build machine through Wine 10 with `wine32:i386` | Windows ships unsigned at 0.5.0. On Windows call `bun.cmd` if PowerShell blocks `bun.ps1`. Test the installer on Windows either way. |
+| `win32-x64` | A Windows machine, or the Linux build machine through Wine 10 with `wine32:i386` | Windows ships unsigned at 0.5.0. On Windows call `bun.cmd` if PowerShell blocks `bun.ps1`. Install the MSVC Spectre-mitigated libraries from the Visual Studio Installer, because `node-pty` cannot compile without them. Close Reeve before a rebuild, because a running copy locks `desktop/dist`. Test the installer on Windows either way. |
 | `linux-x64` | The Linux build machine | On a machine with no display and no FUSE, verify with `xvfb-run` and `APPIMAGE_EXTRACT_AND_RUN=1`. |
 
 Machines are named by role here and in issues. Never by hostname or owner.

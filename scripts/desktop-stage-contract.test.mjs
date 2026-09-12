@@ -35,7 +35,7 @@ test("a build path inside a home directory is refused, and the override names it
   const neutral = [
     { root: "/tmp/reeve/build", platform: "darwin" },
     { root: "/tmp/reeve/build", platform: "linux" },
-    { root: "C:\\reeve\\build", platform: "win32" },
+    { root: "C:\\Projects\\git\\omp-reeve-build", platform: "win32" },
     { root: "C:\\Projects\\git\\omp-reeve", platform: "win32" },
     { root: "/srv/build/omp-reeve", platform: "linux" },
   ];

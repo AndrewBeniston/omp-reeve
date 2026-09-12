@@ -53,7 +53,7 @@ export function describePersonalBuildPath({
   const personal =
     insideAHomeParent(segments) || contains(pathSegments(home, platform), segments);
   if (!personal) return null;
-  const neutral = platform === "win32" ? "C:\\reeve\\build" : "/tmp/reeve/build";
+  const neutral = platform === "win32" ? "C:\\Projects\\git\\omp-reeve-build" : "/tmp/reeve/build";
   return [
     `This build root sits inside a home directory: ${root}`,
     "Next writes the build directory into the server bundle, and this repository is public.",
