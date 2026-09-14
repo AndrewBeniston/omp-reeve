@@ -363,6 +363,58 @@ const PANEL_MENU_ITEMS = [
 ];
 
 /**
+ * Moving between the Tabs in the right panel.
+ *
+ * The reference application binds three chords to each step, and one chord to
+ * each of the first nine Tabs. An Electron menu item carries one accelerator,
+ * so a command with three chords needs three items. Only the first is visible;
+ * the rest are hidden, and a hidden item still answers its chord on macOS.
+ *
+ * Windows and Linux do not answer a hidden item's accelerator. The alternate
+ * chords are therefore macOS only for now, and the visible one works
+ * everywhere. That is a gap to close when this panel reaches those platforms.
+ */
+function tabNavigationMenuItems({ isMac, send }) {
+  const step = (id, label, action, chords) => chords.map((accelerator, index) => ({
+    id: index === 0 ? id : `${id}-alt-${index}`,
+    label,
+    accelerator,
+    visible: index === 0,
+    click: send(action),
+  }));
+
+  const nextChords = isMac
+    ? ["Control+Tab", "Command+Shift+]", "Command+Alt+Right"]
+    : ["Control+Tab", "Control+Shift+]", "Control+PageDown"];
+  const previousChords = isMac
+    ? ["Control+Shift+Tab", "Command+Shift+[", "Command+Alt+Left"]
+    : ["Control+Shift+Tab", "Control+Shift+[", "Control+PageUp"];
+
+  return [
+    ...step("view-next-tab", "Next tab", "next-tab", nextChords),
+    ...step("view-previous-tab", "Previous tab", "previous-tab", previousChords),
+    { id: "view-reopen-closed-tab", label: "Reopen closed tab", accelerator: "CmdOrCtrl+Shift+T", click: send("reopen-closed-tab") },
+    { id: "view-close-other-tabs", label: "Close other tabs", accelerator: "CmdOrCtrl+Alt+W", click: send("close-other-tabs") },
+    // The Browser tab's own three. Each does nothing unless a Browser tab is
+    // the active one, which the renderer decides: the menu is built once at
+    // startup and cannot follow the strip.
+    { id: "view-browser-address", label: "Address bar", accelerator: "CmdOrCtrl+L", click: send("focus-browser-address") },
+    { id: "view-browser-back", label: "Back", accelerator: isMac ? "Command+Left" : "Alt+Left", click: send("browser-back") },
+    { id: "view-browser-forward", label: "Forward", accelerator: isMac ? "Command+Right" : "Alt+Right", click: send("browser-forward") },
+    { id: "view-maximise-panel", label: "Maximise panel", accelerator: "Control+]", click: send("toggle-maximise-panel") },
+    // Nine hidden items. The reference shows none of these in its menu either:
+    // they are chords a human learns from the shortcut list, not from browsing.
+    ...Array.from({ length: 9 }, (_unused, index) => ({
+      id: `view-focus-tab-${index + 1}`,
+      label: `Tab ${index + 1}`,
+      accelerator: `CmdOrCtrl+${index + 1}`,
+      visible: false,
+      click: send(`focus-tab-${index + 1}`),
+    })),
+  ];
+}
+
+/**
  * The one application menu, registered on every platform.
  *
  * macOS draws it as the system menu bar. Windows and Linux hide the bar and
@@ -412,6 +464,8 @@ function createApplicationMenuTemplate({ platform, onAction, onOpenExternal } = 
       ...PANEL_MENU_ITEMS.map((item) => (item.action
         ? { id: item.id, label: item.label, accelerator: item.accelerator, click: send(item.action) }
         : { id: item.id, label: item.label, enabled: false })),
+      { type: "separator" },
+      ...tabNavigationMenuItems({ isMac, send }),
       { type: "separator" },
       { id: "view-sidebar", label: "Toggle sidebar", accelerator: "CmdOrCtrl+B", click: send("toggle-sidebar") },
       { type: "separator" },

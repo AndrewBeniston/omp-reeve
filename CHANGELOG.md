@@ -11,6 +11,30 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Keyboard movement between the tabs beside a chat. `Ctrl+Tab` and
+  `Ctrl+Shift+Tab` step through them, and they wrap around the ends.
+  `Cmd+Shift+]` and `Cmd+Alt+Right` do the same, as do their mirrors for
+  stepping back. `Cmd+1` to `Cmd+9` jump straight to one tab.
+
+- Reopen the tab you just closed with `Cmd+Shift+T`. A browser tab comes back
+  at the address it held. A terminal never comes back, because its shell ended
+  when you closed it.
+
+- Close every tab except the one you are looking at, with `Cmd+Alt+W`. They all
+  stay reopenable.
+
+- Keyboard control of a browser tab. `Cmd+L` selects the address, and `Cmd+Left`
+  and `Cmd+Right` move the page back and forward. On Windows and Linux the
+  history keys are `Alt+Left` and `Alt+Right`.
+
+- `Ctrl+]` makes the panel beside a chat fill the room, and pressing it again
+  returns it to the width you had. Neither is remembered, so a restart still
+  opens at the width you dragged it to.
+
+- The tab strip beside a chat now scrolls the active tab into sight. Before
+  this, a tab reached with `Cmd+9` could be selected while staying off the
+  edge of the strip.
+
 - Keyboard shortcuts for the right panel, on the View menu. `Cmd+T` opens a
   browser tab, `Ctrl+backtick` opens a terminal, and `Cmd+P` searches the
   project's files. They work while a web page has focus, because the menu

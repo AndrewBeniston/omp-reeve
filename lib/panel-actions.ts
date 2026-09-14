@@ -38,3 +38,28 @@ export const PANEL_ACCELERATORS: Record<PanelActionId, string> = {
  * panel will hold without being offered a chord that does nothing.
  */
 export const BUILT_PANEL_ACTIONS: readonly PanelActionId[] = ["terminal", "browser", "files"];
+
+/**
+ * The Tab a step lands on.
+ *
+ * The strip is a ring, not a line: stepping past the last Tab reaches the
+ * first. Returns null when there is no Tab to land on. An active Tab that is
+ * not in the list, which happens for one render after a close, steps from the
+ * start rather than refusing to move.
+ */
+export function stepTabIndex(count: number, activeIndex: number, offset: number): number | null {
+  if (count <= 0) return null;
+  const from = activeIndex >= 0 && activeIndex < count ? activeIndex : 0;
+  return (((from + offset) % count) + count) % count;
+}
+
+/**
+ * Whether closing this kind of Tab is worth remembering.
+ *
+ * A Terminal is not. Its shell ended when the Tab closed, so reopening one
+ * would hand back a dead shell wearing a live one's name. That is the same
+ * rule that keeps Terminals out of the per-Project restore.
+ */
+export function isReopenableTabKind(kind: string): boolean {
+  return kind !== "terminal";
+}

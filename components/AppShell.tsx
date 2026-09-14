@@ -39,8 +39,17 @@ import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useViewportHeight } from "@/hooks/useViewportHeight";
 import { useCaptionInsets } from "@/hooks/useCaptionInsets";
-import { subscribeApplicationMenuAction } from "@/lib/desktop-application-menu";
-import { PANEL_ACCELERATORS, type PanelActionId } from "@/lib/panel-actions";
+import {
+  isTabFocusAction,
+  subscribeApplicationMenuAction,
+  TAB_FOCUS_POSITIONS,
+} from "@/lib/desktop-application-menu";
+import {
+  isReopenableTabKind,
+  PANEL_ACCELERATORS,
+  stepTabIndex,
+  type PanelActionId,
+} from "@/lib/panel-actions";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
 import { useAudio } from "@/hooks/useAudio";
 import { getFileName } from "@/lib/file-paths";
@@ -253,6 +262,7 @@ export function AppShell() {
   const reclampSidebarWidth = sidebarResizer.reclampWidth;
   const reclampRightPanelWidth = rightPanelResizer.reclampWidth;
   const growRightPanelToAtLeast = rightPanelResizer.growToAtLeast;
+  const toggleRightPanelMaximised = rightPanelResizer.toggleMaximised;
   // On mobile the sidebar is an overlay drawer; hide it by default so the chat
   // is visible on load. Runs once the breakpoint resolves after hydration.
   useEffect(() => {
@@ -335,6 +345,14 @@ export function AppShell() {
 
   // Right panel tabs
   const [tabs, setTabs] = useState<Tab[]>([]);
+  /**
+   * The Tabs closed in this window, newest last, for Cmd+Shift+T.
+   *
+   * A ref rather than state: nothing renders from it, and a re-render on every
+   * close would be paid for nothing. It holds at most ten, and a Terminal is
+   * never among them.
+   */
+  const closedTabsRef = useRef<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
   // Same @mention format as the chat input's @ autocomplete, so the agent's
@@ -991,6 +1009,13 @@ export function AppShell() {
   }, [activeCwd, tabs]);
 
   const handleCloseTab = useCallback((tabId: string) => {
+    // Remember it so Cmd+Shift+T can bring it back. The stack is a ref and is
+    // never persisted: it is about the last few minutes, not about the
+    // Project, and it dies with the window.
+    const closing = tabs.find((t) => t.id === tabId);
+    if (closing && isReopenableTabKind(closing.kind)) {
+      closedTabsRef.current = [...closedTabsRef.current.slice(-9), closing];
+    }
     setTabs((prev) => {
       const next = prev.filter((t) => t.id !== tabId);
       if (next.length === 0) setRightPanelOpen(false);
@@ -1095,6 +1120,26 @@ export function AppShell() {
   }, [projectTrustBusy, projectTrustCwd]);
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
+
+  /**
+   * Keep the active Tab in sight.
+   *
+   * The strip scrolls sideways once the Tabs stop fitting, and a Tab chosen by
+   * chord is often one that has scrolled off: Cmd+9 can select the ninth Tab
+   * while it stays past the edge. `nearest` moves the strip by the least it
+   * can, so a Tab already in sight does not jump.
+   *
+   * This lives here rather than in TabBar because TabBar is called as a plain
+   * function by its tests, so it holds no hooks, and because this is where
+   * selection changes.
+   */
+  useEffect(() => {
+    if (!activeTabId) return;
+    document
+      .querySelector('[data-component="tab-bar"]')
+      ?.querySelector<HTMLElement>(`[data-tab-id="${CSS.escape(activeTabId)}"]`)
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeTabId]);
   /** Every open Browser tab, kept for the persistent guests above. */
   const browserTabs = tabs.filter((t): t is BrowserTab => t.kind === "browser");
   /** Every open Terminal, kept for the persistent shells above. */
@@ -1143,6 +1188,75 @@ export function AppShell() {
     supportsBrowserTabs,
     supportsTerminalTabs,
   ]);
+
+  /**
+   * Step to the Tab before or after the active one.
+   *
+   * The step wraps, so the strip is a ring rather than a line with two dead
+   * ends. With nothing open there is nothing to step to.
+   */
+  const stepTab = useCallback((offset: number) => {
+    const next = stepTabIndex(tabs.length, tabs.findIndex((tab) => tab.id === activeTabId), offset);
+    if (next !== null) setActiveTabId(tabs[next].id);
+  }, [activeTabId, tabs]);
+
+  /** Jump to one Tab by its place in the strip, counting from one. */
+  const focusTabAtPosition = useCallback((position: number) => {
+    const tab = tabs[position - 1];
+    if (tab) setActiveTabId(tab.id);
+  }, [tabs]);
+
+  /**
+   * Bring back the Tab closed most recently.
+   *
+   * A Browser tab opens again at the address it held. It cannot be restored as
+   * itself: the guest died with the Tab, and the id is what the agent
+   * addresses, so a new Tab is honest where a resurrected id would not be.
+   */
+  const reopenClosedTab = useCallback(() => {
+    const stack = closedTabsRef.current;
+    const tab = stack.at(-1);
+    if (!tab) return;
+    closedTabsRef.current = stack.slice(0, -1);
+    if (tab.kind === "browser") {
+      handleOpenBrowserTab(tab.url);
+      return;
+    }
+    setTabs((prev) => (prev.some((t) => t.id === tab.id) ? prev : [...prev, tab]));
+    setActiveTabId(tab.id);
+    setRightPanelOpen(true);
+  }, [handleOpenBrowserTab]);
+
+  /** Close every Tab except the active one, keeping them all reopenable. */
+  const closeOtherTabs = useCallback(() => {
+    const keep = tabs.find((t) => t.id === activeTabId);
+    if (!keep || tabs.length < 2) return;
+    const closing = tabs.filter((t) => t.id !== keep.id && isReopenableTabKind(t.kind));
+    closedTabsRef.current = [...closedTabsRef.current, ...closing].slice(-10);
+    setTabs([keep]);
+  }, [activeTabId, tabs]);
+
+  /**
+   * The three commands that belong to a Browser tab.
+   *
+   * Each is a no-op unless a Browser tab is the active one. The application
+   * menu is built once at startup and cannot follow the strip, so the item
+   * stays enabled and the decision is made here, where the strip is known.
+   */
+  const runBrowserCommand = useCallback((name: "address" | "back" | "forward") => {
+    const tab = tabs.find((t) => t.id === activeTabId);
+    if (tab?.kind !== "browser") return;
+    if (name === "address") {
+      const field = document.querySelector<HTMLInputElement>(
+        `[data-omp-browser-address="${CSS.escape(tab.id)}"]`,
+      );
+      // Focusing it reveals the whole address and selects it, which the field
+      // already does for a pointer. The chord gets the same behaviour.
+      field?.focus();
+      return;
+    }
+    void browserTabCommand(tab.id, name);
+  }, [activeTabId, tabs]);
 
   /**
    * The launcher's entries: what the empty panel offers, and what the plus
@@ -1298,6 +1412,12 @@ export function AppShell() {
   // The application menu lives in the main process, so an item that needs the
   // browser sends its action here. ADR-0008.
   useEffect(() => subscribeApplicationMenuAction((action) => {
+    // Nine numbered chords would be nine more cases below, and the switch is
+    // easier to read without them.
+    if (isTabFocusAction(action)) {
+      focusTabAtPosition(TAB_FOCUS_POSITIONS[action]);
+      return;
+    }
     switch (action) {
       case "toggle-sidebar":
         handleSidebarToggle();
@@ -1315,6 +1435,33 @@ export function AppShell() {
       case "open-files":
         runPanelAction("files");
         return;
+      case "next-tab":
+        stepTab(1);
+        return;
+      case "previous-tab":
+        stepTab(-1);
+        return;
+      case "reopen-closed-tab":
+        reopenClosedTab();
+        return;
+      case "close-other-tabs":
+        closeOtherTabs();
+        return;
+      case "focus-browser-address":
+        runBrowserCommand("address");
+        return;
+      case "browser-back":
+        runBrowserCommand("back");
+        return;
+      case "browser-forward":
+        runBrowserCommand("forward");
+        return;
+      case "toggle-maximise-panel":
+        // A closed panel has no width to fill, so open it first. The chord then
+        // reads as "show me this", which is what a human means by it.
+        setRightPanelOpen(true);
+        toggleRightPanelMaximised();
+        return;
       // A new menu action is a typecheck failure here rather than a chord
       // that reaches nothing.
       default: {
@@ -1324,10 +1471,16 @@ export function AppShell() {
     }
   }), [
     activeCwd,
+    closeOtherTabs,
+    focusTabAtPosition,
     handleNewSession,
     handleNewProjectlessSession,
     handleSidebarToggle,
+    reopenClosedTab,
     runPanelAction,
+    runBrowserCommand,
+    stepTab,
+    toggleRightPanelMaximised,
   ]);
 
   useEffect(() => {

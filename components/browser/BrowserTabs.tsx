@@ -300,6 +300,13 @@ function BrowserPage({ tab, isActive, onNavigate, onTitleChange, onFaviconChange
         <input
           ref={urlRef}
           className={styles.browserUrl}
+          /*
+           * Named so a keyboard shortcut can reach it. Every Browser tab stays
+           * mounted, so the Tab id is part of the name: without it a shortcut
+           * would focus whichever address bar the document happened to hold
+           * first, which is rarely the one being looked at.
+           */
+          data-omp-browser-address={tab.id}
           defaultValue={tab.url}
           aria-label={t("browser.address")}
           placeholder={t("browser.addressPlaceholder")}
