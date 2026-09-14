@@ -117,6 +117,13 @@ address in the release, and writes `docs/updates/<platform>/`. Commit that file
 to `main` through a pull request. GitHub Pages serves `docs/`, so the merge is
 the publication.
 
+Pages is switched on for the `docs/` folder on `main`. If it is ever off, the
+REST API sets it again:
+
+```bash
+gh api -X POST repos/AndrewBeniston/omp-reeve/pages -f "source[branch]=main" -f "source[path]=/docs"
+```
+
 Publishing one platform leaves the other feeds untouched, which is the point.
 A macOS user is not offered a Windows-only release and reports no error.
 

@@ -217,3 +217,8 @@ _Avoid_: donation page, sponsor screen, upsell
 A computer Andrew owns that builds one or more Packages from a clean checkout
 of the tag. The GitHub runner is a paid fallback, never the default.
 _Avoid_: CI, runner, pipeline
+
+**Neutral build path**:
+The directory a Package is built from. It names no person, because the
+directory itself is written into the Package and this repository is public.
+_Avoid_: build root, scratch path, temporary path
