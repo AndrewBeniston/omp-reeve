@@ -1120,6 +1120,26 @@ export function AppShell() {
   }, [projectTrustBusy, projectTrustCwd]);
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
+
+  /**
+   * Keep the active Tab in sight.
+   *
+   * The strip scrolls sideways once the Tabs stop fitting, and a Tab chosen by
+   * chord is often one that has scrolled off: Cmd+9 can select the ninth Tab
+   * while it stays past the edge. `nearest` moves the strip by the least it
+   * can, so a Tab already in sight does not jump.
+   *
+   * This lives here rather than in TabBar because TabBar is called as a plain
+   * function by its tests, so it holds no hooks, and because this is where
+   * selection changes.
+   */
+  useEffect(() => {
+    if (!activeTabId) return;
+    document
+      .querySelector('[data-component="tab-bar"]')
+      ?.querySelector<HTMLElement>(`[data-tab-id="${CSS.escape(activeTabId)}"]`)
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeTabId]);
   /** Every open Browser tab, kept for the persistent guests above. */
   const browserTabs = tabs.filter((t): t is BrowserTab => t.kind === "browser");
   /** Every open Terminal, kept for the persistent shells above. */
