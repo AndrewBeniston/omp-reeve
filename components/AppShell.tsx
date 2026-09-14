@@ -40,6 +40,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useViewportHeight } from "@/hooks/useViewportHeight";
 import { useCaptionInsets } from "@/hooks/useCaptionInsets";
 import { subscribeApplicationMenuAction } from "@/lib/desktop-application-menu";
+import { PANEL_ACCELERATORS, type PanelActionId } from "@/lib/panel-actions";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
 import { useAudio } from "@/hooks/useAudio";
 import { getFileName } from "@/lib/file-paths";
@@ -1100,13 +1101,56 @@ export function AppShell() {
   const terminalTabs = tabs.filter((t): t is TerminalTab => t.kind === "terminal");
 
   /**
+   * What a launcher entry does, in one place.
+   *
+   * A click on a launcher row calls this, and so does a chord from the
+   * application menu, so a menu item and its row cannot drift into doing
+   * different things. A surface that needs a Project and has none does
+   * nothing: the menu item stays enabled because the menu is built once at
+   * startup and cannot follow the Project, and opening a shell somewhere the
+   * human did not choose is worse than a chord that does nothing.
+   */
+  const runPanelAction = useCallback((id: PanelActionId) => {
+    switch (id) {
+      case "terminal":
+        if (supportsTerminalTabs && activeCwd) handleOpenTerminalTab(activeCwd);
+        return;
+      case "browser":
+        if (supportsBrowserTabs) handleOpenBrowserTab("");
+        return;
+      case "files":
+        if (activeCwd) {
+          setPaletteFiles(true);
+          setCommandPaletteOpen(true);
+        }
+        return;
+      // Declared in the Tab union and unbuilt. Disabled in the launcher and
+      // in the menu, so neither reaches here.
+      case "review":
+      case "side-chat":
+        return;
+      // A sixth surface is a typecheck failure here rather than a row that
+      // silently does nothing.
+      default: {
+        const unreachable: never = id;
+        return unreachable;
+      }
+    }
+  }, [
+    activeCwd,
+    handleOpenBrowserTab,
+    handleOpenTerminalTab,
+    supportsBrowserTabs,
+    supportsTerminalTabs,
+  ]);
+
+  /**
    * The launcher's entries: what the empty panel offers, and what the plus
    * control at the end of the strip opens.
    *
-   * The order, the labels and the accelerators all come from the reference
-   * application's own command registry, read from its shipped bundle. Its
-   * order map puts review first for a git-backed project, which every Reeve
-   * Project is.
+   * The order and the accelerators come from `lib/panel-actions.ts`, which the
+   * application menu matches. The reference's order map puts review first for
+   * a git-backed project, which every Reeve Project is.
    *
    * An entry whose feature is not built yet stays listed and says why: this is
    * how a human learns what the panel can hold.
@@ -1115,52 +1159,52 @@ export function AppShell() {
     {
       id: "review",
       label: translate("tabs.review"),
-      keys: acceleratorLabel("Ctrl+Shift+G"),
+      keys: acceleratorLabel(PANEL_ACCELERATORS.review),
       // Reeve has no review surface. Declared in the Tab union, unbuilt.
       unavailableReason: translate("tabs.notYetBuilt"),
-      run: () => {},
+      run: () => runPanelAction("review"),
     },
     {
       id: "terminal",
       label: translate("tabs.terminal"),
-      keys: acceleratorLabel("Control+`"),
+      keys: acceleratorLabel(PANEL_ACCELERATORS.terminal),
       // The pty lives in the desktop process, so the browser version has no
       // shell to offer, and a shell needs a directory to start in. An
       // untrusted Project is refused later, by the desktop process itself.
       unavailableReason: !supportsTerminalTabs
         ? translate("tabs.desktopOnly")
         : (activeCwd ? undefined : translate("tabs.needsProject")),
-      run: () => { if (activeCwd) handleOpenTerminalTab(activeCwd); },
+      run: () => runPanelAction("terminal"),
     },
     {
       id: "browser",
       label: translate("tabs.browser"),
-      keys: acceleratorLabel("CmdOrCtrl+T"),
+      keys: acceleratorLabel(PANEL_ACCELERATORS.browser),
       unavailableReason: supportsBrowserTabs ? undefined : translate("tabs.desktopOnly"),
       // The reference opens its own new tab page. Reeve has none, so a new
       // Browser tab opens empty with the address focused, which is the same
       // act: the human says where to go.
-      run: () => handleOpenBrowserTab(""),
+      run: () => runPanelAction("browser"),
     },
     {
       id: "files",
       label: translate("tabs.files"),
-      keys: acceleratorLabel("CmdOrCtrl+P"),
+      keys: acceleratorLabel(PANEL_ACCELERATORS.files),
       // The command palette already searches files in the active Project, so
       // this opens it there rather than adding a second picker. Without a
       // Project there is nothing to search, and saying so is more use than
       // saying the feature does not exist.
       unavailableReason: activeCwd ? undefined : translate("tabs.needsProject"),
-      run: () => { setPaletteFiles(true); setCommandPaletteOpen(true); },
+      run: () => runPanelAction("files"),
     },
     {
       id: "side-chat",
       label: translate("tabs.sideChat"),
-      keys: acceleratorLabel("CmdOrCtrl+Alt+S"),
+      keys: acceleratorLabel(PANEL_ACCELERATORS["side-chat"]),
       // Reeve has Quick chat, which is a window rather than a Tab. Whether it
       // becomes one is a decision, not an oversight.
       unavailableReason: translate("tabs.notYetBuilt"),
-      run: () => {},
+      run: () => runPanelAction("side-chat"),
     },
   ];
 
@@ -1254,13 +1298,37 @@ export function AppShell() {
   // The application menu lives in the main process, so an item that needs the
   // browser sends its action here. ADR-0008.
   useEffect(() => subscribeApplicationMenuAction((action) => {
-    if (action === "toggle-sidebar") {
-      handleSidebarToggle();
-      return;
+    switch (action) {
+      case "toggle-sidebar":
+        handleSidebarToggle();
+        return;
+      case "new-chat":
+        if (activeCwd) handleNewSession(`menu:${Date.now()}`, activeCwd);
+        else void handleNewProjectlessSession();
+        return;
+      case "open-terminal-tab":
+        runPanelAction("terminal");
+        return;
+      case "open-browser-tab":
+        runPanelAction("browser");
+        return;
+      case "open-files":
+        runPanelAction("files");
+        return;
+      // A new menu action is a typecheck failure here rather than a chord
+      // that reaches nothing.
+      default: {
+        const unreachable: never = action;
+        return unreachable;
+      }
     }
-    if (activeCwd) handleNewSession(`menu:${Date.now()}`, activeCwd);
-    else void handleNewProjectlessSession();
-  }), [activeCwd, handleNewSession, handleNewProjectlessSession, handleSidebarToggle]);
+  }), [
+    activeCwd,
+    handleNewSession,
+    handleNewProjectlessSession,
+    handleSidebarToggle,
+    runPanelAction,
+  ]);
 
   useEffect(() => {
     const syncWindowTitle = () => {

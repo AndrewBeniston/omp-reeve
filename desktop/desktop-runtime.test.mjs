@@ -5,12 +5,14 @@ import test from "node:test";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createJiti } from "jiti";
 
 const require = createRequire(import.meta.url);
 const {
   APPLICATION_MENU_IDS,
   DESKTOP_PORT,
   DESKTOP_PROOF_HEADER,
+  PANEL_MENU_ITEMS,
   createApplicationMenuTemplate,
   createExternalLinkHandler,
   createProjectMenuTemplate,
@@ -207,6 +209,63 @@ test("the application menu carries four names on every platform", () => {
   windows[3].submenu.forEach((item) => item.click());
   assert.equal(links.length, 2);
   links.forEach((url) => assert.equal(isExternalUrlAllowed(url), true));
+});
+
+test("the View menu carries the right panel's five surfaces", () => {
+  const actions = [];
+  const windows = createApplicationMenuTemplate({
+    platform: "win32",
+    onAction: (action) => actions.push(action),
+    onOpenExternal: () => {},
+  });
+  const view = windows.find((item) => item.id === "view").submenu;
+  const panel = view.slice(0, PANEL_MENU_ITEMS.length);
+
+  assert.deepEqual(
+    panel.map((item) => item.label),
+    ["Review", "Terminal", "Browser", "Files", "Side chat"],
+  );
+  // A separator keeps the surfaces apart from the window's own View items.
+  assert.equal(view[PANEL_MENU_ITEMS.length].type, "separator");
+
+  // The three Reeve has built carry their chord and send their action. The
+  // chord has to be here: a renderer handler is swallowed while a Browser tab
+  // has focus, which is when Cmd+T is most likely to be pressed.
+  const built = panel.filter((item) => item.accelerator);
+  assert.deepEqual(built.map((item) => item.accelerator), [
+    "Control+`",
+    "CmdOrCtrl+T",
+    "CmdOrCtrl+P",
+  ]);
+  built.forEach((item) => item.click());
+  assert.deepEqual(actions, ["open-terminal-tab", "open-browser-tab", "open-files"]);
+
+  // The two it has not built are listed and disabled, and teach no chord. A
+  // disabled item still claims its accelerator from the page, so an unbuilt
+  // surface must not carry one.
+  const unbuilt = panel.filter((item) => item.enabled === false);
+  assert.deepEqual(unbuilt.map((item) => item.label), ["Review", "Side chat"]);
+  unbuilt.forEach((item) => assert.equal(item.accelerator, undefined));
+
+  // macOS reads the same table. The menu is the system menu bar there.
+  const mac = createApplicationMenuTemplate({ platform: "darwin", onAction: () => {} });
+  const macView = mac.find((item) => item.id === "view").submenu;
+  assert.deepEqual(
+    macView.slice(0, PANEL_MENU_ITEMS.length).map((item) => item.label),
+    panel.map((item) => item.label),
+  );
+});
+
+test("the menu and the launcher name the same surfaces and the same chords", async () => {
+  // The Electron main process cannot import the renderer's table, so the two
+  // are written twice and pinned together here.
+  const jiti = createJiti(import.meta.url, { tsconfigPaths: true });
+  const { PANEL_ACTION_ORDER, PANEL_ACCELERATORS } = await jiti.import("../lib/panel-actions.ts");
+
+  assert.deepEqual(PANEL_MENU_ITEMS.map((item) => item.panelId), [...PANEL_ACTION_ORDER]);
+  for (const item of PANEL_MENU_ITEMS) {
+    assert.equal(item.accelerator, PANEL_ACCELERATORS[item.panelId], item.panelId);
+  }
 });
 
 test("the native session menu contains only recoverable session actions", () => {

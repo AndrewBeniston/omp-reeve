@@ -1,5 +1,6 @@
 "use client";
 
+import type { PanelActionId } from "@/lib/panel-actions";
 import styles from "./launcher.module.css";
 
 /**
@@ -16,8 +17,11 @@ import styles from "./launcher.module.css";
  *
  * Its order map puts review first for a git-backed project, which every Reeve
  * Project is, so review leads here too.
+ *
+ * `lib/panel-actions.ts` owns that table now, because the application menu
+ * needs the same five ids and the same five chords.
  */
-export type LauncherActionId = "review" | "terminal" | "browser" | "files" | "side-chat";
+export type LauncherActionId = PanelActionId;
 
 export interface LauncherAction {
   id: LauncherActionId;
@@ -121,4 +125,3 @@ function LauncherIcon({ id }: { id: LauncherActionId }) {
       );
   }
 }
-
