@@ -262,6 +262,7 @@ export function AppShell() {
   const reclampSidebarWidth = sidebarResizer.reclampWidth;
   const reclampRightPanelWidth = rightPanelResizer.reclampWidth;
   const growRightPanelToAtLeast = rightPanelResizer.growToAtLeast;
+  const toggleRightPanelMaximised = rightPanelResizer.toggleMaximised;
   // On mobile the sidebar is an overlay drawer; hide it by default so the chat
   // is visible on load. Runs once the breakpoint resolves after hydration.
   useEffect(() => {
@@ -1435,6 +1436,12 @@ export function AppShell() {
       case "browser-forward":
         runBrowserCommand("forward");
         return;
+      case "toggle-maximise-panel":
+        // A closed panel has no width to fill, so open it first. The chord then
+        // reads as "show me this", which is what a human means by it.
+        setRightPanelOpen(true);
+        toggleRightPanelMaximised();
+        return;
       // A new menu action is a typecheck failure here rather than a chord
       // that reaches nothing.
       default: {
@@ -1453,6 +1460,7 @@ export function AppShell() {
     runPanelAction,
     runBrowserCommand,
     stepTab,
+    toggleRightPanelMaximised,
   ]);
 
   useEffect(() => {

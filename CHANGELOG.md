@@ -27,6 +27,10 @@ the What's New dialog adds a second page that invites support.
   and `Cmd+Right` move the page back and forward. On Windows and Linux the
   history keys are `Alt+Left` and `Alt+Right`.
 
+- `Ctrl+]` makes the panel beside a chat fill the room, and pressing it again
+  returns it to the width you had. Neither is remembered, so a restart still
+  opens at the width you dragged it to.
+
 - Keyboard shortcuts for the right panel, on the View menu. `Cmd+T` opens a
   browser tab, `Ctrl+backtick` opens a terminal, and `Cmd+P` searches the
   project's files. They work while a web page has focus, because the menu

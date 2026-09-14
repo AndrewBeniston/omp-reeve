@@ -36,6 +36,22 @@ interface CommitOptions {
   persist?: boolean;
 }
 
+/**
+ * Where a maximise toggle lands, and what it must remember to undo itself.
+ *
+ * Separate from the hook because it is the whole decision, and a round trip
+ * that does not return the human to their own width is the bug worth a test.
+ */
+export function nextMaximiseState(
+  current: number,
+  max: number,
+  restore: number | null,
+): { width: number; restore: number | null } {
+  return restore !== null
+    ? { width: restore, restore: null }
+    : { width: max, restore: current };
+}
+
 function readStoredWidth(storageKey: string): number | null {
   try {
     const stored = window.localStorage.getItem(storageKey);
@@ -70,6 +86,14 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
   const dragRef = useRef<DragState | null>(null);
   const restoredRef = useRef(false);
   const [width, setWidth] = useState(defaultWidth);
+  /**
+   * The width to come back to, while the panel is filling its room.
+   *
+   * Null means the panel is at an ordinary width. Any drag or reset clears it,
+   * because a width the human chose since maximising is the one they want
+   * back, not the one from before.
+   */
+  const restoreWidthRef = useRef<number | null>(null);
   const [isResizing, setIsResizing] = useState(false);
 
   const effectiveMaxWidth = useCallback(
@@ -122,6 +146,8 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
   }, [commitWidth, restoreBodyState, widthRef]);
 
   const onPointerDown = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    // A drag replaces whatever width maximising was going to restore.
+    restoreWidthRef.current = null;
     if (event.pointerType === "mouse" && event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
@@ -176,12 +202,29 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
 
   const resetWidth = useCallback(() => {
     const nextDefault = getDefaultWidth?.() ?? defaultWidth;
+    restoreWidthRef.current = null;
     commitWidth(nextDefault, { forcePersist: true });
   }, [commitWidth, defaultWidth, getDefaultWidth]);
 
   const reclampWidth = useCallback(() => {
     commitWidth(widthRef.current);
   }, [commitWidth, widthRef]);
+
+  /**
+   * Fill the available room, or go back to the width before that.
+   *
+   * Neither half is written to storage. The stored width is the one the human
+   * chose by dragging, and a restart should land on that rather than on a panel
+   * left filling the window.
+   */
+  const toggleMaximised = useCallback(() => {
+    const next = nextMaximiseState(widthRef.current, effectiveMaxWidth(), restoreWidthRef.current);
+    restoreWidthRef.current = next.restore;
+    commitWidth(next.width, { persist: false });
+  }, [commitWidth, effectiveMaxWidth, widthRef]);
+
+  /** True while the panel is filling its room. */
+  const isMaximised = restoreWidthRef.current !== null;
 
   /**
    * Widen the panel to at least `width`, never narrowing it.
@@ -271,9 +314,11 @@ export function useResizablePanel(options: UseResizablePanelOptions) {
 
   return {
     growToAtLeast,
+    isMaximised,
     isResizing,
     reclampWidth,
     resetWidth,
+    toggleMaximised,
     separatorProps: {
       "aria-label": ariaLabel,
       "aria-orientation": "vertical" as const,

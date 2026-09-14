@@ -53,6 +53,7 @@ export type ApplicationMenuAction =
   | "focus-browser-address"
   | "browser-back"
   | "browser-forward"
+  | "toggle-maximise-panel"
   | TabFocusAction;
 
 const ACTIONS = new Set<string>([
@@ -68,6 +69,7 @@ const ACTIONS = new Set<string>([
   "focus-browser-address",
   "browser-back",
   "browser-forward",
+  "toggle-maximise-panel",
   ...Object.keys(TAB_FOCUS_POSITIONS),
 ]);
 

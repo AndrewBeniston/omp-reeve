@@ -272,6 +272,7 @@ test("the Tab commands and the Browser tab's own commands carry their chords", (
   assert.equal(item("view-browser-address").accelerator, "CmdOrCtrl+L");
   assert.equal(item("view-browser-back").accelerator, "Command+Left");
   assert.equal(item("view-browser-forward").accelerator, "Command+Right");
+  assert.equal(item("view-maximise-panel").accelerator, "Control+]");
 
   for (const id of [
     "view-reopen-closed-tab",
@@ -279,6 +280,7 @@ test("the Tab commands and the Browser tab's own commands carry their chords", (
     "view-browser-address",
     "view-browser-back",
     "view-browser-forward",
+    "view-maximise-panel",
   ]) item(id).click();
   assert.deepEqual(actions, [
     "reopen-closed-tab",
@@ -286,6 +288,7 @@ test("the Tab commands and the Browser tab's own commands carry their chords", (
     "focus-browser-address",
     "browser-back",
     "browser-forward",
+    "toggle-maximise-panel",
   ]);
 
   // Windows and Linux have no Command key. Their browsers use Alt for history.

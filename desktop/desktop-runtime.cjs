@@ -401,6 +401,7 @@ function tabNavigationMenuItems({ isMac, send }) {
     { id: "view-browser-address", label: "Address bar", accelerator: "CmdOrCtrl+L", click: send("focus-browser-address") },
     { id: "view-browser-back", label: "Back", accelerator: isMac ? "Command+Left" : "Alt+Left", click: send("browser-back") },
     { id: "view-browser-forward", label: "Forward", accelerator: isMac ? "Command+Right" : "Alt+Right", click: send("browser-forward") },
+    { id: "view-maximise-panel", label: "Maximise panel", accelerator: "Control+]", click: send("toggle-maximise-panel") },
     // Nine hidden items. The reference shows none of these in its menu either:
     // they are chords a human learns from the shortcut list, not from browsing.
     ...Array.from({ length: 9 }, (_unused, index) => ({
