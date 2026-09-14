@@ -9,6 +9,14 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+### Added
+
+- Keyboard shortcuts for the right panel, on the View menu. `Cmd+T` opens a
+  browser tab, `Ctrl+backtick` opens a terminal, and `Cmd+P` searches the
+  project's files. They work while a web page has focus, because the menu
+  holds them rather than the page. Review and Side chat are listed and
+  greyed, because Reeve has not built them yet.
+
 ## [0.6.0] - 2026-09-12
 
 ### Added

@@ -11,7 +11,24 @@ export const APPLICATION_MENU_IDS = ["file", "edit", "view", "help"] as const;
 
 export type ApplicationMenuId = (typeof APPLICATION_MENU_IDS)[number];
 
-export type ApplicationMenuAction = "new-chat" | "toggle-sidebar";
+export type ApplicationMenuAction =
+  | "new-chat"
+  | "toggle-sidebar"
+  | "open-terminal-tab"
+  | "open-browser-tab"
+  | "open-files";
+
+const ACTIONS = new Set<string>([
+  "new-chat",
+  "toggle-sidebar",
+  "open-terminal-tab",
+  "open-browser-tab",
+  "open-files",
+]);
+
+function isApplicationMenuAction(action: string): action is ApplicationMenuAction {
+  return ACTIONS.has(action);
+}
 
 export type MenuOwner = "native" | "application-menu";
 
@@ -58,6 +75,6 @@ export function subscribeApplicationMenuAction(
   const subscribe = desktopBridge()?.onMenuAction;
   if (!subscribe) return () => {};
   return subscribe((action) => {
-    if (action === "new-chat" || action === "toggle-sidebar") callback(action);
+    if (isApplicationMenuAction(action)) callback(action);
   });
 }

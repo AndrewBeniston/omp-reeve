@@ -344,6 +344,25 @@ const REEVE_DOCUMENTATION_URL = "https://github.com/AndrewBeniston/omp-reeve#rea
 const REEVE_ISSUE_URL = "https://github.com/AndrewBeniston/omp-reeve/issues/new";
 
 /**
+ * The right panel's five surfaces, in the reference application's own order.
+ *
+ * Each one is a View menu item, because the menu is the only place a chord
+ * reaches Reeve when a Browser tab has focus. A surface Reeve has not built is
+ * listed and disabled, and carries no accelerator: an item that teaches a
+ * chord which does nothing is worse than an item that teaches none.
+ *
+ * `lib/panel-actions.ts` holds the same ids and chords for the launcher.
+ * desktop-runtime.test.mjs fails when the two disagree.
+ */
+const PANEL_MENU_ITEMS = [
+  { id: "view-review", panelId: "review", label: "Review", accelerator: "Ctrl+Shift+G", action: null },
+  { id: "view-terminal", panelId: "terminal", label: "Terminal", accelerator: "Control+`", action: "open-terminal-tab" },
+  { id: "view-browser", panelId: "browser", label: "Browser", accelerator: "CmdOrCtrl+T", action: "open-browser-tab" },
+  { id: "view-files", panelId: "files", label: "Files", accelerator: "CmdOrCtrl+P", action: "open-files" },
+  { id: "view-side-chat", panelId: "side-chat", label: "Side chat", accelerator: "CmdOrCtrl+Alt+S", action: null },
+];
+
+/**
  * The one application menu, registered on every platform.
  *
  * macOS draws it as the system menu bar. Windows and Linux hide the bar and
@@ -387,6 +406,13 @@ function createApplicationMenuTemplate({ platform, onAction, onOpenExternal } = 
     id: "view",
     label: "View",
     submenu: [
+      // The renderer decides what each one does with the Project it has open.
+      // An item stays enabled with no Project: the surfaces that need one do
+      // nothing rather than opening somewhere the human did not choose.
+      ...PANEL_MENU_ITEMS.map((item) => (item.action
+        ? { id: item.id, label: item.label, accelerator: item.accelerator, click: send(item.action) }
+        : { id: item.id, label: item.label, enabled: false })),
+      { type: "separator" },
       { id: "view-sidebar", label: "Toggle sidebar", accelerator: "CmdOrCtrl+B", click: send("toggle-sidebar") },
       { type: "separator" },
       { role: "reload" },
@@ -419,6 +445,7 @@ module.exports = {
   DESKTOP_CHALLENGE_HEADER,
   DESKTOP_PROOF_HEADER,
   BROWSER_PARTITION,
+  PANEL_MENU_ITEMS,
   createApplicationMenuTemplate,
   createBrowserTabMenuTemplate,
   createExternalLinkHandler,
