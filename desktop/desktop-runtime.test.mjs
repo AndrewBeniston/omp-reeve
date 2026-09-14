@@ -256,6 +256,53 @@ test("the View menu carries the right panel's five surfaces", () => {
   );
 });
 
+test("moving between Tabs carries every chord the reference binds", () => {
+  const actions = [];
+  const build = (platform) => createApplicationMenuTemplate({
+    platform,
+    onAction: (action) => actions.push(action),
+    onOpenExternal: () => {},
+  }).find((item) => item.id === "view").submenu;
+
+  const mac = build("darwin");
+  const chord = (id) => mac.find((item) => item.id === id).accelerator;
+
+  // Three chords do the same thing, so three items carry it. Only the first is
+  // visible; a hidden item still answers its chord on macOS.
+  assert.deepEqual(
+    [chord("view-next-tab"), chord("view-next-tab-alt-1"), chord("view-next-tab-alt-2")],
+    ["Control+Tab", "Command+Shift+]", "Command+Alt+Right"],
+  );
+  assert.deepEqual(
+    [chord("view-previous-tab"), chord("view-previous-tab-alt-1"), chord("view-previous-tab-alt-2")],
+    ["Control+Shift+Tab", "Command+Shift+[", "Command+Alt+Left"],
+  );
+  assert.equal(mac.find((item) => item.id === "view-next-tab").visible, true);
+  assert.equal(mac.find((item) => item.id === "view-next-tab-alt-1").visible, false);
+
+  // Nine numbered Tabs, none of them shown. The reference shows none either.
+  const numbered = mac.filter((item) => /^view-focus-tab-\d$/.test(item.id ?? ""));
+  assert.equal(numbered.length, 9);
+  assert.deepEqual(numbered.map((item) => item.accelerator), [
+    "CmdOrCtrl+1", "CmdOrCtrl+2", "CmdOrCtrl+3", "CmdOrCtrl+4", "CmdOrCtrl+5",
+    "CmdOrCtrl+6", "CmdOrCtrl+7", "CmdOrCtrl+8", "CmdOrCtrl+9",
+  ]);
+  numbered.forEach((item) => assert.equal(item.visible, false));
+
+  mac.find((item) => item.id === "view-next-tab").click();
+  mac.find((item) => item.id === "view-previous-tab-alt-2").click();
+  numbered[3].click();
+  assert.deepEqual(actions, ["next-tab", "previous-tab", "focus-tab-4"]);
+
+  // Windows and Linux have no Command key, so they take the page keys instead.
+  const windows = build("win32");
+  const windowsChord = (id) => windows.find((item) => item.id === id).accelerator;
+  assert.deepEqual(
+    [windowsChord("view-next-tab-alt-1"), windowsChord("view-next-tab-alt-2")],
+    ["Control+Shift+]", "Control+PageDown"],
+  );
+});
+
 test("the menu and the launcher name the same surfaces and the same chords", async () => {
   // The Electron main process cannot import the renderer's table, so the two
   // are written twice and pinned together here.

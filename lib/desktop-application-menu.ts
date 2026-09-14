@@ -11,12 +11,44 @@ export const APPLICATION_MENU_IDS = ["file", "edit", "view", "help"] as const;
 
 export type ApplicationMenuId = (typeof APPLICATION_MENU_IDS)[number];
 
+/**
+ * Jump straight to one Tab by its place in the strip.
+ *
+ * Nine, because the reference application stops at nine: the tenth Tab and
+ * everything after it is reached by stepping.
+ */
+export type TabFocusAction =
+  | "focus-tab-1"
+  | "focus-tab-2"
+  | "focus-tab-3"
+  | "focus-tab-4"
+  | "focus-tab-5"
+  | "focus-tab-6"
+  | "focus-tab-7"
+  | "focus-tab-8"
+  | "focus-tab-9";
+
+export const TAB_FOCUS_POSITIONS: Record<TabFocusAction, number> = {
+  "focus-tab-1": 1,
+  "focus-tab-2": 2,
+  "focus-tab-3": 3,
+  "focus-tab-4": 4,
+  "focus-tab-5": 5,
+  "focus-tab-6": 6,
+  "focus-tab-7": 7,
+  "focus-tab-8": 8,
+  "focus-tab-9": 9,
+};
+
 export type ApplicationMenuAction =
   | "new-chat"
   | "toggle-sidebar"
   | "open-terminal-tab"
   | "open-browser-tab"
-  | "open-files";
+  | "open-files"
+  | "next-tab"
+  | "previous-tab"
+  | TabFocusAction;
 
 const ACTIONS = new Set<string>([
   "new-chat",
@@ -24,7 +56,15 @@ const ACTIONS = new Set<string>([
   "open-terminal-tab",
   "open-browser-tab",
   "open-files",
+  "next-tab",
+  "previous-tab",
+  ...Object.keys(TAB_FOCUS_POSITIONS),
 ]);
+
+/** True when this action jumps straight to one Tab rather than doing anything else. */
+export function isTabFocusAction(action: ApplicationMenuAction): action is TabFocusAction {
+  return Object.hasOwn(TAB_FOCUS_POSITIONS, action);
+}
 
 function isApplicationMenuAction(action: string): action is ApplicationMenuAction {
   return ACTIONS.has(action);

@@ -39,8 +39,12 @@ import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useViewportHeight } from "@/hooks/useViewportHeight";
 import { useCaptionInsets } from "@/hooks/useCaptionInsets";
-import { subscribeApplicationMenuAction } from "@/lib/desktop-application-menu";
-import { PANEL_ACCELERATORS, type PanelActionId } from "@/lib/panel-actions";
+import {
+  isTabFocusAction,
+  subscribeApplicationMenuAction,
+  TAB_FOCUS_POSITIONS,
+} from "@/lib/desktop-application-menu";
+import { PANEL_ACCELERATORS, stepTabIndex, type PanelActionId } from "@/lib/panel-actions";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
 import { useAudio } from "@/hooks/useAudio";
 import { getFileName } from "@/lib/file-paths";
@@ -1145,6 +1149,23 @@ export function AppShell() {
   ]);
 
   /**
+   * Step to the Tab before or after the active one.
+   *
+   * The step wraps, so the strip is a ring rather than a line with two dead
+   * ends. With nothing open there is nothing to step to.
+   */
+  const stepTab = useCallback((offset: number) => {
+    const next = stepTabIndex(tabs.length, tabs.findIndex((tab) => tab.id === activeTabId), offset);
+    if (next !== null) setActiveTabId(tabs[next].id);
+  }, [activeTabId, tabs]);
+
+  /** Jump to one Tab by its place in the strip, counting from one. */
+  const focusTabAtPosition = useCallback((position: number) => {
+    const tab = tabs[position - 1];
+    if (tab) setActiveTabId(tab.id);
+  }, [tabs]);
+
+  /**
    * The launcher's entries: what the empty panel offers, and what the plus
    * control at the end of the strip opens.
    *
@@ -1298,6 +1319,12 @@ export function AppShell() {
   // The application menu lives in the main process, so an item that needs the
   // browser sends its action here. ADR-0008.
   useEffect(() => subscribeApplicationMenuAction((action) => {
+    // Nine numbered chords would be nine more cases below, and the switch is
+    // easier to read without them.
+    if (isTabFocusAction(action)) {
+      focusTabAtPosition(TAB_FOCUS_POSITIONS[action]);
+      return;
+    }
     switch (action) {
       case "toggle-sidebar":
         handleSidebarToggle();
@@ -1315,6 +1342,12 @@ export function AppShell() {
       case "open-files":
         runPanelAction("files");
         return;
+      case "next-tab":
+        stepTab(1);
+        return;
+      case "previous-tab":
+        stepTab(-1);
+        return;
       // A new menu action is a typecheck failure here rather than a chord
       // that reaches nothing.
       default: {
@@ -1324,10 +1357,12 @@ export function AppShell() {
     }
   }), [
     activeCwd,
+    focusTabAtPosition,
     handleNewSession,
     handleNewProjectlessSession,
     handleSidebarToggle,
     runPanelAction,
+    stepTab,
   ]);
 
   useEffect(() => {

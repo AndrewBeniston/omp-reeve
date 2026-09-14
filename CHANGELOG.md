@@ -11,6 +11,11 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Keyboard movement between the tabs beside a chat. `Ctrl+Tab` and
+  `Ctrl+Shift+Tab` step through them, and they wrap around the ends.
+  `Cmd+Shift+]` and `Cmd+Alt+Right` do the same, as do their mirrors for
+  stepping back. `Cmd+1` to `Cmd+9` jump straight to one tab.
+
 - Keyboard shortcuts for the right panel, on the View menu. `Cmd+T` opens a
   browser tab, `Ctrl+backtick` opens a terminal, and `Cmd+P` searches the
   project's files. They work while a web page has focus, because the menu
