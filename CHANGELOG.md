@@ -16,6 +16,17 @@ the What's New dialog adds a second page that invites support.
   `Cmd+Shift+]` and `Cmd+Alt+Right` do the same, as do their mirrors for
   stepping back. `Cmd+1` to `Cmd+9` jump straight to one tab.
 
+- Reopen the tab you just closed with `Cmd+Shift+T`. A browser tab comes back
+  at the address it held. A terminal never comes back, because its shell ended
+  when you closed it.
+
+- Close every tab except the one you are looking at, with `Cmd+Alt+W`. They all
+  stay reopenable.
+
+- Keyboard control of a browser tab. `Cmd+L` selects the address, and `Cmd+Left`
+  and `Cmd+Right` move the page back and forward. On Windows and Linux the
+  history keys are `Alt+Left` and `Alt+Right`.
+
 - Keyboard shortcuts for the right panel, on the View menu. `Cmd+T` opens a
   browser tab, `Ctrl+backtick` opens a terminal, and `Cmd+P` searches the
   project's files. They work while a web page has focus, because the menu

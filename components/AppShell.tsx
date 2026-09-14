@@ -44,7 +44,12 @@ import {
   subscribeApplicationMenuAction,
   TAB_FOCUS_POSITIONS,
 } from "@/lib/desktop-application-menu";
-import { PANEL_ACCELERATORS, stepTabIndex, type PanelActionId } from "@/lib/panel-actions";
+import {
+  isReopenableTabKind,
+  PANEL_ACCELERATORS,
+  stepTabIndex,
+  type PanelActionId,
+} from "@/lib/panel-actions";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
 import { useAudio } from "@/hooks/useAudio";
 import { getFileName } from "@/lib/file-paths";
@@ -339,6 +344,14 @@ export function AppShell() {
 
   // Right panel tabs
   const [tabs, setTabs] = useState<Tab[]>([]);
+  /**
+   * The Tabs closed in this window, newest last, for Cmd+Shift+T.
+   *
+   * A ref rather than state: nothing renders from it, and a re-render on every
+   * close would be paid for nothing. It holds at most ten, and a Terminal is
+   * never among them.
+   */
+  const closedTabsRef = useRef<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
   // Same @mention format as the chat input's @ autocomplete, so the agent's
@@ -995,6 +1008,13 @@ export function AppShell() {
   }, [activeCwd, tabs]);
 
   const handleCloseTab = useCallback((tabId: string) => {
+    // Remember it so Cmd+Shift+T can bring it back. The stack is a ref and is
+    // never persisted: it is about the last few minutes, not about the
+    // Project, and it dies with the window.
+    const closing = tabs.find((t) => t.id === tabId);
+    if (closing && isReopenableTabKind(closing.kind)) {
+      closedTabsRef.current = [...closedTabsRef.current.slice(-9), closing];
+    }
     setTabs((prev) => {
       const next = prev.filter((t) => t.id !== tabId);
       if (next.length === 0) setRightPanelOpen(false);
@@ -1164,6 +1184,58 @@ export function AppShell() {
     const tab = tabs[position - 1];
     if (tab) setActiveTabId(tab.id);
   }, [tabs]);
+
+  /**
+   * Bring back the Tab closed most recently.
+   *
+   * A Browser tab opens again at the address it held. It cannot be restored as
+   * itself: the guest died with the Tab, and the id is what the agent
+   * addresses, so a new Tab is honest where a resurrected id would not be.
+   */
+  const reopenClosedTab = useCallback(() => {
+    const stack = closedTabsRef.current;
+    const tab = stack.at(-1);
+    if (!tab) return;
+    closedTabsRef.current = stack.slice(0, -1);
+    if (tab.kind === "browser") {
+      handleOpenBrowserTab(tab.url);
+      return;
+    }
+    setTabs((prev) => (prev.some((t) => t.id === tab.id) ? prev : [...prev, tab]));
+    setActiveTabId(tab.id);
+    setRightPanelOpen(true);
+  }, [handleOpenBrowserTab]);
+
+  /** Close every Tab except the active one, keeping them all reopenable. */
+  const closeOtherTabs = useCallback(() => {
+    const keep = tabs.find((t) => t.id === activeTabId);
+    if (!keep || tabs.length < 2) return;
+    const closing = tabs.filter((t) => t.id !== keep.id && isReopenableTabKind(t.kind));
+    closedTabsRef.current = [...closedTabsRef.current, ...closing].slice(-10);
+    setTabs([keep]);
+  }, [activeTabId, tabs]);
+
+  /**
+   * The three commands that belong to a Browser tab.
+   *
+   * Each is a no-op unless a Browser tab is the active one. The application
+   * menu is built once at startup and cannot follow the strip, so the item
+   * stays enabled and the decision is made here, where the strip is known.
+   */
+  const runBrowserCommand = useCallback((name: "address" | "back" | "forward") => {
+    const tab = tabs.find((t) => t.id === activeTabId);
+    if (tab?.kind !== "browser") return;
+    if (name === "address") {
+      const field = document.querySelector<HTMLInputElement>(
+        `[data-omp-browser-address="${CSS.escape(tab.id)}"]`,
+      );
+      // Focusing it reveals the whole address and selects it, which the field
+      // already does for a pointer. The chord gets the same behaviour.
+      field?.focus();
+      return;
+    }
+    void browserTabCommand(tab.id, name);
+  }, [activeTabId, tabs]);
 
   /**
    * The launcher's entries: what the empty panel offers, and what the plus
@@ -1348,6 +1420,21 @@ export function AppShell() {
       case "previous-tab":
         stepTab(-1);
         return;
+      case "reopen-closed-tab":
+        reopenClosedTab();
+        return;
+      case "close-other-tabs":
+        closeOtherTabs();
+        return;
+      case "focus-browser-address":
+        runBrowserCommand("address");
+        return;
+      case "browser-back":
+        runBrowserCommand("back");
+        return;
+      case "browser-forward":
+        runBrowserCommand("forward");
+        return;
       // A new menu action is a typecheck failure here rather than a chord
       // that reaches nothing.
       default: {
@@ -1357,11 +1444,14 @@ export function AppShell() {
     }
   }), [
     activeCwd,
+    closeOtherTabs,
     focusTabAtPosition,
     handleNewSession,
     handleNewProjectlessSession,
     handleSidebarToggle,
+    reopenClosedTab,
     runPanelAction,
+    runBrowserCommand,
     stepTab,
   ]);
 

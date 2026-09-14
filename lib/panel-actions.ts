@@ -52,3 +52,14 @@ export function stepTabIndex(count: number, activeIndex: number, offset: number)
   const from = activeIndex >= 0 && activeIndex < count ? activeIndex : 0;
   return (((from + offset) % count) + count) % count;
 }
+
+/**
+ * Whether closing this kind of Tab is worth remembering.
+ *
+ * A Terminal is not. Its shell ended when the Tab closed, so reopening one
+ * would hand back a dead shell wearing a live one's name. That is the same
+ * rule that keeps Terminals out of the per-Project restore.
+ */
+export function isReopenableTabKind(kind: string): boolean {
+  return kind !== "terminal";
+}

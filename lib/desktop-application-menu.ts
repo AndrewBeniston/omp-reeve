@@ -48,6 +48,11 @@ export type ApplicationMenuAction =
   | "open-files"
   | "next-tab"
   | "previous-tab"
+  | "reopen-closed-tab"
+  | "close-other-tabs"
+  | "focus-browser-address"
+  | "browser-back"
+  | "browser-forward"
   | TabFocusAction;
 
 const ACTIONS = new Set<string>([
@@ -58,6 +63,11 @@ const ACTIONS = new Set<string>([
   "open-files",
   "next-tab",
   "previous-tab",
+  "reopen-closed-tab",
+  "close-other-tabs",
+  "focus-browser-address",
+  "browser-back",
+  "browser-forward",
   ...Object.keys(TAB_FOCUS_POSITIONS),
 ]);
 

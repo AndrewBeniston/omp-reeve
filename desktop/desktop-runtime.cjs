@@ -393,6 +393,14 @@ function tabNavigationMenuItems({ isMac, send }) {
   return [
     ...step("view-next-tab", "Next tab", "next-tab", nextChords),
     ...step("view-previous-tab", "Previous tab", "previous-tab", previousChords),
+    { id: "view-reopen-closed-tab", label: "Reopen closed tab", accelerator: "CmdOrCtrl+Shift+T", click: send("reopen-closed-tab") },
+    { id: "view-close-other-tabs", label: "Close other tabs", accelerator: "CmdOrCtrl+Alt+W", click: send("close-other-tabs") },
+    // The Browser tab's own three. Each does nothing unless a Browser tab is
+    // the active one, which the renderer decides: the menu is built once at
+    // startup and cannot follow the strip.
+    { id: "view-browser-address", label: "Address bar", accelerator: "CmdOrCtrl+L", click: send("focus-browser-address") },
+    { id: "view-browser-back", label: "Back", accelerator: isMac ? "Command+Left" : "Alt+Left", click: send("browser-back") },
+    { id: "view-browser-forward", label: "Forward", accelerator: isMac ? "Command+Right" : "Alt+Right", click: send("browser-forward") },
     // Nine hidden items. The reference shows none of these in its menu either:
     // they are chords a human learns from the shortcut list, not from browsing.
     ...Array.from({ length: 9 }, (_unused, index) => ({

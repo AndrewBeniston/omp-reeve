@@ -256,6 +256,45 @@ test("the View menu carries the right panel's five surfaces", () => {
   );
 });
 
+test("the Tab commands and the Browser tab's own commands carry their chords", () => {
+  const actions = [];
+  const build = (platform) => createApplicationMenuTemplate({
+    platform,
+    onAction: (action) => actions.push(action),
+    onOpenExternal: () => {},
+  }).find((item) => item.id === "view").submenu;
+
+  const mac = build("darwin");
+  const item = (id) => mac.find((entry) => entry.id === id);
+
+  assert.equal(item("view-reopen-closed-tab").accelerator, "CmdOrCtrl+Shift+T");
+  assert.equal(item("view-close-other-tabs").accelerator, "CmdOrCtrl+Alt+W");
+  assert.equal(item("view-browser-address").accelerator, "CmdOrCtrl+L");
+  assert.equal(item("view-browser-back").accelerator, "Command+Left");
+  assert.equal(item("view-browser-forward").accelerator, "Command+Right");
+
+  for (const id of [
+    "view-reopen-closed-tab",
+    "view-close-other-tabs",
+    "view-browser-address",
+    "view-browser-back",
+    "view-browser-forward",
+  ]) item(id).click();
+  assert.deepEqual(actions, [
+    "reopen-closed-tab",
+    "close-other-tabs",
+    "focus-browser-address",
+    "browser-back",
+    "browser-forward",
+  ]);
+
+  // Windows and Linux have no Command key. Their browsers use Alt for history.
+  const windows = build("win32");
+  const windowsItem = (id) => windows.find((entry) => entry.id === id);
+  assert.equal(windowsItem("view-browser-back").accelerator, "Alt+Left");
+  assert.equal(windowsItem("view-browser-forward").accelerator, "Alt+Right");
+});
+
 test("moving between Tabs carries every chord the reference binds", () => {
   const actions = [];
   const build = (platform) => createApplicationMenuTemplate({
