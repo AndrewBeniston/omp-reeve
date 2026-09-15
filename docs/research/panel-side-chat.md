@@ -328,3 +328,67 @@ against a Fixture.
   claims would be worth confirming against a running desktop build on a Fixture:
   that focus returns to the previously focused element on close, and that Escape
   inside Quick chat does not reach the main view.
+
+## Main-process addendum (2026-09-15)
+
+The reference's main-process build was not read for the original pass. It is
+readable, and it settles several of the items left open above. Three sources are
+cited separately, per ADR-0001:
+
+- **The installed application.** ChatGPT 26.908.40834. Every value below was
+  confirmed present in its packaged archive, searched in place, read-only.
+- **The extracted web bundle.** The same version's web-view assets, read
+  read-only outside this repository.
+- **The extracted main process.** The same version's Electron main-process and
+  shared-chunk build, beside that bundle, read read-only outside this repository.
+
+Still a shipped-code read on the reference side: nothing here was observed at
+runtime. No code, markup, class name or asset byte was copied. Values only.
+### Settled: what makes a side chat temporary, and what expires it
+
+The fork that creates a side chat is marked two ways in the main process: the
+new thread is **ephemeral**, and it is a **side conversation**. Each flag does
+different work, and together they answer the expiry question.
+
+- The fork request excludes the parent's turns from the new thread record, and
+  the boundary instruction is injected into the new thread as an item after it
+  is created, not written into its developer instructions.
+- An ephemeral thread is created already in a resumed state and is given **no
+  resume parameters at all**. Every other fork carries the parameters needed to
+  bring it back; this one is explicitly excluded from that path.
+- An ephemeral thread is kept out of the recent-conversation list and out of the
+  thread summaries, and a side conversation is filtered out separately as well.
+  Nothing writes it anywhere the application could find it again.
+
+So a side chat is not durable state that later expires. It is live state that
+cannot be rebuilt: once the application no longer holds the thread — after the
+application or its agent process restarts, or the thread is dropped from the
+conversation store — nothing can resume it, and the Tab has only the expired
+state left to show.
+
+The web bundle renders that in two shapes, and both carry the same action:
+
+- A **full-page** empty state, when the Tab's conversation cannot be loaded.
+- A **banner** above a still-mounted side chat, when the open conversation
+  reports itself expired.
+
+"Start new side chat" re-forks from the source conversation, carrying its
+working directory, its host, the parent's collaboration mode and the Tab's
+current display title, and raises a failure toast if that fork fails.
+
+**No timer, no lifetime, no eviction.** The main process holds no expiry clock
+for an ephemeral conversation. Nothing short of losing the live thread expires a
+side chat, on the evidence of this read.
+
+One related value: ephemeral voice history is marked per conversation and
+forgotten on close, which matches the close path recorded above.
+
+### Still open after this read
+
+- **The side chat's in-view conversation header.** The main process carries no
+  conversation-header state, so the condition that suppresses the title and
+  actions blocks is still a web-layer question. One look at a running side chat
+  settles it.
+- **Reeve's Quick chat at runtime**, unchanged: focus restoration on close, and
+  whether Escape reaches the main view.
+
