@@ -297,3 +297,70 @@ unless it names one.
   to a flag value.
 - **The pinned summary's contents and its enabled state.** Only its toggle, its
   group and the absence of a chord were read.
+
+## Main-process addendum (2026-09-15)
+
+The reference's main-process build was not read for the original pass. It is
+readable, and it settles several of the items left open above. Three sources are
+cited separately, per ADR-0001:
+
+- **The installed application.** ChatGPT 26.908.40834. Every value below was
+  confirmed present in its packaged archive, searched in place, read-only.
+- **The extracted web bundle.** The same version's web-view assets, read
+  read-only outside this repository.
+- **The extracted main process.** The same version's Electron main-process and
+  shared-chunk build, beside that bundle, read read-only outside this repository.
+
+Still a shipped-code read on the reference side: nothing here was observed at
+runtime. No code, markup, class name or asset byte was copied. Values only.
+### Settled
+
+**The focus model is real in the main process, not only in the web layer.** The
+main process keeps a keyboard state per window that carries the focus area, one
+of `main`, `right-panel` or `bottom-panel`; whether a terminal holds focus;
+whether the focus sits in an editable and whether that editable is the composer;
+whether each placement can close its active Tab; and, per placement, the browser
+conversation and Tab it hosts and whether that page can zoom. A fourth value,
+`hidden-browser-use`, exists in the placement mapping and maps to no placement.
+
+Four routing rules follow from that state, all read in the main process:
+
+- The close-active-Tab chord closes the **bottom** placement's active Tab when
+  focus is in the bottom panel, and the **right** placement's active Tab when
+  focus is in the main area or the right panel, and only when that placement
+  reports it has something it can close.
+- Page-zoom chords go to whichever placement holds the focused browser page, and
+  only when that page reports it can zoom. With focus in the main area they
+  reach no browser at all. An open image preview takes the zoom chords first.
+- Undo and redo of an application action are offered only with focus in the main
+  area, with no terminal focused, with focus either nowhere or in the composer,
+  and never on an auto-repeat.
+- With a terminal focused, the application-level chords are intercepted before
+  the menu sees them. See the Terminal addendum.
+
+**The bottom panel toggle.** `Cmd+J` ships as the menu title "Toggle Bottom
+Panel", requires local access, sits in the `panels` group and appears in the
+command menu. The menu item does one thing: it sends a toggle message to the
+focused window. Which Tab the bottom panel opens with is decided in the web
+layer, so the main process does not settle it.
+
+**The pinned summary.** The command ships with the menu title "Toggle Pinned
+Summary", in the `panels` group, in the command menu, with no default
+keybinding. The main process forwards it as a command and carries none of its
+contents, so what the pinned summary shows is still not settled.
+
+**Back and forward.** The main process dispatches back and forward as host
+messages to the focused window, and handles a browser page's own mouse back and
+forward separately, per page. So the dispatch is per window; the stack itself
+lives in the web layer and its keying is still open.
+
+### Still open after this read
+
+- Panel header geometry, and the enabled state of each header item. Both need a
+  rendered surface.
+- Which of the three full-width flags the Review, Terminal and side-chat kinds
+  set. They live in the web layer's own chunks.
+- The pinned summary's contents and its enabled state.
+- The bottom panel's default Tab on toggle.
+- Whether the application navigation stack is keyed per window or per chat.
+
