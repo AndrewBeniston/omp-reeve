@@ -269,3 +269,73 @@ is the reference's printed chord and not the reference's behaviour.
 - Drag and drop in the tree. Nothing in the shipped tree suggests it exists,
   which is weaker evidence than a runtime check.
 - Every runtime behaviour. No live comparison was run for this ticket.
+
+## Main-process addendum (2026-09-15)
+
+The reference's main-process build was not read for the original pass. It is
+readable, and it settles several of the items left open above. Three sources are
+cited separately, per ADR-0001:
+
+- **The installed application.** ChatGPT 26.908.40834. Every value below was
+  confirmed present in its packaged archive, searched in place, read-only.
+- **The extracted web bundle.** The same version's web-view assets, read
+  read-only outside this repository.
+- **The extracted main process.** The same version's Electron main-process and
+  shared-chunk build, beside that bundle, read read-only outside this repository.
+
+Still a shipped-code read on the reference side: nothing here was observed at
+runtime. No code, markup, class name or asset byte was copied. Values only.
+### Settled: the language-server set
+
+The reference runs its own language servers from the main process. Six
+providers, each declaring the language ids it answers for:
+
+| Provider | Language ids | Version shipped |
+| --- | --- | --- |
+| typescript-language-server | javascript, javascriptreact, typescript, typescriptreact | 5.3.0, with TypeScript 5.9.3 |
+| pyright | python | 1.1.413 |
+| Java language server | java | 0.1.2, with its own configuration package |
+| Kotlin language server | kotlin | 262.9593.0 |
+| rust-analyzer | rust | 2026-08-24 |
+| sourcekit-lsp | Swift, through the platform toolchain | the toolchain's own |
+
+Every one is fetched on demand into a cache under the user's home directory,
+pinned by size and digest, unpacked to a named path, and tracked by an install
+record the installer can mark expired. When the bundled runtime is missing, the
+server is launched only from a command the application already trusts.
+
+**Three capabilities reach the application, and only three:** a capability
+query, locations — which is Go to definition — and hover. No rename, no find
+references, no completion, no diagnostics surface.
+
+Each server is given a working directory of its own under the Codex home and a
+deliberately quiet configuration. rust-analyzer runs with build scripts, proc
+macros and check-on-save off, without dependency indexing, and with cargo forced
+offline. pyright runs with the Python home, path and virtual-environment
+variables emptied and a PATH built only from the trusted interpreter's own
+directory.
+
+### Settled: Save a copy
+
+Saving a copy of a workspace file is a main-process action and does not prompt.
+It copies into the operating system's Downloads folder and, on a name clash,
+appends " (1)", " (2)" and so on until the write succeeds. It refuses outright
+for a file on a remote host.
+
+### Settled: the two file commands in the application menu
+
+`Cmd+P` ships as the menu title "Search Files…"; the file-tree toggle ships as
+its own menu item. Both require local access, and both are menu-only, which
+matches the reading above.
+
+### Not settled by the main process
+
+- **The flag gating Go to definition and file history.** No such flag appears in
+  the main process or in the shared command registry: all three commands are
+  registered unconditionally there, Go to definition on `Control+]` on macOS and
+  `Cmd/Ctrl+]` elsewhere, file history bound only on macOS. The gate is applied
+  in the web layer, and its default value still needs a live check.
+- **File search ranking.** The main process has no file-search scorer. The query
+  goes to the application's own agent binary, which is not part of this read.
+- **Tree drag and drop.** Nothing in the main process bears on it.
+
