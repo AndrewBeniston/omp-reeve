@@ -276,3 +276,108 @@ Each line is one ticket candidate for the Browser and Terminal parity epic.
 - [ ] The scrollbar track, corner and selection use Reeve's equivalents of the reference's
       tokens, checked against the Tier 1 adapter contract in `DESIGN.md` 4.1.
 - [ ] The refusals Reeve adds — no Project, untrusted Project, no pty — still read clearly.
+
+## Main-process addendum (2026-09-15)
+
+The reference's main-process build was not read for the original pass. It is
+readable, and it settles several of the items left open above. Three sources are
+cited separately, per ADR-0001:
+
+- **The installed application.** ChatGPT 26.908.40834. Every value below was
+  confirmed present in its packaged archive, searched in place, read-only.
+- **The extracted web bundle.** The same version's web-view assets, read
+  read-only outside this repository.
+- **The extracted main process.** The same version's Electron main-process and
+  shared-chunk build, beside that bundle, read read-only outside this repository.
+
+Still a shipped-code read on the reference side: nothing here was observed at
+runtime. No code, markup, class name or asset byte was copied. Values only.
+Four of the five items this document left open are settled here, and the fifth
+belongs to Reeve rather than the reference.
+
+### Does a Terminal survive an application restart? No.
+
+Sessions live in one in-memory map in the main process, keyed by session id and
+owned by the window that created them. A session is killed when that window is
+destroyed, unless it carries a preserve-on-owner-destroy flag, in which case it
+is only detached. Every session is disposed when the process goes away, and
+nothing writes a session anywhere. What can survive a restart is the Tab record
+in the workspace, which opens a new shell.
+
+### The clear chord
+
+`Cmd+K` on macOS, `Ctrl+K` elsewhere, with no Alt and no Shift, and **only while
+a terminal holds focus**. The main process reads it out of the window's input
+stream and turns it into a clear-the-active-terminal message. It is not in the
+command registry, so it appears in neither the command menu nor the shortcut
+settings, which is why the earlier read could not find it.
+
+### How `Cmd+T` defers to a focused Terminal
+
+The main process intercepts the window's key events before the menu sees them.
+With a terminal focused and the command modifier plus `T` pressed, it looks the
+chord up in the command registry: if the match is a web-view command it prevents
+the default and re-dispatches it into the web layer, and if the match is an
+application-scope command it swallows the chord entirely. Either way the
+application menu does not act, and the terminal's own new-terminal handler wins.
+The same interception suppresses application undo and redo while a terminal has
+focus. This is the mechanism row 4 of the table above asks for.
+
+### The environment the shell inherits
+
+Built in this order, in the main process:
+
+1. The main process's own environment, whole.
+2. Plus one variable naming the conversation, `CODEX_APP_TITLE`.
+3. For a local session, the worktree's captured shell environment is applied:
+   its exclude list deletes names, then its set map assigns them.
+4. On macOS and Linux, `TERM` is forced to `xterm-256color`, and `TERMINFO` and
+   `TERMINFO_DIRS` are deleted.
+5. Then exactly five launch variables are removed, matched without regard to
+   case: `BREAKPAD_DUMP_LOCATION`, `CHROME_CRASHPAD_PIPE_NAME`,
+   `CRASHPAD_HANDLER_PID`, `ELECTRON_CRASH_REPORTER_PROCESS_TYPE` and
+   `__CFBUNDLEIDENTIFIER`.
+
+Nothing else is scrubbed. The Node and Electron launch variables stay. Reeve
+scrubs more than the reference does, which is a difference worth keeping
+deliberately rather than by accident.
+
+### The shell itself
+
+On macOS and Linux the shell comes from the operating system's own user record,
+then `$SHELL`, then `/bin/zsh` on macOS and `/bin/sh` elsewhere — and it is
+spawned **with no arguments**. No `-l`, no `-i`. Reeve passes `-l`; that is a
+divergence, not a match.
+
+On Windows the preference picks one of four, with a fallback chain: PowerShell
+resolves `pwsh.exe` then `powershell.exe`; Command Prompt resolves the comspec
+variable, else `cmd.exe`; Git Bash is the only one spawned with arguments,
+`--login -i`; WSL is offered only when present. With no preference set, the
+resolution is PowerShell, falling back to Command Prompt.
+
+### Is there a cap on Terminals per chat? No.
+
+The session map is unbounded and no per-chat, per-window or per-application
+limit appears anywhere in the main process.
+
+### Five more values worth having
+
+- A session created without a size from the view starts at **80x24**.
+- The replay buffer is capped at **16,000 characters**, both while a session is
+  detached and when it is restarted.
+- Restarting a terminal to run an action kills the process tree, keeps the last
+  16,000 characters, replays them into the re-attached view, and only then
+  writes the directory change and the command, in a form written for the shell.
+- A resize to identical dimensions is skipped. A repaint resize goes one column
+  narrow, waits **100 ms**, then sets the real size.
+- When the requested working directory differs from the process's own, the
+  session's first input is a quoted `cd` into it.
+
+### Still open after this read
+
+- Whether Reeve's Edit-menu copy and paste reach a focused Terminal. That is a
+  Reeve-side runtime question and the main process cannot answer it.
+- The reference's scrollback length stays the library default, per the web
+  bundle; the main process holds no scrollback of its own beyond the 16,000
+  character replay buffer.
+
