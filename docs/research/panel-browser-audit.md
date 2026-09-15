@@ -272,3 +272,113 @@ Already matched, and worth keeping matched:
 - The strip's overflow, resize and drag behaviour belongs to the panel host
   inventory and was not measured here.
 
+
+## Main-process addendum (2026-09-15)
+
+The audit above recorded that the reference's main process is not readable. That
+was wrong: it ships beside the web bundle and inside the installed application's
+archive. Reading it settles rows 13, 15 and 21 on the reference side, and most
+of what this document listed as unknown. Three sources are cited separately, per
+ADR-0001:
+
+- **The installed application.** ChatGPT 26.908.40834. Every value below was
+  confirmed present in its packaged archive, searched in place, read-only.
+- **The extracted web bundle.** The same version's web-view assets, read
+  read-only outside this repository.
+- **The extracted main process.** The same version's Electron main-process and
+  shared-chunk build, beside that bundle, read read-only outside this repository.
+
+Still a shipped-code read on the reference side: nothing here was observed at
+runtime. No code, markup, class name or asset byte was copied. Values only.
+
+### Popups: a popup becomes a Browser tab
+
+A page that calls for a new window is answered by disposition:
+
+| Disposition | Result |
+| --- | --- |
+| foreground tab | A new Browser tab **inside the panel**, adopting the child page, inserted immediately to the right of the opener, and made active |
+| background tab | The same, left inactive |
+| anything else | Denied |
+
+Three checks run before that. A URL that parses as one of the application's own
+deep links is queued as a deep link and the popup is denied. A page already
+showing an error page sends the URL to the system browser instead. A navigation
+the application restricts is denied outright. Nothing opens a detached native
+window from a page.
+
+Separately, the sandbox that hosts an MCP application denies **every** popup and
+records it as blocked.
+
+### Downloads
+
+The browser session owns them, in the main process:
+
+- The save location is a download-directory setting, falling back to the
+  operating system's Downloads folder.
+- A prompt-for-download-location setting, **false by default**, decides between
+  a save dialog and a silent save.
+- A download the human started reserves a unique path first, so an existing file
+  is never overwritten silently.
+- A download history is kept, with a changed event, a set of unacknowledged
+  downloads for badging, a clear-history action and show-in-folder.
+- The MCP application sandbox cancels every download and records it as blocked.
+- Saving a copy of a workspace file bypasses all of this: it copies into the
+  Downloads folder without prompting, appending " (1)", " (2)" on a clash.
+
+### Certificates: no interstitial, and no way through
+
+The main process registers **no** certificate-error handler and **no** custom
+verification. A certificate failure is simply a failed load. The error page's
+summary reads that the host's certificate could not be verified, and the page
+snapshot marks the failure as a certificate error, distinguished by the error
+code's prefix. There is no proceed-anyway path.
+
+### The failed-load surface
+
+An in-app error page replaces the view. It is tracked per Tab and keyed by the
+failed URL, and an entry is dropped when its URL leaves the Tab's history, so
+going back to a page that once failed does not resurrect a stale error.
+
+| Element | Value |
+| --- | --- |
+| Heading | "This site can't be reached" |
+| Summary | One of six, by cause: DNS, offline, refused, timeout, certificate, generic, each naming the host |
+| Suggestion list | "Try:", then "Checking the connection" and "Checking the proxy, firewall, and DNS configuration" |
+| Detail sections | Four, one of which names the application |
+| Error code | Shown |
+| Action | "Reload" |
+
+A renderer crash gets its own page: "This page crashed", a summary saying the
+host crashed unexpectedly, a "Reload" action, no error code and no suggestions,
+plus an "Open in external browser" action that appears **only when the
+application is not the default browser**. Loading the error page retries while
+the view is still loading, up to a bounded number of attempts, and reports a
+failure rather than leaving a blank Tab.
+
+### Address search fallback: none in the main process
+
+No search provider and no query-to-URL fallback appears. The only external-open
+route is a private scheme carrying a URL parameter, used by the crash page's own
+button. Whether the address field itself falls back to a search engine is
+decided in the web layer, so row 21 stays a web-layer question, but the main
+process offers it no search provider to fall back to.
+
+### Two more values
+
+- **Zoom routing.** Page-zoom chords reach whichever placement holds the focused
+  browser page, and only when that page reports it can zoom. An open image
+  preview takes them first.
+- **Tab budget.** A budget marks Tab activity and enforces a detached-page
+  budget; a page that is not visible has background throttling turned on unless
+  it is being captured or the agent is driving it. No cap on the number of
+  Browser tabs appears.
+
+### Still open after this read
+
+- Rows 32 and 34: the address field's own height and radius, and hover and focus
+  treatment, against the reference's rendered surface.
+- Row 13 on Reeve's side: what Reeve does today with a failed load.
+- Every Reeve runtime row, which needs one pass against a disposable Fixture
+  with no other Reeve desktop instance running.
+
