@@ -135,6 +135,34 @@ A Settings row the browser owns and stores, shown beside OMP's own rows. It
 never reaches OMP's config file.
 _Avoid_: web setting, local preference, client setting
 
+**Turn**:
+One user message and everything the agent does until the next user message.
+_Avoid_: exchange, round, prompt cycle
+
+**Turn phase**:
+Where a Turn is: idle, prework, or final answer.
+_Avoid_: stage, step
+
+**Activity row**:
+One thinking block, tool call or sub-agent action inside a Turn, rendered
+with the reference's live and past-tense words.
+_Avoid_: tool card, process row, step
+
+**Divider**:
+The disclosure row between the user message and the final answer that shows
+the turn clock and hides or shows the Activity rows.
+_Avoid_: separator, status line, working bar
+
+**Note**:
+A transcript row no participant wrote: a compaction, a model change, a
+reconnect, a fork origin.
+_Avoid_: system message, banner, notice
+
+**Follow mode**:
+The transcript's scroll state while a Turn runs: static, prework watch,
+prework follow, or user follow.
+_Avoid_: auto scroll, sticky scroll, pin
+
 **Right panel**:
 The resizable column beside a Session view that holds Tabs. It is one Placement
 of the Panel.
