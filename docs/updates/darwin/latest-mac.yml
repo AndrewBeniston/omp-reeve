@@ -1,17 +1,17 @@
-version: 0.5.0
+version: 0.7.0
 files:
-  - url: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.5.0/Reeve-0.5.0-arm64-mac.zip
-    sha512: LuIf9/DlgW21zXDItrzTqnoMXdqZxjIxHxFrPzBffDQ1SC//fZoY1QRS+S4Ryqf4aY2KOuXnyt8RkNYV9vW1nw==
-    size: 414510342
-  - url: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.5.0/Reeve-0.5.0-arm64.dmg
-    sha512: 47MpL+6VDcAtKK/diFJXft4A41TRi+m0iF2oWVgiwKab2gtbIva4e6ooTXcvlp94xMDzmQj7wdEfqtjan2Kahg==
-    size: 395366742
-  - url: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.5.0/Reeve-0.5.0-mac.zip
-    sha512: VsczCedrvV4YTiIQSRcNzU+wkKu8STqicud7juNrT/2STG7xeuiyGy6ZLGhNV8WIQDDgRE+KajvjaduRtNgz4Q==
-    size: 440039089
-  - url: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.5.0/Reeve-0.5.0.dmg
-    sha512: ER+adIgHQz0e62uyjlAcGAEaXkHnZP2v6Zz388c3qGommLE/Sa2WPrIn0JUZpFbMYTgVr8EZ1mXNWdzsDqoGVw==
-    size: 417756255
-path: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.5.0/Reeve-0.5.0-arm64-mac.zip
-sha512: LuIf9/DlgW21zXDItrzTqnoMXdqZxjIxHxFrPzBffDQ1SC//fZoY1QRS+S4Ryqf4aY2KOuXnyt8RkNYV9vW1nw==
-releaseDate: '2026-09-09T17:23:35.479Z'
+  - url: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.7.0/Reeve-0.7.0-mac.zip
+    sha512: JjNXhl7SNjVaRF8Ykh69nkI3OGl3+vyg1of+pZr1KbFuLNI4+jf2H0FKuFc0gYdMW/dGNj8WBzHSgACnWuu2UA==
+    size: 452328305
+  - url: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.7.0/Reeve-0.7.0.dmg
+    sha512: rhFTKJyxV7q29uELSWgrcEelqd2JLEhs3+qR4dwA9qZsqPMecPc3nPJgz2WnH9cXQFA7ifyS1oZngHRPjIHNNQ==
+    size: 428338872
+  - url: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.7.0/Reeve-0.7.0-arm64-mac.zip
+    sha512: T6LgjBdJ/eEhsYIRnahYwxygksj5vxFL9JsVsxu+MjvurSxrucWiu5Ef5riqpltFvkeI3RtJ9bReWSHaxQE29A==
+    size: 426796565
+  - url: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.7.0/Reeve-0.7.0-arm64.dmg
+    sha512: m58YvHsmgVw1FWy6A8uhWsCCbG6My38QNDf2yva8Q6ey+zwu+uu4Lp2LXxHJeSrDnYl0vWCKRbd0CV+fRILwrg==
+    size: 405945040
+path: https://github.com/AndrewBeniston/omp-reeve/releases/download/v0.7.0/Reeve-0.7.0-mac.zip
+sha512: JjNXhl7SNjVaRF8Ykh69nkI3OGl3+vyg1of+pZr1KbFuLNI4+jf2H0FKuFc0gYdMW/dGNj8WBzHSgACnWuu2UA==
+releaseDate: '2026-09-16T20:44:41.313Z'
