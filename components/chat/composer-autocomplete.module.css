@@ -60,6 +60,11 @@
   text-align: left;
 }
 
+.item[data-disabled="true"] {
+  cursor: default;
+  opacity: var(--ui-disabled-opacity);
+}
+
 .item[data-active="true"] {
   background: var(--ui-autocomplete-active);
 }

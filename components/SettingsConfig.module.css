@@ -308,6 +308,9 @@
 .settingRow > [id$="-label"] { grid-area: label; }
 .settingRow > [id$="-description"] { grid-area: description; color: var(--ui-text-dim); }
 .settingRow > [id$="-error"] { grid-area: error; }
+
+/* A row that reports an absence rather than waiting on a save. */
+.settingRow[data-readonly="true"] :disabled { cursor: default; }
 .settingControl { grid-area: control; min-width: 0; width: 100%; align-self: center; justify-self: stretch; }
 
 .select, .textInput, .jsonEditor, .numberInput {

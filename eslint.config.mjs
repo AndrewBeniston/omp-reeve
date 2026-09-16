@@ -83,7 +83,8 @@ const eslintConfig = [
     // leaves it in place, and eslint then reports tens of thousands of
     // problems from the copied dependency tree.
     // .study holds local reference material and never ships.
-    ignores: ["**/desktop/server", "**/desktop/server.staging", "**/desktop/dist", "**/.study"],
+    // .gitnexus holds the generated code-intelligence helper and its data.
+    ignores: ["**/desktop/server", "**/desktop/server.staging", "**/desktop/dist", "**/.study", "**/.gitnexus/**"],
   },
   {
     rules: {

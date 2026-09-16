@@ -35,6 +35,8 @@ import type {
   SettingsValue,
 } from "@/lib/settings-api";
 import { COMPLETION_SOUND_SETTING_PATH } from "@/lib/settings-api";
+import { applyReviewSetting, readReviewSettings, REVIEW_CREDITS_PATH, REVIEW_SETTING_PATHS, writeReviewSettings } from "@/lib/review-settings-store";
+import { DEFAULT_REVIEW_SETTINGS, type ReviewSettings } from "@/lib/review-settings";
 import styles from "./SettingsConfig.module.css";
 
 type SettingsSection = "models" | "themes" | "skills" | "plugins" | "mcp" | "access" | "archived" | "about" | `settings:${string}`;
@@ -220,8 +222,9 @@ function SettingRow({ field, busy, error, onSave }: { field: SettingsField; busy
       error={error}
       labelMode="aria-labelledby"
       className={styles.settingRow}
+      data-readonly={field.readOnly === true ? "true" : undefined}
     >
-      <SettingControl className={styles.settingControl} field={field} busy={busy} onSave={onSave} />
+      <SettingControl className={styles.settingControl} field={field} busy={busy || field.readOnly === true} onSave={onSave} />
     </FormField>
   );
 }
@@ -237,18 +240,48 @@ export function SettingsConfig({ cwd, sessionId, sidebarWidth = SIDEBAR_DEFAULT_
   const [needsReload, setNeedsReload] = useState(false);
   const [reloading, setReloading] = useState(false);
   const [requestedFieldPath, setRequestedFieldPath] = useState<string | null>(null);
+  /*
+   * Stored preferences are read after mount, not during the first render:
+   * the server has no storage to read, and a first render that disagreed
+   * with the browser's own value would hydrate into the wrong switch.
+   */
+  const [reviewPreferences, setReviewPreferences] = useState<Readonly<ReviewSettings>>(DEFAULT_REVIEW_SETTINGS);
+  useEffect(() => { setReviewPreferences(readReviewSettings()); }, []);
   const { preference, theme, toggleTheme } = useTheme();
   const { locale, setLocale, supportedLocales, t } = useI18n();
   const searchRef = useRef<HTMLInputElement>(null);
   const searchResultsRef = useRef<SettingsSearchResultsHandle>(null);
-  const browserSettingAdapters = useMemo<Record<BrowserSettingPath, BrowserSettingAdapter>>(() => ({
-    [COMPLETION_SOUND_SETTING_PATH]: {
-      read: () => soundEnabled,
-      write: (value) => {
-        if (value !== soundEnabled) onSoundToggle();
+  const browserSettingAdapters = useMemo<Record<BrowserSettingPath, BrowserSettingAdapter>>(() => {
+    /*
+     * A review preference is read from this component's copy and written
+     * straight back to storage, so the row reflects the change immediately
+     * and the next reader — a review the human asks for — sees the same
+     * value. Nothing here starts a review: changing a setting is not a send.
+     */
+    const review = (key: keyof ReviewSettings): BrowserSettingAdapter => ({
+      read: () => reviewPreferences[key],
+      write: (value) => setReviewPreferences((current) =>
+        writeReviewSettings(applyReviewSetting(current, REVIEW_SETTING_PATHS[key], value))),
+    });
+    return {
+      [COMPLETION_SOUND_SETTING_PATH]: {
+        read: () => soundEnabled,
+        write: (value) => {
+          if (value !== soundEnabled) onSoundToggle();
+        },
       },
-    },
-  }), [onSoundToggle, soundEnabled]);
+      [REVIEW_SETTING_PATHS.automaticReview]: review("automaticReview"),
+      [REVIEW_SETTING_PATHS.reviewTrigger]: review("reviewTrigger"),
+      [REVIEW_SETTING_PATHS.exhaustiveReview]: review("exhaustiveReview"),
+      [REVIEW_SETTING_PATHS.automaticSecurityReview]: review("automaticSecurityReview"),
+      [REVIEW_SETTING_PATHS.securityTrigger]: review("securityTrigger"),
+      [REVIEW_SETTING_PATHS.automaticSeverityFloor]: review("automaticSeverityFloor"),
+      [REVIEW_SETTING_PATHS.requestedSeverityFloor]: review("requestedSeverityFloor"),
+      [REVIEW_SETTING_PATHS.delivery]: review("delivery"),
+      // The credit row is read-only, so its write is never reached.
+      [REVIEW_CREDITS_PATH]: { read: () => false, write: () => {} },
+    };
+  }, [onSoundToggle, reviewPreferences, soundEnabled]);
 
   const loadSettings = useCallback(async () => {
     setLoading(true);

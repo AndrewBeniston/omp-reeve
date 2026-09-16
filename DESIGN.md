@@ -163,6 +163,52 @@ theme except `titanium` and `light`. To add a theme input, extend
 `firstColor` fallback chain, as `--omp-md-heading` does. Do not add the variable
 in CSS alone.
 
+#### 4.1.1 Scheme-dependent assets follow the theme, not the operating system
+
+An asset that ships in a light and a dark variant selects its variant from the
+`dark` class on the document element. `hooks/useTheme.ts` writes that class from
+the resolved palette's own `colorScheme`, so it is the same signal every Tier 1
+colour already obeys.
+
+Never select such an asset with a `prefers-color-scheme` query. The operating
+system scheme and the OMP theme disagree whenever a user picks a light theme on
+a dark desktop, and the result is a dark icon on a light row. The typed file
+icons in `components/navigation/navigation.module.css` are the worked example.
+
+#### 4.1.2 Review's geometry overrides
+
+Review draws the reference application's geometry, recorded under R20 in
+`docs/research/review-reference.md`. Those numbers are set as overrides of
+existing Tier 2 tokens on `.panel` in `components/review/review.module.css`, so
+Reeve's own scale still governs the rest of the interface. No Tier 1 or Tier 2
+token is added, renamed, or redefined globally.
+
+| Token | Reeve | Review | R20 source |
+|---|---|---|---|
+| `--ui-control-sm` | 31px | 28px | small control height |
+| `--ui-focus-offset` | 2px | 0px | 2px ring, offset 0 |
+| `--ui-disabled-opacity` | 0.55 | 0.40 | disabled opacity |
+| `--radius-sm` / `--radius-md` / `--radius-lg` | 6 / 8 / 10px | 7.5 / 10 / 12.5px | the 1.25 scale, under `@supports (corner-shape: superellipse(1.5))` |
+| `--ui-hover` | `var(--bg-hover)` | 8% of `--ui-text` in light, 12% in dark | the hover wash every variant shares |
+| `--ui-control-corner` | unset, so `round` | `superellipse(1.5)` | the same feature query that raises the radius scale |
+
+`--ui-hover` is the one colour Review restates. R20 records the reference's
+hover wash as a ratio of one alpha base, and Reeve's global `--ui-hover` follows
+the theme's `--bg-hover` instead. Review therefore derives the wash from the
+Tier 2 `--ui-text` inside `.panel`, and takes the dark ratio from
+`:global(html.dark) .panel`, which is the resolved palette's own class, per
+section 4.1.1. Application CSS reads Tier 2 only, which
+`scripts/check-ui-style-boundaries.mjs` enforces. The global token keeps its
+value, and so does every surface outside Review.
+
+`--ui-control-corner` is a hook in `lib/ui/recipes.module.css`. `.button` and
+`.iconButton` read `corner-shape: var(--ui-control-corner, round)`, so a shared
+control drawn inside Review takes the reference's corner while the same control
+keeps its round corner everywhere else. A recipe still reads Tier 2 only.
+
+Geometry does not vary by theme, so one theme pair proves it. The hover wash
+does, so it needs a light theme and a dark theme.
+
 ### 4.2 Semantic color tokens
 
 Tier 2 derives every colour from Tier 1. No Tier 2 colour holds a literal value.

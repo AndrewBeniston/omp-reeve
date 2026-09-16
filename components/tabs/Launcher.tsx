@@ -91,8 +91,9 @@ function LauncherIcon({ id }: { id: LauncherActionId }) {
     case "review":
       return (
         <svg {...common}>
-          <rect x="1.6" y="1.6" width="10.8" height="10.8" rx="2.4" />
-          <path d="M4.4 7h5.2M7 4.4v5.2" />
+          <rect x="1.8" y="1.8" width="10.4" height="10.4" rx="3" />
+          <path d="M7 4.4v2.4M5.8 5.6h2.4" />
+          <path d="M5.8 9.2h2.4" />
         </svg>
       );
     case "terminal":

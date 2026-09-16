@@ -22,6 +22,7 @@ const {
   isExternalUrlAllowed,
   isExpectedServerResponse,
   isNavigationAllowed,
+  isPdfViewerUrl,
   isTrustedRendererUrl,
   prepareWritableNext,
   shouldReportLoadFailure,
@@ -228,23 +229,24 @@ test("the View menu carries the right panel's five surfaces", () => {
   // A separator keeps the surfaces apart from the window's own View items.
   assert.equal(view[PANEL_MENU_ITEMS.length].type, "separator");
 
-  // The three Reeve has built carry their chord and send their action. The
+  // Available surfaces carry their chord and send their action. The
   // chord has to be here: a renderer handler is swallowed while a Browser tab
   // has focus, which is when Cmd+T is most likely to be pressed.
   const built = panel.filter((item) => item.accelerator);
   assert.deepEqual(built.map((item) => item.accelerator), [
+    "Ctrl+Shift+G",
     "Control+`",
     "CmdOrCtrl+T",
     "CmdOrCtrl+P",
   ]);
   built.forEach((item) => item.click());
-  assert.deepEqual(actions, ["open-terminal-tab", "open-browser-tab", "open-files"]);
+  assert.deepEqual(actions, ["open-review-tab", "open-terminal-tab", "open-browser-tab", "open-files"]);
 
-  // The two it has not built are listed and disabled, and teach no chord. A
+  // Unbuilt surfaces are listed and disabled, and teach no chord. A
   // disabled item still claims its accelerator from the page, so an unbuilt
   // surface must not carry one.
   const unbuilt = panel.filter((item) => item.enabled === false);
-  assert.deepEqual(unbuilt.map((item) => item.label), ["Review", "Side chat"]);
+  assert.deepEqual(unbuilt.map((item) => item.label), ["Side chat"]);
   unbuilt.forEach((item) => assert.equal(item.accelerator, undefined));
 
   // macOS reads the same table. The menu is the system menu bar there.
@@ -349,12 +351,26 @@ test("the menu and the launcher name the same surfaces and the same chords", asy
   // The Electron main process cannot import the renderer's table, so the two
   // are written twice and pinned together here.
   const jiti = createJiti(import.meta.url, { tsconfigPaths: true });
-  const { PANEL_ACTION_ORDER, PANEL_ACCELERATORS } = await jiti.import("../lib/panel-actions.ts");
+  const { MAXIMISE_PANEL_ACCELERATOR, PANEL_ACTION_ORDER, PANEL_ACCELERATORS, TOGGLE_PANEL_ACCELERATOR } =
+    await jiti.import("../lib/panel-actions.ts");
 
   assert.deepEqual(PANEL_MENU_ITEMS.map((item) => item.panelId), [...PANEL_ACTION_ORDER]);
   for (const item of PANEL_MENU_ITEMS) {
     assert.equal(item.accelerator, PANEL_ACCELERATORS[item.panelId], item.panelId);
   }
+
+  // The panel controls print these chords, so they are written in the renderer
+  // too and pinned to the menu items that register them.
+  const view = createApplicationMenuTemplate({ platform: "darwin", onAction: () => {} })
+    .find((item) => item.id === "view").submenu;
+  assert.equal(
+    view.find((item) => item.id === "view-maximise-panel").accelerator,
+    MAXIMISE_PANEL_ACCELERATOR,
+  );
+  assert.equal(
+    view.find((item) => item.id === "view-toggle-panel").accelerator,
+    TOGGLE_PANEL_ACCELERATOR,
+  );
 });
 
 test("the native session menu contains only recoverable session actions", () => {
@@ -448,6 +464,63 @@ test("navigation stays on the application origin with safe embedded documents", 
   assert.equal(isNavigationAllowed("about:srcdoc", applicationUrl, false), true);
   assert.equal(isNavigationAllowed("about:blank", applicationUrl, false), true);
   assert.equal(isNavigationAllowed("about:srcdoc", applicationUrl, true), false);
+});
+
+test("the built-in PDF viewer's own documents load in a frame, and nothing that resembles them does", () => {
+  const applicationUrl = "http://127.0.0.1:43123";
+  const viewer = "chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai";
+
+  // Drawing a PDF hands the frame to this viewer, which loads one of its own
+  // two documents. Refusing them leaves the frame blank while the request
+  // that fed it answers normally, which reads as a delivery fault.
+  assert.equal(isPdfViewerUrl(`${viewer}/index.html`), true);
+  assert.equal(isPdfViewerUrl(`${viewer}/index_print.html`), true);
+  assert.equal(isNavigationAllowed(`${viewer}/index.html`, applicationUrl, false), true);
+
+  /*
+   * The file itself loads in a second frame under a per-document identifier
+   * the browser mints. Refusing it leaves the viewer's own page up with an
+   * empty body, which is the failure this shape exists to stop.
+   */
+  const stream = `${viewer}/efc208c5-6d67-42b6-ab7a-65268e81ec95`;
+  assert.equal(isPdfViewerUrl(stream), true);
+  assert.equal(isNavigationAllowed(stream, applicationUrl, false), true);
+  assert.equal(isNavigationAllowed(stream, applicationUrl, true), false);
+  for (const wrong of [
+    `${viewer}/EFC208C5-6D67-42B6-AB7A-65268E81EC95`,
+    `${viewer}/efc208c5-6d67-42b6-ab7a-65268e81ec9`,
+    `${viewer}/efc208c5-6d67-42b6-ab7a-65268e81ec95x`,
+    `${viewer}/efc208c5-6d67-42b6-ab7a-65268e81ec95/evil.html`,
+    `${viewer}/efc208c5_6d67_42b6_ab7a_65268e81ec95`,
+    `chrome-extension://evil.example/efc208c5-6d67-42b6-ab7a-65268e81ec95`,
+  ]) {
+    assert.equal(isPdfViewerUrl(wrong), false, wrong);
+    assert.equal(isNavigationAllowed(wrong, applicationUrl, false), false, wrong);
+  }
+
+  // A main frame is the application itself and is unchanged by any of this.
+  assert.equal(isNavigationAllowed(`${viewer}/index.html`, applicationUrl, true), false);
+
+  /*
+   * The lookalikes. `URL` reports the origin of every non-special scheme as
+   * the string "null", so all of these share an origin with the viewer and an
+   * origin comparison would admit the lot.
+   */
+  assert.equal(new URL(`${viewer}/index.html`).origin, "null");
+  assert.equal(new URL("chrome-extension://evil.example/index.html").origin, "null");
+  for (const lookalike of [
+    "chrome-extension://evil.example/index.html",
+    "chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai.evil.test/index.html",
+    `${viewer}:8080/index.html`,
+    `chrome-extension://user:pass@mhjfbmdgcfjbbpaeojofohoefgiehjai/index.html`,
+    `${viewer}/evil.html`,
+    `${viewer}/`,
+    "moz-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/index.html",
+    "not a url",
+  ]) {
+    assert.equal(isPdfViewerUrl(lookalike), false, lookalike);
+    assert.equal(isNavigationAllowed(lookalike, applicationUrl, false), false, lookalike);
+  }
 });
 
 test("the IPC handler validates its sender and its external URL", async () => {

@@ -300,8 +300,42 @@ class MemoryStorage {
   clear() { this.entries.clear(); }
 }
 
+// A module that finds `HTMLElement` assumes the rest of the custom-element
+// platform is present. The harness owns `HTMLElement`, so it owns this too.
+class CustomElementRegistry {
+  constructor() {
+    this.definitions = new Map();
+    this.waiters = new Map();
+  }
+
+  define(name, constructor) {
+    if (this.definitions.has(name)) throw new Error("Already defined: " + name);
+    this.definitions.set(name, constructor);
+    for (const resolve of this.waiters.get(name) ?? []) resolve(constructor);
+    this.waiters.delete(name);
+  }
+
+  get(name) { return this.definitions.get(name); }
+
+  getName(constructor) {
+    for (const [name, entry] of this.definitions) if (entry === constructor) return name;
+    return null;
+  }
+
+  whenDefined(name) {
+    const defined = this.definitions.get(name);
+    if (defined) return Promise.resolve(defined);
+    return new Promise((resolve) => {
+      this.waiters.set(name, [...(this.waiters.get(name) ?? []), resolve]);
+    });
+  }
+
+  upgrade() {}
+}
+
 export const domDocument = new DomDocument();
 export const domWindow = new DomWindow(domDocument);
+export const domCustomElements = new CustomElementRegistry();
 
 domDocument.parentNode = domWindow;
 
@@ -312,6 +346,7 @@ Object.assign(domWindow, {
   navigator: { userAgent: "node", language: "en", languages: ["en"] },
   localStorage: new MemoryStorage(),
   sessionStorage: new MemoryStorage(),
+  customElements: domCustomElements,
   matchMedia: (query) => ({
     matches: query.includes("prefers-reduced-motion: reduce") ? reducedMotion : false,
     media: query,
@@ -345,6 +380,7 @@ export function installHarnessGlobals() {
     navigator: domWindow.navigator,
     localStorage: domWindow.localStorage,
     sessionStorage: domWindow.sessionStorage,
+    customElements: domCustomElements,
     matchMedia: domWindow.matchMedia,
     requestAnimationFrame: domWindow.requestAnimationFrame,
     cancelAnimationFrame: domWindow.cancelAnimationFrame,

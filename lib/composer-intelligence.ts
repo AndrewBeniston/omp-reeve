@@ -15,6 +15,8 @@ export interface ComposerSuggestion extends ComposerMentionToken {
   completionQuery?: string;
   isDirectory?: boolean;
   mentionLabel?: string;
+  /** Listed, and not selectable. Its detail says why. */
+  disabled?: boolean;
 }
 
 function formatSlashSubcommandMention(commandName: string, subcommandName: string): string {
@@ -372,10 +374,13 @@ export function buildSlashSections({
   query,
   commands,
   skills,
+  disabledCommands,
 }: {
   query: string;
   commands: SlashCommandInfo[];
   skills: SkillInfo[];
+  /** Commands listed with their reason instead of an action. */
+  disabledCommands?: ReadonlySet<string>;
 }): ComposerSuggestionSection[] {
   const seen = new Set<string>();
   const suggestions = [...commands]
@@ -387,7 +392,10 @@ export function buildSlashSections({
       seen.add(name);
       return true;
     })
-    .map((command) => buildSlashSuggestion(command, skills));
+    .map((command) => {
+      const suggestion = buildSlashSuggestion(command, skills);
+      return disabledCommands?.has(command.name) ? { ...suggestion, disabled: true } : suggestion;
+    });
   const ranked = rankSuggestions(suggestions, query, 40);
   return orderSectionsByMatch(["commands", "skills"].map((group) => ({
     id: group as ComposerSuggestionGroup,

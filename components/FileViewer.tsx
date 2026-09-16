@@ -37,6 +37,9 @@ import {
 } from "@/lib/markdown";
 import { CodeBlock, MermaidBlock } from "./MermaidBlock";
 import { FrontmatterCard } from "./FrontmatterCard";
+import { FileSourceView } from "./file-source/FileSourceView";
+import type { FileReviewOrigin } from "@/lib/file-review-origin";
+import type { ReviewSourceContext } from "./file-source/FileSourceView";
 import { parseUnifiedPatch } from "@/lib/patch";
 import type { GitFileDiffResponse } from "@/lib/git-types";
 import { useI18n } from "@/hooks/useI18n";
@@ -55,6 +58,14 @@ interface Props {
   onClose?: () => void;
   gitRefreshKey?: number;
   initialDisplayMode?: DisplayMode;
+  /** The Review this file was opened from, when it was opened from one. */
+  reviewOrigin?: FileReviewOrigin;
+  /**
+   * That Review's own context, or null when its Tab has closed. Null is an
+   * answer: the view says the change cannot be marked rather than reading the
+   * file against a review nobody can vouch for.
+   */
+  review?: ReviewSourceContext | null;
 }
 
 interface FileData {
@@ -704,6 +715,8 @@ export function FileViewer({
   onClose,
   gitRefreshKey,
   initialDisplayMode,
+  reviewOrigin,
+  review,
 }: Props) {
   if (isImagePath(filePath)) {
     return <ImageViewer filePath={filePath} cwd={cwd} sourceSessionId={sourceSessionId} />;
@@ -725,6 +738,8 @@ export function FileViewer({
       onClose={onClose}
       gitRefreshKey={gitRefreshKey}
       initialDisplayMode={initialDisplayMode}
+      reviewOrigin={reviewOrigin}
+      review={review}
     />
   );
 }
@@ -739,6 +754,8 @@ export function TextFileViewer({
   onClose,
   gitRefreshKey,
   initialDisplayMode,
+  reviewOrigin,
+  review,
 }: Props) {
   const { t } = useI18n();
   const [data, setData] = useState<FileData | null>(null);
@@ -953,6 +970,17 @@ export function TextFileViewer({
       if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
     };
   }, []);
+
+  /*
+   * The source view, rather than this preview, for a file a Review opened and
+   * for one this preview will not show. The preview stops at 256 KiB, which is
+   * the right limit for a glance at a file and the wrong one for reading the
+   * change you were just shown — and the file a Review opens has a line to
+   * arrive at, changed lines to mark, and on the desktop a text to edit.
+   */
+  if (!isDeletedDiff && (reviewOrigin || (error && /too large/i.test(error)))) {
+    return <FileSourceView filePath={filePath} root={cwd} origin={reviewOrigin ?? null} review={review ?? null} />;
+  }
 
   if (loading || (initialDisplayMode === "diff" && gitDiffLoading && !data)) {
     return (

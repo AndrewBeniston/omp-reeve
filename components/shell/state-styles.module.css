@@ -32,6 +32,6 @@
   color: var(--ui-text);
 }
 
-.filePanelToggle[aria-expanded="true"] {
+.filePanelToggle[aria-pressed="true"] {
   color: var(--ui-text);
 }

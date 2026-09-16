@@ -116,13 +116,15 @@ export function ComposerAutocomplete({
                   type="button"
                   className={styles.item}
                   data-active={active ? "true" : "false"}
+                  data-disabled={item.disabled ? "true" : undefined}
                   role="option"
                   aria-selected={active}
+                  aria-disabled={item.disabled ? true : undefined}
                   title={item.detail}
-                  onMouseEnter={() => onActiveIndexChange(itemIndex)}
+                  onMouseEnter={() => { if (!item.disabled) onActiveIndexChange(itemIndex); }}
                   onMouseDown={(event) => {
                     event.preventDefault();
-                    onSelect(item);
+                    if (!item.disabled) onSelect(item);
                   }}
                 >
                   <span className={styles.icon} data-kind={item.kind}>

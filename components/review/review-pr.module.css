@@ -1,0 +1,27 @@
+.picker, .discussion { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3); min-width: 0; overflow: auto; }
+.controls { display: flex; align-items: end; flex-wrap: wrap; gap: var(--space-2); }
+.controls label { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: var(--space-1); font-size: var(--text-sm); }
+.controls select, .search, .input { width: 100%; min-width: 0; border: 1px solid var(--ui-border); border-radius: var(--radius-md); padding: var(--space-2); background: var(--ui-surface); color: var(--ui-text); font: inherit; }
+.search:focus-visible, .input:focus-visible, .controls select:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
+.muted { color: var(--ui-text-muted); font-size: var(--text-sm); margin: 0; overflow-wrap: anywhere; }
+.pullList { display: flex; flex-direction: column; }
+.pullRow { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-3); color: var(--ui-text); background: transparent; border: 0; border-bottom: 1px solid var(--ui-border); text-align: start; cursor: pointer; }
+.pullRow:hover { background: var(--ui-surface-elevated); }
+.pullRow strong { overflow-wrap: anywhere; font-weight: 500; }
+.card { border: 1px solid var(--ui-border); border-radius: var(--radius-md); padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.body { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-1); justify-content: flex-end; }
+.heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.detail { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; }
+.diff { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+.tabs { display: flex; flex-wrap: wrap; gap: var(--space-1); padding: var(--space-2); border-bottom: 1px solid var(--ui-border); }
+.notice { margin: 0; padding: var(--space-2); font-size: var(--text-sm); color: var(--ui-text-muted); }
+.threadCard { border: 1px solid var(--ui-border); border-left: 3px solid var(--ui-accent); border-radius: var(--radius-md); padding: var(--space-2); margin: var(--space-1) 0; display: flex; flex-direction: column; gap: var(--space-1); background: var(--ui-surface); min-width: 0; }
+.threadCard[data-resolved="true"] { border-left-color: var(--ui-border); opacity: 0.85; }
+.threadHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1); font-size: var(--text-sm); }
+.threadRange { color: var(--ui-text-muted); }
+.threadTags { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.threadTag { border: 1px solid var(--ui-border); border-radius: var(--radius-sm); padding: 0 var(--space-1); color: var(--ui-text-muted); font-size: var(--text-xs); }
+.threadComment { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.threadAuthor { font-size: var(--text-sm); font-weight: 500; color: var(--ui-text); }
+.threadBody { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-sm); color: var(--ui-text); }

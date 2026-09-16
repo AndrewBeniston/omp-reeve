@@ -24,6 +24,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { useAgentSession, type AgentPhase, type NoticeItem } from "@/hooks/useAgentSession";
 import { useDragDrop } from "@/hooks/useDragDrop";
 import type { ProjectTrustStatus } from "@/lib/api-types";
+import type { ReviewSlashOutcome, ReviewSlashRequest } from "@/lib/review-slash-entries";
 import type { SessionStatsInfo } from "@/lib/omp-types";
 import {
   captureScrollDistance,
@@ -33,6 +34,7 @@ import {
   VISIBLE_PAGE_SIZE,
 } from "@/lib/chat-lazy-load";
 import { ExtensionCustomPanel, ExtensionDialog } from "./chat/ExtensionDialogs";
+import { ApprovalNudge } from "./chat/ApprovalNudge";
 import { QuestionRequestPanel, type QuestionRequest } from "./chat/QuestionRequestPanel";
 import { EmptyChatHome } from "./chat/EmptyChatHome";
 import { NewMessagesControl } from "./chat/NewMessagesControl";
@@ -102,6 +104,15 @@ interface Props {
   homeProjectPath?: string | null;
   onHomeProjectSelected?: (path: string) => void;
   onHomeProjectlessSelected?: () => void;
+  /**
+   * Compose and deliver a review the human asked for, bound to the Review
+   * this Session owns. Absent when it owns none.
+   */
+  onRequestReview?: (request: ReviewSlashRequest) => Promise<ReviewSlashOutcome>;
+  /** The base branches the review submenu offers, or why it cannot list them. */
+  onListReviewBranches?: () => Promise<{ branches: string[] } | { error: string }>;
+  /** Whether the review command is enabled, and why not when it is disabled. */
+  reviewGate?: { enabled: boolean; reason?: string };
 }
 
 function phaseLabel(phase: AgentPhase, t: (key: string, params?: Record<string, string | number>) => string): string | null {
@@ -218,7 +229,7 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = fa
   );
 }
 
-export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSessionNameChanged, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {} }: Props) {
+export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSessionNameChanged, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onRequestReview, onListReviewBranches, reviewGate }: Props) {
   const { t } = useI18n();
 
   // Wrap onAgentEnd to play the completion sound. This is more reliable than
@@ -248,6 +259,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
     isCompacting, compactError, compactResult, displayModel: displayModelValue, modelSwitching, sessionStats,
     slashCommands, slashCommandsLoading, queuedMessages, subagents,
     notices, extensionDialog, extensionCustomUi, extensionStatuses, extensionWidgets, respondToExtensionUi, sendExtensionCustomInput,
+    approvalNudgeOpen, approvalDialogId, handleApprovalNudgeAccept, handleApprovalNudgeDismiss,
     isAutoModelSelection,
     agentPhase,
     isNew,
@@ -263,7 +275,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
     handleToolPresetChange, handleApprovalModeChange, handleThinkingLevelChange, handleCycleThinkingLevel, handleFastModeChange, loadSlashCommands,
   } = useAgentSession({
     session, newSessionCwd, onAgentEnd: wrappedOnAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSessionNameChanged,
-    modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, translate: t,
+    modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onRequestReview, translate: t,
   });
   const sessionBusy = agentRunning || bashRunning;
   const showActiveTurnResponseSpacer = agentRunning || streamState.isStreaming;
@@ -519,6 +531,8 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
       approvalModeChanging={approvalModeChanging}
       approvalModeError={approvalModeError}
       onApprovalModeChange={handleApprovalModeChange}
+      onListReviewBranches={onListReviewBranches}
+      reviewGate={reviewGate}
       inputHistory={inputHistory}
       subagents={subagents}
       slashCommands={slashCommands}
@@ -592,6 +606,14 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
       {displayedExtensionDialog && displayedExtensionDialog.method !== "ask" && (
         <ExtensionDialog
           request={displayedExtensionDialog}
+          footer={approvalNudgeOpen && displayedExtensionDialog.id === approvalDialogId ? (
+            <ApprovalNudge
+              busy={approvalModeChanging}
+              error={approvalModeError}
+              onAccept={() => { void handleApprovalNudgeAccept(); }}
+              onDismiss={handleApprovalNudgeDismiss}
+            />
+          ) : undefined}
           onRespond={respondToExtensionUi}
         />
       )}

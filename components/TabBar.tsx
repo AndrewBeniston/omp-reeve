@@ -5,6 +5,9 @@ import { Surface } from "@/components/ui/Surface";
 import { getFileIcon } from "./FileIcons";
 import { useI18n } from "@/hooks/useI18n";
 import type { SummarySource } from "@/lib/session-summary";
+import type { ReviewSelection } from "@/lib/review-selection";
+import type { ReviewOwner } from "@/lib/review-owner";
+import type { FileReviewOrigin } from "@/lib/file-review-origin";
 import { NewTabLauncher } from "./tabs/NewTabLauncher";
 import type { LauncherAction } from "./tabs/Launcher";
 import styles from "./navigation/navigation.module.css";
@@ -19,6 +22,12 @@ export interface FileTab extends TabBase {
   filePath: string;
   sourceSessionId?: string | null;
   initialDisplayMode?: "source" | "preview" | "diff";
+  /**
+   * The Review this file was opened from, when it was. It decides the Tab's
+   * identity as well as its contents, so two Review Tabs on one file are two
+   * Tabs rather than one that keeps being reassigned.
+   */
+  reviewOrigin?: FileReviewOrigin;
 }
 
 export interface SourcesTab extends TabBase {
@@ -72,7 +81,18 @@ export interface TerminalTab extends TabBase {
  * new kind is unhandled — that exhaustiveness is what makes the union safe to
  * extend, so do not replace it with a runtime registry.
  */
-export type Tab = FileTab | SourcesTab | BrowserTab | TerminalTab;
+export interface ReviewTab extends TabBase {
+  kind: "review";
+  /**
+   * The Project, Worktree and Session this Tab reads. Fixed when it opens: a
+   * Tab that followed the selected Session would answer for work it was not
+   * opened beside.
+   */
+  owner: ReviewOwner;
+  selection?: ReviewSelection;
+}
+
+export type Tab = FileTab | SourcesTab | BrowserTab | TerminalTab | ReviewTab;
 
 /**
  * Refuse to compile when a Tab kind is unhandled.
@@ -90,6 +110,8 @@ function TabIcon({ tab }: { tab: Tab }) {
   switch (tab.kind) {
     case "sources":
       return <SourcesIcon />;
+    case "review":
+      return <ReviewIcon />;
     case "browser":
       // The page's own icon when it has one, the way a browser shows it.
       if (tab.faviconUrl) {
@@ -114,6 +136,9 @@ function tabTitle(tab: Tab): string {
       return tab.filePath;
     case "browser":
       return tab.url;
+    case "review":
+      // The Worktree being reviewed, which two Review Tabs differ by.
+      return tab.owner.worktreePath;
     case "terminal":
       // The directory the shell is in, which is the one thing about a Terminal
       // its label does not already say.
@@ -233,6 +258,20 @@ function SourcesIcon() {
     <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M6.5 5.5 4.8 7.2a2.4 2.4 0 1 0 3.4 3.4l1.7-1.7" />
       <path d="m9.5 10.5 1.7-1.7a2.4 2.4 0 1 0-3.4-3.4L6.1 7.1" />
+    </svg>
+  );
+}
+
+/*
+ * The Review Tab's glyph: a rounded square holding a plus over a minus, which
+ * is the shape the reference gives its own Review Tab.
+ */
+function ReviewIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2.2" y="2.2" width="11.6" height="11.6" rx="3.4" />
+      <path d="M8 5.2v2.8M6.6 6.6h2.8" />
+      <path d="M6.6 10.2h2.8" />
     </svg>
   );
 }
