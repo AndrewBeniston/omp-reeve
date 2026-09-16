@@ -272,6 +272,14 @@ function verifyNoPersonalPaths(resources) {
  */
 async function verifyTerminalBinding(application, resources) {
   const packageRoot = join(resources, "app.asar.unpacked", "node_modules", "node-pty");
+  // node-pty finds its own native binary by replacing "app.asar" with
+  // "app.asar.unpacked" in its own directory. Requiring the unpacked copy
+  // directly gives it "app.asar.unpacked.unpacked", which does not exist, so
+  // the probe fails on a package a person can use. The packaged terminal host
+  // requires "node-pty" from inside the archive, so the probe does the same.
+  // The file checks below stay on the unpacked copy, because that is where
+  // the files really are.
+  const archiveRoot = join(resources, "app.asar", "node_modules", "node-pty");
   assert.ok(
     existsSync(packageRoot),
     "node-pty is not unpacked from the asar. A native binary cannot be loaded from inside one.",
@@ -294,7 +302,7 @@ async function verifyTerminalBinding(application, resources) {
   const shell = process.platform === "win32" ? (process.env.COMSPEC || "cmd.exe") : "/bin/sh";
   const shellArgs = process.platform === "win32" ? JSON.stringify(["/c", "echo REEVE_PTY_OK"]) : JSON.stringify(["-c", "echo REEVE_PTY_OK"]);
   writeFileSync(probe, [
-    `const pty = require(${JSON.stringify(packageRoot)});`,
+    `const pty = require(${JSON.stringify(archiveRoot)});`,
     `const term = pty.spawn(${JSON.stringify(shell)}, ${shellArgs}, { name: "xterm-256color", cwd: ${JSON.stringify(tmpdir())}, env: process.env, cols: 80, rows: 24 });`,
     "let seen = \"\";",
     "term.onData((data) => { seen += data; });",
