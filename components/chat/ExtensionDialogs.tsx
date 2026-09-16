@@ -18,9 +18,16 @@ export type ExtensionDialogRequest = Extract<
 
 export function ExtensionDialog({
   request,
+  footer,
   onRespond,
 }: {
   request: ExtensionDialogRequest;
+  /**
+   * Content the dialog owns, below the answers. Anything placed beside the
+   * dialog instead is inert, hidden from assistive technology, and under the
+   * backdrop, where a click on it cancels the dialog.
+   */
+  footer?: ReactNode;
   onRespond: (request: ExtensionDialogRequest, response: { value: string } | { confirmed: boolean } | { cancelled: true }) => void;
 }) {
   const { t } = useI18n();
@@ -332,6 +339,8 @@ export function ExtensionDialog({
             />
           )}
         </div>
+
+        {footer}
 
         <div className={styles.dialogActions}>
           <Button

@@ -16,6 +16,7 @@ const appShellSource = await readFile(new URL("./AppShell.tsx", import.meta.url)
 const summarySource = await readFile(new URL("./SummaryPanel.tsx", import.meta.url), "utf8");
 const styles = await readFile(new URL("./shell/summary-panel.module.css", import.meta.url), "utf8");
 const shellStyles = await readFile(new URL("./shell/shell.module.css", import.meta.url), "utf8");
+const panelToggleSource = await readFile(new URL("./shell/PanelVisibilityToggle.tsx", import.meta.url), "utf8");
 const tokens = await readFile(new URL("../app/tokens.css", import.meta.url), "utf8");
 
 test("Summary shows each available OMP section", () => {
@@ -103,7 +104,11 @@ test("the chat top bar exposes Summary instead of history, branches, and system"
   const actionSource = appShellSource.slice(actionStart, actionEnd);
 
   assert.match(actionSource, /summary\.toggle/);
-  assert.ok(actionSource.indexOf("summary.toggle") < actionSource.indexOf("files.hidePanel"));
+  // The panel control moved into PanelVisibilityToggle, and it still owns the
+  // hide label. Summary stays before it in the same header block.
+  assert.ok(actionSource.indexOf("<PanelVisibilityToggle") > 0);
+  assert.ok(actionSource.indexOf("summary.toggle") < actionSource.indexOf("<PanelVisibilityToggle"));
+  assert.match(panelToggleSource, /files\.hidePanel/);
   assert.doesNotMatch(actionSource, /history\.full|title\.generateSession|i18n\.branches|system\.prompt/);
   assert.match(appShellSource, /<SummaryPanel[\s\S]*?onOpenHistory=\{handleViewFullHistory\}[\s\S]*?branchContent=/);
   assert.match(appShellSource, /<BranchNavigator[\s\S]*?embedded[\s\S]*?hasSession=/);

@@ -22,6 +22,22 @@ import {
   isApprovalMode,
   type ApprovalMode,
 } from "@/lib/approval-mode";
+import {
+  acceptApprovalNudge,
+  approvalNudgeVisible,
+  clearApprovalNudge,
+  dismissApprovalNudge,
+  EMPTY_APPROVAL_NUDGE_STATE,
+  readApprovalNudgeState,
+  recordManualApproval,
+  writeApprovalNudgeState,
+  type ApprovalNudgeState,
+} from "@/lib/approval-nudge";
+import {
+  parseReviewSlashCommand,
+  type ReviewSlashOutcome,
+  type ReviewSlashRequest,
+} from "@/lib/review-slash-entries";
 import type {
   CollaborationCommandResult,
   CollaborationSnapshot,
@@ -207,6 +223,14 @@ export interface UseAgentSessionOptions {
   onSystemPromptChange?: (prompt: string | null) => void;
   setToolPreset?: (preset: "none" | "default" | "full") => void;
   translate?: (key: string) => string;
+  /**
+   * Compose and deliver a requested review.
+   *
+   * Supplied by the layer that knows which Review Tab this Session owns,
+   * because the request is bound to that owner and this hook is not. Absent
+   * when the Session has no Review open, which is what `/review` reports.
+   */
+  onRequestReview?: (request: ReviewSlashRequest) => Promise<ReviewSlashOutcome>;
 }
 
 export type ThinkingLevelOption = "auto" | "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
@@ -416,6 +440,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const {
     session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSessionNameChanged,
     modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange,
+    onRequestReview,
     translate = (key) => key,
   } = opts;
 
@@ -444,6 +469,14 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const [approvalMode, setApprovalMode] = useState<ApprovalMode | null>(null);
   const [approvalModeChanging, setApprovalModeChanging] = useState(false);
   const [approvalModeError, setApprovalModeError] = useState<string | null>(null);
+  const [approvalNudge, setApprovalNudge] = useState<Readonly<ApprovalNudgeState>>(EMPTY_APPROVAL_NUDGE_STATE);
+  /**
+   * Whether an approval is being asked, or was just asked. OMP asks in a
+   * dialog, so this outlives the dialog until the offer is answered.
+   */
+  const [approvalAsked, setApprovalAsked] = useState(false);
+  /** A review request that has not answered yet. One at a time. */
+  const reviewRequestInFlightRef = useRef(false);
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevelOption>("auto");
   const [fastModeEnabled, setFastModeEnabled] = useState(false);
   const [retryInfo, setRetryInfo] = useState<{ attempt: number; maxAttempts: number; errorMessage?: string } | null>(null);
@@ -886,6 +919,12 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       });
     } catch (e) {
       console.error("Failed to send extension UI response:", e);
+      /*
+       * The answer did not arrive, so whatever asked is still waiting. Put
+       * the prompt back rather than leaving the human with a decision they
+       * appear to have made and an agent still blocked on it.
+       */
+      setExtensionDialog((current) => current ?? request);
     }
   }, []);
 
@@ -935,6 +974,10 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     switch (request.method) {
       case "select":
       case "confirm":
+        // Whether this is an approval is OMP's to say, through its own
+        // events, not something to read off the dialog.
+        setExtensionDialog(request);
+        break;
       case "input":
       case "editor":
       case "ask":
@@ -1524,6 +1567,26 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           }
         }
         break;
+      /*
+       * OMP's own word on an approval, forwarded by Reeve's bridge extension.
+       * This is the only thing that counts towards the offer to stop
+       * approving by hand: a dialog that merely looks like an approval, from
+       * an extension asking its own question, must never widen permissions.
+       */
+      case "tool_approval": {
+        const phase = event.phase as string | undefined;
+        if (phase === "requested") {
+          setApprovalAsked(true);
+          break;
+        }
+        if (phase !== "resolved") break;
+        setApprovalAsked(false);
+        if (event.approved === true) {
+          const sid = sessionIdRef.current;
+          if (sid) setApprovalNudge((current) => writeApprovalNudgeState(recordManualApproval(current, sid)));
+        }
+        break;
+      }
       case "extension_ui_request":
         handleExtensionUiRequest(event as ExtensionUiRequest);
         break;
@@ -1974,6 +2037,42 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
             : complete({ handled: true, message: result.message });
         }
 
+        case "review": {
+          if (!sid) return complete({ handled: true, error: "No active session" });
+          const invocation = parseReviewSlashCommand(text);
+          if (!invocation) return { handled: false };
+          /*
+           * One review at a time. The request does real work before it
+           * returns, and a second invocation would open a second review chat
+           * or start a second turn for one request.
+           */
+          if (reviewRequestInFlightRef.current) {
+            return complete({ handled: true, error: "A review is already being requested." });
+          }
+          // The caller owns the binding; without one there is nothing to read.
+          if (!onRequestReview) {
+            return complete({ handled: true, error: "Open a Session in a Project to ask for a review." });
+          }
+          if (invocation.entry.needsBranch && !invocation.base) {
+            return complete({ handled: true, error: "Name the base branch, as in /review branch main" });
+          }
+          reviewRequestInFlightRef.current = true;
+          let outcome: ReviewSlashOutcome;
+          try {
+            outcome = await onRequestReview({
+              mode: invocation.entry.id === "branch" ? "branch" : "uncommitted",
+              base: invocation.base,
+              message: invocation.message,
+            });
+          } finally {
+            reviewRequestInFlightRef.current = false;
+          }
+          if (outcome.kind === "error") return complete({ handled: true, error: outcome.error });
+          if (outcome.kind === "delivered") return complete({ handled: true, message: outcome.message });
+          // Handed back as a prompt so the composer sends it like typed text.
+          return { handled: true, prompt: outcome.prompt };
+        }
+
         case "fork": {
           if (!sid) return complete({ handled: true, error: "No active session to fork" });
           const result = await handleFork();
@@ -2039,7 +2138,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     } finally {
       if (commandName === "compact") setIsCompacting(false);
     }
-  }, [addNotice, appendCommandOutput, ensureEventsConnected, ensureNewSession, handleFork, isCompacting, loadModels, loadSession, loadSlashCommands, loadTools, promoteNewSession, scheduleEventStreamClose]);
+  }, [addNotice, appendCommandOutput, ensureEventsConnected, ensureNewSession, handleFork, isCompacting, loadModels, loadSession, loadSlashCommands, loadTools, onRequestReview, promoteNewSession, scheduleEventStreamClose]);
 
   // Queued (undelivered) messages live in the queue panel only; the chat gets
   // the real user message when pi delivers it (user message_end event). An
@@ -2251,8 +2350,10 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     }
   }, [addNotice, ensureNewSession, translate]);
 
-  const handleApprovalModeChange = useCallback(async (mode: ApprovalMode) => {
-    if (approvalModeChanging || mode === approvalMode) return;
+  /** Reports whether the mode was actually written, so a caller can tell. */
+  const handleApprovalModeChange = useCallback(async (mode: ApprovalMode): Promise<boolean> => {
+    if (approvalModeChanging) return false;
+    if (mode === approvalMode) return true;
     const previous = approvalMode;
     setApprovalMode(mode);
     setApprovalModeChanging(true);
@@ -2266,13 +2367,56 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       const data = await response.json() as { value?: unknown; error?: string };
       if (!response.ok || data.error) throw new Error(data.error ?? `HTTP ${response.status}`);
       setApprovalMode(isApprovalMode(data.value) ? data.value : mode);
+      return true;
     } catch (error) {
       setApprovalMode(previous);
       setApprovalModeError(error instanceof Error ? error.message : translate("approvalMode.changeFailed"));
+      return false;
     } finally {
       setApprovalModeChanging(false);
     }
   }, [approvalMode, approvalModeChanging, translate]);
+
+  // Due after three hand-granted approvals in the asking mode. Accepting
+  // writes the existing setting; declining is permanent.
+  useEffect(() => { setApprovalNudge(readApprovalNudgeState()); }, []);
+
+  const approvalNudgeOpen = approvalNudgeVisible(approvalNudge, {
+    sessionId: session?.id ?? null,
+    approvalMode,
+    hasPendingApproval: approvalAsked,
+  });
+
+  /*
+   * The dialog the offer may live inside, so the modal owns it.
+   * Only a stamped question qualifies. The stamp is a conservative heuristic
+   * on the server, not proof of identity, so it can still refuse a real
+   * approval. A refusal hides the offer, which is the safe direction.
+   */
+  const approvalDialogId = approvalAsked
+    && extensionDialog?.method === "select"
+    && extensionDialog.approvalToolCallId
+    ? extensionDialog.id
+    : null;
+
+  const handleApprovalNudgeAccept = useCallback(async () => {
+    const sid = session?.id;
+    if (!sid) return;
+    const { mode } = acceptApprovalNudge(approvalNudge, sid);
+    /*
+     * The offer stays until the setting is actually written. Clearing it on a
+     * failed save would tell the human Reeve now approves for them while it
+     * still asks; the error stays on the offer so they can try again.
+     */
+    if (!await handleApprovalModeChange(mode)) return;
+    setApprovalAsked(false);
+    setApprovalNudge((current) => writeApprovalNudgeState(clearApprovalNudge(current, sid)));
+  }, [approvalNudge, handleApprovalModeChange, session?.id]);
+
+  const handleApprovalNudgeDismiss = useCallback(() => {
+    setApprovalAsked(false);
+    setApprovalNudge(writeApprovalNudgeState(dismissApprovalNudge()));
+  }, []);
 
   const handleFastModeChange = useCallback(async (enabled: boolean) => {
     const previous = fastModeEnabled;
@@ -2556,6 +2700,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     isCompacting, compactError, compactResult, currentModel, displayModel, modelSwitching, sessionStats,
     slashCommands, slashCommandsLoading, queuedMessages, subagents,
     notices: noticeState.visible, extensionDialog, extensionCustomUi, extensionStatuses, extensionWidgets, respondToExtensionUi, sendExtensionCustomInput,
+    approvalNudgeOpen, approvalDialogId, handleApprovalNudgeAccept, handleApprovalNudgeDismiss,
     isAutoModelSelection: isNew && newSessionModel === null,
     agentPhase,
     isNew,

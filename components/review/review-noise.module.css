@@ -1,0 +1,24 @@
+/* The surfaces for a file Review shows instead of a diff: a rich preview, a
+   statement about a file it cannot preview, and a conflicted file. */
+
+.preview { display: grid; grid-template-columns: 1fr; gap: var(--space-2); padding: var(--space-2) var(--space-3) var(--space-3); min-width: 0; }
+.preview[data-sides="2"] { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.pane { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.paneLabel { font-size: var(--text-sm); color: var(--ui-text-muted); }
+.frame { display: flex; align-items: center; justify-content: center; min-width: 0; padding: var(--space-2); border: 1px solid var(--ui-border); border-radius: var(--radius-md); background: var(--ui-surface); }
+.frame[data-side="deletions"] { border-style: dashed; }
+.image { max-width: 100%; max-height: 420px; object-fit: contain; }
+.document { width: 100%; height: 420px; border: 0; }
+.markdown { width: 100%; min-width: 0; overflow-wrap: anywhere; }
+
+.notice { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: var(--space-2) var(--space-3) var(--space-3); font-size: var(--text-sm); color: var(--ui-text-muted); }
+.notice strong { font-weight: 500; color: var(--ui-text); }
+.conflict { border-inline-start: 2px solid var(--ui-warning); padding-inline-start: var(--space-2); }
+
+.reveal { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-2) var(--space-3); font-size: var(--text-sm); color: var(--ui-text-muted); }
+
+/* The changed-files tree's own filter menu, anchored to the filter row it
+   belongs to. The nav column is narrow, so the menu hangs from the trigger's
+   end rather than its start, where it would run off the edge. */
+.filterMenuAnchor { position: relative; display: inline-flex; margin-inline-end: 2px; }
+.filterMenu { position: absolute; top: 100%; inset-inline-end: 0; z-index: 20; min-width: 200px; }

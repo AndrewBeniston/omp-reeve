@@ -1,0 +1,66 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-card);
+  corner-shape: var(--corner-row);
+  padding: var(--space-3);
+  background: var(--ui-surface);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+}
+
+.title {
+  margin: 0;
+  color: var(--ui-text);
+  font-weight: 500;
+}
+
+.body,
+.consequence {
+  margin: 0;
+  color: var(--ui-text-dim);
+}
+
+.error {
+  margin: 0;
+  color: var(--ui-danger);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}
+
+.accept,
+.decline {
+  border-radius: var(--radius-round);
+  corner-shape: var(--corner-round);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+  font: inherit;
+}
+
+.accept {
+  border: 0;
+  background: var(--ui-composer-primary);
+  color: var(--ui-composer-primary-foreground);
+}
+
+.decline {
+  border: 1px solid var(--ui-border);
+  background: transparent;
+  color: var(--ui-text);
+}
+
+.accept:hover:not(:disabled) { background: color-mix(in srgb, var(--ui-composer-primary) 88%, var(--ui-canvas)); }
+.decline:hover:not(:disabled) { background: var(--ui-hover); }
+
+.accept:focus-visible,
+.decline:focus-visible { outline: var(--ui-focus-ring); outline-offset: var(--ui-focus-offset); }
+
+.accept:disabled,
+.decline:disabled { cursor: wait; opacity: var(--ui-disabled-opacity); }

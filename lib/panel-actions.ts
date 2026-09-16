@@ -30,14 +30,22 @@ export const PANEL_ACCELERATORS: Record<PanelActionId, string> = {
   "side-chat": "CmdOrCtrl+Alt+S",
 };
 
+/** Surfaces with a connected panel entry point. */
+export const BUILT_PANEL_ACTIONS: readonly PanelActionId[] = ["review", "terminal", "browser", "files"];
+
 /**
- * The surfaces Reeve has built.
+ * The chord that fills the right panel's room, or gives the width back.
  *
- * Review and Side chat are declared in the Tab union and unbuilt. Both are
- * listed everywhere, and disabled everywhere, so a human can see what the
- * panel will hold without being offered a chord that does nothing.
+ * Written here as well as in `desktop/desktop-runtime.cjs` for the same reason
+ * the panel chords above are: the Electron main process cannot import a
+ * renderer module, and the panel's own control shows the chord the menu
+ * registers. A test in `desktop/desktop-runtime.test.mjs` fails when the two
+ * disagree.
  */
-export const BUILT_PANEL_ACTIONS: readonly PanelActionId[] = ["terminal", "browser", "files"];
+export const MAXIMISE_PANEL_ACCELERATOR = "Control+]";
+
+/** The chord that shows or hides the right panel, as the reference binds it. */
+export const TOGGLE_PANEL_ACCELERATOR = "CmdOrCtrl+Alt+B";
 
 /**
  * The Tab a step lands on.

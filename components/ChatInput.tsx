@@ -6,6 +6,10 @@ import type { ModelRoleAssignment, PluginPackageInfo, PluginsResponse, ProjectTr
 import type { ContextUsage, SessionStatsInfo, SlashCommandInfo } from "@/lib/omp-types";
 import type { QueuedMessageDraft } from "@/lib/queued-message-types";
 import type { ApprovalMode } from "@/lib/approval-mode";
+import { REVIEW_SLASH_COMMAND, REVIEW_SLASH_ENTRIES } from "@/lib/review-slash-entries";
+
+/** Listed with its reason instead of an action when the Git gate fails. */
+const REVIEW_DISABLED_COMMANDS: ReadonlySet<string> = new Set([REVIEW_SLASH_COMMAND]);
 import type { SubagentSnapshot, TextContent, UserMessage } from "@/lib/types";
 import {
   clearDraft,
@@ -162,10 +166,19 @@ interface Props {
   approvalModeChanging?: boolean;
   approvalModeError?: string | null;
   onApprovalModeChange?: (mode: ApprovalMode) => void;
+  /**
+   * Whether the review command is enabled, and why not when it is disabled.
+   * Absent means no Session, which disables it for the same reason.
+   */
+  reviewGate?: { enabled: boolean; reason?: string };
+  /** The base branches the review submenu offers, or why it cannot list them. */
+  onListReviewBranches?: () => Promise<{ branches: string[] } | { error: string }>;
 }
 
 export interface ChatInputHandle {
   insertText: (text: string) => void;
+  /** Send text composed elsewhere, or say why it could not be sent now. */
+  submitText: (text: string) => "sent" | "busy" | "ignored";
   insertIfEmpty: (text: string) => void;
   replaceMessage: (message: UserMessage) => void;
   prependText: (text: string) => void;
@@ -479,6 +492,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   approvalModeChanging = false,
   approvalModeError = null,
   onApprovalModeChange = () => {},
+  reviewGate,
+  onListReviewBranches,
 }: Props, ref) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
@@ -493,6 +508,14 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const [modelFilter, setModelFilter] = useState("");
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
   const [sessionCommandStatus, setSessionCommandStatus] = useState<string | null>(null);
+  /**
+   * A slash command that is still running.
+   *
+   * A command like `/review` does real work before it returns, and the
+   * composer kept its text and an enabled Send throughout, so a human with no
+   * sign of progress pressed Send again and ran it twice.
+   */
+  const [builtinCommandPending, setBuiltinCommandPending] = useState(false);
   const [controlsMenuOpen, setControlsMenuOpen] = useState(false);
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>(() => (
     draftKey ? draftImagesToAttachedImages(getDraft(draftKey)?.images) : []
@@ -645,6 +668,18 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   }, []);
 
   useImperativeHandle(ref, () => ({
+    /**
+     * Send text composed elsewhere through the composer's own send, so a
+     * requested review is an ordinary turn. Refused mid-run: the caller
+     * writes it into the composer instead of interrupting.
+     */
+    submitText(text: string): "sent" | "busy" | "ignored" {
+      if (!text.trim()) return "ignored";
+      if (isStreaming) return "busy";
+      onAudioUnlock?.();
+      onSend(text);
+      return "sent";
+    },
     insertIfEmpty(text: string) {
       const ta = textareaRef.current;
       const current = ta ? ta.value : value;
@@ -948,34 +983,43 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   }, []);
 
   const handleSend = useCallback(async () => {
-    await dispatchIdleSubmission({
-      value,
-      images: attachedImages,
-      isStreaming,
-      onBuiltinCommand,
-      onBuiltinAction: (action) => {
-        if (action !== "openSessionStats") return;
-        if (contextUsage) {
-          setSessionCommandStatus(null);
-          setSessionMenuOpen(true);
-          return;
-        }
-        setSessionCommandStatus(t("session.noContextUsage"));
-      },
-      onAudioUnlock,
-      clearInput,
-      onSend,
-    });
-  }, [value, attachedImages, isStreaming, onBuiltinCommand, onSend, clearInput, onAudioUnlock, contextUsage, t]);
+    if (builtinCommandPending) return;
+    setBuiltinCommandPending(true);
+    try {
+      await dispatchIdleSubmission({
+        value,
+        images: attachedImages,
+        isStreaming,
+        onBuiltinCommand,
+        onBuiltinAction: (action) => {
+          if (action !== "openSessionStats") return;
+          if (contextUsage) {
+            setSessionCommandStatus(null);
+            setSessionMenuOpen(true);
+            return;
+          }
+          setSessionCommandStatus(t("session.noContextUsage"));
+        },
+        onAudioUnlock,
+        clearInput,
+        onSend,
+      });
+    } finally {
+      setBuiltinCommandPending(false);
+    }
+  }, [builtinCommandPending, value, attachedImages, isStreaming, onBuiltinCommand, onSend, clearInput, onAudioUnlock, contextUsage, t]);
 
   const requestIdleSubmission = useCallback(() => {
+    // The command already running is the one the human asked for; a second
+    // press would run it again rather than hurry it.
+    if (builtinCommandPending) return;
     if (shouldConfirmPausedQueueSubmission(debugQueuedMessages ?? queuedMessages, isStreaming)) {
       setPausedQueueSubmitError(null);
       setPausedQueueSubmitOpen(true);
       return;
     }
     void handleSend();
-  }, [debugQueuedMessages, queuedMessages, isStreaming, handleSend]);
+  }, [builtinCommandPending, debugQueuedMessages, queuedMessages, isStreaming, handleSend]);
 
   const resolvePausedQueueSubmission = useCallback(async (clearQueue: boolean) => {
     setPausedQueueSubmitBusy(true);
@@ -1004,6 +1048,55 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     }
   }, [debugQueuedMessages, handleSend, onResolvePausedQueueSubmission, t]);
 
+  // Listed when the submenu opens and forgotten when it closes, so a stale
+  // branch is never offered.
+  const [reviewBranches, setReviewBranches] = useState<{ status: "idle" | "loading" | "ready" | "error"; items: string[]; error: string | null }>(
+    { status: "idle", items: [], error: null },
+  );
+  const reviewEnabled = reviewGate?.enabled === true;
+  /** R18's other condition: nothing in the composer but this command. */
+  const composerHoldsOnlyCommand = attachedImages.length === 0 && value.trimStart().startsWith("/");
+  const reviewSubmenuOpen = reviewEnabled && /^\/review\b/.test(value.trimStart());
+  const reviewBranchLoaderRef = useRef(onListReviewBranches);
+  useEffect(() => {
+    // A list asked for before the Session had its Review would otherwise stay
+    // on screen as a refusal. When the loader changes, so has what it can
+    // read, and the menu asks again.
+    if (reviewBranchLoaderRef.current === onListReviewBranches) return;
+    reviewBranchLoaderRef.current = onListReviewBranches;
+    setReviewBranches({ status: "idle", items: [], error: null });
+  }, [onListReviewBranches]);
+  useEffect(() => {
+    if (!reviewSubmenuOpen) {
+      setReviewBranches((current) => current.status === "idle" ? current : { status: "idle", items: [], error: null });
+      return;
+    }
+    if (!onListReviewBranches || reviewBranches.status !== "idle") return;
+    setReviewBranches({ status: "loading", items: [], error: null });
+    void onListReviewBranches().then((result) => {
+      setReviewBranches("error" in result
+        ? { status: "error", items: [], error: result.error }
+        : { status: "ready", items: result.branches, error: null });
+    });
+  }, [onListReviewBranches, reviewBranches.status, reviewSubmenuOpen]);
+
+  const reviewSubcommands = useMemo(() => {
+    const uncommitted = REVIEW_SLASH_ENTRIES[0];
+    const branch = REVIEW_SLASH_ENTRIES[1];
+    const entries = [{ name: uncommitted.id, description: uncommitted.description }];
+    if (reviewBranches.status === "ready") {
+      // One entry per branch, so choosing one is the whole choice.
+      return [...entries, ...reviewBranches.items.map((name) => ({
+        name: `branch ${name}`,
+        description: `Everything this branch has that ${name} does not.`,
+      }))];
+    }
+    const detail = reviewBranches.status === "loading"
+      ? "Listing branches…"
+      : reviewBranches.error ?? branch.description;
+    return [...entries, { name: branch.id, description: detail }];
+  }, [reviewBranches]);
+
   const availableSlashCommands = useMemo<SlashCommandInfo[]>(() => [
     ...(isStreaming ? [] : BUILTIN_SLASH_COMMANDS.map((command) => ({
       name: command.name,
@@ -1011,8 +1104,22 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       icon: command.icon,
       source: command.source,
     }))),
+    /*
+     * Always offered, per R18: a failed Git-root gate disables the entry
+     * rather than hiding it, and the only other condition is a composer
+     * holding nothing but this command.
+     */
+    ...(composerHoldsOnlyCommand && !isStreaming ? [{
+      name: REVIEW_SLASH_COMMAND,
+      description: reviewEnabled
+        ? "Ask the agent to review my changes"
+        : reviewGate?.reason ?? "Open a Session in a Project to ask for a review.",
+      icon: "prompt",
+      source: "builtin" as const,
+      ...(reviewEnabled ? { subcommands: reviewSubcommands } : {}),
+    }] : []),
     ...(slashCommands ?? []),
-  ], [isStreaming, slashCommands, t]);
+  ], [composerHoldsOnlyCommand, isStreaming, reviewEnabled, reviewGate?.reason, reviewSubcommands, slashCommands, t]);
   const slashContext = useMemo(
     () => extractSlashQuery(value, availableSlashCommands),
     [availableSlashCommands, value],
@@ -1027,8 +1134,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       query: slashContext.query,
       commands: availableSlashCommands,
       skills: composerSkills,
+      disabledCommands: reviewEnabled ? undefined : REVIEW_DISABLED_COMMANDS,
     });
-  }, [availableSlashCommands, composerSkills, slashContext]);
+  }, [availableSlashCommands, composerSkills, reviewEnabled, slashContext]);
   const displayedSlashCommands = useMemo(
     () => flattenSuggestionSections(slashSections),
     [slashSections],
@@ -1193,6 +1301,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   }, []);
 
   const applySlashCommand = useCallback((suggestion: ComposerSuggestion) => {
+    if (suggestion.disabled) return;
     const editor = textareaRef.current;
     if (!editor) return;
     editor.replaceRangeWithMention(0, editor.selectionStart, {
@@ -1219,10 +1328,16 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const getNextSlashIndex = useCallback((direction: "up" | "down") => {
     const lastIndex = displayedSlashCommands.length - 1;
     if (lastIndex < 0) return 0;
-    return direction === "down"
-      ? Math.min(lastIndex, slashActiveIndex + 1)
-      : Math.max(0, slashActiveIndex - 1);
-  }, [displayedSlashCommands.length, slashActiveIndex]);
+    // A disabled entry is listed but never landed on, so the keyboard walks
+    // past it in the direction it was already going.
+    const step = direction === "down" ? 1 : -1;
+    for (let next = slashActiveIndex + step; next >= 0 && next <= lastIndex; next += step) {
+      if (!displayedSlashCommands[next]?.disabled) return next;
+    }
+    return displayedSlashCommands[slashActiveIndex]?.disabled
+      ? Math.max(0, displayedSlashCommands.findIndex((item) => !item.disabled))
+      : slashActiveIndex;
+  }, [displayedSlashCommands, slashActiveIndex]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -1697,6 +1812,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           <div className={styles.bashStatus} data-excluded={bashExcluded ? "true" : "false"}>
              {t("chat.shell")} · {bashExcluded ? t("chat.outputLocal") : t("chat.outputModel")}
           </div>
+  ) : builtinCommandPending ? (
+          <div role="status" aria-live="polite" className={styles.commandStatus}>
+            {t("chat.commandRunning")}
+          </div>
   ) : sessionCommandStatus ? (
           <div role="status" aria-live="polite" className={styles.commandStatus}>
             {sessionCommandStatus}
@@ -2135,9 +2254,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         </>
       ) : (
         <Tooltip content={t("chat.send")}>
-          <button
+            <button
             type="submit"
-            disabled={!value.trim() && !attachedImages.length}
+            disabled={builtinCommandPending || (!value.trim() && !attachedImages.length)}
             aria-label={t("chat.send")}
             className={styles.sendAction}
           >

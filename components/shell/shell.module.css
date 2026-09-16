@@ -316,6 +316,7 @@
 }
 
 .headerSessionTitle {
+  min-width: 0;
   max-width: min(38vw, 360px);
   overflow: hidden;
   font-size: 16px;
@@ -373,7 +374,7 @@
 
 .headerAction[aria-pressed="true"],
 .headerControl[aria-pressed="true"],
-.filePanelToggle[aria-expanded="true"] {
+.filePanelToggle[aria-pressed="true"] {
   background: var(--ui-active);
   color: var(--ui-text);
 }
@@ -479,6 +480,17 @@
 
 .headerFileAction {
   gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.headerLeading {
+  flex-shrink: 1;
+  overflow: hidden;
+}
+
+.headerSessionIdentity > svg,
+.headerSessionMore {
+  flex-shrink: 0;
 }
 
 .summaryToggle.summaryToggle {
@@ -631,6 +643,28 @@
   overflow: hidden;
 }
 
+/* The panel's controls keep their width while the Tab strip scrolls. */
+.rightPanelHeader > .rightPanelControls {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.rightPanelControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0-5);
+  padding-inline-end: var(--space-2);
+}
+
+.rightPanelControls::before {
+  content: "";
+  align-self: center;
+  width: 1px;
+  height: 16px;
+  margin-inline-end: var(--space-1);
+  background: var(--ui-border);
+}
+
 .rightPanelContent {
   flex: 1 1 auto;
   min-height: 0;
@@ -755,6 +789,11 @@
   .sidebarResizeHandle,
   .rightPanelResizeHandle,
   .rightPanelBackdrop {
+    display: none;
+  }
+
+  /* The panel is the whole screen here, so there is no width to fill. */
+  .rightPanelControls > .rightPanelWidthControl {
     display: none;
   }
 

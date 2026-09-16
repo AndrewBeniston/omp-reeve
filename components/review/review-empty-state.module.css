@@ -1,0 +1,16 @@
+/*
+ * An empty state and its way forward. The geometry follows the review panel's
+ * own empty state - centred, roomy, quiet - with a row for the actions beneath
+ * it and one line for what an action did.
+ */
+.emptyState { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2); height: 100%; padding: var(--space-6); text-align: center; }
+/* The same state inside a column that is already narrow, such as the file list. */
+.emptyState[data-density="inline"] { height: auto; gap: var(--space-1-5); padding: var(--space-3); }
+.title { color: var(--ui-text); font-size: var(--text-sm); }
+.description { max-width: 46ch; color: var(--ui-text-muted); font-size: var(--text-sm); }
+.actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-2); }
+
+/* What the last action did, in its own tone and never in place of the state. */
+.outcome { max-width: 46ch; font-size: var(--text-sm); color: var(--ui-text-muted); }
+.outcome[data-tone="success"] { color: var(--ui-success); }
+.outcome[data-tone="danger"] { color: var(--ui-danger); }

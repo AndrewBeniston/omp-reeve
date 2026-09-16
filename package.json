@@ -39,8 +39,8 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "dev": "bun --bun next dev --webpack -H 127.0.0.1 -p 30141",
-    "dev:lan": "bun --bun next dev --webpack -H 0.0.0.0 -p 30141",
+    "dev": "OMP_REEVE_DEV_HEAP_STATISTICS=1 BUN_OPTIONS=\"${BUN_OPTIONS:+$BUN_OPTIONS }--preload ./scripts/dev-heap-statistics.mjs\" bun --bun next dev --webpack -H 127.0.0.1 -p 30141",
+    "dev:lan": "OMP_REEVE_DEV_HEAP_STATISTICS=1 BUN_OPTIONS=\"${BUN_OPTIONS:+$BUN_OPTIONS }--preload ./scripts/dev-heap-statistics.mjs\" bun --bun next dev --webpack -H 0.0.0.0 -p 30141",
     "build": "bun --bun next build --webpack",
     "start": "bun --bun next start -H 127.0.0.1 -p 30141",
     "start:lan": "bun --bun next start -H 0.0.0.0 -p 30141",
@@ -72,6 +72,7 @@
     "@oh-my-pi/pi-coding-agent": "~18.1.6",
     "@oh-my-pi/pi-tui": "~18.1.6",
     "@oh-my-pi/pi-utils": "~18.1.6",
+    "@pierre/diffs": "1.4.2",
     "@xterm/addon-clipboard": "^0.2.0",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",

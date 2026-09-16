@@ -1,0 +1,12 @@
+.findingCard { border: 1px solid var(--ui-border); border-left: 3px solid var(--ui-syntax-warning); border-radius: var(--radius-md); padding: var(--space-2); margin: var(--space-1) 0; display: flex; flex-direction: column; gap: var(--space-1); background: var(--ui-surface); min-width: 0; }
+.findingCard[data-dismissed="true"] { border-left-color: var(--ui-border); opacity: 0.7; }
+.findingHeading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1); font-size: var(--text-sm); }
+.findingRange { color: var(--ui-text-muted); }
+.findingTags { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.findingTag { border: 1px solid var(--ui-border); border-radius: var(--radius-sm); padding: 0 var(--space-1); color: var(--ui-text-muted); font-size: var(--text-xs); }
+.findingTitle { margin: 0; font-size: var(--text-sm); font-weight: 500; color: var(--ui-text); overflow-wrap: anywhere; }
+.findingBody { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-sm); color: var(--ui-text); }
+.findingNote { margin: 0; font-size: var(--text-xs); color: var(--ui-text-muted); overflow-wrap: anywhere; }
+.findingActions { display: flex; flex-wrap: wrap; gap: var(--space-1); justify-content: flex-end; }
+.findingGroup { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2); border: 1px dashed var(--ui-border); border-radius: var(--radius-md); margin: var(--space-2) 0; }
+.findingPath { margin: 0; font-size: var(--text-xs); color: var(--ui-text-muted); overflow-wrap: anywhere; }

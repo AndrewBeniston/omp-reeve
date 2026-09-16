@@ -1,3 +1,5 @@
+import { REVIEW_SETTINGS_FIELDS, type ReviewSettingPath } from "./review-settings-store";
+
 export type SettingsValue = boolean | string | number | string[] | Record<string, number> | null;
 
 export interface SettingsOption {
@@ -31,6 +33,13 @@ export interface SettingsField {
   options?: SettingsOption[];
   ordered?: boolean;
   condition?: string;
+  /**
+   * A row shown but not offered.
+   *
+   * One setting in the reference has no native referent and no honest
+   * substitute, so its row states the absence instead of disappearing.
+   */
+  readOnly?: boolean;
 }
 
 export interface SettingsTab {
@@ -59,22 +68,32 @@ export interface SettingsResponse {
 
 export const COMPLETION_SOUND_SETTING_PATH = "web.omp-sound-enabled";
 
-export const WEB_SETTINGS_FIELDS = [
-  {
-    path: COMPLETION_SOUND_SETTING_PATH,
-    owner: "browser",
-    tab: "interaction",
-    group: "Notifications",
-    label: "settings.interaction.completionSound",
-    description: "settings.interaction.completionSoundDescription",
-    type: "boolean",
-    value: null,
-    defaultValue: true,
-    configured: false,
-  },
-] as const satisfies readonly SettingsField[];
+const COMPLETION_SOUND_FIELD = {
+  path: COMPLETION_SOUND_SETTING_PATH,
+  owner: "browser",
+  tab: "interaction",
+  group: "Notifications",
+  label: "settings.interaction.completionSound",
+  description: "settings.interaction.completionSoundDescription",
+  type: "boolean",
+  value: null,
+  defaultValue: true,
+  configured: false,
+} as const satisfies SettingsField;
 
-export type BrowserSettingPath = (typeof WEB_SETTINGS_FIELDS)[number]["path"];
+/**
+ * The settings Reeve owns itself.
+ *
+ * Browser-owned because OMP's schema is OMP's own: a Reeve preference has no
+ * path there, and inventing one would be a second settings runtime for the
+ * same modal.
+ */
+export const WEB_SETTINGS_FIELDS: readonly SettingsField[] = [
+  COMPLETION_SOUND_FIELD,
+  ...REVIEW_SETTINGS_FIELDS,
+];
+
+export type BrowserSettingPath = typeof COMPLETION_SOUND_SETTING_PATH | ReviewSettingPath;
 
 export type McpTransport = "stdio" | "http" | "sse";
 

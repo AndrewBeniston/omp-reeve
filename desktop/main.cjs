@@ -848,6 +848,10 @@ if (!hasSingleInstanceLock) {
       registerTerminalHandlers();
       registerBrowserViewHandlers();
       registerBrowserTabMenuHandler();
+      require('./review-menu.cjs').registerReviewMenu({
+        ipcMain, BrowserWindow, Menu,
+        isTrusted: (event) => Boolean(event.senderFrame && desktopUrl && isTrustedRendererUrl(event.senderFrame.url, desktopUrl)),
+      });
       registerBrowsingDataHandler();
       registerAgentBrowserHandlers();
       registerPermissionHandler();

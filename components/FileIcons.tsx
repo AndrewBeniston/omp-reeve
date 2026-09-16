@@ -10,7 +10,12 @@ type CatppuccinIconName =
   | "typescript" | "typescript-react" | "yaml" | "go";
 
 function CatppuccinIcon({ name, size = 14 }: IconProps & { name: CatppuccinIconName }) {
-  return <span aria-hidden="true" className={styles.fileIcon} data-icon={name} data-size={size} />;
+  // A generic icon is tinted to the interface text colour; a typed one keeps
+  // the colours its asset was drawn with. The stylesheet needs to tell them
+  // apart, and the leading underscore is how the set itself names the three
+  // generic ones.
+  const typed = name.startsWith("_") ? undefined : "";
+  return <span aria-hidden="true" className={styles.fileIcon} data-icon={name} data-size={size} data-typed={typed} />;
 }
 
 export function FolderIcon({ size = 14, open = false }: IconProps & { open?: boolean }) {
@@ -43,8 +48,19 @@ function getSpecialFileIcon(name: string): CatppuccinIconName | undefined {
   return undefined;
 }
 
+/**
+ * The icon for a file, named by anything that ends in its name.
+ *
+ * A path is as common here as a bare name - a Review heading names a file by
+ * where it is, a tree row by itself - so the name is read from the end of it.
+ * Matched against a whole path, "package-lock.json" and every extension miss,
+ * and the file falls back to the generic icon while the same file one row
+ * above shows its own. Both separators are cut, because a Windows host names
+ * its paths with the other one.
+ */
 export function getFileIcon(name: string, size = 14): React.ReactNode {
-  const lower = name.toLowerCase();
+  const segments = name.toLowerCase().split(/[/\\]/);
+  const lower = segments[segments.length - 1] ?? "";
   const icon = getSpecialFileIcon(lower) ?? EXTENSION_ICONS[lower.split(".").pop() ?? ""] ?? "_file";
   return <CatppuccinIcon name={icon} size={size} />;
 }

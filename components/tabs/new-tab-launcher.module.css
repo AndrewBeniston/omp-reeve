@@ -16,7 +16,9 @@
   width: 28px;
   height: 28px;
   border-radius: var(--radius-xs);
-  background: color-mix(in srgb, var(--ui-text) 8%, var(--ui-canvas));
+  /* Bare at rest, like the reference: the plus appears beside the Tabs and
+     takes a surface only when pointed at or open. */
+  background: transparent;
   color: var(--ui-text-muted);
 }
 
