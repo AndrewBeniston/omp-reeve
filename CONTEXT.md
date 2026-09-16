@@ -136,8 +136,24 @@ never reaches OMP's config file.
 _Avoid_: web setting, local preference, client setting
 
 **Right panel**:
-The resizable column beside a Session view that holds Tabs.
+The resizable column beside a Session view that holds Tabs. It is one Placement
+of the Panel.
 _Avoid_: sidebar, file panel, drawer, inspector
+
+**Panel**:
+The Tab host beside or beneath a Session view. It has two Placements and one
+set of Tabs.
+_Avoid_: sidebar, drawer, inspector, workspace
+
+**Placement**:
+Where a Tab is drawn: the Right panel or the Bottom panel. Every Tab has exactly
+one, and a Tab can be dragged from one to the other.
+_Avoid_: side, dock, position, slot
+
+**Bottom panel**:
+The resizable row beneath a Session view that holds Tabs. It is the second
+Placement of the Panel, and one height serves every Session.
+_Avoid_: terminal panel, console, drawer, subagent panel
 
 **Tab**:
 One surface in the Right panel, of exactly one kind. A Session is never a Tab.
