@@ -23,14 +23,25 @@ function safeWebUrl(value: string): URL | null {
   }
 }
 
-function imageUrl(image: ImageContent): string | null {
-  if (image.source.type === "base64" && image.source.data && image.source.media_type?.startsWith("image/")) {
-    return `data:${image.source.media_type};base64,${image.source.data}`;
+function imageSource(image: ImageContent): { identity: string; url: string } | null {
+  if (image.source?.type === "base64" && image.source.data && image.source.media_type?.startsWith("image/")) {
+    return {
+      identity: `${image.source.data.length}:${image.source.data.slice(0, 12)}`,
+      url: `data:${image.source.media_type};base64,${image.source.data}`,
+    };
   }
-  if (image.source.type === "url" && image.source.url) {
-    return safeWebUrl(image.source.url)?.toString() ?? null;
+  if (image.source?.type === "url" && image.source.url) {
+    const url = safeWebUrl(image.source.url)?.toString();
+    return url ? { identity: url, url } : null;
   }
-  return null;
+
+  const flat = image as unknown as { data?: unknown; mimeType?: unknown };
+  if (typeof flat.data !== "string" || !flat.data) return null;
+  if (typeof flat.mimeType !== "string" || !flat.mimeType.startsWith("image/")) return null;
+  return {
+    identity: `${flat.data.length}:${flat.data.slice(0, 12)}`,
+    url: `data:${flat.mimeType};base64,${flat.data}`,
+  };
 }
 
 function filePath(value: unknown, cwd: string | undefined): string | null {
@@ -79,18 +90,15 @@ export function collectSessionSummarySources(
       if (Array.isArray(message.content)) {
         for (const block of message.content) {
           if (block.type !== "image") continue;
-          const url = imageUrl(block);
-          if (!url) continue;
+          const image = imageSource(block);
+          if (!image) continue;
           imageCount += 1;
-          const identity = block.source.type === "base64"
-            ? `${block.source.data?.length ?? 0}:${block.source.data?.slice(0, 12) ?? ""}`
-            : url;
           addSource(sources, seen, {
             activity: "attached",
-            id: `image:${imageCount}:${identity}`,
+            id: `image:${imageCount}:${image.identity}`,
             kind: "image",
             label: `Image ${imageCount}`,
-            url,
+            url: image.url,
           });
         }
       }
