@@ -1,191 +1,572 @@
-# Adversarial audit checkpoint: scrolling and message rows
+# Adversarial audit: scrolling and message rows
 
 Research for [#339](https://github.com/AndrewBeniston/omp-reeve/issues/339), against [Epic #223](https://github.com/AndrewBeniston/omp-reeve/issues/223).
 
-## Status
+## Final result
 
-This report is incomplete because the audit reached its 200,000-token hard stop.
-It records verified findings and the exact remaining work.
-It is not a resolution report for #339.
+The audit covers 42 capability groups and finds 24 gaps.
+Epic #223 does not yet provide complete traceability or safe implementation scopes.
+Fifteen existing children fit one 200,000-token worker.
+Tickets #237, #240, and #242 require splits.
+The corrected epic has 26 children, including 25 implementation tickets and one acceptance ticket.
+Eight new Epic #223 tickets are required.
+One referenced-file menu ticket belongs under Files Epic #129.
 
-The checkpoint covers 42 capabilities and identifies 24 gaps.
-The reference bundle still needs targeted checks where the existing research lacks a value.
-No implementation ticket was edited.
+No issue was edited during this audit.
+This report gives the exact edits for the planner.
 
-## Sources checked
+## Evidence boundary
+
+The audit checked these sources:
 
 - The eight checks in [audit map #332](https://github.com/AndrewBeniston/omp-reeve/issues/332).
-- The complete body of #339.
-- Epic #223 and all 18 child issue bodies.
-- Every native blocker for the epic, including #258, #307, and #308.
-- The native dependency edges for every child issue.
+- Issue #339, Epic #223, and all 18 child issue bodies.
+- Every native dependency on those 18 children.
+- Blockers #258, #307, and #308.
+- Goal ticket #327 and Composer ticket #272.
 - `docs/research/session-6-scrolling.md`.
 - `docs/research/session-7-assistant-message.md`.
 - `docs/research/session-8-user-message.md`.
-- ADR-0015.
-- The current orchestration handoff.
+- ADR-0015 and the Session map in #194.
 - Current Reeve source at `origin/main` commit `2920ac0`.
-- Current OMP source from `@oh-my-pi/pi-coding-agent` 18.1.6.
-- Session map #194 and the transcript-core epic #224.
+- OMP 18.2.4 payloads and queue commands.
+- The current orchestration handoff.
 
-## Important correction from current OMP
+Live-check tickets #215, #216, and #217 contain no results.
+Their runtime-only values remain evidence-gated.
+The planner must preserve these tickets and make them native blockers of acceptance #259.
 
-OMP 18.1.6 emits `goal_updated` with a persisted Goal object.
-The Goal object includes status, token budget, token use, elapsed time, and timestamps.
-This invalidates the old claim that OMP has no goal event.
-Map #194 now assigns Goal parity to Epic #318.
-Epic #223 still assigns its Goal action-row slot to “Epic D”.
-That cross-epic statement is stale.
+## Corrections from OMP 18.2.4
 
-OMP 18.1.6 also carries visible custom messages for live delegation.
-It carries hook-authored messages and persisted custom details.
-It carries video attachment markers and hidden source-path context.
-It stages large pasted text as attachment state in its interactive surface.
-These sources require new ownership decisions for rows that Epic #223 excludes.
+OMP 18.2.4 emits `goal_updated` with the persisted Goal object.
+The object includes status, token budget, token use, elapsed time, and timestamps.
+Epic #318 owns Goal parity.
+Ticket #327 owns `Sent as goal` and `Goal achieved` transcript markers.
+Epic #223 must remove its stale reference to “Epic D”.
+
+OMP persists visible `live-delegation` custom messages.
+Those messages contain the source needed for delegation attribution.
+OMP also persists hook-authored custom messages and their details.
+Those details can source hook-blocked and hook-feedback rows.
+
+OMP 18.2.4 preserves video attachment markers and hidden source-path context.
+It also stages large pasted text as attachment state.
+Epic #223 must assign user video and pasted-text rows to explicit tickets.
+
+OMP queue snapshots contain queued text and image data.
+They contain no persisted failed-send state.
+OMP exposes no queue retry command with a failed-item identity.
+Ticket #244 therefore lacks its required backend source.
 
 ## Feature-to-ticket traceability
 
-| Capability | Current Reeve state | Research evidence | Ticket or decision | Proof | Gap | Recommended correction |
-|---|---|---|---|---|---|---|
-| Four follow modes | One pin flag | Session 6, follow-mode machine | #225, #226 | Current `transcript-follow.ts` exposes pin helpers only | None in basic mapping | Keep the two-ticket split |
-| Three turn phases | No transcript phase model | Session 6 and ADR-0015 | #225, Epic #224 | The current hook exposes operational phase labels only | Provisional classification can duplicate Epic #224 | Make #225 consume one shared phase interface owned by Epic #224 |
-| One 24 px band | Reeve uses 48 px for pinning and 24 px for control visibility | Session 6 | #226 | Current constant is 48 | None in basic mapping | Keep #226 |
-| Wheel, touch, key, and pointer intent | Reeve records coarse events for 1,200 ms | Session 6, User intent | #225 and #226 mention expiry only | Current hook does not normalize wheel modes or touch direction | G1 | Expand #226 with every input rule from Session 6 |
-| Scroll button geometry | Existing control mostly matches | Session 6 | #227 | Current control exists above the composer | None | Keep #227 |
-| Scroll button hidden state | Current component unmounts the control | Session 6 | #227 | Reference keeps the control placed and hidden | None | Keep #227 acceptance criteria |
-| Scroll button movement | Native smooth scrolling | Session 6 | #227 | Current hook calls browser smooth scrolling | None | Keep #227 |
-| Response spacer | Existing CSS transition and hold | Session 6 | #228 | Current spacer values match partially | None | Keep #228 |
-| 300 px latest-turn placement | No rule | Session 6 | #228 | No current source | None | Keep #228 |
-| Saved scroll offset | Always opens at the end | Session 6 | #229 | Current initial effect scrolls to the end | G2 | Define the store, lifecycle, and per-Session key in #229 |
-| Composer growth compensation | No position correction | Session 6 | #229 | Current transcript does not observe footer deltas | G2 | Add focus, resize, compact layout, and cancellation cases to #229 |
-| 64 px history trigger | Intersection sentinel | Session 6 | #230 | Current ChatWindow uses a top sentinel | G3 | Add loading, failure, retry, cancellation, and empty-page states to #230 |
-| In-place content growth restore | Only prepend restoration exists | Session 6 | No ticket | Session 6 names virtualized height restoration | G4 | Add a ticket for streamed and late-media height restoration |
-| Header and panel overlap probe | No source | Session 6 | Epic excludes it | The exclusion has no linked maintainer decision | G5 | Record an explicit decision or add a scrolling ticket |
-| Assistant start, progress, and completion announcements | No assistant live region | Session 7 | #234 | Current message row has no response announcer | G6 | Add concurrent responses, reconnect, locale fallback, and unmount cleanup to #234 |
-| Assistant action-row order and visibility | Copy only, hover only | Session 7 | #235 | Current row does not expose focus visibility | G7 | Add focus return, copy failure, fork failure, and pin-state criteria |
-| Rich response copy | Plain text only | Session 7 | #235 | Current copy helper receives one text value | G7 | Specify HTML sanitisation and clipboard failure behavior |
-| Branch from assistant message | No assistant entry point | Session 7 | #235, blocked by #231 | Fork command exists | G7 | Specify failure recovery and repeated activation |
-| Goal achieved label | No Goal client state | Session 7 and current OMP | Epic #318 owns Goal transcript markers | OMP emits `goal_updated` | G8 | Replace “Epic D” with Epic #318 and #327 in Epic #223 |
-| Inspected-image disclosure | Images always render inline | Session 7 | #236 | Current image output has empty alt text | None in basic mapping | Keep #236 |
-| Inspected-image dialog | No dialog | Session 7 | #236 | No current open action | G9 | Add Escape, focus trap, focus return, zoom, and failed-image criteria |
-| Markdown table copy and expand | Horizontal table only | Session 7 | #237 | Current renderer has no table controls | G10 | Split table controls from the markdown boundary |
-| Markdown error boundary | No markdown boundary | Session 7 | #237 | Current safe wrapper protects the whole message path | G10 | Give block isolation and retry their own ticket |
-| Inline image states | Lazy image without status | Session 7 | #238 | No current loading or failure label | None in basic mapping | Keep #238 |
-| Inline video | No player | Session 7 | #238 | OMP now carries video attachments for user input | G11 | Separate markdown video output from user video attachments |
-| Inline audio | No player | Session 7 | #240 | No current audio renderer | G12 | Split playback from path-copy and save-copy integration |
-| File citation chips | Plain local links only | Session 7 | Epic excludes them | Current file links already carry paths | G13 | Add a ticket or record an explicit maintainer decision |
-| File reference menu | Plain click opens a file tab | Session 7 | Epic excludes it | Current Reeve has a file-opening path | G13 | Add a ticket or map it to the file-viewer epic |
-| Markdown metadata disclosure | Frontmatter card exists | Session 7 | Epic excludes it | Current Reeve already renders metadata differently | G13 | Record the kept divergence as a maintainer decision |
-| Two-line user-message collapse | Full text always renders | Session 8 | #232 | Current user row has no collapse state | G14 | Add keyboard, focus, image, zoom, and resize criteria |
-| Empty user message | Empty body | Session 8 | No ticket | Research specifies “(No content)” | G15 | Add the placeholder to #232 or create a small ticket |
-| Confirmed user copy | Tooltip changes, aria label does not | Session 8 | #232 | Current aria label stays “Copy message” | None | Keep #232 |
-| In-place edit | Branch navigation and composer refill | Session 8 | #233 | Current user action calls `navigate_tree` | G16 | Define eligible messages, pending state, attachments, keyboard paths, and duplicate prevention |
-| Fork destination dialog | Immediate fork | Session 8 | #231 | Worktree API and fork API exist separately | G17 | Add cancel, Escape, focus return, default choice, creation failure, and rollback |
-| User image states | Empty alt text and no failure label | Session 8 | #242 mentions images, but lacks these states | Session 8 has three image strings | G18 | Add image success and failure criteria to #242 |
-| File, folder, upload, and paste rows | Images only after send | Session 8 and Composer research | #242, blocked by #307 and #308 | #242 consumes Composer descriptors | G19 | Add native blocker #272 for pasted-text descriptors |
-| User Goal marker | No marker | Session 8 and current OMP | Epic #318, ticket #327 | OMP now has Goal state | G8 | Correct Epic #223 ownership text |
-| Hook blocked and hook feedback rows | Generic custom cards at best | Session 8 and current OMP | Epic excludes them | OMP persists hook-authored custom messages | G20 | Recheck exact hook details, then add a ticket or a decision |
-| Scheduled and automation origins | No Reeve scheduler source | Session 8 | Epic excludes them | No OMP session event was found | G21 | Route these states to decision #205 explicitly |
-| Delegation origin | Generic custom card | Session 8 and current OMP | Epic excludes it | OMP uses visible `live-delegation` custom messages | G20 | Add a message-row ticket for OMP delegation attribution |
-| Failed queued message and Retry | No failure state | Session 8 | #244 | OMP queue snapshots expose text and images, without a failed state | G22 | Add a backend queue-failure ticket and block #244 on it |
-| Existing queue, pause, reorder, edit, steer | Present | Session 8 | Kept behavior across #244 and acceptance | Current queue component supports these controls | G23 | Add regression criteria for keyboard reorder and simultaneous updates |
+The table uses capability groups rather than individual strings.
+The next section traces every shipped string group.
+
+| # | Capability | Current Reeve state | Evidence | Owner | Gap | Required correction |
+|---:|---|---|---|---|---|---|
+| 1 | Four follow modes | One pin flag | Session 6 | #225 and #226 | None | Keep the two-ticket split. |
+| 2 | Three turn phases | No transcript phase model | Session 6 and ADR-0015 | #239, #260, then #225 | G1 | Remove the provisional phase implementation from #225. Consume the shared Turn phase. |
+| 3 | One 24 px band | Pinning uses 48 px | Session 6 | #226 | None | Keep #226. |
+| 4 | Wheel, touch, key, and pointer intent | Coarse intent expires after 1,200 ms | Session 6 | #226 | G2 | Add every normalization and exclusion rule from Session 6. |
+| 5 | Scroll button geometry | The existing control mostly matches | Session 6 | #227 | None | Keep #227. |
+| 6 | Scroll button hidden state | The control unmounts | Session 6 | #227 | None | Keep the placed, hidden state in #227. |
+| 7 | Scroll button movement | The browser owns smooth scrolling | Session 6 | #227 | None | Keep the 260 ms move in #227. |
+| 8 | Response spacer | A CSS transition owns the hold | Session 6 | #228 | None | Keep #228. |
+| 9 | 300 px latest-turn placement | No rule exists | Session 6 | #228 | None | Keep #228. |
+| 10 | Saved scroll offset | Every open lands at the end | Session 6 | #229 | G3 | Define storage, lifecycle, expiry, and Session isolation. |
+| 11 | Composer growth compensation | No position correction exists | Session 6 | #229 | G3 | Add resize, focus, compact-layout, and cancellation cases. |
+| 12 | 64 px history trigger | A top sentinel triggers loading | Session 6 | #230 | G4 | Add loading, exhaustion, cancellation, failure, and retry behavior. |
+| 13 | In-place content-growth restoration | Only prepend restoration exists | Session 6 | New Scrolling 7 | G5 | Add a ticket for streamed content and late-media height changes. |
+| 14 | Header and panel overlap probe | No equivalent exists | Session 6 | Epic decision | G6 | Record an explicit kept divergence. |
+| 15 | Assistant announcements | No assistant live region exists | Session 7 | #234 | G7 | Add concurrency, reconnect, locale fallback, and cleanup behavior. |
+| 16 | Assistant action-row order | Copy appears on hover | Session 7 | #235 | G8 | Add focus behavior, failure states, and pin-state rules. |
+| 17 | Rich response copy | Copy writes plain text | Session 7 | #235 | G8 | Define sanitized HTML, plain-text fallback, and clipboard failure. |
+| 18 | Branch from assistant message | No assistant entry point exists | Session 7 | #235, blocked by #231 | G8 | Add retry protection, failure recovery, and focus return. |
+| 19 | Goal achieved label | No Goal client state exists | Session 7 and OMP 18.2.4 | #318 and #327 | G9 | Correct Epic #223 ownership. |
+| 20 | Inspected-image disclosure | Images always render inline | Session 7 | #236 | None | Keep #236. |
+| 21 | Inspected-image dialog | No dialog exists | Session 7 | #236 | G10 | Add Escape, focus trap, focus return, zoom, and image failure. |
+| 22 | Markdown table copy and expand | Tables only scroll horizontally | Session 7 | #237 | G11 | Keep table controls in #237. |
+| 23 | Markdown block error isolation | No markdown boundary exists | Session 7 | New Message 13b | G11 | Split block isolation and retry from #237. |
+| 24 | Inline image states | Images have no loading or failure label | Session 7 | #238 | None | Keep #238. |
+| 25 | Inline markdown video | No player exists | Session 7 | #238 | G12 | Limit #238 to assistant markdown output. |
+| 26 | Inline audio playback | No player exists | Session 7 | #240 | G13 | Keep playback, loading, and unavailable states in #240. |
+| 27 | Audio path and save actions | No action integration exists | Session 7 | New Message 15b | G13 | Split native path and save behavior from #240. |
+| 28 | File citation chips | Local links render as plain links | Session 7 | New Message 18 | G14 | Add a citation-chip ticket under Epic #223. |
+| 29 | File reference menu | A plain click opens a file Tab | Session 7 | New Files ticket | G14 | Add a child under #129, blocked by #175. |
+| 30 | Markdown metadata disclosure | A frontmatter card already renders | Session 7 | Epic decision | G14 | Record the current card as a kept divergence. |
+| 31 | Two-line user-message collapse | Full text always renders | Session 8 | #232 | G15 | Add keyboard, focus, image, zoom, and resize behavior. |
+| 32 | Empty user message | An empty body renders | Session 8 | #232 | G16 | Add the `(No content)` state to #232. |
+| 33 | Confirmed user copy | The tooltip changes only | Session 8 | #232 | None | Keep the accessible-label correction in #232. |
+| 34 | In-place edit | Reeve moves the branch pointer | Session 8 | #233 | G17 | Add eligibility, attachments, pending state, keyboard paths, and duplicate prevention. |
+| 35 | Fork destination dialog | Fork runs immediately | Session 8 | #231 | G18 | Add cancellation, default, focus, failure, and rollback behavior. |
+| 36 | User image and video states | Images have empty alt text | Session 8 and OMP 18.2.4 | New Message 16c | G19 | Split user media states from #242. |
+| 37 | File, folder, upload, and paste rows | Only sent images remain visible | Session 8 and Composer research | #242 and New Message 16b | G20 | Keep file rows in #242. Move pasted text to its own ticket. |
+| 38 | User Goal marker | No marker exists | Session 8 and OMP 18.2.4 | #318 and #327 | G9 | Correct Epic #223 ownership. |
+| 39 | Hook blocked and feedback rows | Generic custom cards can lose meaning | Session 8 and OMP 18.2.4 | New Message 19 | G21 | Render persisted hook custom messages as named user-message statuses. |
+| 40 | Scheduled, automation, and delegation origins | No origin row exists | Session 8 and OMP 18.2.4 | #205 and New Message 19 | G21 | Route scheduled decisions to #205. Build OMP-backed delegation attribution. |
+| 41 | Failed queued message and Retry | No failed queue state exists | Session 8 and OMP 18.2.4 | New Queue 1, then #244 | G22 | Add a persisted backend failure source before the row. |
+| 42 | Existing queue behavior | Queue, pause, reorder, edit, and steer exist | Session 8 | #244 and #259 | G23 | Add keyboard and concurrent-update regression coverage. |
+
+Acceptance #259 has a separate completeness gap, G24.
+It lacks the required environment, isolation, reconnect, and failure sweeps.
+
+## Shipped-string traceability
+
+Every listed string needs an i18n entry and a named owner.
+Runtime-only behavior remains gated by the live-check tickets.
+
+| String group | Exact ids or defaults | Owner |
+|---|---|---|
+| Scrolling | `localConversation.scrollToBottomButton` | #227 |
+| Assistant announcements | `started`, `progress`, `completed`, `completedWithContent` under `localConversation.assistantResponse.announcement` | #234 |
+| Assistant actions | `copyResponseTooltip`, `branchInNewChatTooltip`, `forkAriaLabel` | #235 |
+| Goal completion | `assistantMessageContent.goalAchieved` | #327 |
+| Inspected images | `localConversation.imageView.summary`, `previewAlt` | #236 |
+| Markdown tables | `copyTable`, `expandTable`, `tablePreview`, `closeTablePreview` | #237 |
+| Markdown errors | `markdown.renderError.title`, `retry` | New Message 13b |
+| Inline images | `imageLoading`, `imagePreviewButton`, `imageUnavailable` | #238 |
+| Inline video | `videoPlayer`, `videoUnavailable` | #238 |
+| Inline audio playback | `audioPlayer`, `play`, `pause`, `seek`, `progress`, `loading`, `unavailable`, `fileType`, `formattedFileType` | #240 |
+| Inline audio actions | `actions`, `copyPath`, `saveCopy`, `saveFailed` | New Message 15b |
+| File citations | Seven location labels, three aria labels, and six artifact type labels | New Message 18 |
+| File references | `viewFile`, `viewInCodexBrowser`, `copyPath`, `copyFileContents`, platform reveal labels, `openInGitHub`, `openInTarget`, `openWith`, `openWithTarget`, `saveAs` | New Files ticket |
+| Markdown metadata | `markdown.metadata.title`, `showMore`, `showLess` | Explicit kept divergence |
+| Fork dialog | The seven `forkFromOlderTurnDialog` ids and the Git-repository blocked reason | #231 |
+| User collapse and copy | `showMore`, `showLess`, `noContent`, `copyAriaLabel`, `copiedAriaLabel` | #232 |
+| User edit | The five edit controls and `localConversation.editLastMessageFailed` | #233 |
+| User Goal | `codex.userMessage.goal` | #327 |
+| Hook statuses | `codex.userMessage.hookBlocked`, `hookFeedback` | New Message 19 |
+| User media | `userImageAttachment`, `userImageAttachmentFailed`, `userImageAttachmentFailedShort` | New Message 16c |
+| Delegation | `localConversation.codexDelegationUserMessage.app` | New Message 19 |
+| Scheduled and automation origins | Four scheduled-task and automation ids | #205 decision |
+| Attachment rows | `unavailableFileAttachment`, `pastedTextAttachment`, `additionalPastedTextAttachments` | #242 and New Message 16b |
+| Failed queue | `retry`, two retry tooltips, and two paused tooltips | #244 |
+| Existing queue | Existing queue, pause, steer, edit, delete, undo, and image strings | Regression criteria in #244 and #259 |
+
+The reference also lists appshot, review, pull-request, and prior-conversation chips.
+Those rows remain outside Epic #223 until #205 assigns an OMP source or an explicit omission.
+
+## Evidence-gated runtime values
+
+These values have no live result.
+The implementation tickets must not guess them.
+
+### #215, scrolling and anchoring
+
+- The visible effect of the conflicting 48 px and 24 px thresholds.
+- The relative timing of spacer release and the final-answer reset.
+- The perceived timing of native smooth scrolling against the 260 ms curve.
+- The reading-position effect of Composer growth during a stream.
+- The effect of late image loading in both products.
+- The sentinel behavior during a fast scroll to the top.
+- The button visibility during prework follow.
+
+### #216, assistant message
+
+- The practical screen-reader cadence for 5,000 ms announcements.
+- The normal combination of action-row slots.
+- The code-block header used by the Codex transcript.
+- Any streaming cursor or placeholder.
+- The assistant messages that receive the branch control.
+- The open-Goal label.
+- The image dialog's multi-image controls.
+- The markdown boundary's real isolation and recovery level.
+- File-menu variation by file type and its default action.
+- The practical trigger for the edit-failure toast.
+
+### #217, user message
+
+- The user messages that receive the edit control.
+- Whether an edit replaces a turn or creates a branch.
+- The number and default order of fork destinations.
+- The measured collapsed height and treatment of images or chips.
+- Whether one failed queued message blocks later messages.
+- Whether scheduled and automation labels can coexist.
+- Queue behavior when a run ends during a drag.
 
 ## Eight-check result
 
 ### 1. Every capability maps to a ticket or decision
 
-This check fails.
-The missing mappings include content-growth restoration, the overlap probe, empty messages, citations, file menus, and metadata.
-Hook and delegation states also lack current ownership.
+This check fails in the current plan.
+Eight Epic #223 tickets and one Files ticket are missing.
+Two kept divergences lack explicit decisions.
 
-### 2. Current OMP source replaces stale “no source” claims
+### 2. Current OMP replaces stale source claims
 
-This check fails.
-The Goal claim is stale.
-The delegation, hook-message, video, and pasted-text claims need correction.
+This check fails in the current plan.
+Goal, delegation, hook, video, and pasted-text claims are stale.
+The queue failure claim now has a verified negative result.
 
-### 3. Every input, output, state, error, retry, cancellation, and destructive action
-
-This check fails.
-Several tickets specify only successful paths.
-The fork, copy, media, history, edit, and queue tickets lack complete failure and cancellation behavior.
-
-### 4. Keyboard, accessibility, mobile, zoom, persistence, reload, reconnect, and multi-Session behavior
+### 3. Every state and action has complete behavior
 
 This check fails.
-The acceptance ticket covers some accessibility and reload behavior.
-It does not cover mobile, zoom, multi-Session isolation, reconnect, or all keyboard paths.
+Several tickets define success paths without failure, retry, cancellation, or destructive-action behavior.
 
-### 5. Cross-epic dependencies and native blockers
+### 4. Every environment and accessibility path is covered
+
+This check fails.
+The current plan omits mobile, zoom, reconnect, multi-Session isolation, and several keyboard paths.
+
+### 5. Cross-epic dependencies and native blockers are correct
 
 This check partially passes.
-Acceptance #259 correctly depends on #258 and all 17 implementation children.
+Acceptance #259 correctly depends on #258 and all current implementation children.
 Ticket #242 correctly depends on #307 and #308.
-Ticket #242 also needs #272 for pasted-text descriptors.
-Epic #223 must point Goal rows to Epic #318.
+The corrected graph adds #239, #272, #215, #216, #217, and the new tickets.
 
-### 6. Each ticket fits one 200,000-token worker
-
-This check fails.
-Tickets #237, #240, and #242 combine separate frontend and backend concerns.
-They should split before dispatch.
-
-### 7. The orchestrator handoff is correct
+### 6. Each ticket fits one worker
 
 This check fails.
-The handoff names the correct epic, 18 children, branch, progress rule, and model selectors.
-It correctly names blockers #258, #307, and #308.
-It tells workers to create a 150,000-token goal while also requiring a 200,000-token hard stop.
-A 150,000-token goal stops the worker at 150,000 tokens.
-The handoff must use a 200,000-token goal and state a 150,000-token target.
-The handoff also describes merged research and ADR pull requests as pending.
+Fifteen current children fit one worker.
+Tickets #237, #240, and #242 require splits.
+
+### 7. The orchestration handoff is correct
+
+This check fails.
+The current handoff names the old child count and old frontier.
+It creates a 150,000-token goal despite a 200,000-token hard stop.
+It also describes merged research and ADR work as pending.
 
 ### 8. Acceptance proves visible and backend behavior separately
 
 This check partially passes.
-Ticket #259 requires separate visual and backend evidence.
-It omits mobile, zoom, reconnect, multi-Session isolation, keyboard paths, and several failure states.
-It also cannot accept #244 until a backend queue-failure source exists.
+Ticket #259 asks for separate visual and backend evidence.
+It omits the live gates, platform sweeps, Session isolation, reconnect, and several failure states.
 
-## Gap count
+## Exact issue edits
 
-The checkpoint identifies 24 gaps.
+The planner can apply these changes without further design research.
 
-1. Complete user-intent rules are absent from #225 and #226.
-2. Scroll-offset persistence lacks a store and multi-Session rules.
-3. History loading lacks failure, retry, cancellation, and empty states.
-4. In-place content-growth restoration has no ticket.
-5. The overlap probe lacks an explicit maintainer decision.
-6. Announcement concurrency, reconnect, and cleanup are unspecified.
-7. Assistant action failures and focus behavior are incomplete.
-8. Goal ownership in Epic #223 is stale.
-9. The image dialog lacks complete keyboard and failure states.
-10. Ticket #237 is oversized.
-11. Inline markdown video and user video attachments are conflated.
-12. Ticket #240 is oversized.
-13. Citations, file menus, and metadata lack tickets or decisions.
-14. User-message collapse lacks keyboard, image, zoom, and resize behavior.
-15. The empty-message placeholder has no ticket.
-16. In-place edit lacks eligibility, attachment, pending, and keyboard rules.
-17. The fork dialog lacks cancellation and failure behavior.
-18. User-image success and failure states are not explicit in #242.
-19. Ticket #242 lacks native blocker #272.
-20. Hook and delegation sources require new ownership decisions.
-21. Scheduled and automation origins do not point to decision #205.
-22. Ticket #244 lacks a backend failure source.
-23. Existing queue behavior lacks keyboard and concurrent-update regression criteria.
-24. Acceptance #259 lacks all required environment and failure sweeps.
+### Epic #223
 
-## Remaining work at the hard stop
+1. Replace the provisional phase decision with the shared Turn phase from #239 and #260.
+2. Replace “Epic D” with “Epic #318, with transcript markers in #327.”
+3. Assign hook and delegation rows to New Message 19.
+4. Assign scheduled and automation origin decisions to #205.
+5. Record the overlap probe as a kept divergence.
+6. Record the existing metadata card as a kept divergence.
+7. Change the child count from 18 to 26.
+8. State that 25 children implement behavior and #259 accepts the epic.
+9. Change every worker goal to 200,000 tokens.
+10. Keep 150,000 tokens as the planning target.
 
-- Inspect only the reference values that Sessions 6 through 8 leave unresolved.
-- Read live-check tickets #215, #216, and #217 completely.
-- Read Goal ticket #327 and Composer ticket #272 completely.
-- Verify the exact current OMP payloads for hook feedback and live delegation.
-- Verify whether OMP exposes a queue-send failure through another event or command.
-- Check every ticket size against its complete file and API surface.
-- Expand the traceability table with each shipped string and each live-only question.
-- Produce the final capability count and final gap count.
-- Replace this checkpoint with the complete report.
-- Post the complete report to #339.
+Use this overlap decision:
 
+> Reeve does not implement the reference's edge-scroll header and panel overlap probe.
+> Reeve has no equivalent edge-scroll presentation.
+> Revisit this decision if that presentation is added.
+
+Use this metadata decision:
+
+> Reeve keeps its existing frontmatter card for Markdown metadata.
+> This card is an accepted product difference.
+> Acceptance verifies that the card remains readable and keyboard accessible.
+
+### #225, follow reducer
+
+Remove the provisional phase function and its reclassification logic.
+Make #225 consume the shared `Turn.phase` contract from #239 and #260.
+Add #239 as a native blocker.
+
+### #226, reducer wiring and intent
+
+Add these acceptance criteria:
+
+- Normalize line-mode wheel deltas by 16 px.
+- Normalize page-mode wheel deltas by the viewport height.
+- Require an 8 px vertical touch move.
+- Ignore horizontal-dominant touch moves.
+- Map Arrow Up, Home, Page Up, and Shift-Space away from the end.
+- Map Arrow Down, End, Page Down, and Space toward the end.
+- Ignore repeated, handled, editable-target, and button-Space key events.
+- Record pointer geometry for scrollbar drags.
+
+### #229, saved offset and Composer compensation
+
+Add a versioned browser store keyed by Session id.
+Write the distance from the end after settled scroll changes.
+Restore only after the first stable layout.
+Ignore stale offsets for missing Sessions.
+Isolate two open Sessions from each other.
+Cancel pending restoration when the user scrolls.
+Test compact layout, footer focus, resize, reload, and Session switching.
+
+### #230, history loading
+
+Add explicit idle, loading, exhausted, failed, and cancelled states.
+Prevent duplicate page requests.
+Keep the reading position after success.
+Keep the current page after failure.
+Expose Retry only when the load path can fail.
+Stop pending restoration when the Session changes.
+
+### #231, fork destination dialog
+
+Add Cancel and Escape behavior.
+Return focus to the invoking control.
+Do not assume a default destination until #217 records it.
+Keep destination order evidence-gated behind #217.
+Report worktree creation and fork failures separately.
+Remove a newly created empty worktree when the fork fails.
+Prevent repeated activation while either operation runs.
+
+### #232, collapse, copy, and empty messages
+
+Add `codex.userMessage.noContent` with `(No content)`.
+Recalculate collapse after resize, zoom, font load, and attachment load.
+Keep the toggle reachable by keyboard.
+Keep focus stable when the message expands or collapses.
+Keep image and chip treatment evidence-gated behind #217.
+
+### #233, in-place edit
+
+Keep edit eligibility evidence-gated behind #217.
+Preserve text and attachments during edit and cancellation.
+Disable duplicate submission while Send is pending.
+Support Escape for cancellation and the documented send shortcut.
+Restore focus after success, cancellation, and failure.
+Keep the original turn until the replacement succeeds.
+
+### #234, assistant announcements
+
+Give each response its own announcement cursor and timer.
+Cancel timers on completion, unmount, Session change, and superseding response.
+Reconcile missed completion after reconnect without repeating announced text.
+Define a deterministic fallback when `Intl.Segmenter` lacks the locale.
+Prevent concurrent responses from overwriting each other's live text.
+
+### #235, assistant action row
+
+Return focus after the fork dialog closes.
+Keep the row visible while focus remains inside it.
+Report clipboard denial without claiming success.
+Sanitize copied HTML and preserve plain-text fallback.
+Disable repeated fork requests.
+Restore the action after fork failure.
+Keep branch eligibility evidence-gated behind #216.
+
+### #236, inspected-image dialog
+
+Add Escape, focus trap, focus return, and keyboard image navigation.
+Define zoom controls and reduced-motion behavior.
+Render a named unavailable state when an image fails.
+Keep multi-image controls evidence-gated behind #216.
+
+### #237 and New Message 13b
+
+Keep table copy and preview in #237.
+Move markdown failure isolation into New Message 13b.
+The new ticket owns per-block containment, Retry, reset behavior, and repeated failure.
+Keep the actual isolation level evidence-gated behind #216.
+
+### #238
+
+State that #238 handles assistant markdown image and video output only.
+It does not own video attachments on user messages.
+
+### #240 and New Message 15b
+
+Keep playback, seek, loading, unavailable, and file-type states in #240.
+Move Copy path, Save a copy, and save failure into New Message 15b.
+The new ticket must define desktop and browser behavior separately.
+
+### #242, New Message 16b, and New Message 16c
+
+Rename #242 to “Message 16. File, folder, and uploaded-file attachment rows.”
+Keep blockers #307 and #308 on #242.
+Move pasted-text rows into New Message 16b, blocked by #272.
+Move user image and video states into New Message 16c.
+Block New Message 16c on #307 and #308.
+Remove pasted-text acceptance criteria from #242.
+
+### #244 and New Queue 1
+
+Create New Queue 1 before #244 starts.
+It owns persisted failure identity, failure reason, queue position, and retry command.
+It must survive reload and reconnect.
+It must reject duplicate Retry activation.
+Keep queue-blocking behavior evidence-gated behind #217.
+Add New Queue 1 as a native blocker of #244.
+Add keyboard reorder and simultaneous-update regression criteria to #244.
+
+### #205
+
+Add explicit decisions for scheduled-task and automation-origin rows.
+Do not assign those rows to Epic #223 without an OMP source.
+Keep their coexistence evidence-gated behind #217.
+
+### #259, acceptance
+
+Add #215, #216, and #217 as native blockers.
+Keep #258 as a native blocker.
+Add every new Epic #223 implementation ticket as a native blocker.
+Verify all 25 implementation tickets.
+Test keyboard-only use, screen readers, 200 percent zoom, and compact layout.
+Test two Sessions, reload, reconnect, failure, retry, cancellation, and repeated activation.
+Test macOS visibly and record platform-table evidence for other platforms.
+Record every evidence-gated value from #215, #216, and #217.
+Keep visual and backend evidence separate.
+
+## New ticket definitions
+
+These ticket names are stable enough for creation.
+Each ticket needs the standard review contract, budget, dispatch, and changelog clauses.
+
+### New Scrolling 7. Restore position after in-place content growth
+
+Record distance and scroll height before a rendered turn changes height.
+Restore the distance on the next animation frame when the height changes.
+Discard the record when the element changes or the height stays equal.
+Cover streamed markdown, late images, disclosures, errors, and Session changes.
+
+### New Message 13b. Isolate markdown block failures and retry
+
+Contain a rendering failure at the verified reference boundary.
+Keep the rest of the message usable.
+Render `Markdown couldn't render` and `Try again`.
+Reset the boundary before Retry.
+Keep the exact boundary blocked by #216.
+
+### New Message 15b. Copy and save inline audio files
+
+Render the audio actions menu.
+Copy only a permitted user-facing path.
+Save through a user-selected destination.
+Report `Couldn't save audio` after cancellation-independent failures.
+Define browser and desktop behavior separately.
+
+### New Message 16b. Pasted-text attachment rows
+
+Render one and many pasted-text descriptors after send.
+Preserve the same descriptors in queue, steer, follow-up, edit, and reload.
+Use the two shipped pasted-text strings.
+Block this ticket on #272.
+
+### New Message 16c. User image and video attachment states
+
+Render ready, loading, and failed user images.
+Use `User attachment`, `Image failed to load`, and `Failed`.
+Render OMP 18.2.4 video attachment markers without exposing hidden source paths.
+Cover queue, send, reload, and inaccessible media.
+Block this ticket on #307 and #308.
+
+### New Message 18. File citation chips
+
+Render code, document, file, image, presentation, and spreadsheet citations.
+Render line, line-range, page, slide, and named-object locations.
+Use all sixteen citation strings from Session 7.
+Open the existing file surface without exposing a private path.
+
+### New Message 19. Hook and delegation message origins
+
+Map persisted hook custom messages to `Hook blocked this message` or `Hook feedback`.
+Map `live-delegation` custom messages to `Sent by {appName} from another task`.
+Preserve unknown custom messages through the generic fallback.
+Cover reload, reconnect, missing details, and unsafe app names.
+Block rendering integration on #260.
+
+### New Queue 1. Persist failed queued sends and expose Retry
+
+Persist a failed status on the queued item.
+Persist a safe error summary and the item identity.
+Expose one retry command for that identity.
+Keep queue order and controls after failure.
+Reconcile failure and retry after reload or reconnect.
+Do not invent the reference's queue-blocking rule before #217 resolves it.
+
+### New Files ticket. Referenced-file context menu in Markdown
+
+Reuse the file action model from #175.
+Apply file-type and platform suppression rules to referenced files.
+Keep the default action evidence-gated behind #216.
+Block this ticket on #175.
+
+## Corrected blocker graph
+
+| Ticket | Required native blockers |
+|---|---|
+| #225 | #239 |
+| #226 | #225 |
+| #227, #228, #229, #230 | #226 |
+| #235 | #231 |
+| #240 | #238 |
+| #242 | #307 and #308 |
+| New Message 13b | #216 for the isolation value |
+| New Message 15b | #240 |
+| New Message 16b | #272 |
+| New Message 16c | #307 and #308 |
+| New Message 19 | #260 |
+| #244 | New Queue 1 |
+| New Files ticket | #175 |
+| #259 | #215, #216, #217, #258, and all 25 Epic #223 implementation children |
+
+The planner must re-fetch every dependency after each write.
+GitHub can retain a different parent or blocker than the request intended.
+
+## Corrected orchestration handoff
+
+The handoff must state these facts:
+
+- Epic #223 has 26 children after correction.
+- Twenty-five children implement behavior.
+- Ticket #259 performs acceptance.
+- Every worker creates a 200,000-token goal as its first action.
+- Every worker aims to finish around 150,000 tokens.
+- A worker stops at 200,000 tokens and reports the remainder.
+- The branch remains `codex/session-messages`.
+- Ticket #225 waits for #239.
+- Ticket #259 waits for #215, #216, #217, #258, and every implementation child.
+- Tickets #242, New Message 16b, and New Message 16c keep their external Composer blockers.
+- The research and ADR work has merged and is not pending.
+- Progress reports use closed children divided by 26.
+- The orchestrator checks native blockers before every dispatch.
+- Model selectors remain those named on each ticket.
+- No worker silently substitutes a model.
+
+## Final gap register
+
+1. Ticket #225 duplicates the transcript phase source.
+2. Ticket #226 omits complete input normalization.
+3. Ticket #229 lacks a persistence store and Session isolation.
+4. Ticket #230 lacks complete load states.
+5. In-place content-growth restoration has no ticket.
+6. The overlap probe lacks an explicit decision.
+7. Ticket #234 lacks concurrency, reconnect, locale fallback, and cleanup.
+8. Ticket #235 lacks complete copy, fork, focus, and failure behavior.
+9. Epic #223 assigns Goal rows to the wrong epic.
+10. Ticket #236 lacks complete dialog and failed-image behavior.
+11. Ticket #237 combines table controls with markdown failure isolation.
+12. Ticket #238 does not separate markdown video from user video attachments.
+13. Ticket #240 combines playback with path and save integration.
+14. Citation chips, file menus, and metadata lack final ownership or decisions.
+15. Ticket #232 lacks complete collapse behavior.
+16. The empty-message placeholder lacks ownership.
+17. Ticket #233 lacks eligibility, attachment, pending, and keyboard rules.
+18. Ticket #231 lacks cancellation, focus, default, failure, and rollback rules.
+19. User image and video attachment states lack a ticket.
+20. Pasted-text rows use the wrong blocker path.
+21. Hook, delegation, scheduled, and automation origins lack correct ownership.
+22. Ticket #244 has no backend failure source.
+23. Existing queue behavior lacks keyboard and concurrent-update regression coverage.
+24. Ticket #259 lacks live gates and complete environment and failure sweeps.
+
+## Final counts
+
+| Measure | Count |
+|---|---:|
+| Capability groups audited | 42 |
+| Final gaps | 24 |
+| Current Epic #223 children | 18 |
+| Current children that fit one worker | 15 |
+| Current children requiring splits | 3 |
+| New Epic #223 tickets | 8 |
+| Corrected Epic #223 children | 26 |
+| Corrected implementation children | 25 |
+| Acceptance children | 1 |
+| New Files Epic #129 tickets | 1 |
+| Evidence-gated live-check tickets | 3 |
+
+Epic #223 should not enter implementation with its current issue graph.
+The planner can apply the edits above without more source research.
