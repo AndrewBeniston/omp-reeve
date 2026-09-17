@@ -227,22 +227,27 @@ I did not run Reeve or the reference application in this session. Every Reeve be
 
 ## 2026-09-17 correction: current OMP Goal Mode
 
-The OMP comparison above describes the older SDK read during the first audit. The current OMP SDK now has a complete per-Session Goal Mode. This section supersedes the OMP-source column in Table 3 and the corresponding "Lacks" statements.
+The OMP comparison above describes the older SDK read during the first audit. Current OMP has per-Session Goal state and a hard budget gate. This section supersedes the OMP-source column in Table 3 and the corresponding "Lacks" statements.
 
-Current OMP facts, verified from its TypeScript source:
+Current OMP facts, verified from its TypeScript source and corrected by the adversarial audit in `docs/research/adversarial-goals.md`:
 
 - `Goal` stores an id, objective, status, optional `tokenBudget`, `tokensUsed`, `timeUsedSeconds`, creation time and update time.
 - Statuses are active, paused, budget-limited, complete and dropped.
-- `GoalRuntime` creates, replaces, pauses, resumes, drops and completes a goal.
-- The runtime accepts a positive integer token budget, clears it, and changes it while a goal is active.
-- Reaching the budget changes the state to budget-limited and stops automatic continuation. Raising or clearing the budget can return it to active.
-- The goal runtime counts input, output, cache-read and cache-write tokens from the real Session usage.
-- The runtime emits `goal_updated` and `goal_continuation_requested` events and persists Goal Mode in the Session.
+- `GoalRuntime` creates, replaces, pauses, resumes, drops and completes a Goal.
+- The runtime accepts a positive integer token budget, clears it and changes it while a Goal is active.
+- Reaching the budget changes the state to budget-limited. Raising or clearing the budget can return it to active.
+- Goal accounting includes input, output and cache-write deltas. It excludes cache-read deltas because they represent reused context.
+- `GoalRuntime` persists Goal Mode in the Session and emits `goal_updated`.
+- `InteractiveMode` owns cold restoration, Goal tool changes, completion cleanup and continuation scheduling and submission.
+- `GoalRuntime` can build a continuation prompt. It does not schedule or submit that prompt.
 - The hidden `goal` tool supports create, get, complete, resume and drop. Create accepts `token_budget`.
 - The OMP TUI supports `/goal set`, show, pause, resume, drop and budget. Budget accepts a positive integer or `off`.
 - `goal.enabled` defaults to true. OMP can show Goal status in its footer.
-- OMP already owns the continuation loop and the hard budget gate. Reeve must expose OMP's state and commands; it must not create a second goal store or loop.
 
-The screenshot supplied by the maintainer confirms the visible reference result of the hard gate: "Goal limited" plus compact token progress such as `133.7K / 100K`. Usage can exceed the configured budget because the gate applies after usage events arrive, not before every generated token.
+The screenshot supplied by the maintainer confirms the visible reference result of the hard gate: "Goal limited" plus compact token progress such as `133.7K / 100K`. Usage can exceed the configured budget because the gate applies after usage events arrive.
 
-The remaining parity work is a Reeve bridge and interface: Goal creation with an optional token budget, Goal status and progress, budget editing, pause, resume, clear, the editor, confirmations, transcript markers and the reference's completed state.
+Epic #318 keeps `GoalRuntime` as the source of Goal state, accounting, persistence, commands and the budget gate. It extracts transport-neutral lifecycle coordination from `InteractiveMode` into OMP.
+
+If OMP cannot accept that extraction, the maintainer must approve a named Reeve coordinator. Reeve must not create a second Goal store, token counter or budget gate.
+
+The remaining parity work includes Goal creation, attachments, status, progress, budget editing, pause, resume, clear, objective mutation, replacement, continuation, transcript markers and completion.
