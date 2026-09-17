@@ -1,4 +1,3 @@
-++ /Users/andrewbeniston/Documents/01-Projects/Git/omp-web-worktrees/research-models-opencodex-providers-page/docs/research/models-opencodex-providers-page.md
 # Models 1. The OpenCodex dashboard's Providers page
 
 Research for [#286](https://github.com/AndrewBeniston/omp-reeve/issues/286), part of the Models map ([#285](https://github.com/AndrewBeniston/omp-reeve/issues/285)).
