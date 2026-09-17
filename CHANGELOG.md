@@ -9,6 +9,14 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+### Fixed
+
+- A chat with an attached image no longer opens the application error page
+  after OMP restores the image from its session store.
+
+- The application error page now follows the active Reeve theme and uses
+  Autospawn Sans while keeping its Reload and Back recovery controls.
+
 ## [0.7.0] - 2026-09-16
 
 ### Added
