@@ -75,7 +75,7 @@ Reference: `docs/research/models-opencodex-providers-page.md` on `research/model
 | Provider rail with status dot, default star, Local/Free badge | No source. Reeve's sidebar tree (`ModelsSidebarTree.tsx`) lists rows but has no status dot, no default-provider concept (OMP has no "default provider", only the `default` role), and no Local/Free badge |
 | Five-tab provider detail (Overview, Models, Usage, Accounts/Keys, Settings) | Partial. Reeve's `ProviderDetail.tsx` is one flat form: base URL, key, API kind, headers, and model discovery in one pane. `OAuthDetail.tsx`/`ApiKeyDetail.tsx` cover only the Accounts/Keys tab's job. No Overview, Usage, or separate Settings tab exists |
 | Models tab: search, virtualised list, Default/Selected flags, copy-id | Partial. `ProviderDetail.tsx`'s discovery list has its own filter box and a 300-row slice instead of virtualisation, and a per-model add checkbox instead of Default/Selected flags. The sidebar tree lists saved models without search |
-| Usage tab, quota report | No source. OMP's `ModelRegistry`/`AuthStorage` expose no quota or usage endpoint that Reeve surfaces; `GET /api/provider-quotas` has no OMP equivalent |
+| Usage tab, quota report | Source exists but Reeve does not surface it. OMP's `/usage` command calls the provider-specific fetchers exported by `@oh-my-pi/pi-ai/usage`, which return the shared `UsageReport` and `UsageLimit` shapes. Reeve needs an authenticated server route over that same source, then the reference's Usage tab states. |
 | Accounts tab: multi-account list, active/reauth badges, Add account | No source. `OAuthDetail.tsx` supports exactly one credential slot per provider (login/relogin/disconnect); OMP's `AuthStorage` can store an array of credentials per provider (`AuthCredentialEntry`) but Reeve's UI and routes never read past the first |
 | API Keys tab: masked list, Add key, Remove | Partial. `ApiKeyDetail.tsx` supports one key per provider (save replaces, disconnect removes); OMP's `AuthStorage` credential array could hold more than one, so a multi-key pool has SDK-side support Reeve does not surface |
 | Add provider: preset catalog ranked by usage | Partial. `AddProviderPicker.tsx` lists not-yet-connected OAuth and not-yet-configured API-key providers plus a Custom option, from `lib/provider-listing.ts`'s capability-based list, not a usage-ranked preset catalog. `GET /api/models-config/catalog` proxies `models.dev` for model-level suggestions, not provider presets |
@@ -132,7 +132,7 @@ Steps are given against the current codebase; "expected" is the code's own state
 
 - No provider rail with a status dot, default star, or Local/Free badge; no "default provider" concept exists in OMP at all.
 - No five-tab detail view; Overview, Usage, and a distinct Settings tab do not exist.
-- No quota or usage report per provider; OMP exposes no such endpoint for Reeve to surface.
+- No quota or usage report appears in Reeve today, although OMP exposes provider-specific usage fetchers through the same source as its `/usage` command.
 - No multi-account or multi-key pool UI, though `AuthStorage`'s credential array could hold more than one per provider.
 - No virtualised, searchable saved-model list with copy-to-clipboard ids; the sidebar tree has no search at all, and the discovery list's own filter caps out at 300 shown rows (Bug 5).
 - No usage-ranked preset catalog for Add Provider; the picker is a flat capability-based list.
@@ -155,4 +155,3 @@ Steps are given against the current codebase; "expected" is the code's own state
 ## Note on scope
 
 This document completes the audit and mapping for [#287](https://github.com/AndrewBeniston/omp-reeve/issues/287), building on the first worker's live-confirmed and read-confirmed findings without repeating that work. The bug list adds one bug (Bug 5) and one refinement (the `select` phase folded into Bug 3, since it shares the same missing-SDK-hook root cause as `device_code`) found while reading the same files for the inventory and plumbing sections. No implementation change was made; this is a research document only.
-

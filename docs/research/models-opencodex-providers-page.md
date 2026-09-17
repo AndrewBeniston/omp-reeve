@@ -130,7 +130,7 @@ Read from the workspace shell stylesheet. Values are literal where the source st
 - Reeve's settings modal has no provider rail with a status dot, no default star, and no Local or Free badge.
 - Reeve has no five-tab detail view (Overview, Models, Usage, Accounts or Keys, Settings) per provider.
 - Reeve has no virtualised, searchable model list with copy-to-clipboard ids and Default or Selected flags.
-- Reeve has no quota report per provider, and no usage tab.
+- Reeve has no Usage tab today. OMP does have provider-specific usage and limit fetchers behind `/usage`, so this is a missing Reeve surface rather than a missing OMP source.
 - Reeve has no multi-account or multi-key pool with an explicit active row and a switch action.
 - Reeve has no manual-code path for an OAuth login that needs one.
 
