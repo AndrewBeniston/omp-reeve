@@ -1,7 +1,7 @@
 # Adversarial audit of the bottom placement
 
-Audit ticket: #336  
-Epic: #139  
+Audit ticket: #336
+Epic: #139
 Audit date: 2026-09-17
 
 ## Result
