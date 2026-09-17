@@ -53,7 +53,7 @@ The earlier Composer audit predates those Plan mode operations.
 
 OMP model roles include a Plan role.
 
-The existing Goal research found no OMP goal object, status, budget, or continuation loop.
+Current OMP has a complete Goal runtime with objective, status, optional token budget, real token usage, elapsed time, pause, resume, completion, persistence and continuation.
 
 Reeve now reads and changes the real OMP approval mode.
 
@@ -106,7 +106,7 @@ The final three columns contain estimates and recommendations.
 | Sites appear as hosted web projects that the person can reference. | A person asks the assistant to update a published landing page. | No OMP Sites service was verified. | Omit it and name the missing hosting service on the map. | XL. | Add it only with a provider-neutral hosting contract. |
 | ChatGPT conversations appear as earlier conversations that can attach. | A person adds an earlier design discussion to the current task. | OMP session files contain conversations, but no attachment action was verified. | Build a Reeve Session reference with a bounded transcript summary. | M. | Name the feature Sessions because that is the OMP object. |
 | Plan mode shows a Plan indicator before implementation starts. | A person approves an approach before code changes begin. | Yes. Current Reeve source uses OMP Plan mode and approval operations. | Expose the existing Plan state in the composer. | M. | Build this from the current OMP contract. |
-| Goal mode shows an objective, status, time, budget, and controls. | A person asks the assistant to finish a migration across many turns. | No. The verified Goal research found no OMP goal object. | Build an OMP goal source before the Reeve interface. | XL. | Create one OMP goal epic and one dependent Reeve epic. |
+| Goal mode shows an objective, status, time, budget, and controls. | A person asks the assistant to finish a migration across many turns. | Yes. Current OMP owns the Goal object, optional token budget, hard budget state, continuation, persistence and controls. | Expose OMP Goal Mode in Reeve without a second store or loop. | L. | Build Reeve Epic #318 at reference parity. |
 | Custom permissions appear as a selectable saved approval profile. | A person permits tests but requires approval for network access. | Partial. OMP has three approval modes and per-tool approval rules, but no named saved profiles. | Build an OMP-backed editor for per-tool rules before showing a Custom row. | M. | Do not display Custom until the editor writes real OMP rules. |
 | Managed permissions appear as fixed organisation rules. | A company blocks external network access for every task. | No organisation policy source was verified. | Omit it and record the missing policy authority. | XL. | Wait for an OMP policy and provenance contract. |
 | Remote run location selects another connected computer. | A person runs a large test on a stronger computer. | Partial. OMP SSH runs remote commands and moves remote text files, but it does not relocate the Session. | Keep the Session location local and label SSH actions separately. | L for full remote Sessions. | Design Session host identity before adding this control. |
@@ -121,8 +121,7 @@ The final three columns contain estimates and recommendations.
 1. Should Reeve build Appshot before Sketch, using the existing image path?
 2. Should Reeve call prior-conversation attachments Sessions and summarise them before sending?
 3. Should Reeve expose current OMP Plan mode in the Composer epic?
-4. Should Goal mode begin as a new OMP epic?
-5. Should Reeve build a Custom permissions editor over OMP's per-tool rules?
-6. Should Reeve add a manual hide-model-names setting?
-7. Should Reeve expose remote-file actions for configured SSH hosts while keeping Sessions local?
-8. Should provider-specific rows remain absent unless OMP discovery returns the required state?
+4. Should Reeve build a Custom permissions editor over OMP's per-tool rules?
+5. Should Reeve add a manual hide-model-names setting?
+6. Should Reeve expose remote-file actions for configured SSH hosts while keeping Sessions local?
+7. Should provider-specific rows remain absent unless OMP discovery returns the required state?
