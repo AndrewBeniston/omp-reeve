@@ -369,3 +369,48 @@ The confirmation dialog offers Cancel and Open link actions.
 The dialog warns that the external website could receive information.
 
 Blocked resource requests therefore fail silently unless their absence causes a script failure.
+
+## OMP and Reeve continuation
+
+This continuation preserves the earlier report and completes remaining items four through nine.
+
+### 4. OMP skill loading and extension widgets
+
+The OMP comparison uses the locked OMP 18.1.6 package source.
+
+| Area | Finding | Evidence label |
+| --- | --- | --- |
+| Skill format | OMP accepts `SKILL.md` files with Agent Skills frontmatter and a Markdown body. | Source-verified. |
+| Skill discovery | OMP scans enabled user, Project, custom, and installed plugin sources. | Source-verified. |
+| Model discovery | OMP lists each visible skill by name, description, and file location. | Source-verified. |
+| Skill activation | OMP reads the selected Markdown body and removes only its frontmatter. | Source-verified. |
+| Skill delivery | OMP sends the complete Markdown body inside a skill prompt message. | Source-verified. |
+| Relative resources | OMP tells the model to resolve relative skill resources from the skill directory. | Source-verified. |
+| Visualize portability | OMP can load the bundled `visualize` skill unchanged from a discovered source. | Source-verified. |
+| Current installation | Reeve would require the skill inside an OMP-discovered directory or installed plugin. | Inference. |
+| Widget content | OMP widgets accept text lines or a terminal component factory. | Source-verified. |
+| Widget placement | OMP places widgets above or below the terminal editor. | Source-verified. |
+| RPC widgets | OMP RPC sends text-line widgets and ignores terminal component factories. | Source-verified. |
+| Custom interface | OMP interactive mode can replace the editor or show a terminal overlay. | Source-verified. |
+| RPC custom interface | OMP RPC does not support custom terminal components. | Source-verified. |
+| HTML support | OMP defines no HTML widget, iframe, browser sandbox, or widget-state bridge. | Source-verified. |
+| Near match | OMP renders tool results, including edit differences, as terminal components. | Source-verified. |
+| Near match | OMP also has a fixed-height terminal visualizer for live voice. | Source-verified. |
+| Artifact support | OMP artifacts store large text output and expose text references. | Source-verified. |
+| Visualization concept | OMP has no visualization content type or visualization lifecycle. | Source-verified. |
+
+The portable skill keeps its current Markdown instructions.
+
+Those instructions can make the model create the same HTML fragment.
+
+OMP does not interpret the fragment reference or render the resulting file.
+
+Source anchors:
+
+- `package.json`
+- OMP `src/capability/skill.ts`
+- OMP `src/extensibility/skills.ts`
+- OMP `src/extensibility/extensions/types.ts`
+- OMP `src/modes/rpc/rpc-mode.ts`
+- OMP `src/tools/renderers.ts`
+- OMP `src/live/visualizer.ts`
