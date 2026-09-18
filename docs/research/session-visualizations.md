@@ -166,3 +166,104 @@ The research still needs these items:
 7. Answer all five OMP and Reeve questions.
 8. Estimate the Reeve epic size.
 9. Add the final resolution comment and close issue 445 only after completion.
+
+## Continuation findings
+
+### 1. Theme values and utility contract
+
+I verified these values in the bundled skill stylesheet from version 1.0.38.
+
+The host can override nine fallback values through its active theme.
+
+The stylesheet uses each host value before its bundled fallback.
+
+| Purpose | Light value | Dark value |
+| --- | --- | --- |
+| Page surface | RGB 255, 255, 255 | RGB 24, 24, 24 |
+| Main text | RGB 26, 28, 31 | RGB 255, 255, 255 |
+| Card surface | 5 percent text mixed with page | 5 percent text mixed with page |
+| Card text | RGB 26, 28, 31 | RGB 255, 255, 255 |
+| Popover surface | RGB 255, 255, 255 | RGB 45, 45, 45 |
+| Popover text | RGB 26, 28, 31 | RGB 255, 255, 255 |
+| Primary surface | RGB 51, 156, 255 | RGB 131, 195, 255 |
+| Primary text | RGB 255, 255, 255 | RGB 13, 13, 13 |
+| Secondary surface | RGB 255, 255, 255 at 96 percent | RGB 54, 54, 54 at 96 percent |
+| Secondary text | RGB 26, 28, 31 | RGB 255, 255, 255 |
+| Muted surface | Main text at 10 percent | Main text at 10 percent |
+| Muted text | RGB 26, 28, 31 at 49.4 percent | RGB 255, 255, 255 at 49.8 percent |
+| Accent surface | RGB 229, 242, 255 | RGB 13, 39, 63 |
+| Accent text | RGB 51, 156, 255 | RGB 131, 195, 255 |
+| Destructive text | RGB 226, 85, 7 | RGB 255, 133, 73 |
+| Subtle border | RGB 26, 28, 31 at 8 percent | RGB 255, 255, 255 at 8.2 percent |
+| Input border | RGB 26, 28, 31 at 11.8 percent | Black at 10 percent |
+| Focus ring | RGB 51, 156, 255 | RGB 131, 195, 255 at 76 percent |
+| Blue | RGB 51, 156, 255 | RGB 51, 156, 255 |
+| Orange | RGB 226, 85, 7 | RGB 251, 106, 34 |
+| Green | RGB 0, 162, 64 | RGB 64, 201, 119 |
+| Red | RGB 224, 46, 42 | RGB 255, 103, 100 |
+| Purple | RGB 146, 79, 247 | RGB 173, 123, 249 |
+| Yellow | RGB 255, 195, 0 | RGB 255, 210, 64 |
+| Series one | Primary surface | Primary surface |
+| Series two | RGB 243, 136, 59 | RGB 245, 154, 86 |
+| Series three | RGB 93, 201, 119 | RGB 116, 213, 139 |
+| Series four | RGB 235, 119, 177 | RGB 240, 143, 192 |
+| Series five | RGB 155, 121, 236 | RGB 170, 145, 239 |
+| Series six | RGB 58, 185, 177 | RGB 90, 203, 194 |
+
+The base text size is 14 pixels unless the host supplies another value.
+
+Normal text cannot become smaller than 11 pixels.
+
+Small text uses two pixels below the base size, with an 11-pixel minimum.
+
+Tooltip text uses one pixel below the base size.
+
+Heading sizes equal 1.714, 1.429, and 1.286 times the normal size.
+
+The stylesheet uses text weights 430 and 500.
+
+The skill tells the model to use weights 400 and 500.
+
+The default radius is 10 pixels.
+
+Small, medium, large, extra-large, and full radii are 6, 8, 10, 16, and 9,999 pixels.
+
+I verified the complete utility behavior without copying the utility identifiers.
+
+| Utility group | Verified contract |
+| --- | --- |
+| Root layout | Full width, transparent background, vertical flow, and a 12-pixel gap. |
+| Cards | A 12-pixel inset, a 16-pixel radius, no border, and a five-percent text tint. |
+| Peer grids | Automatic equal columns use a 180-pixel minimum and a 10-pixel gap. |
+| Rows | Related items wrap, align centrally, and use a 10-pixel gap. |
+| Statistics | Values use the second heading size and a 500 weight. |
+| Separators | A one-pixel theme border has six pixels of vertical margin. |
+| Navigation | Items align centrally with a four-pixel gap. |
+| Progress | The track is eight pixels high with fully rounded ends. |
+| Badges | The inset is three pixels vertically and eight pixels horizontally. |
+| Control groups | Controls wrap with an eight-pixel gap. Labeled fields become two columns when space permits. |
+| Buttons | The minimum height is 28 pixels. The horizontal inset is eight pixels. |
+| Primary buttons | The main text color supplies the background. The inverse color supplies the text. |
+| Ghost buttons | The background stays transparent until interaction. |
+| Selected buttons | The primary pair supplies the fill and text. Selectable tiles keep their category fill. |
+| Disabled controls | Controls use 40 percent opacity and a disabled cursor. |
+| Text fields | The minimum height is 28 pixels. The horizontal inset is eight pixels. |
+| Text areas | The minimum height is 72 pixels. Vertical resizing remains available. |
+| Color inputs | The control measures 40 by 28 pixels. |
+| Select controls | The right inset is 32 pixels. Two gradients draw the arrow. |
+| Checkboxes and radios | Each control measures 14 pixels. Checked controls use the primary pair. |
+| Switches | The track measures 32 by 20 pixels. The thumb measures 16 pixels. |
+| Range controls | The track is two pixels high. The thumb measures 20 pixels. |
+| Tables | Cells use 10 pixels vertically and 24 pixels after content. |
+| Compact tables | Cells use six pixels vertically and 16 pixels after content. |
+| Tooltips | The inset is four by eight pixels. The maximum width is 20 root font units. |
+| Hidden text | The accessible box measures one pixel and remains outside visual flow. |
+| Coarse pointers | Interactive targets increase to at least 44 by 44 pixels. |
+| Icons | Icons measure 16 pixels and use a 1.6-pixel stroke. |
+| Error text | The destructive theme value supplies the text color. |
+
+The stylesheet also supplies hover, focus, disabled, selected, and coarse-pointer states for every interactive utility.
+
+The utility contract includes responsive tables, alignment, no-wrap text, muted text, small text, and tabular numbers.
+
+The utility contract includes buttons, tabs, fields, selects, checkboxes, radios, switches, ranges, progress, badges, and tooltips.
