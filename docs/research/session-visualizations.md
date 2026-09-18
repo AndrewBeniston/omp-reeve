@@ -267,3 +267,49 @@ The stylesheet also supplies hover, focus, disabled, selected, and coarse-pointe
 The utility contract includes responsive tables, alignment, no-wrap text, muted text, small text, and tabular numbers.
 
 The utility contract includes buttons, tabs, fields, selects, checkboxes, radios, switches, ranges, progress, badges, and tooltips.
+
+### 2. Widget state resolution
+
+I verified two separate visualization routes in the current desktop bundle.
+
+The earlier no-op handler belongs to the shared snapshot route.
+
+That route disables interactions and expansion.
+
+It does not represent an active session transcript.
+
+The active transcript route implements widget state persistence.
+
+| State behavior | Verified active transcript result |
+| --- | --- |
+| Initial state | The host reads the saved snapshot before sandbox execution. |
+| Availability | The host reports persistence when a visualization has a stable identity. |
+| Update | The host validates and replaces the complete snapshot. |
+| Immediate response | The sandbox updates its local value before the host receipt arrives. |
+| Re-render | The host supplies the saved snapshot to the new sandbox instance. |
+| Host update | The host can replace the running sandbox state without restarting it. |
+| Scope | The key combines the host, session, and normalized visualization path. |
+| Retention | The state store retains at most 100 visualization entries per session scope. |
+| Snapshot limit | One snapshot cannot exceed 16 KiB after serialization. |
+| Model context | Only model content can enter later model context. |
+| Context limit | Collected visualization context stops before 64 KiB. |
+| Private state | Private content returns to the sandbox but does not enter model context. |
+| Images | The route rejects image attachments. |
+| Invalid state | The host returns a permanent invalid-state result. |
+| Storage failure | The host returns a permanent storage-unavailable result. |
+
+The host initializes missing model content and private content as null.
+
+The state update replaces the prior snapshot.
+
+The state update does not create a new turn.
+
+The active route restores state during component reconstruction.
+
+I did not verify restoration after a complete application restart.
+
+The standalone export uses browser storage instead of the desktop state store.
+
+The standalone export keys state by its page path and query.
+
+The standalone export reports no persistence when browser storage is unavailable.
