@@ -313,3 +313,59 @@ The standalone export uses browser storage instead of the desktop state store.
 The standalone export keys state by its page path and query.
 
 The standalone export reports no persistence when browser storage is unavailable.
+
+### 3. Stale paths and blocked origins
+
+I verified these presentation rules in the current desktop renderer and Electron host source.
+
+I did not force each failure in the running application.
+
+| Path state | Verified source behavior |
+| --- | --- |
+| Missing reference | The renderer creates no visualization surface. |
+| Missing session identity | The renderer creates no visualization surface. |
+| Loading | A 240-pixel placeholder shows an accessible loading label. |
+| Copied filename | The renderer can resolve the original source path through the turn file map. |
+| Copied source session | The renderer reads the file against the source session. |
+| Explicit stale path | The renderer does not replace an explicit path through the filename map. |
+| Missing map entry | The renderer attempts the supplied reference without recovery. |
+| Invalid file name | The host rejects the read. |
+| Path outside allowed roots | The host rejects the read. |
+| Symbolic-link path | The host rejects the read. |
+| Missing file | The read fails without an automatic retry. |
+| Unreadable file | The read fails without an automatic retry. |
+| Oversized file | The host returns no content above 5 MB. |
+
+A failed read creates the same danger alert as a script failure.
+
+The alert says that an error occurred inside the visualization.
+
+The alert does not show the underlying file error.
+
+The user can dismiss the alert.
+
+The alert offers a repair action when the session can accept a follow-up turn.
+
+The repair action includes the file name and internal error in a confirmed prompt.
+
+| Origin state | Verified source behavior |
+| --- | --- |
+| Approved secure resource | The Electron session permits the request. |
+| Approved embedded data | The Electron session permits the request. |
+| Unapproved resource origin | The Electron session cancels the request. |
+| Blocked connection | The document policy prevents the connection. |
+| Blocked frame or object | The document policy prevents the embedded content. |
+| Security policy report | The active transcript host records no visible action. |
+| Dependent script failure | A later script exception can create the generic danger alert. |
+| Direct popup | The Electron host denies the popup without a visualization message. |
+| Download attempt | The Electron host cancels the download without a visualization message. |
+| Permission request | The Electron host denies the permission without a visualization message. |
+| External link without gesture | The host ignores the request. |
+| Approved external link | The host opens the link after a user gesture. |
+| Unapproved external link | The host shows a confirmation dialog with the destination. |
+
+The confirmation dialog offers Cancel and Open link actions.
+
+The dialog warns that the external website could receive information.
+
+Blocked resource requests therefore fail silently unless their absence causes a script failure.
