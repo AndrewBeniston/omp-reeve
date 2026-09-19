@@ -550,7 +550,138 @@ The link then shows plain text and the click follows the external link confirmat
 
 ### Side chat
 
-Evidence pending.
+A side chat is a temporary thread beside a main thread.
+
+The human creates a side chat, and the agent does not.
+
+No agent tool creates, opens, focuses, closes, or reads a side chat.
+
+#### Registration and discovery
+
+| Exact name | Registration point | How the agent learns about it |
+| --- | --- | --- |
+| Open side chat command | The renderer registers this application command. | The agent does not receive this command. |
+| Focus side chat command | The renderer registers this application command. | The agent does not receive this command. |
+| Focus main chat command | The renderer registers this application command. | The agent does not receive this command. |
+| Side chat panel Tab | The side chat feature chunk opens this Tab kind. | The agent does not receive this Tab kind. |
+| Side chat menu item | The thread header menu lists this item. | The agent does not receive this menu. |
+
+The panel tool schema does not list a side chat target.
+
+The open command requires local Codex access and the desktop application.
+
+The open command carries a default keyboard shortcut.
+
+#### Actions and identity
+
+The renderer creates the side chat as a fork of one source thread.
+
+The fork excludes the parent turns from the new thread record.
+
+The renderer injects a boundary message as the first user item.
+
+The boundary message states that the inherited history is reference context only.
+
+The boundary message forbids continuation of any earlier instruction, plan, tool call, or edit.
+
+A local side chat passes a thread reference to the parent thread.
+
+A local side chat passes a rendered parent transcript when the reference is unsupported.
+
+A cloud side chat always passes a rendered parent transcript.
+
+The rendered transcript uses at most 50 parent turns and 100 conversation entries.
+
+A cloud side chat reuses the parent environment, permissions, working directory, and workspace roots.
+
+The side chat receives a conversation identifier from the application server.
+
+The panel Tab identifier derives from that conversation identifier.
+
+The side chat thread is marked ephemeral and records a side conversation flag.
+
+The side chat thread records the parent thread as its fork source.
+
+The side chat does not enter the recent thread list or the sidebar.
+
+The memory pipeline and the project assignment do not run for a side chat.
+
+A Tab close discards the conversation from the local cache.
+
+A Tab close also stops an active voice session and removes the ephemeral voice history.
+
+Therefore the side chat is not durable across a close.
+
+#### Placement and human access
+
+The side chat opens in the right panel by default.
+
+The human can move the Tab to another permitted panel.
+
+The human opens a side chat from the thread header menu.
+
+The human can also open it from the command menu or with the keyboard shortcut.
+
+A focus command moves focus to the main chat.
+
+A second focus command moves focus to the side chat.
+
+The focus command prefers an already active side chat Tab.
+
+#### Transcript rendering
+
+The side chat renders in its own panel Tab with its own composer.
+
+The parent thread transcript holds no side chat item.
+
+The parent thread keeps the list of its side chat conversation identifiers.
+
+The parent thread shows a running indicator while a side chat turn is in progress.
+
+The parent thread shows an unread indicator after a completed side chat turn.
+
+The side chat Tab icon becomes a spinner while the turn runs.
+
+The Tab announces an unread response to assistive technology.
+
+#### Instructions and permissions
+
+The renderer appends a side conversation instruction to the developer instructions.
+
+That instruction repeats the boundary rule in the developer channel.
+
+That instruction states that the side conversation is for questions and light exploration.
+
+That instruction permits non-mutating inspection, including file reading and file search.
+
+That instruction forbids workspace mutation unless the user asks for it in the side chat.
+
+That instruction forbids escalated permission requests without such a request.
+
+That instruction forbids every sub-agent interaction inside the side chat.
+
+No skill teaches side chat use.
+
+No agent tool description mentions the side chat.
+
+The human needs no further approval to open a side chat.
+
+#### Failure and unavailable states
+
+| State | Verified result |
+| --- | --- |
+| Archived source thread | The renderer refuses to create a side chat. |
+| Suppressed source thread | The renderer refuses to create a side chat. |
+| Cloud parent without an environment | Creation fails and reports the missing environment. |
+| Cloud parent without permissions | Creation fails and reports the missing permissions. |
+| Cloud parent without workspace roots | Creation fails and reports the missing workspace roots. |
+| Creation error | The pending Tab fails and the new conversation is discarded. |
+| Failed first turn synchronization | The side chat reports that the first turn did not start. |
+| Close with at least one turn | A confirmation dialog asks before the close. |
+| Active voice without a voice host | The close reports that the voice host is unavailable. |
+| Voice not stopped within 30 seconds | The close reports that voice did not stop. |
+| Failed voice stop | The renderer reopens the Tab and keeps the side chat. |
+| Failed cache discard | The renderer records a warning and reports the failure. |
 
 ### Sub-agents
 
