@@ -2136,7 +2136,100 @@ The sweep worker found no agent path for four application commands.
 
 ## Reference-to-OMP mapping
 
-Reserved for the mapping worker.
+This section summarises the OMP mapping file in this repository.
+
+That file records 158 capability rows across 13 surfaces.
+
+The detail stays in that file. This section gives the verdict only.
+
+A verdict of equivalent means that OMP gives the agent the same behaviour and the same value.
+
+A verdict of partial means that OMP gives part of the behaviour, or gives it to the host only.
+
+A verdict of none means that OMP supplies nothing for the capability.
+
+Every verdict is source-verified against the OMP package source, version 18.1.6.
+
+The mapping worker did not run OMP and did not run Codex Desktop.
+
+### Verdict counts by surface
+
+| Surface | Rows | Equivalent | Partial | None |
+| --- | --- | --- | --- | --- |
+| Terminal | 12 | 4 | 4 | 4 |
+| Files | 11 | 3 | 3 | 5 |
+| Review | 8 | 2 | 3 | 3 |
+| Side chat | 8 | 1 | 4 | 3 |
+| Sub-agents | 19 | 12 | 4 | 3 |
+| Panel placement and Tab movement | 11 | 0 | 1 | 10 |
+| Settings and approval state | 11 | 1 | 3 | 7 |
+| Questions and option pickers | 14 | 10 | 2 | 2 |
+| Goal state | 16 | 10 | 2 | 4 |
+| Session lifecycle | 16 | 1 | 11 | 4 |
+| Visualizations | 9 | 1 | 2 | 6 |
+| Capture | 7 | 4 | 0 | 3 |
+| Remaining registered services | 16 | 6 | 3 | 7 |
+| Total | 158 | 55 | 42 | 61 |
+
+### What the counts mean
+
+OMP covers the agent work. OMP does not cover the application control.
+
+OMP has strong equivalents for command execution, sub-agent control, questions, and goal state.
+
+Those four surfaces hold 36 of the 55 equivalent rows.
+
+OMP has partial equivalents for file change, review findings, session lifecycle, and capture.
+
+A session lifecycle row is partial because the host owns the operation, and the agent does not.
+
+OMP has nothing for panel placement, Tab identity, visualizations, and application settings tools.
+
+Reeve must build each of those capabilities from the start.
+
+### The RPC limit
+
+Reeve runs OMP through RPC mode. That mode decides several verdicts.
+
+RPC mode supports a selector, a confirmation, a text input, a notification, and a status line.
+
+RPC mode accepts widget content as text lines only.
+
+RPC mode returns nothing for a custom interactive component.
+
+The richer interactive dialogue of OMP is therefore out of reach for Reeve.
+
+This finding is source-verified.
+
+### Capabilities with no OMP source
+
+The mapping file groups the 61 none rows into 23 capability themes.
+
+Each theme needs a maintainer decision, because OMP supplies no starting point.
+
+1. Every panel host, Tab identity, Tab order, Tab movement, and maximise state.
+2. Opening a workspace file in a Tab at a line and a column.
+3. A durable Tab layout record that survives a reload or a task transfer.
+4. A Review panel, its four views, and a stored base revision for a repository.
+5. Inline review comments stored against a task and moved on a handoff.
+6. A side chat boundary that marks inherited history as reference context only.
+7. An ephemeral thread that never enters the session list.
+8. Closing and reopening one sub-agent that has already finished.
+9. An agent tool that reads or writes application settings.
+10. A sandbox mode, a writable root grant, and a network access switch.
+11. A managed policy that locks a configuration key.
+12. A secret answer for a question.
+13. Answering one question from any window that shows the thread.
+14. The blocked goal status and the usage limited goal status.
+15. Goal attachments and a long objective moved into a file.
+16. Archiving and restoring a task.
+17. Moving a task between a checkout, a worktree, and another host.
+18. Navigating a window to a named task.
+19. Every part of the visualization lifecycle after the skill text.
+20. Reporting the application page and panel state to the agent.
+21. A human capture hotkey that feeds the composer.
+22. User automations, usage reset credits, and bundled runtime reporting.
+23. Sidebar sections, task emoji, and confetti.
 
 ## Reeve ownership table
 
