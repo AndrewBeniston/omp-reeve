@@ -20,6 +20,12 @@ The report excludes Browser control.
 
 Ticket 440 covers Browser control.
 
+This report also excludes the automatic approval review.
+
+The automatic approval review uses the word review for approval decisions, not for a diff.
+
+Three transcript item types carry that approval review, and the approval worker owns them.
+
 ## Evidence method
 
 I inspected the installed Codex Desktop archive for version 26.915.31029.
