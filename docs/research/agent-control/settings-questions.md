@@ -314,11 +314,89 @@ The installation can restrict the allowed web search mode values.
 
 ### Registration and discovery
 
-Evidence pending.
+| Exact name | Registration point | How the agent learns about it |
+| --- | --- | --- |
+| `request_user_input_async` | The core app server registers this tool. | The core tool schema teaches the question call. |
+| `request_option_picker` | The Desktop tool builder adds it to a gated onboarding set. | Its schema teaches an option choice in the onboarding flow. |
+| `request_onboarding_input` | The same onboarding set. | Its schema teaches one to three structured onboarding questions. |
+| `setup_codex_step` | The same onboarding set. | Its schema teaches the three native setup steps. |
+| `request_environment_input` | The app server sends it as a tool call. | The agent learns the tool from the environment setup flow. |
+| `item/tool/requestUserInput` | The app server sends this client request. | The agent does not receive this request directly. |
+| `item/tool/requestOptionPicker` | The app server sends this client request. | The agent does not receive this request directly. |
+| `item/tool/requestSetupCodexContextPicker` | The app server sends this client request. | The agent does not receive this request directly. |
+| `mcpServer/elicitation/request` | An MCP server sends this client request. | The agent learns only the MCP tool. |
+
+The desktop bundle does not define the schema of the core question tool.
+
+Therefore the core app server owns that schema. This statement is an inference.
+
+A feature gate controls the three onboarding tools.
+
+The gate key names interactive onboarding tools.
+
+The tool builder also adds them when the thread start kind requests every tool.
+
+The tool builder removes them for the conversational onboarding kind.
+
+The tool builder also removes them for the environment setup kind.
+
+All three onboarding tools belong to the eager tool set.
+
+The renderer dismisses the context picker request without human input.
+
+It answers that request with a dismiss action and an empty source list.
 
 ### Question requests and responses
 
-Evidence pending.
+The user input request carries a thread identifier, an item identifier, and a turn identifier.
+
+The request carries one or more questions.
+
+Each question carries an identifier, an optional header, and the question text.
+
+Each question carries a free-text flag and a secret flag.
+
+Each question carries a list of options.
+
+Each option carries a label and an optional description.
+
+The request also carries a blocking flag.
+
+The request can also carry an explicit auto-resolution window.
+
+The response is a map from each question identifier to a list of answers.
+
+The client omits a question with no answer from that map.
+
+An empty map means that the human answered nothing.
+
+The option picker request carries a thread identifier and a turn identifier.
+
+It carries one question and a list of options.
+
+It carries a flag that permits more than one selection.
+
+It carries an optional submit label and an optional skip label.
+
+The option picker response carries three fields.
+
+It carries an action, a list of selected options, and one free-text answer.
+
+The dismiss action value is `dismiss`.
+
+A dismissed picker returns an empty selection and a null free-text answer.
+
+The onboarding input tool accepts one to three questions.
+
+Each of those questions needs an identifier, a question, and at least two options.
+
+The option picker tool needs a question and a list of options.
+
+The dynamic tool path returns the picker response as text.
+
+That text is the JSON form of the response.
+
+That result reports success.
 
 ### Option and free-text results
 
@@ -339,6 +417,7 @@ Evidence pending.
 ### Failure and unavailable states
 
 Evidence pending.
+
 
 
 
