@@ -400,23 +400,180 @@ That result reports success.
 
 ### Option and free-text results
 
-Evidence pending.
+A question can offer options, free text, or both.
+
+The free-text flag marks a question that accepts typed text.
+
+The secret flag marks a question whose answer must stay hidden.
+
+The option picker returns the selected options as a list.
+
+The picker returns one free-text answer beside that list.
+
+The multiple-selection flag decides whether the list can hold more than one option.
+
+The chat surface uses a separate question widget.
+
+That widget names two categories of question request.
+
+Each widget question carries the question text and a list of option labels.
+
+Each widget question carries a free-text placeholder.
+
+Each widget question declares a single selection type or a multiple selection type.
+
+The widget answer is recorded on the answering message as response metadata.
+
+That metadata names the original request identifier.
+
+A pending widget request records a blocking flag and an expiry time.
+
+It also records the question identifiers, the request identifier, and a pending status.
 
 ### Ownership and persistence
 
-Evidence pending.
+The app server connection owns the pending question record.
+
+One connection serves one host.
+
+The record is keyed by the conversation.
+
+A second record for the same conversation replaces the first record.
+
+A reverse map returns the conversation for a request identifier.
+
+Both maps are held in memory only.
+
+Therefore a pending record does not survive an application restart. This statement is an inference.
+
+Each window registers itself with the tracker as a surface.
+
+The tracker holds the focus state of every surface.
+
+The tracker also holds which surfaces present each conversation.
+
+A destroyed surface is removed from both sets.
+
+A resolved server request stops the tracking.
+
+The answer travels back through the app server connection.
+
+Therefore any window that presents the conversation can answer the question.
+
+An async question keeps a stable identity inside the turn.
+
+That identity combines the question tool name, the source item identifier, and the question index.
+
+Therefore the identity survives a renderer reload of the same turn.
+
+The tracker broadcasts every record change to every window.
 
 ### Transcript rendering and human access
 
-Evidence pending.
+A user input request renders as a dedicated question activity.
+
+That activity carries the request identifier, the call identifier, and the turn identifier.
+
+It carries the full question list and a completed flag.
+
+An async question renders as one assistant message for each question.
+
+Each of those messages carries the source item identifier and the question index.
+
+Each of those messages carries the question title as its content.
+
+A feature flag controls that per-question rendering.
+
+Without that flag the turn renders one ordinary assistant message.
+
+An async question does not count as the final answer of the turn.
+
+An option picker request produces no transcript item.
+
+The picker renders as a separate request surface instead.
+
+The human answers each surface in place.
+
+The transcript offers no action that reopens an answered question.
+
+Telemetry records four picker events.
+
+Those events are shown, dismissed, timed out, and selected.
+
+The selection event records the chosen item and its position.
 
 ### Instructions, permissions, and skip path
 
-Evidence pending.
+A setting controls whether Codex can ask a question outside Plan mode.
+
+The default value of that setting permits the question.
+
+The agent can read and write that setting.
+
+A false value disables the matching question feature for the default mode.
+
+The onboarding tool schemas teach their own narrow use.
+
+One schema teaches an option choice inside the onboarding flow.
+
+One schema teaches one to three concise onboarding questions.
+
+One schema teaches the three steps of the native setup flow.
+
+A question needs no separate user approval.
+
+The picker offers an explicit skip label for the skip path.
+
+A skip returns the dismiss action with an empty selection.
+
+The tracker can also resolve a question without any human answer.
+
+A blocking request is never resolved by the tracker.
+
+A request with an explicit window starts a countdown at once.
+
+That window must be between 5,000 and 300,000 milliseconds.
+
+A request without a window waits for inactivity when a focused surface presents the conversation.
+
+The inactivity period is 60,000 milliseconds.
+
+The countdown after that period is 90,000 milliseconds.
+
+A conversation with no focused presenting surface starts the 90,000 millisecond countdown at once.
+
+Human activity in the conversation restarts the inactivity period.
+
+A countdown expiry submits an empty answer map for a user input request.
+
+A countdown expiry declines an MCP elicitation request instead.
+
+A snooze cancels the deadline of a request without an explicit window.
+
+A snooze restarts the countdown of a request with an explicit window.
+
+An automation-owned thread snoozes each non-blocking request without an explicit window.
 
 ### Failure and unavailable states
 
-Evidence pending.
+| State | Verified result |
+| --- | --- |
+| Missing thread identifier | The client logs an error and drops the request. |
+| Wrong request method for an answer | The client logs an error and sends no response. |
+| Invalid onboarding tool arguments | The tool returns an unsuccessful result and names itself. |
+| Invalid picker arguments | The tool returns an unsuccessful result and names itself. |
+| Completion step of the setup tool | The client presents no request surface. |
+| Abandoned conversation, user input | The client answers with an empty answer map. |
+| Abandoned conversation, option picker | The client answers with a dismiss action. |
+| Abandoned conversation, MCP elicitation | The client declines the request. |
+| Countdown expiry, user input | The connection answers with an empty answer map. |
+| Countdown expiry, MCP elicitation | The connection declines the request. |
+| Unsafe MCP elicitation approval | The client raises an error and sends no approval. |
+| User verification elicitation with an approval | The client sends no response. |
+| Context picker request | The client dismisses the request at once. |
+| Follower stream role | The client forwards the answer to the owning task. |
+| Unknown pending request | The answer path returns without an effect. |
+
 
 
 
