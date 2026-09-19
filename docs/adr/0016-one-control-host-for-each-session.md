@@ -73,6 +73,12 @@ call that never returns holds the agent turn open, which is worse than a
 stated failure. The host also answers every waiting call when the Session
 ends.
 
+**A client with no surface for the control stays silent.** More than one
+client can show one Session, and the first answer wins. A plain browser tab
+owns no shell, so an answer from it would hide the real Terminal of a desktop
+window beside it. Silence costs the host its wait and returns `no_window`,
+which is true when no desktop window answers.
+
 ## Three named reasons, and never an error
 
 **Every expected failure is a value the model reads, never a thrown error.**

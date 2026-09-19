@@ -891,14 +891,17 @@ export function AppShell() {
    * window that shows its Session. This is that answer. A Terminal Tab belongs
    * to this window's Right panel, and this window shows one Session, so the
    * Terminals here are the Terminals of that Session.
+   *
+   * A window with no Terminal surface returns null and stays silent.
    */
   const handleAgentControlRequest = useCallback((request: AgentControlRequestEvent) => (
     answerAgentControlRequest(
       request,
       [...terminalStatesRef.current.values()],
       activeTerminalTabIdRef.current,
+      supportsTerminalTabs,
     )
-  ), []);
+  ), [supportsTerminalTabs]);
 
   /** The guest navigated. The Tab's URL follows the page, its id never does. */
   const handleBrowserNavigate = useCallback((tabId: string, url: string) => {
