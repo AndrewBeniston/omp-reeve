@@ -685,7 +685,182 @@ The human needs no further approval to open a side chat.
 
 ### Sub-agents
 
-Evidence pending.
+A sub-agent is a separate agent thread that another agent creates.
+
+The bundled application server provides the sub-agent tools.
+
+The Codex Desktop renderer registers no sub-agent tool.
+
+The renderer displays sub-agent activity and opens a sub-agent thread.
+
+The application server carries two sub-agent tool generations.
+
+#### Registration and discovery
+
+| Exact name | Registration point | How the agent learns about it |
+| --- | --- | --- |
+| `spawn_agent` | The application server registers this tool in both generations. | Its schema explains sub-agent creation and the returned identity. |
+| `send_input` | The application server registers this first generation tool. | Its schema explains queued input and immediate redirection. |
+| `send_message` | The application server registers this second generation tool. | Its schema explains message delivery without a new turn. |
+| `followup_task` | The application server registers this second generation tool. | Its schema explains a new task that triggers a turn. |
+| `wait_agent` | The application server registers this tool in both generations. | Its schema explains blocking until a final status or a timeout. |
+| `interrupt_agent` | The application server registers this tool in both generations. | Its schema explains turn interruption and the previous status. |
+| `resume_agent` | The application server registers this first generation tool. | Its schema explains reopening a closed agent. |
+| `close_agent` | The application server registers this first generation tool. | Its schema explains shutdown of an agent and its descendants. |
+| `list_agents` | The application server registers this tool in both generations. | Its schema explains listing of live agents in the thread tree. |
+| Sub-agents panel Tab | The renderer registers this right side panel Tab. | The agent does not receive this Tab. |
+
+The application server groups the tools under one namespace.
+
+A configuration key can override the namespace name.
+
+A separate configuration section controls the whole feature.
+
+That section sets the concurrency limit, the depth limit, and the job runtime limit.
+
+That section also sets the default sub-agent model and reasoning effort.
+
+The second generation section sets the wait timeout range and can disable the wait tool.
+
+The second generation section can also replace the sub-agent developer instructions.
+
+The code mode runtime does not receive the second generation tools.
+
+#### Actions and identity
+
+`spawn_agent` creates a new agent for one named task.
+
+The request carries a task name and an initial message or structured input list.
+
+The request can override the agent type, the model, and the reasoning effort.
+
+The first generation forks the parent history with a context flag.
+
+The second generation forks the parent history with a turn count value.
+
+The result returns the agent identifier and the thread identifier.
+
+The result also returns the canonical task name and any user-facing nickname.
+
+The canonical task name nests under the parent task path.
+
+A parent can use the relative name, and another branch must use the canonical name.
+
+`send_input` queues a message or interrupts the current task in the first generation.
+
+`send_message` delivers a message in the second generation without a new turn.
+
+`followup_task` starts a turn when the target is idle and refuses a root target.
+
+`wait_agent` returns the final statuses keyed by agent identifier.
+
+The second generation wait returns a summary only and never the agent content.
+
+`interrupt_agent` stops the current turn and returns the previous status.
+
+`close_agent` shuts down one agent and its open descendants.
+
+A completed agent stays open and counts against the concurrency limit until a close.
+
+`resume_agent` reopens a previously closed agent by identifier.
+
+`list_agents` lists the live agents with a canonical task name and a last known status.
+
+A status is waiting, running, completed, interrupted, shut down, errored, or not found.
+
+The thread record stores the parent thread, the agent path, the nickname, and the role.
+
+The root thread tree owns every sub-agent thread.
+
+A spawned agent keeps a durable thread identifier.
+
+The renderer rediscovers the descendant tree after a reload.
+
+The Sub-agents panel Tab stores a durable route with the selected descendant.
+
+#### Placement and human access
+
+The Sub-agents panel Tab opens on the right side.
+
+The panel lists the descendant threads and groups them into active and finished agents.
+
+The panel shows the model, the reasoning effort, and a waiting state for each agent.
+
+The panel offers a back action from a selected agent to the list.
+
+The sub-agent activity item offers an action that opens the sub-agent.
+
+Therefore the human can open the controlled thread from the transcript activity.
+
+#### Transcript rendering
+
+The application server emits paired start and end events for every sub-agent action.
+
+The transcript stores two sub-agent item types.
+
+The first item type is a sub-agent tool call.
+
+That item carries the tool, the status, the sender thread, and the receiver threads.
+
+That item also carries the prompt, the model, the reasoning effort, and a state for each agent.
+
+The second item type is sub-agent activity with a started, interacted, or interrupted kind.
+
+The transcript renders the tool call as a multi-agent action item with one row for each agent.
+
+Each row shows the agent state as waiting, working, done, or failed.
+
+The transcript hides a wait tool call.
+
+The transcript hides both item types when background sub-agents are disabled.
+
+#### Instructions and permissions
+
+The spawn tool description carries the full delegation guidance.
+
+That guidance forbids a spawn unless the user, a project file, or a skill asks for it.
+
+That guidance requires a plan before any delegation.
+
+That guidance requires concrete, bounded, and self-contained subtasks.
+
+That guidance requires a disjoint write scope for each code subtask.
+
+That guidance limits wait calls to a blocked critical path.
+
+That guidance states that the child inherits the parent model.
+
+A separate role instruction describes the agent team and the return channel.
+
+Both role instructions warn that a human can read the messages.
+
+The configuration can add a usage hint for the root agent and for a sub-agent.
+
+The side chat instruction forbids all sub-agent interaction inside a side chat.
+
+The sub-agent tools follow the same approval and sandbox policy as the parent.
+
+#### Failure and unavailable states
+
+| State | Verified result |
+| --- | --- |
+| Spawn without permission | The guidance forbids the call. |
+| Agent depth limit reached | The agent is told to solve the task itself. |
+| Unavailable agent type | The tool reports that the agent type is not available. |
+| Unresolved child model | The spawn cannot validate the reasoning effort. |
+| Missing canonical task name | The spawn reports the missing name. |
+| First generation fork flag in the second generation | The tool names the replacement field. |
+| Invalid turn count value | The tool requires none, all, or a positive number. |
+| Unavailable collaboration manager | The tool reports that the manager is unavailable. |
+| Wait timeout | The wait returns a timeout summary with no final status. |
+| Wait interrupted by user input | The wait returns an interruption summary. |
+| Target not found | The agent state reports not found. |
+| Agent error | The agent state reports an error with a message. |
+| Tool call failure | The transcript item records the failed status. |
+| Background sub-agents disabled | The transcript hides every sub-agent item. |
+| Code mode call | The second generation tools are absent from that namespace. |
+| Failed panel restore | The renderer reopens the panel without a selection. |
+| Unavailable descendant | The panel reports that the sub-agent is unavailable. |
 
 ### Panel placement and Tab movement
 
