@@ -35,9 +35,17 @@ const REASONS: Record<string, AgentControlReason> = {
   absent: "absent",
 };
 
-/** The named reason, or `unavailable` when a window answered with something else. */
+/**
+ * The named reason, or `unavailable` when a window answered with something
+ * else.
+ *
+ * The check reads an own key only. A window is a browser, so `constructor`
+ * and every other inherited key arrives as an ordinary string here.
+ */
 export function readAgentControlReason(value: unknown): AgentControlReason {
-  return typeof value === "string" && value in REASONS ? REASONS[value] : "unavailable";
+  return typeof value === "string" && Object.hasOwn(REASONS, value)
+    ? REASONS[value]
+    : "unavailable";
 }
 
 /** A control result: a value, or one named reason. Never a thrown error. */

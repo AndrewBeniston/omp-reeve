@@ -47,8 +47,25 @@ interface TerminalReadDetails {
   reason?: AgentControlReason;
 }
 
+/**
+ * The reply value, or null when the window sent a shape this control cannot
+ * read.
+ *
+ * The value crosses the browser boundary, so nothing here trusts it. A bad
+ * shape becomes a named reason, because a thrown error would invite the model
+ * to retry a call that cannot succeed.
+ */
+function readTerminalValue(value: unknown): TerminalReadValue | null {
+  if (typeof value !== "object" || value === null) return null;
+  const record = value as Record<string, unknown>;
+  const cwd = record.cwd;
+  const shell = record.shell;
+  if (typeof cwd !== "string" || typeof shell !== "string") return null;
+  return { attached: true, cwd, shell };
+}
+
 /** Turn the reply into the text the model reads, and the details the UI keeps. */
-function renderTerminalRead(reply: AgentControlReply<TerminalReadValue>): {
+function renderTerminalRead(reply: AgentControlReply): {
   text: string;
   details: TerminalReadDetails;
 } {
@@ -58,8 +75,15 @@ function renderTerminalRead(reply: AgentControlReply<TerminalReadValue>): {
       details: { attached: false, reason: reply.reason },
     };
   }
+  const value = readTerminalValue(reply.value);
+  if (!value) {
+    return {
+      text: "attached=false reason=unavailable",
+      details: { attached: false, reason: "unavailable" },
+    };
+  }
   return {
-    text: `attached=true cwd=${reply.value.cwd} shell=${reply.value.shell}`,
+    text: `attached=true cwd=${value.cwd} shell=${value.shell}`,
     details: { attached: true },
   };
 }
@@ -77,7 +101,7 @@ export function createTerminalReadControl(
     // A read of the window. It changes nothing, so no approval interrupts it.
     approval: "read",
     async execute(_toolCallId, params) {
-      const reply = await channel.call<TerminalReadValue>(TERMINAL_READ_CONTROL, {
+      const reply = await channel.call(TERMINAL_READ_CONTROL, {
         session: params.session,
       });
       const rendered = renderTerminalRead(reply);
