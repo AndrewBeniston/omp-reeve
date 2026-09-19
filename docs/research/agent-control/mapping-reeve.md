@@ -371,3 +371,81 @@ I mark those two as delivered, and that mark is an inference.
 79. Developer instruction text teaches the application tools. Reeve needs instruction text for each control that it adopts.
 80. Human captures a window with a hotkey. Ticket 205 records the decision, and no ticket builds the capture.
 
+
+## 3. Ticket actions
+
+### Capabilities that need a new ticket
+
+I propose twenty new tickets.
+
+Each entry names the capability numbers from section 2.
+
+1. Session scoped application control service. Register one service for each Session, and bind every control to it. Covers 60 and 61. Epic 158. Ticket 438 is the pattern.
+2. Agent panel open for any Reeve Tab kind. Accept a placement value, and return the Tab identity and the open status. Covers 4, 5, 7, and 21. Epic 139.
+3. Queued agent panel commands for a hidden Session. Hold the command until the Session becomes visible in the same window. Covers 22 and 23. Epic 148.
+4. Agent Terminal snapshot read. Return the working directory, the shell, the recent output, and the truncation state. Covers 3. Epic 158.
+5. Render agent application control activity and open the controlled Tab. Cover the Terminal Tab, the file Tab, and the Review Tab. Covers 6 and 9. Epic 224. Ticket 443 is the pattern.
+6. Agent Review open with a scope. Accept the four view values, a base revision, and a file path. Covers 11, 12, 13, and 14. Epic 80.
+7. Inline review comments follow the Session. Keep the comments through a worktree move and a host move. Covers 15. Epic 80.
+8. Session scoped sub-agent registry for Reeve. Record each sub-agent against the owning Session, and bind the panel to that record. Covers 16 and 20. Epic 139.
+9. Agent sub-agent input and follow-up delivery. Support delivery with a new turn and without a new turn. Covers 17. Epic 139.
+10. Agent sub-agent wait, interrupt, resume, and close. Return a timeout result and an interruption result. Covers 18 and 19. Epic 139.
+11. Agent settings read and write. Name the scope, the key, and the accepted values, and refuse a managed key. Covers 24, 25, 27, 28, 29, 30, and 31. New epic needed.
+12. Human confirmation for an agent settings write. Refuse a second pending request, and refuse after the turn ends. Covers 26. New epic needed.
+13. Sandbox policy control for an agent file write. Apply the three policy values to every agent write. Covers 10. New epic needed.
+14. Question skip path. Return an empty answer to the agent when the human skips. Covers 32. Epic 261.
+15. Connected server input request. Present a server prompt, and decline it when the Session ends. Covers 37. Epic 261.
+16. Agent Session creation and listing. Create a Session, list Sessions, list archived Sessions, and list projects. Covers 38, 39, 40, and 49. New epic needed.
+17. Agent Session reading, waiting, and messaging. Read turns, wait over several Sessions, and send a follow-up prompt. Covers 41, 42, and 43. New epic needed.
+18. Agent Session archive, rename, and pin. Run each change in the background. Covers 46, 47, and 48. New epic needed.
+19. Agent Session move and window navigation. Move a Session between a checkout and a worktree, report the status, and navigate the window. Covers 44, 45, and 50. New epic needed.
+20. Visualization root, detection, and isolated view. Grant the per turn root, detect the write, render the view, and offer the repair action. Covers 54, 55, 56, 57, 58, and 59. New epic needed.
+
+Three further capabilities need a ticket only after a maintainer decision.
+
+They are the attachment tools, the running summary, and the instruction text.
+
+I list them in the decision list below.
+
+### Capabilities whose existing ticket needs a rewrite
+
+1. Ticket 144. The reference registers the sub-agent panel as a right side panel Tab. The ticket opens the Tab in the bottom placement. This conflict is an inference from the side chat report.
+2. Ticket 185. The reference transfers a Terminal session with the task inside one window. The ticket must state the transfer conditions and the source Tab selection rule.
+3. Ticket 76. The reference also stores comments that the model writes. The ticket must add the model path, the last message rule, and the local Session limit.
+4. Ticket 78. The reference renders a pull request link as a preview card with a status. The ticket must add the link form, the card, and the failure states.
+5. Ticket 154. Share is an agent capability in the reference. The ticket must add the agent path and the approval states after decision 433.
+6. Ticket 248. The classifier table must add the application control tools. Without that row set, agent panel calls render as generic cards.
+7. Ticket 315. The ticket covers the appearance of the Question window only. It must state that no ticket owns the question path itself.
+8. Ticket 205. The decision table must add capture, sidebar sections, automations, usage credits, and the task emoji.
+
+### Capabilities that need a maintainer decision from Andrew
+
+1. Capture of the foreground application and the capture hotkey. Reeve has no voice session and no capture surface. Covers 51, 53, and 80.
+2. Reading the current application page state. This gives the agent a view of the interface without an image. Covers 52.
+3. Onboarding questions, option pickers, and the native setup flow. Reeve has no onboarding flow. Covers 33, 34, 35, and 76.
+4. Cloud environment configuration and finalization. Reeve has no cloud environment. Covers 36 and 67.
+5. Scheduled automations by the agent. Reeve has no scheduler. Covers 66.
+6. Host listing and remote hosts. Reeve has one local host today. Covers 68.
+7. Project creation by the agent. Reeve creates a project from the interface today. Covers 69.
+8. Usage limits and reset credits. Reeve has no account credit source. Covers 70.
+9. Bundled runtime paths. Reeve ships no bundled runtime set. Covers 71.
+10. The Session emoji. Reeve has no Session emoji. Covers 72.
+11. Sidebar sections, section membership, and ordering. Reeve has no custom sidebar section. Covers 73, 74, and 75.
+12. Plugin removal by the agent. Reeve manages plugins from the interface today. Covers 77.
+13. The celebration effect. The effect has no functional value. Covers 78.
+14. Pull request attachments on a Session. Reeve holds pull request data, and the attachment record is new. Covers 62, 63, and 64.
+15. The short running summary on the activity row. This changes the live activity header of epic 224. Covers 65.
+16. Instruction text for each adopted control. The text costs context in every Session. Covers 79.
+
+## Counts
+
+The report lists 80 capabilities that no ticket owns.
+
+Two of those need no ticket, because Reeve delivers them today.
+
+The report proposes 20 new tickets.
+
+The report proposes 8 ticket rewrites.
+
+The report raises 16 maintainer decisions.
+
