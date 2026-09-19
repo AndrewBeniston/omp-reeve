@@ -88,11 +88,21 @@ The request can supply a terminal session identifier.
 
 An omitted identifier creates a terminal session for the visible task.
 
-The result returns the task identifier, placement, status, and Terminal Tab identifier.
+The tool result to the agent returns the queued status and the task identifier only.
 
-The Terminal Tab identifier has the value `terminal:<sessionId>`.
+The tool result to the agent returns no placement and no Terminal Tab identifier.
 
-The status is `opened` or `existing`.
+The window computes the placement and the Terminal Tab identifier when the queued command runs.
+
+The Terminal Tab identifier inside the window derives from the terminal session identifier.
+
+The status inside that window record is `opened` or `existing`.
+
+An earlier reading of this report stated that the tool result returns the placement and the Tab identifier.
+
+That reading was wrong, and I inspected the panel tool handler to settle it.
+
+The Panel placement subsection records the same correction.
 
 `read_thread_terminal` reads the current task Terminal snapshot.
 
@@ -130,7 +140,7 @@ Without a placement, it uses the task's configured Terminal location.
 
 An existing Terminal Tab keeps its current placement.
 
-The `open_in_codex` call directly reveals and focuses the Terminal Tab.
+The queued command reveals and focuses the Terminal Tab inside the window.
 
 The transcript activity has no later action for reopening that Terminal Tab.
 
@@ -184,7 +194,7 @@ The app server can also request approval before process input.
 | No visible task | The Tab command rejects the request. |
 | Wrong visible task | The Tab command rejects the target task. |
 | Non-local task | The Terminal target reports that the Tab is unavailable. |
-| Terminal registration failure | `open_in_codex` reports that the Tab could not open. |
+| Terminal registration failure | The window logs a warning, and the agent receives no error. |
 | Hidden target task | The command queues until that task becomes visible in the same window. |
 | Missing app Terminal | `read_thread_terminal` reports that no Terminal is attached. |
 | Snapshot failure | `read_thread_terminal` reports a read failure. |
