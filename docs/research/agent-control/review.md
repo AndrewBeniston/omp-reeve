@@ -78,7 +78,11 @@ The Review panel is one Tab with the fixed identifier `diff`.
 
 The panel title is Review.
 
-The tool result returns the task identifier, the type `review`, the placement, the status, and the Tab identifier.
+The tool result to the agent returns the queued status and the task identifier only.
+
+The window computes the type `review`, the placement, the status, and the Tab identifier.
+
+The window does not return that record to the agent.
 
 The status is `opened` for a new Tab and `existing` for a present Tab.
 

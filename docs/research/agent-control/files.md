@@ -87,15 +87,19 @@ The order is artifact viewer, extension file viewer, text file editor, an alread
 
 The command skips the text file editor when the caller supplies an end line.
 
-The result returns the thread identifier, the target type, the placement, the status, and the viewer name.
+The tool result to the agent returns the queued status and the thread identifier only.
+
+The window computes the target type, the placement, the status, and the viewer name.
+
+The window does not return that record to the agent.
 
 The status is `opened` or `existing`.
 
 The viewer name is `artifact`, `mcpExtensionFileViewer`, `textFileEditor`, or `reviewFileSource`.
 
-The file result returns no Tab identifier.
+The window record for a file target holds no Tab identifier.
 
-The terminal, browser, and review results each return a Tab identifier.
+The window record for a terminal, a browser, or a review target holds a Tab identifier.
 
 Each file viewer builds its own Tab identifier from the host and the path.
 
