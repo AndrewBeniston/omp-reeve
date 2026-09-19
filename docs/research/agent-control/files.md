@@ -131,9 +131,19 @@ The renderer reports the open file Tab list for each conversation to the main pr
 
 The main process watches those files and reports a change to the conversation.
 
-The bundles show no transfer of a file Tab between tasks.
+The renderer can copy a complete panel Tab set from one task to another task.
 
-Therefore, a file Tab does not transfer with a task. This statement is an inference.
+The copy keeps each file Tab, its path, its panel, and its active state.
+
+The copy builds a new Tab identifier from the target host and the copied path.
+
+A worktree copy also rebases each path from the source workspace root to the target workspace root.
+
+A path outside the source workspace root keeps its original value.
+
+A copied terminal Tab receives a new terminal session identifier.
+
+Therefore, a file Tab transfers by path, and a terminal Tab transfers by session.
 
 The file Tab contains its own workspace file navigation.
 
@@ -155,7 +165,47 @@ The change kind can rename a file through a move path.
 
 ### Placement and human access
 
-Evidence pending.
+`open_in_codex` accepts the placement `right` or `bottom`.
+
+A file target uses `right` when the caller supplies no placement.
+
+An already open file Tab keeps its current placement.
+
+The result reports that current placement.
+
+The command searches the requested placement first for an open file Tab.
+
+The command then searches the other placements.
+
+The command pins and activates the Tab that it finds.
+
+The command also focuses the panel that holds the Tab.
+
+A new file Tab opens revealed and focused.
+
+A copied file Tab opens without reveal and without focus.
+
+The transcript records the edited file path for each completed file change.
+
+Codex can open a preview Tab for an edited file without a human action.
+
+That automatic open applies only to a slide file, a document file, a spreadsheet file, or a portable document file.
+
+That automatic open needs an enabled experiment setting.
+
+That automatic open needs an idle task and a current turn.
+
+That automatic open rejects a file larger than 41,943,040 bytes.
+
+Codex marks that open with the source value `auto_open`.
+
+Codex marks a human open with the source value `manual`.
+
+Assistant text can contain a file citation with a path and a line range.
+
+The renderer parses that citation and records the path as a referenced path or an output path.
+
+I did not verify that a click on that citation opens a file Tab.
 
 ### Transcript rendering
 
