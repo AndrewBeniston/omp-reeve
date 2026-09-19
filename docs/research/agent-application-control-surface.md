@@ -1755,7 +1755,143 @@ Archive, title, pin, fork, and handoff need no separate approval.
 
 ### Visualizations
 
-Evidence pending.
+The agent has no visualization tool.
+
+The agent creates a visualization by writing a page file into a reserved directory.
+
+The agent then names that file in a reference inside its assistant text.
+
+The application detects the write and renders the visualization inside the transcript.
+
+#### Registration and discovery
+
+| Exact name | Registration point | How the agent learns about it |
+| --- | --- | --- |
+| Visualization host service | The main process registers this window host service. | The agent does not receive this service directly. |
+| Visualization activity detection | The transcript adapter inspects each file change. | The agent learns nothing about the detection. |
+| Visualization reference | The transcript parser reads the reference from the assistant text. | A bundled skill teaches the reference. |
+| Bundled visualization skill | Codex installs the skill into its runtime marketplace. | The skill list reaches the model through the agent server. |
+
+The application asks the agent server to reload the skill list after a marketplace change.
+
+The skill description tells the model to show how something works.
+
+The skill description tells the model to compare options or explore a change.
+
+The skill description tells the model to use standard tools for a static scientific figure.
+
+#### Actions and identity
+
+The application reserves a visualization directory inside the Codex home directory.
+
+The path adds the year, the month, the day, and the task identifier.
+
+The application grants that directory as a writable root for the turn.
+
+It grants the root only when the sandbox policy allows a workspace write.
+
+The reference carries the absolute file path and an optional title.
+
+The reference can also request a wide presentation mode.
+
+The parser hides an incomplete streaming reference until its closing marker arrives.
+
+The file path is the identity, and the path contains the owning task identifier.
+
+Therefore the identity survives a reload because the file stays on disk.
+
+The identity does not transfer to another task.
+
+The transcript records changed visualization paths by file name.
+
+That map lets copied or forked transcript content resolve its source file.
+
+#### Placement and human access
+
+The visualization renders inline inside the assistant message.
+
+The normal mode targets 736 pixels, and the wide mode can reach 1,024 pixels.
+
+The host starts at 240 pixels and then measures the fragment.
+
+The host caches the measured height against the file content and the width.
+
+The action surface supports expansion, an image copy, and a publication path.
+
+Wide content can also open in a full screen preview.
+
+The human can therefore open the visualization from the transcript activity.
+
+The skill exposes a guarded design control helper for a mockup.
+
+The helper registers sliders, colour pickers, toggles, and selects with the host.
+
+The host opens an annotation editor over the visualization.
+
+A submission sends the selected edits and optional text as a follow-up turn.
+
+#### Transcript rendering
+
+The file write renders as a patch activity.
+
+The patch activity carries a list of visualization entries.
+
+Each entry holds the file path and the change kind.
+
+A create result outranks an update result for the same file in one change set.
+
+The renderer reads the referenced file through the visualization host service.
+
+The renderer then starts an isolated sandbox and supplies the fragment to its runtime.
+
+The sandbox keeps context isolation, sandboxing, and web security enabled.
+
+The sandbox denies permissions, blocks downloads, and rejects an unapproved network request.
+
+The content policy permits inline script and style plus seven approved delivery origins.
+
+An external link needs a user gesture and can show a confirmation dialog.
+
+The sandbox measures its content and reports the height to the transcript.
+
+The sandbox can also report a script failure and offer an agent repair action.
+
+#### Instructions and permissions
+
+The bundled skill is the only instruction that teaches visualization use.
+
+The skill asks the model to stay below 1 MB for one fragment.
+
+The renderer rejects a fragment above 5 MB.
+
+The visualization needs no separate user approval.
+
+The write still follows the task sandbox policy.
+
+The skill documents a widget state interface for saved state.
+
+The inspected inline host does not persist a widget state update.
+
+Therefore saved state restoration remains unverified.
+
+#### Failure and unavailable states
+
+| State | Verified result |
+| --- | --- |
+| Visualization service missing | The sharing path returns no visualization. |
+| Missing or unreadable file | The read error produces an inline error. |
+| File above the size limit | The application reports the limit and drops the file. |
+| Script error in the fragment | The sandbox reports the error and offers a repair action. |
+| Sandbox timeout | Codex retries preparation once and then reports a timeout. |
+| Sandbox initialization failure | Codex records the failure and shows the error surface. |
+| Blocked network request | The isolated session cancels the request. |
+| Blocked external link | Codex requires a gesture and can show a confirmation dialog. |
+| Sandbox policy without a workspace write | The application grants no temporary visualization root. |
+| Stale path | The parser can recover a source path from the file name map. |
+
+The Visualizations worker did not verify every stale path and blocked origin state.
+
+The Visualizations worker did not verify the complete theme token contract.
 
 ### Capture and screenshots
 
