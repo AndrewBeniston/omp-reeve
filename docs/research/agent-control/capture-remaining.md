@@ -175,6 +175,48 @@ That instruction names the deferred voice tools and orders the model to respect 
 
 A voice end instruction orders the model to stop loading the tool after the call ends.
 
+### Human-initiated capture
+
+The human can start a capture without the agent.
+
+The main process registers a global capture hotkey.
+
+The hotkey service reads the configured hotkey from stored application state.
+
+The service reports a supported flag, the configured hotkey, and an active flag.
+
+A key press sends a capture message to the primary window.
+
+The service chooses one of two messages.
+
+One message adds the capture to the current task.
+
+The other message starts a new chat with the capture.
+
+A destination setting controls that choice.
+
+The setting accepts an automatic value.
+
+The window must also report that it can accept the capture shortcut.
+
+The service skips the capture when no primary window exists.
+
+The service also skips the capture when the primary window is destroyed.
+
+The capture becomes an Appshot context on the composer.
+
+The composer sends the Appshot context to the model as structured text.
+
+That text names the application, the bundle identifier, and the window title.
+
+That text also names the image and contains the accessibility tree.
+
+The composer sends the screenshot as a separate image attachment.
+
+Therefore the agent reads a human capture as ordinary input.
+
+The agent receives no capture tool result for a human capture.
+
 ### Transcript rendering and human access
 
 The call enters the transcript as a dynamic tool call item.
