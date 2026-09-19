@@ -379,7 +379,174 @@ An accepted grant root extends the writable roots. This statement is an inferenc
 
 ### Review
 
-Evidence pending.
+Codex Desktop exposes one Review panel to the agent.
+
+The agent opens that panel through the same panel tool that opens other Tabs.
+
+The agent creates review comments through a message directive, not through a tool.
+
+#### Registration and discovery
+
+| Exact name | Registration point | How the agent learns about it |
+| --- | --- | --- |
+| `open_in_codex` | The Desktop tool builder adds it to `codex_app`. | Its schema lists review as a supported panel target. |
+| `windows.tabs.open` | `open_in_codex` queues this application command. | The agent learns only the enclosing tool. |
+| Inline comment directive | The message parser reads the directive from the assistant message. | A developer instruction section teaches the directive. |
+| Pull request diff link | The renderer converts the link into a review open action. | A developer instruction section teaches the link format. |
+
+The schema declares two review target shapes.
+
+The first shape names a view value.
+
+The second shape names a base revision for a branch comparison.
+
+The developer instruction text always includes both review sections.
+
+#### Actions and identity
+
+`open_in_codex` opens or reveals the Review panel in the calling task.
+
+The Review panel is one Tab with a fixed identifier for the task.
+
+The tool accepts four review view values.
+
+| View value | Verified effect |
+| --- | --- |
+| `last-turn` | The panel shows the changes of the most recent turn. |
+| `branch` | The panel compares the branch against its base revision. |
+| `staged` | The panel shows the staged changes. |
+| `unstaged` | The panel shows the unstaged changes. |
+
+A base revision value selects the branch view and is stored for the repository root.
+
+The base revision must resolve locally to a commit.
+
+An optional path value selects one file inside the Review panel.
+
+The panel keeps a separate last explicit view value in durable storage.
+
+That stored value defaults to the branch view.
+
+The agent can also pass a review deep link as a browser target.
+
+A pull request link must carry a pull request address, a file path, and a positive line number.
+
+A pull request link opens the pull request code Tab instead of the local Review Tab.
+
+A task review link opens the local Review Tab with the view and path from the link.
+
+A task review link must name the calling task.
+
+The Review Tab stores a durable route record with a payload version.
+
+The record holds the task, the working directory, the host, the view, and the base revision.
+
+After a reload, the panel restores only when the task, working directory, and host still match.
+
+The inline comments are stored against the task identifier.
+
+A task handoff moves the stored comments with the task.
+
+A task that receives a final identifier keeps its comments and drops duplicates.
+
+#### Placement and human access
+
+`open_in_codex` accepts `right` or `bottom` placement for the Review panel.
+
+The Review panel uses the right placement when the call omits a placement.
+
+An existing Review Tab keeps its current placement.
+
+The queued command reveals and focuses the Review Tab inside the window.
+
+The Review Tab is always available in the panel registry.
+
+A pull request diff link in the transcript is an active link.
+
+The link shows a preview card with the repository, the destination, and the changed file count.
+
+A click on the link opens the pull request code Tab at the named file and line.
+
+An inline comment from the model appears in the Review panel.
+
+A selection of that comment opens the related file and scrolls to the comment.
+
+The human can also open the Review panel without any agent action.
+
+#### Transcript rendering
+
+The Review panel tool call renders as generic `codex_app` tool activity.
+
+The tool result stays text content inside the tool activity.
+
+No review presentation metadata accompanies the result.
+
+The inline comment directive does not render as visible text.
+
+The message renderer removes every directive line from the displayed message.
+
+The comment appears in the Review panel instead.
+
+Each stored comment holds the text, the file path, the line, and the side.
+
+The side value is always the changed side for a model comment.
+
+The application reads the comments only from the last agent message.
+
+The application collects comments only for a local task.
+
+A user message that returns review comments renders a comment count and the comment list.
+
+#### Instructions and permissions
+
+The panel tool description teaches the agent to show a result after it creates an artifact.
+
+The description states that the tool opens application interface only.
+
+The review view field lists the four permitted view values.
+
+The base revision field states that the revision must resolve locally to a commit.
+
+One developer instruction section teaches the pull request diff link format.
+
+That section requires an encoded address, an encoded repository relative path, and a verified line.
+
+That section reserves ordinary file links for workspace code.
+
+A second developer instruction section teaches the inline comment directive.
+
+That section requires a title, a body, and a file for each comment.
+
+That section permits optional start and end line numbers and a priority from 0 to 3.
+
+That section requires no directive when no actionable comment exists.
+
+The application adds both instruction sections to every desktop task.
+
+Neither the panel tool nor the comment directive needs a user approval.
+
+A restricted external resource policy changes the pull request link behaviour.
+
+The link then shows plain text and the click follows the external link confirmation path.
+
+#### Failure and unavailable states
+
+| State | Verified result |
+| --- | --- |
+| Missing Desktop action host | The panel tool reports that app actions are unavailable. |
+| Archived preview | The Tab command reports that panels are unavailable. |
+| No visible task | The Tab command rejects the request. |
+| Wrong visible task | The Tab command names the visible task and rejects the target. |
+| Hidden target task | The command queues until that task becomes visible in the same window. |
+| Review Tab registration failure | The command reports that the Review Tab could not open. |
+| Incomplete pull request link | The command asks for an address, a path, and a positive line. |
+| Review link for another task | The command directs the agent to set the task identifier. |
+| Other Codex deep link | The command reports that panel opens do not support the link. |
+| Missing account or snapshot | The pull request open reports the unavailable resource. |
+| Restored task mismatch | The Review Tab does not return after the reload. |
+| Non-local task | The application collects no inline comment from the agent message. |
+| Invalid comment attributes | The parser drops that comment. |
+| Duplicate comment | The store keeps the first comment only. |
 
 ### Side chat
 
