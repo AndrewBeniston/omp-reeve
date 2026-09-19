@@ -517,6 +517,10 @@ The transcript adapter converts that item into a generic dynamic tool activity.
 
 The activity carries the namespace, the tool name, the arguments, and a completion flag.
 
+The transcript index also stores each creation call in a separate category.
+
+That category is separate from the agent activity category.
+
 Two tools receive extra transcript data.
 
 `create_thread` and `handoff_thread` also carry their content items and their success flag.
@@ -534,6 +538,8 @@ That directive carries the thread identifier or the client thread identifier.
 The markdown renderer produces no inline content for that directive.
 
 I infer that a separate handler turns the directive into an openable task item.
+
+The separate creation category supports that inference.
 
 The transcript also defines archive thread and unarchive thread directives.
 
@@ -608,7 +614,7 @@ Archive, title, pin, fork, and handoff need no separate approval.
 
 ## Open questions
 
-I did not verify the live rendering of the created thread directive.
+I did not verify the live appearance of the created thread element.
 
 I did not verify the visible handoff progress item in the running application.
 
