@@ -198,3 +198,85 @@ The same snapshot serves a same directory transfer and a pending worktree transf
 
 A cancelled worktree transfer discards the pending snapshot.
 
+
+## Tab movement and ordering
+
+The agent cannot move a Tab between the two hosts.
+
+The agent cannot reorder, pin, close, or hide a Tab.
+
+The open_in_codex schema exposes no field for those actions.
+
+A human moves a Tab by a drag between the Tab strips.
+
+A human can also move a Tab through a Tab action.
+
+A move checks four conditions before it starts.
+
+| Condition | Result when the condition fails |
+| --- | --- |
+| The target host differs from the source host. | The move stops. |
+| The target host does not already hold the Tab. | The move stops. |
+| The Tab type permits the target host. | The move stops. |
+| The Tab is not in a transfer. | The move stops. |
+
+A move to the bottom host activates the Tab when the bottom host already holds it.
+
+A move of the last right host Tab to the bottom host closes the right panel.
+
+That move also records the previous focus area for a later restore.
+
+A move to the right host closes the bottom panel when the bottom host becomes empty.
+
+A terminal Tab move rebinds the Tab to the new host.
+
+The terminal Tab keeps its terminal session identifier through that move.
+
+The new host receives a new action for a further terminal Tab.
+
+A single Tab host closes its current Tab before it accepts a moved Tab.
+
+A move can also send a Tab to another task.
+
+That task move uses an admission step, a start step, and a source detach step.
+
+The task move cancels when any step fails.
+
+An open can request an insert position after a named Tab.
+
+The agent schema does not expose that insert position.
+
+A human reorder moves one Tab identifier to another index in the same host list.
+
+A reorder stops for a Tab that is in a transfer.
+
+A drag computes an insertion before or after the Tab under the pointer.
+
+A cancelled drag restores the original index and the original active Tab.
+
+## Maximise
+
+The right host supports a maximise state.
+
+The state name in the layout record is the right panel full width flag.
+
+The bottom host has no maximise state.
+
+A human toggles maximise with a command in the panels command group.
+
+That command has an application shortcut scope and no default keyboard shortcut.
+
+The command registry marks that command as not available in the command menu.
+
+The maximise state persists in the task layout record.
+
+The maximise state clears when the right host holds no Tab.
+
+An entry into maximise can hide the sidebar when the active Tab type permits it.
+
+An entry into maximise calls a Tab type hook for full width content.
+
+Each Tab type declares its own pane transition for entry and exit.
+
+The agent has no maximise tool and no maximise field.
+
