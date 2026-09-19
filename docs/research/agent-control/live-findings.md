@@ -22,6 +22,7 @@ Two sources. A Codex Desktop task ran twelve tool checks and pasted its raw resu
 | 12 | A file written under the task visualization directory produces a transcript row "Created visualization". | Maintainer | 469, 470 |
 | 13 | A Markdown image reference to that file renders as a broken image tile, about 135 pixels square. | Maintainer | 470 |
 | 14 | The visualize reference line, in the exact form the bundled skill specifies, rendered as raw text on a routed third-party model. The maintainer reports that the same reference renders as a block on the built-in model. The parser therefore depends on the model route, or the routed reply reaches the transcript through a path that skips the parser. The built-in model could not be tested today because the usage window was exhausted. | Maintainer | 446, 470 |
+| 15 | The human can open the visualization file by its path in a right panel browser Tab. The Tab shows the address, back, forward, reload, and download controls. The fragment renders with the browser default serif font and no theme, because a fragment carries no stylesheet. The transcript block adds the theme and the base style, and that path was not observed. | Maintainer | 469, 474 |
 
 ## Still open
 
