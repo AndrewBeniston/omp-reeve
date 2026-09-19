@@ -227,3 +227,142 @@ RPC mode accepts that widget as text lines only.
 | Present a rich multiple question dialogue | Interactive mode only. RPC mode implements no rich dialogue | partial | src/modes/rpc/rpc-mode.ts | source-verified |
 | Answer a request from any window that shows the thread | none. One RPC host answers one request | none | - | source-verified |
 | Serve a server elicitation request | The agent protocol mode serves an elicitation form. RPC mode does not | partial | src/modes/acp/acp-agent.ts | source-verified |
+
+## Goal state
+
+| Codex Desktop capability | OMP equivalent or none | Verdict | OMP source anchor | Evidence |
+| --- | --- | --- | --- | --- |
+| Create a goal with an objective | The goal tool creates a goal with an objective | equivalent | src/goals/tools/goal-tool.ts | source-verified |
+| Set a token budget on the goal | The goal tool accepts a positive whole token budget | equivalent | src/goals/tools/goal-tool.ts | source-verified |
+| Refuse a second unfinished goal | OMP holds one goal record for the session | equivalent | src/goals/state.ts | source-verified |
+| Read the status, the budget, and the token use | The goal tool returns the status, the used tokens, and the remaining tokens | equivalent | src/goals/tools/goal-tool.ts | source-verified |
+| Report the elapsed time of the goal | The goal record stores the used time in seconds | equivalent | src/goals/state.ts | source-verified |
+| Set the complete status | The goal tool completes the goal and returns a budget report | equivalent | src/goals/tools/goal-tool.ts | source-verified |
+| Set the paused status | OMP has a paused status, and the tool resumes a goal | partial | src/goals/state.ts | source-verified |
+| Set the blocked status | none. OMP has no blocked status | none | - | source-verified |
+| Budget limited status set by the system | OMP has a budget limited status | equivalent | src/goals/state.ts | source-verified |
+| Usage limited status set by the system | none | none | - | source-verified |
+| Clear or drop the goal | The goal tool drops the goal | equivalent | src/goals/tools/goal-tool.ts | source-verified |
+| Show the objective as a completed turn | A terminal status block and a goal update event only | partial | src/goals/runtime.ts | source-verified |
+| Ask the agent to continue the goal | The runtime emits a goal continuation request with a prompt | equivalent | src/goals/state.ts | source-verified |
+| Attach pasted text or an image to the objective | none | none | - | source-verified |
+| Move a long objective into a file | none | none | - | source-verified |
+| Gate the whole feature behind a setting | A goal setting and the goal mode state control the tool | equivalent | src/tools/index.ts | source-verified |
+
+## Session lifecycle
+
+| Codex Desktop capability | OMP equivalent or none | Verdict | OMP source anchor | Evidence |
+| --- | --- | --- | --- | --- |
+| Agent tool that creates another task | none. The host creates a session | partial | src/session/session-manager.ts | source-verified |
+| Agent tool that forks a task | none. The host forks a session from a chosen entry | partial | src/session/session-manager.ts | source-verified |
+| Agent tool that lists tasks | none. The host lists sessions across project directories | partial | src/session/session-manager.ts | source-verified |
+| Agent tool that reads another task | An internal transcript address reads another agent transcript | partial | src/internal-urls/history-protocol.ts | source-verified |
+| Agent tool that waits for other tasks | The hub tool waits for sub-agent jobs and peer messages | partial | src/tools/hub/jobs.ts | source-verified |
+| Agent tool that sends a follow-up to another task | The hub tool sends a message to a peer agent | partial | src/tools/hub/messaging.ts | source-verified |
+| Agent tool that renames a task | none. The host sets the session name | partial | src/session/session-manager.ts | source-verified |
+| Automatic title generation | OMP generates a session title | equivalent | src/session/session-title-slot.ts | source-verified |
+| Archive and restore a task | none. OMP has no archive state | none | - | source-verified |
+| Pin a task in a list | OMP stores pinned session identifiers and sorts them first | partial | src/session/session-pins.ts | source-verified |
+| Move a task between a checkout and a worktree | none. OMP creates a session worktree at the start | partial | src/session/session-worktree.ts | source-verified |
+| Report the progress of a move operation | none | none | - | source-verified |
+| Create a share link for a task | The host creates an encrypted share link for a session | partial | src/export/share.ts | source-verified |
+| Navigate a window to a task | none | none | - | source-verified |
+| Create a managed worktree and attach it | The host creates a session worktree, and the task tool isolates a spawn | partial | src/session/session-worktree.ts | source-verified |
+| Sidebar sections, order, and task emoji | none | none | - | source-verified |
+
+## Visualizations
+
+| Codex Desktop capability | OMP equivalent or none | Verdict | OMP source anchor | Evidence |
+| --- | --- | --- | --- | --- |
+| Skill that teaches the model to build a visualization | OMP loads a skill file and sends its whole body to the model | equivalent | src/extensibility/skills.ts | source-verified |
+| Detect a written fragment and render it | none. OMP has no visualization content type | none | - | source-verified |
+| Grant a temporary writable root for the turn | none | none | - | source-verified |
+| Host a fragment in an isolated browsing context | none. OMP defines no frame and no content policy | none | - | source-verified |
+| Measure the fragment and set its height | none | none | - | source-verified |
+| Store and restore a widget state | none | none | - | source-verified |
+| Send a follow-up turn from the fragment | none | none | - | source-verified |
+| Rich block inside the transcript | A widget accepts text lines in RPC mode, and a terminal component in interactive mode | partial | src/modes/rpc/rpc-mode.ts | source-verified |
+| Export the result as a standalone document | OMP exports a whole session as an HTML document | partial | src/export/html | source-verified |
+
+The earlier note is correct. I verified each part of it in this session.
+
+OMP has no visualization concept.
+
+OMP widget content accepts text lines or a terminal component factory only.
+
+RPC mode ignores a terminal component factory.
+
+## Capture
+
+| Codex Desktop capability | OMP equivalent or none | Verdict | OMP source anchor | Evidence |
+| --- | --- | --- | --- | --- |
+| Capture the foreground window as an image | The computer tool captures screenshots of the host desktop | equivalent | src/tools/computer.ts | source-verified |
+| Read the accessibility text of that window | The computer tool reads accessibility information | equivalent | src/tools/computer.ts | source-verified |
+| Inspect without changing anything | A read-only mode blocks every input and every mutation | equivalent | src/tools/computer.ts | source-verified |
+| Report the application page and panel state | none. OMP has no application state to report | none | - | source-verified |
+| Restrict the capture to an active voice session | none. OMP applies approval tiers instead | none | - | source-verified |
+| Report the capture permission state | The tool result reports the capture, input, and accessibility permissions | equivalent | src/tools/computer.ts | source-verified |
+| Human capture through a global hotkey | none | none | - | source-verified |
+
+## Remaining registered services
+
+| Codex Desktop capability | OMP equivalent or none | Verdict | OMP source anchor | Evidence |
+| --- | --- | --- | --- | --- |
+| Install, remove, and check plugins | OMP has a plugin manager, an installer, a marketplace, and a check command | equivalent | src/extensibility/plugins/manager.ts | source-verified |
+| Load and list skills | OMP loads skills from several sources and lists them for the model | equivalent | src/extensibility/skills.ts | source-verified |
+| Create or delete a managed skill | A skill management tool creates, updates, and deletes a managed skill | equivalent | src/tools/manage-skill.ts | source-verified |
+| Send a desktop notification | The user interface context sends a notification, and RPC forwards it | equivalent | src/modes/rpc/rpc-mode.ts | source-verified |
+| Update a short running status | The user interface context sets a status line entry | equivalent | src/modes/rpc/rpc-mode.ts | source-verified |
+| Attach or list a pull request artifact | The github tool reads and writes pull request data | partial | src/tools/gh.ts | source-verified |
+| Store large tool output as an artifact | OMP stores session artifacts and returns an address for each one | equivalent | src/session/artifacts.ts | source-verified |
+| Read usage limits for the account | OMP records session statistics and costs | partial | src/stats/activity-client.ts | source-verified |
+| Redeem a usage reset credit | none | none | - | source-verified |
+| Create and schedule an automation | none for a user automation. OMP schedules only a marketplace update | none | - | source-verified |
+| Report bundled runtime paths | none | none | - | source-verified |
+| List hosts and create a project | none | none | - | source-verified |
+| Open a path in an external application | none | none | - | source-verified |
+| Onboarding question tools and setup steps | none. The ask tool serves any question | none | - | source-verified |
+| Confetti in the focused window | none | none | - | source-verified |
+| Voice session control and voice history | OMP has speech input, speech output, and a live voice mode | partial | src/live | source-verified |
+
+## Capabilities with no OMP source
+
+Each capability below needs a maintainer decision.
+
+Reeve would have to build the whole capability, because OMP supplies nothing for it.
+
+1. Every panel host, Tab identity, Tab order, Tab movement, and maximise state.
+2. Opening a workspace file in a Tab at a line and a column.
+3. A durable Tab layout record that survives a reload or a task transfer.
+4. A Review panel, its four views, and a stored base revision for a repository.
+5. Inline review comments stored against a task and moved on a handoff.
+6. A side chat boundary that marks inherited history as reference context only.
+7. An ephemeral thread that never enters the session list.
+8. Closing and reopening one sub-agent that has already finished.
+9. An agent tool that reads or writes application settings.
+10. A sandbox mode, a writable root grant, and a network access switch.
+11. A managed policy that locks a configuration key.
+12. A secret answer for a question.
+13. Answering one question from any window that shows the thread.
+14. The blocked goal status and the usage limited goal status.
+15. Goal attachments and a long objective moved into a file.
+16. Archiving and restoring a task.
+17. Moving a task between a checkout, a worktree, and another host.
+18. Navigating a window to a named task.
+19. Every part of the visualization lifecycle after the skill text.
+20. Reporting the application page and panel state to the agent.
+21. A human capture hotkey that feeds the composer.
+22. User automations, usage reset credits, and bundled runtime reporting.
+23. Sidebar sections, task emoji, and confetti.
+
+## Items that I could not verify
+
+I did not run OMP and I did not run Codex Desktop.
+
+I did not inspect the Codex Desktop archive. I used the seven surface reports as evidence.
+
+I did not verify the OMP language service tool file, because I read its registration only.
+
+I did not verify the exact count of OMP settings keys.
+
+I did not verify OMP behaviour under a host other than RPC mode, except the agent protocol elicitation path.
