@@ -616,3 +616,11 @@ I did not trace the internal behaviour of every window host service.
 The purpose column of the host service table is an inference.
 
 I did not confirm which sibling report claims each shared service.
+
+I read the visualize skill from the installed bundled plugin cache.
+
+I did not find that skill text inside the application archive.
+
+I did not trace an agent path for four application commands.
+
+I found no agent path for them in this build.
