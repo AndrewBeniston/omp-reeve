@@ -1,10 +1,4 @@
-import { randomUUID } from "crypto";
-
-import {
-  type AgentControlReply,
-  type AgentControlRequestEvent,
-  readAgentControlReason,
-} from "./types";
+import type { AgentControlReply, AgentControlRequestHost } from "./types";
 
 /**
  * The request and reply channel between one control host and the window that
@@ -17,14 +11,16 @@ import {
  * because a second one would need its own reconnect, its own authentication
  * and its own failure rules.
  *
+ * The Session wrapper owns the pending request map, because it already owns
+ * the same map for an extension UI request. A late listener therefore gets the
+ * replay the wrapper already gives, and this channel holds no second copy.
+ *
  * Every expected failure resolves to a named reason. Nothing here throws at the
  * model.
  */
 
 /** How long a control waits for the window. The value is a maintainer decision. */
 export const AGENT_CONTROL_REPLY_TIMEOUT_MS = 5000;
-
-type Emitter = (event: AgentControlRequestEvent) => void;
 
 export interface AgentControlChannelOptions {
   /**
@@ -45,8 +41,7 @@ export interface AgentControlCallParams {
 
 export class AgentControlChannel {
   private readonly timeoutMs: number;
-  private readonly pending = new Map<string, (reply: AgentControlReply) => void>();
-  private emit: Emitter | null = null;
+  private host: AgentControlRequestHost | null = null;
   private sessionId: string | null = null;
   private closed = false;
 
@@ -55,19 +50,16 @@ export class AgentControlChannel {
   }
 
   /**
-   * Name the Session this host belongs to.
+   * Name the Session this host belongs to, and the wrapper that carries its
+   * requests.
    *
    * The host is built before `createAgentSession` returns, so the real Session
    * id arrives afterwards. A control runs later still, so the binding is always
    * in place by the time one is called.
    */
-  bindSession(sessionId: string): void {
+  attachHost(host: AgentControlRequestHost, sessionId: string): void {
+    this.host = host;
     this.sessionId = sessionId;
-  }
-
-  /** Send requests through the Session event stream of this Session. */
-  attachEmitter(emit: Emitter): void {
-    this.emit = emit;
   }
 
   /**
@@ -93,53 +85,24 @@ export class AgentControlChannel {
       return { ok: false, reason: "unavailable" };
     }
 
-    const emit = this.emit;
-    const sessionId = this.sessionId;
-    if (!emit || !sessionId) return { ok: false, reason: "no_window" };
+    const host = this.host;
+    if (!host) return { ok: false, reason: "no_window" };
 
-    const id = randomUUID();
     const rest: Record<string, unknown> = { ...params };
     delete rest.session;
-    return await new Promise<AgentControlReply<T>>((resolve) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        resolve({ ok: false, reason: "no_window" });
-      }, this.timeoutMs);
-
-      this.pending.set(id, (reply) => {
-        clearTimeout(timer);
-        this.pending.delete(id);
-        resolve(reply as AgentControlReply<T>);
-      });
-
-      emit({ type: "agent_control_request", id, sessionId, control, params: rest });
-    });
-  }
-
-  /** A window answered. An unknown id is a reply to a call that already ended. */
-  resolve(response: Record<string, unknown>): void {
-    const id = typeof response.id === "string" ? response.id : "";
-    const settle = this.pending.get(id);
-    if (!settle) return;
-    settle(
-      response.ok === true
-        ? { ok: true, value: response.value }
-        : { ok: false, reason: readAgentControlReason(response.reason) },
-    );
+    return await host.requestAgentControl<T>(control, rest, this.timeoutMs);
   }
 
   /**
    * End the host with its Session.
    *
-   * Every waiting call is answered rather than left hanging, because a tool
-   * call that never returns holds the agent turn open.
+   * The wrapper answers every waiting call when it ends, because a tool call
+   * that never returns holds the agent turn open. This channel only stops
+   * taking new calls.
    */
   close(): void {
     this.closed = true;
-    this.emit = null;
-    const waiting = [...this.pending.values()];
-    this.pending.clear();
-    for (const settle of waiting) settle({ ok: false, reason: "unavailable" });
+    this.host = null;
   }
 }
 

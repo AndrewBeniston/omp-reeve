@@ -45,6 +45,21 @@ export type AgentControlReply<T = unknown> =
   | { ok: true; value: T }
   | { ok: false; reason: AgentControlReason };
 
+/**
+ * What carries a control request to the window and brings the reply back.
+ *
+ * The Session wrapper is the only implementation. It already owns the pending
+ * map and the replay for an extension UI request, so a control reuses both.
+ * The interface keeps this module free of a dependency on the wrapper.
+ */
+export interface AgentControlRequestHost {
+  requestAgentControl<T>(
+    control: string,
+    params: Record<string, unknown>,
+    timeoutMs: number,
+  ): Promise<AgentControlReply<T>>;
+}
+
 /** The request the server puts on the Session event stream. */
 export interface AgentControlRequestEvent {
   type: "agent_control_request";

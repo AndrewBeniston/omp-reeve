@@ -27,7 +27,7 @@ import { resolve } from "path";
 import { validateAgentImages } from "./image-attachments";
 import type { AgentControlChannel } from "./agent-control/channel";
 import { startSessionControlHost } from "./agent-control/host";
-import type { AgentControlRequestEvent } from "./agent-control/types";
+import { type AgentControlReply, readAgentControlReason } from "./agent-control/types";
 import { invalidateModelsCache } from "./models-cache";
 import { resolveVisibleModels, selectInitialModelScope } from "./model-scope";
 import { cacheSessionPath, invalidateSessionListCache } from "./session-reader";
@@ -316,6 +316,10 @@ export class AgentSessionWrapper {
   private readonly sessionEventChannels: SessionEventChannel[];
   private pendingUiResponses = new Map<string, PendingUiResponse>();
   private pendingUiRequests = new Map<string, AgentEvent>();
+  /** One waiting control call for each request id, answered by a window. */
+  private pendingControlReplies = new Map<string, (reply: AgentControlReply) => void>();
+  /** The control requests a listener that attaches late still has to answer. */
+  private pendingControlRequests = new Map<string, AgentEvent>();
   private activeCustomUis = new Map<string, ActiveCustomUi>();
   private extensionStatuses = new Map<string, string>();
   private extensionWidgets = new Map<string, ExtensionWidgetItem>();
@@ -535,14 +539,67 @@ export class AgentSessionWrapper {
    *
    * The host is built before the Session exists, because OMP takes the
    * extension factory at creation. The channel therefore learns the Session id
-   * and the event stream here, which is still before any control can run.
+   * and this wrapper here, which is still before any control can run.
    */
   attachControlChannel(channel: AgentControlChannel, sessionId: string): void {
     this.controlChannel = channel;
-    channel.bindSession(sessionId);
-    channel.attachEmitter((event: AgentControlRequestEvent) => {
-      this.emit(event as unknown as AgentEvent);
+    channel.attachHost(this, sessionId);
+  }
+
+  /**
+   * Ask the window that shows this Session to run one control.
+   *
+   * This has the shape of an extension UI request, and for the same reason.
+   * The pending map lives beside the listener list, so a listener that
+   * attaches after the request still receives it. A reply that never arrives
+   * resolves to the no_window value inside the bound, because a tool call that
+   * never returns holds the agent turn open.
+   */
+  requestAgentControl<T>(
+    control: string,
+    params: Record<string, unknown>,
+    timeoutMs: number,
+  ): Promise<AgentControlReply<T>> {
+    if (!this._alive) return Promise.resolve({ ok: false, reason: "unavailable" });
+    const id = randomUUID();
+    const request = {
+      type: "agent_control_request",
+      id,
+      sessionId: this.inner.sessionId as string,
+      control,
+      params,
+    } as unknown as AgentEvent;
+
+    return new Promise<AgentControlReply<T>>((resolve) => {
+      const settle = (reply: AgentControlReply) => {
+        clearTimeout(timer);
+        this.pendingControlRequests.delete(id);
+        this.pendingControlReplies.delete(id);
+        resolve(reply as AgentControlReply<T>);
+      };
+      const timer = setTimeout(() => settle({ ok: false, reason: "no_window" }), timeoutMs);
+      this.pendingControlRequests.set(id, request);
+      this.pendingControlReplies.set(id, settle);
+      this.emit(request);
     });
+  }
+
+  /**
+   * A window answered a control request.
+   *
+   * The first answer wins. A second window that answers the same request finds
+   * no pending call, and an unknown id is an answer to a call that already
+   * ended.
+   */
+  private resolveAgentControlResponse(response: Record<string, unknown>): void {
+    const id = typeof response.id === "string" ? response.id : "";
+    const settle = this.pendingControlReplies.get(id);
+    if (!settle) return;
+    settle(
+      response.ok === true
+        ? { ok: true, value: response.value }
+        : { ok: false, reason: readAgentControlReason(response.reason) },
+    );
   }
 
   beginExtensionBinding(options: ExtensionBindingOptions = {}): void {
@@ -883,6 +940,7 @@ export class AgentSessionWrapper {
   onEvent(listener: EventListener): () => void {
     this.listeners.push(listener);
     for (const event of this.pendingUiRequests.values()) listener(event);
+    for (const event of this.pendingControlRequests.values()) listener(event);
     return () => {
       const i = this.listeners.indexOf(listener);
       if (i !== -1) this.listeners.splice(i, 1);
@@ -1337,7 +1395,7 @@ export class AgentSessionWrapper {
         // The window that shows this Session answered a control request. The
         // reply travels back on the Session command path the browser already
         // uses, so the control needs no channel of its own.
-        this.controlChannel?.resolve(command);
+        this.resolveAgentControlResponse(command);
         return null;
       }
 
@@ -1402,6 +1460,11 @@ export class AgentSessionWrapper {
     // The control host ends with its Session, and every waiting control call
     // is answered rather than left to hang.
     this.controlChannel?.close();
+    for (const settle of [...this.pendingControlReplies.values()]) {
+      settle({ ok: false, reason: "unavailable" });
+    }
+    this.pendingControlReplies.clear();
+    this.pendingControlRequests.clear();
     try {
       void this.inner.dispose?.();
     } finally {
