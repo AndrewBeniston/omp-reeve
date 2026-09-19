@@ -131,6 +131,22 @@ After a reload, the panel restores only when the task, working directory, and ho
 
 A mismatch cancels the restore and the Tab does not return.
 
+One task side panel in one window owns the Review Tab.
+
+The panel tool opens the Review Tab only in the task that the window shows.
+
+The base branch value is stored against the task identifier.
+
+The inline comments are stored against the task identifier.
+
+A task handoff moves the stored comments with the task.
+
+The handoff moves the comments between a checkout, a worktree, and another host.
+
+A task that changes from a temporary identifier to a final identifier keeps its comments.
+
+That change merges the comment lists and removes duplicate comments.
+
 #### Placement and human access
 
 `open_in_codex` accepts `right` or `bottom` placement for the Review panel.
