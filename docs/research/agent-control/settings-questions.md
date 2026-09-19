@@ -211,15 +211,104 @@ A successful write invalidates the cached settings and configuration queries.
 
 ### Transcript rendering and human access
 
-Evidence pending.
+The transcript adapter converts each settings call into a generic tool activity.
+
+The activity carries the call identifier, the namespace, the tool name, and the arguments.
+
+The activity also carries a completed flag.
+
+The adapter attaches result content for two other Desktop tools only.
+
+Therefore the settings result text does not render in the activity.
+
+The adapter defines no settings-specific activity type.
+
+The adapter defines no settings-specific presentation metadata.
+
+The adapter hides two other Desktop tools from the transcript.
+
+The adapter does not hide either settings tool.
+
+The transcript activity offers no action that opens the Settings screen.
+
+The human must open the Settings screen from the application instead.
+
+A configuration write shows a separate confirmation request to the human.
+
+The human answers that request with an approval or a refusal.
 
 ### Instructions, permissions, and gating
 
-Evidence pending.
+The `read_settings` schema teaches inspection before a suggestion or a change.
+
+The `write_settings` schema teaches six instructions.
+
+It teaches the tool instead of a terminal edit for a supported setting.
+
+It teaches that one call cannot carry settings and configuration together.
+
+It teaches a settings read before a write.
+
+It teaches that a configuration change needs user confirmation.
+
+It teaches that a configuration change applies to new threads.
+
+It teaches a short confirmation of the new values and the scope after a write.
+
+The schema also teaches the human route for project configuration.
+
+That route is the desktop Settings screen or the project configuration file.
+
+An application settings write needs no user approval.
+
+A configuration write always requests a confirmation from the human.
+
+The confirmation request needs three conditions.
+
+The task must have loaded state.
+
+Two task mode values must both be the default value.
+
+The task kind must not be an automation kind.
+
+Two automation kinds are refused.
+
+Managed policy can lock a configuration key.
+
+Four origins lock a key.
+
+Those origins are device management, session flags, and two legacy managed configuration sources.
+
+The installation can also restrict the allowed approval policy values.
+
+The installation can restrict the allowed sandbox mode values.
+
+The installation can restrict the allowed web search mode values.
 
 ### Failure and unavailable states
 
-Evidence pending.
+| State | Verified result |
+| --- | --- |
+| Non-local task | Both tools report that settings tools support local threads only. |
+| Invalid arguments | The tool returns an unsuccessful result and names itself. |
+| Settings store unavailable | The host request reports an unavailable settings store. |
+| Unknown setting key | The write names the unknown setting. |
+| Setting without write access | The write reports that Codex cannot write the setting. |
+| Both payloads in one call | The write asks for separate calls. |
+| Project configuration write | The write reports that chat cannot change project configuration. |
+| Automation task | The write asks the human to make the change from the main chat. |
+| Unloaded task state | The write asks the human to open the task in the desktop application. |
+| Missing configuration file | The write reports that no configuration exists for the scope. |
+| Disabled configuration layer | The write reports that the configuration is unavailable. |
+| Managed configuration key | The write names the managed key and refuses. |
+| Restricted approval policy | The write reports an installation restriction. |
+| Restricted sandbox mode | The write reports an installation restriction. |
+| Restricted web search mode | The write reports an installation restriction. |
+| Unwritable configuration layer | The write reports that the configuration cannot be written. |
+| Refused confirmation | The write reports that the user did not approve the change. |
+| Second pending confirmation | The request resolves as a refusal at once. |
+| Completed turn during confirmation | The confirmation resolves as a refusal. |
+| Aborted tool call | The tool returns no result for that call. |
 
 ## Questions and option pickers
 
@@ -250,5 +339,6 @@ Evidence pending.
 ### Failure and unavailable states
 
 Evidence pending.
+
 
 
