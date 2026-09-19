@@ -146,3 +146,84 @@ Every panel, Tab, and window capability needs a complete Reeve implementation.
 | Forbid sub-agent use inside the side conversation | A spawn policy and a depth cap can remove the spawn tool | partial | src/task/spawn-policy.ts | source-verified |
 | Show a running and an unread indicator on the parent | none | none | - | source-verified |
 | Close the side chat and discard the conversation | The host can delete a session file. OMP has no discard operation | partial | src/session/session-manager.ts | inference from the session storage API |
+
+## Sub-agents
+
+| Codex Desktop capability | OMP equivalent or none | Verdict | OMP source anchor | Evidence |
+| --- | --- | --- | --- | --- |
+| Spawn a sub-agent for one named task | The task tool spawns one sub-agent with a name, an agent type, and a task | equivalent | src/task/index.ts | source-verified |
+| Spawn several sub-agents in one call | The task tool accepts a batch of items with one shared context | equivalent | src/task/types.ts | source-verified |
+| Override the child model and the reasoning effort | The task tool accepts a per spawn effort, and the agent type selects the model | equivalent | src/task/types.ts | source-verified |
+| Fork parent history into the child | OMP starts a sub-agent from its agent definition and the given task | partial | src/task/index.ts | source-verified |
+| Send a message to a running agent | The hub tool sends a message to one agent identifier or to every agent | equivalent | src/tools/hub/messaging.ts | source-verified |
+| Wait for a reply from one agent | The hub tool sends a message and waits for the reply of that agent | equivalent | src/tools/hub/index.ts | source-verified |
+| Wait until an agent reaches a final status | The hub tool waits on job identifiers with a timeout in milliseconds | equivalent | src/tools/hub/jobs.ts | source-verified |
+| Interrupt the current turn of an agent | The hub tool cancels running job identifiers | partial | src/tools/hub/jobs.ts | source-verified |
+| Close an agent and its descendants | none. A job ends, and OMP has no shutdown operation for a kept agent | none | - | source-verified |
+| Reopen a closed agent | none for a task sub-agent | none | - | source-verified |
+| List the live agents with a status | The hub tool lists peers and filters by running, idle, or parked | equivalent | src/tools/hub/index.ts | source-verified |
+| Canonical task path that nests under the parent | An agent registry identifier with a generated name and dot qualified children | partial | src/task/name-generator.ts | source-verified |
+| Read the transcript of another agent | An internal transcript address returns an agent index and one agent transcript | equivalent | src/internal-urls/history-protocol.ts | source-verified |
+| Read the output of another agent | An internal output address returns the full output and a nested child output | equivalent | src/internal-urls/agent-protocol.ts | source-verified |
+| Depth limit and concurrency limit for spawning | A recursion depth cap removes the spawn tool, and a provider concurrency limit applies | equivalent | src/task/types.ts | source-verified |
+| Run a sub-agent in an isolated checkout | The task tool runs a spawn in an isolated worktree | equivalent | src/task/worktree.ts | source-verified |
+| Panel that lists descendants with live status | A terminal roster and terminal renderers only. RPC receives events without a panel | partial | src/task/renderer.ts | source-verified |
+| Open the sub-agent thread from the transcript | none | none | - | source-verified |
+| Drive separate command line workers | Five worker tools spawn, send, wait, kill, and list persistent worker sessions | equivalent | src/tools/vibe.ts | source-verified |
+
+## Panel placement, layout, and Tab movement
+
+| Codex Desktop capability | OMP equivalent or none | Verdict | OMP source anchor | Evidence |
+| --- | --- | --- | --- | --- |
+| Two panel hosts named right and bottom | none. OMP has one terminal surface | none | - | source-verified |
+| Request a placement value with a tool | A widget accepts a placement above the editor or below the editor | partial | src/extensibility/extensions/types.ts | source-verified |
+| Tab kinds with permitted destinations | none | none | - | source-verified |
+| Tab identity for each target type | none | none | - | source-verified |
+| Layout record with routes, order, and focus | none | none | - | source-verified |
+| Restore a layout after a reload | none | none | - | source-verified |
+| Move a Tab between hosts | none | none | - | source-verified |
+| Reorder, pin, close, or hide a Tab | none | none | - | source-verified |
+| Maximise the right host | none | none | - | source-verified |
+| Copy a panel Tab set to another task | none | none | - | source-verified |
+| Reveal and focus a Tab from a tool call | none | none | - | source-verified |
+
+OMP supplies one related behaviour only.
+
+An extension can set a widget above or below the editor, and can set a status line.
+
+RPC mode accepts that widget as text lines only.
+
+## Settings and approval state
+
+| Codex Desktop capability | OMP equivalent or none | Verdict | OMP source anchor | Evidence |
+| --- | --- | --- | --- | --- |
+| Agent tool that reads the settings state | none. OMP registers no settings tool for the agent | none | - | source-verified |
+| Agent tool that writes a setting | none | none | - | source-verified |
+| Machine readable setting definitions with an access level | A typed settings schema with a description, a default, and allowed values | partial | src/config/settings-schema.ts | source-verified |
+| Separate user scope and project scope | OMP settings load from layered configuration files | equivalent | src/config/settings.ts | source-verified |
+| Approval policy values for a thread | An approval mode with three values, and per tool allow, prompt, or deny policies | partial | src/config/settings-schema.ts | source-verified |
+| Sandbox mode values for a thread | none | none | - | source-verified |
+| Network access switch for a thread | none | none | - | source-verified |
+| Web search mode values | A web search tool exists. No agent tool changes a search mode | none | - | source-verified |
+| Human confirmation before a configuration write | The user interface context shows a confirmation, and RPC supports it | partial | src/modes/rpc/rpc-mode.ts | source-verified |
+| Managed policy that locks a key | none | none | - | source-verified |
+| Report that a change applies to a new thread only | none | none | - | inference from the absence of a settings tool |
+
+## Questions and option pickers
+
+| Codex Desktop capability | OMP equivalent or none | Verdict | OMP source anchor | Evidence |
+| --- | --- | --- | --- | --- |
+| Ask one or more questions in one call | The ask tool takes at least one question and returns one result for each question | equivalent | src/tools/ask.ts | source-verified |
+| Offer options with a label and a description | An option carries a label, a description, and an optional preview | equivalent | src/tools/ask.ts | source-verified |
+| Permit more than one selection | A question carries a multiple selection flag | equivalent | src/tools/ask.ts | source-verified |
+| Accept free text beside the options | A reserved option always lets the user type an answer | equivalent | src/tools/ask.ts | source-verified |
+| Mark a question answer as secret | none | none | - | source-verified |
+| Mark a recommended option | A question carries a recommended index, and OMP adds a suffix to that label | equivalent | src/tools/ask.ts | source-verified |
+| Resolve a question automatically after a delay | A dialogue timeout selects the recommended option, and plan mode disables it | equivalent | src/tools/ask.ts | source-verified |
+| Skip the question without an answer | The user can cancel, and the tool records an abort | equivalent | src/tools/ask.ts | source-verified |
+| Redirect the question into chat | A reserved option returns a chat redirect with the open questions | equivalent | src/tools/ask.ts | source-verified |
+| Answer the same question again from history | A persisted question payload reopens the picker and branches the answer | equivalent | src/tools/ask.ts | source-verified |
+| Present an option picker in a reduced host | RPC mode sends a selector request and keeps the option descriptions | equivalent | src/modes/rpc/rpc-mode.ts | source-verified |
+| Present a rich multiple question dialogue | Interactive mode only. RPC mode implements no rich dialogue | partial | src/modes/rpc/rpc-mode.ts | source-verified |
+| Answer a request from any window that shows the thread | none. One RPC host answers one request | none | - | source-verified |
+| Serve a server elicitation request | The agent protocol mode serves an elicitation form. RPC mode does not | partial | src/modes/acp/acp-agent.ts | source-verified |
