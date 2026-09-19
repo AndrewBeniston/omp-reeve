@@ -4,7 +4,7 @@
 
 This report contains evidence only.
 
-I completed the Files surface for ticket 444.
+I completed every subsection of the Files surface for ticket 444.
 
 ## Scope
 
@@ -306,5 +306,33 @@ A separate permission request action carries a file system field.
 
 ### Failure and unavailable states
 
-Evidence pending.
+| State | Verified result |
+| --- | --- |
+| Invalid Desktop tool arguments | The tool returns an unsuccessful result. |
+| Missing Desktop action host | `open_in_codex` reports that app actions are unavailable. |
+| Archived preview | The Tab command reports that panels are unavailable. |
+| No visible task | The Tab command rejects the request. |
+| Wrong visible task | The Tab command rejects the target task. |
+| Preview scope that blocks a Tab | The file opener returns nothing. |
+| File opener returns nothing | `open_in_codex` reports that the file Tab could not open. |
+| File type without an editor language | The text file editor declines the file. |
+| Web assembly file | The text file editor declines the file. |
+| End line in the request | The text file editor is skipped, and a source viewer opens the file. |
+| Stored Tab payload with another version | The renderer does not restore the file Tab. |
+| Stored Tab payload that fails validation | The renderer does not restore the file Tab. |
+| Disconnected host during restore | The renderer keeps the Tab and opens no file. |
+| Directory path outside the workspace root | The file navigation service rejects the request. |
+| Symbolic link directory | The file navigation service rejects the request. |
+| Relative workspace root | The file navigation service rejects the request. |
+| Copy of a file from a remote host | The workspace file service rejects the download. |
+| Oversize temporary preview file | The workspace file service rejects the file. |
+| Disposed workspace file service | The service reports that it is disposed. |
+| Overloaded thumbnail queue | The service returns no thumbnail and reports the overload. |
+| Language server request over 30 seconds | The service reports a request timeout. |
+| Patch approval denied | The file change item records the declined status. |
+| Patch failure | The file change item records the failed status. |
+| Patch approval for an unknown item | The transcript drops the approval and records a warning. |
+| Automatic preview of a file over 41,943,040 bytes | The preview does not open. |
+| Automatic preview of a path that is not a file | The preview does not open. |
+| Automatic preview during an active turn | The preview does not open. |
 
