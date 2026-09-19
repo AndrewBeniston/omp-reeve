@@ -594,3 +594,64 @@ The epic needs the session service pattern from the Browser research first.
 The epic needs an accepted decision record before any transcript frame ships.
 
 The scope appears in item 8.
+
+### 8. Reeve epic size
+
+The epic holds 23 tickets in eight groups.
+
+One of the 23 tickets is the acceptance ticket.
+
+| Group | Tickets | Work |
+| ---: | ---: | --- |
+| A. Skill delivery | 2 | Place the skill in an OMP source. Point its instructions at the Reeve write root. |
+| B. Session visualization service | 4 | A session-scoped service, a write root, atomic creation, and session isolation. |
+| C. Transcript render surface | 4 | The reference parser, the transcript block, normal width, and wide mode. |
+| D. Sandbox and host bridge | 4 | The frame document, the content policy, the message channel, and height reporting. |
+| E. State | 2 | The widget-state store with its size and count limits, plus restoration. |
+| F. Theme and utilities | 2 | The theme variable bridge and the base stylesheet delivery. |
+| G. Failure and actions | 4 | Failure surfaces, the repair action, expansion, and export. |
+| H. Acceptance | 1 | The owner set, the failure matrix, and a proof of a rendered visualization. |
+
+The group order is also the delivery order.
+
+Groups A and B must complete before group C starts.
+
+Group D carries the highest risk because it defines the security boundary.
+
+The Browser epic holds 33 non-acceptance children.
+
+This epic is therefore about two thirds of the Browser epic size.
+
+That comparison is an inference from the two ticket sets.
+
+## Can Reeve do this
+
+Yes, Reeve can do this. The work divides into two halves.
+
+The model half is portable today.
+
+OMP reads and delivers the visualization skill without any change.
+
+The model then writes the same HTML file it writes for Codex Desktop.
+
+Reeve needs no engine fork for that half.
+
+The host half does not exist in Reeve.
+
+Reeve must build the reference parser, the transcript block, the sandboxed frame, the content policy, the host message channel, the height measurement, the state store, the theme bridge, and the failure surfaces.
+
+Reeve starts this half with two real assets.
+
+The file viewer already runs an HTML file in a script-only sandboxed frame.
+
+The file route already returns a generated document with a strict content policy and no referrer.
+
+The build costs 23 tickets in eight groups.
+
+The security boundary group carries the highest risk.
+
+The epic is about two thirds the size of the Browser integration epic.
+
+A sandboxed frame needs no desktop process, so both Reeve builds can show a visualization.
+
+The last statement is an inference. I did not run a visualization in Reeve during this research.
