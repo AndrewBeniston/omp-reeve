@@ -46,11 +46,11 @@ The tool builder adds no settings tool when the gate is off.
 
 The tool builder also requires a local desktop host.
 
-`write_settings` needs two more conditions.
+`write_settings` needs one more condition.
 
-The task mode must be the default mode.
+The task mode and the thread start kind must both be the default value.
 
-The thread start kind must also be the default kind.
+A thread start kind that requests every tool also satisfies that condition.
 
 Both tools belong to the eager tool set.
 
@@ -573,6 +573,7 @@ An automation-owned thread snoozes each non-blocking request without an explicit
 | Context picker request | The client dismisses the request at once. |
 | Follower stream role | The client forwards the answer to the owning task. |
 | Unknown pending request | The answer path returns without an effect. |
+
 
 
 
