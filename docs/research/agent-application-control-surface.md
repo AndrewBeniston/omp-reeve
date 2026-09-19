@@ -1072,7 +1072,179 @@ I corrected the Terminal subsection of this report.
 
 ### Settings and approval state
 
-Evidence pending.
+Codex Desktop gives the agent one settings read tool and one settings write tool.
+
+Both tools also reach the approval, sandbox, network, and web search configuration.
+
+#### Registration and discovery
+
+| Exact name | Registration point | How the agent learns about it |
+| --- | --- | --- |
+| `read_settings` | The Desktop tool builder adds it to `codex_app`. | Its schema teaches settings and configuration inspection. |
+| `write_settings` | The Desktop tool builder adds it to `codex_app`. | Its schema teaches settings and configuration updates. |
+| Settings read host request | The main process registers this host request. | The agent does not receive this request directly. |
+| Settings write host request | The main process registers this host request. | The agent does not receive this request directly. |
+| Configuration batch write | The configuration write path sends this app server request. | The agent learns only the enclosing tool. |
+
+A feature gate controls both tools.
+
+The tool builder adds no settings tool when the gate is off.
+
+The tool builder also requires a local desktop host.
+
+`write_settings` also requires a default task mode and a default thread start kind.
+
+Both tools belong to the eager tool set.
+
+Therefore the agent receives both schemas at thread start.
+
+#### Actions and identity
+
+`read_settings` returns the settings file path and the configured values.
+
+It also returns the effective values after defaults and the machine-readable definitions.
+
+Each definition carries a key, a description, a default, a schema, and an agent access level.
+
+The application defines 90 settings in total.
+
+The definition list excludes every hidden setting.
+
+Therefore the agent can inspect 59 settings.
+
+Fifty five of those settings permit a write.
+
+An argument adds the task agent configuration to the read result.
+
+Another argument selects the user scope or the project scope.
+
+The configuration view returns the scope, the file path, and the allowed values.
+
+It also returns the locked keys and a disabled reason.
+
+The effective approval policy is untrusted, on request, or never.
+
+The effective sandbox mode is read only, workspace write, or full access.
+
+The effective web search mode is disabled, cached, indexed, or live.
+
+`write_settings` accepts one settings payload or one configuration payload.
+
+One call cannot carry both payloads.
+
+The configuration payload accepts six keys only.
+
+| Configuration key | Accepted values |
+| --- | --- |
+| Approval policy | on request or never |
+| Sandbox mode | read only, workspace write, or full access |
+| Workspace write network access | a boolean |
+| Web search | disabled, cached, indexed, or live |
+| Model verbosity | low, medium, high, or an empty value |
+| Model reasoning summary | auto, concise, detailed, none, or an empty value |
+
+The write tool cannot set the untrusted approval policy.
+
+A settings write rejects any key without write access.
+
+A settings write returns the configured values and the effective values.
+
+A configuration write returns the scope and a flag that a new thread is necessary.
+
+A setting has a stable string key as its identity.
+
+A configuration value has a key path as its identity.
+
+Neither call returns a handle or a session identifier.
+
+The main process owns one settings store for the application.
+
+Therefore every window and every task reads the same values.
+
+Every storage kind survives a renderer reload and a reconnect.
+
+A configuration change applies to new threads only.
+
+Therefore a configuration change does not transfer into the running turn.
+
+#### Placement and human access
+
+The settings tools open no panel and no Tab.
+
+The transcript activity offers no action that opens the Settings screen.
+
+The human must open the Settings screen from the application instead.
+
+A configuration write shows a separate confirmation request to the human.
+
+The human answers that request with an approval or a refusal.
+
+One conversation holds one pending confirmation at a time.
+
+A second request for the same conversation resolves as a refusal.
+
+A window that does not own the request can also answer it. This statement is an inference.
+
+#### Transcript rendering
+
+The adapter converts each settings call into a generic tool activity.
+
+The activity carries the call identifier, the namespace, the tool name, and the arguments.
+
+The adapter attaches result content for two other Desktop tools only.
+
+Therefore the settings result text does not render in the activity.
+
+The adapter defines no settings-specific activity type and no presentation metadata.
+
+The adapter does not hide either settings tool.
+
+#### Instructions and permissions
+
+The read schema teaches inspection before a suggestion or a change.
+
+The write schema teaches the tool instead of a terminal edit for a supported setting.
+
+The write schema teaches that one call cannot carry both payloads.
+
+The write schema teaches a settings read before a write.
+
+The write schema teaches that a configuration change needs user confirmation.
+
+The write schema teaches that a configuration change applies to new threads.
+
+The write schema teaches a short confirmation of the new values and the scope.
+
+An application settings write needs no user approval.
+
+A configuration write always requests a confirmation from the human.
+
+The confirmation needs a loaded task, two default mode values, and a non-automation kind.
+
+Managed policy can lock a configuration key.
+
+The installation can also restrict the allowed approval, sandbox, and web search values.
+
+#### Failure and unavailable states
+
+| State | Verified result |
+| --- | --- |
+| Non-local task | Both tools report that settings tools support local threads only. |
+| Invalid arguments | The tool returns an unsuccessful result and names itself. |
+| Settings store unavailable | The host request reports an unavailable settings store. |
+| Unknown setting key | The write names the unknown setting. |
+| Setting without write access | The write reports that Codex cannot write the setting. |
+| Both payloads in one call | The write asks for separate calls. |
+| Project configuration write | The write reports that chat cannot change project configuration. |
+| Automation task | The write asks the human to make the change from the main chat. |
+| Unloaded task state | The write asks the human to open the task in the desktop application. |
+| Missing configuration file | The write reports that no configuration exists for the scope. |
+| Managed configuration key | The write names the managed key and refuses. |
+| Restricted value for a configuration key | The write reports an installation restriction. |
+| Refused confirmation | The write reports that the user did not approve the change. |
+| Second pending confirmation | The request resolves as a refusal at once. |
+| Completed turn during confirmation | The confirmation resolves as a refusal. |
+| Aborted tool call | The tool returns no result for that call. |
 
 ### Questions and option pickers
 
