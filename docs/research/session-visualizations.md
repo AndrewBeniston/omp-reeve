@@ -414,3 +414,53 @@ Source anchors:
 - OMP `src/modes/rpc/rpc-mode.ts`
 - OMP `src/tools/renderers.ts`
 - OMP `src/live/visualizer.ts`
+
+### 5. Reeve transcript, panel, and terminal surfaces
+
+I read the current Reeve source in this repository.
+
+| Area | Finding | Evidence label |
+| --- | --- | --- |
+| Transcript body | Reeve renders assistant text as Markdown in the page document. | Source-verified. |
+| Markdown pipeline | Reeve enables tables, math, frontmatter, raw HTML, and sanitization. | Source-verified. |
+| Sanitization | The schema removes frame, object, style, and form elements from assistant HTML. | Source-verified. |
+| Raw HTML limit | An assistant reply therefore cannot create a frame through Markdown alone. | Source-verified. |
+| Existing rich block | The transcript renders one diagram language as generated markup inside the page. | Source-verified. |
+| Diagram isolation | That markup enters the page document and not a separate browsing context. | Source-verified. |
+| Directive precedent | Reeve already reads a structured directive out of assistant text for review comments. | Source-verified. |
+| Directive safety | That parser refuses a directive inside fenced, indented, or quoted text. | Source-verified. |
+| Written files | The transcript lists turn output files from tool calls and not from reply text. | Source-verified. |
+| Closest frame host | The file viewer shows an HTML file in a frame with a script-only sandbox. | Source-verified. |
+| Generated document | The file route can return generated HTML with a strict policy and no referrer. | Source-verified. |
+| Path safety | The file route serves only paths inside allowed roots. | Source-verified. |
+| Panel tabs | The right panel supports file, sources, browser, terminal, and review tabs. | Source-verified. |
+| Panel sizing | Panel width rules exist with a 320-pixel floor and a 1,200-pixel ceiling. | Source-verified. |
+| Browser tab | The desktop main process owns each page. The browser build offers no browser tab. | Source-verified. |
+| Terminal tab | The terminal needs the desktop process bridge for each shell. | Source-verified. |
+| Extension status | Reeve shows extension status as one sanitized text line with color segments. | Source-verified. |
+| Missing concept | Reeve defines no visualization content type, height bridge, or widget-state store. | Source-verified by repository search. |
+
+Reeve has a sandboxed frame today.
+
+That frame exists only in the file viewer and not in the transcript.
+
+The frame uses a script-only sandbox and carries no host message channel.
+
+Reeve therefore holds the containment half of the Codex surface.
+
+Reeve holds no part of the transcript visualization lifecycle.
+
+Source anchors in this repository:
+
+- `components/MarkdownBody.tsx`
+- `components/MermaidBlock.tsx`
+- `lib/markdown.ts`
+- `lib/review-finding-directive.ts`
+- `components/TurnWrittenFiles.tsx`
+- `components/FileViewer.tsx`
+- `app/api/files/[...path]/route.ts`
+- `components/TabBar.tsx`
+- `lib/panel-layout.ts`
+- `components/browser/BrowserTabs.tsx`
+- `components/terminal/TerminalTabs.tsx`
+- `components/ExtensionStatusBar.tsx`
