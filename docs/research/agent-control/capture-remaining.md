@@ -524,13 +524,42 @@ A build failure returns an empty tool set.
 
 ### Remaining application commands
 
-The `open_in_codex` tool queues one application command.
+The renderer defines seven application commands.
 
-The command opens a Tab in a window.
+The Desktop action host runs a command in the primary window.
 
-A sibling report covers that command.
+The host can also queue a command for a task in the primary window.
 
-I found no further application command that an agent tool queues.
+| Command name | Agent path | Effect |
+| --- | --- | --- |
+| `windows.tabs.open` | `open_in_codex` | Opens a panel Tab. A sibling report covers it. |
+| `windows.fire_confetti` | `fire_confetti` | Fires confetti in the current window. |
+| `windows.show_thread` | `navigate_to_codex_page` | Navigates the current window to a task or chat. |
+| `app.get_summary` | `capture_screen_context` | Returns the current page and right panel state. |
+| `windows.show_home` | None | Shows the home page from a human command. |
+| `windows.sidebar.toggle` | None | Toggles the sidebar from a human command. |
+| `windows.terminal.toggle` | None | Toggles the Terminal from a human command. |
+| `windows.review.toggle` | None | Toggles Review from a human command. |
+
+Four commands have no agent path in this build.
+
+The human reaches those four through the command palette or a keyboard shortcut.
+
+`navigate_to_codex_page` resolves the task kind before it runs the command.
+
+The kind is a Codex task or an account chat.
+
+The tool returns only a navigated flag.
+
+The tool returns no Tab identifier and no window identifier.
+
+`fire_confetti` returns a fired flag.
+
+Its schema orders the model to claim success only when that flag is true.
+
+Both tools report a failure message when the action host is missing.
+
+The message states that application actions are unavailable in the host.
 
 ## Unverified items
 
