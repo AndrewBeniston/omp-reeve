@@ -249,3 +249,125 @@ Ticket 205 gates it.
 | Agent fires a celebration effect in the window | none | none | none |
 | Developer instruction text teaches the application tools | none | none | none |
 
+
+## 2. Capabilities that no ticket owns
+
+Eighty capabilities have no owning ticket.
+
+Two of them need no ticket, because Reeve already runs them through the agent runtime.
+
+I mark those two as delivered, and that mark is an inference.
+
+### Terminal
+
+1. Agent runs a command in a process session. Delivered today through the agent runtime, so no ticket is needed.
+2. Agent sends input to a running process session. Delivered today through the agent runtime, so no ticket is needed.
+3. Agent reads the visible Terminal snapshot of the task. The agent needs a read of the working directory, the shell, and the recent output.
+4. Agent opens or reveals a Terminal Tab. The agent needs one call that creates or reveals the Tab and returns its identity.
+5. Agent chooses the Terminal Tab placement. The call needs a right or bottom value, with the task default when the value is absent.
+6. Human opens the Terminal Tab from the agent activity. The transcript row needs an action that focuses the exact Tab.
+
+### Files
+
+7. Agent opens a workspace file Tab at a line. The agent needs one call that opens the file and scrolls to the line.
+8. Agent edits a file through a patch. Delivered today through the agent runtime, and the rendering belongs to ticket 248.
+9. Human opens the file Tab from the agent activity. The file change row needs an action that opens the changed file.
+10. Sandbox policy limits a file write. Reeve needs the three policy values to control an agent file write.
+
+### Review
+
+11. Agent opens or reveals the Review Tab. The agent needs one call that opens the Review Tab in the calling task.
+12. Agent selects the Review view. The call needs the four scope values of the reference.
+13. Agent sets the base revision for the branch view. The call needs a revision that resolves locally to a commit.
+14. Agent selects one file inside Review. The call needs a path that selects the file and clears the selected commit.
+15. Inline comments move with a task handoff. The comment store needs to follow the task between a checkout, a worktree, and a host.
+
+### Sub-agents
+
+16. Agent creates a sub-agent. Reeve needs a Session scoped record of the new agent and its identity.
+17. Agent sends input or a follow-up task to a sub-agent. Reeve needs both delivery shapes, with and without a new turn.
+18. Agent waits for a sub-agent status. Reeve needs a blocking wait with a timeout and an interruption result.
+19. Agent interrupts, resumes, or closes a sub-agent. Reeve needs the three lifetime controls and the returned previous status.
+20. Agent lists live sub-agents. Reeve needs a list of the live agents in the task tree.
+
+### Panel placement
+
+21. Agent asks for the right or the bottom placement. Reeve needs a placement argument on every agent panel call.
+22. Agent command waits until the target task is visible. Reeve needs a queue for a command that names a hidden task.
+23. Agent receives no error for a failed queued command. Reeve needs the same silent failure rule, or a stated difference.
+
+### Settings and approval state
+
+24. Agent reads settings and setting definitions. Reeve needs a read that returns the value and the accepted values.
+25. Agent writes a setting or a task configuration. Reeve needs a write that names the scope and the key.
+26. Human confirms an agent configuration write. Reeve needs a confirmation surface, and a refusal path for a second request.
+27. Agent changes the approval policy. Reeve needs the two policy values of the reference.
+28. Agent changes the sandbox mode. Reeve needs the three sandbox values of the reference.
+29. Agent changes the network access value. Reeve needs a boolean control inside the workspace write policy.
+30. Agent changes the web search mode. Reeve needs the four search values of the reference.
+31. A managed or restricted key refuses an agent write. Reeve needs a refusal that names the key and the restriction.
+
+### Questions and option pickers
+
+32. Human skips a question. Reeve needs a skip path that returns an empty answer to the agent.
+33. Agent asks for an option choice during onboarding. Reeve has no onboarding flow, so the need is undecided.
+34. Agent asks for structured onboarding input. Reeve has no onboarding flow, so the need is undecided.
+35. Agent advances a native setup step. Reeve has no native setup flow, so the need is undecided.
+36. Agent requests an environment configuration. Reeve has no cloud environment setup, so the need is undecided.
+37. A connected server asks the human for input. Reeve needs a request surface for a connected server prompt.
+
+### Session lifecycle
+
+38. Agent creates another task. Reeve needs a create call with a target, a prompt, and a returned identity.
+39. Agent lists tasks in pinned and recency order. Reeve needs a list with a title and a short summary for each task.
+40. Agent lists archived tasks. Reeve needs a paged list of archived tasks.
+41. Agent reads the turns of another task. Reeve needs a read that returns recent turns without opening the task.
+42. Agent waits for other tasks to finish. Reeve needs a bounded wait over several tasks with cursors.
+43. Agent sends a follow-up prompt to another task. Reeve needs a send that appears as a human message in that task.
+44. Agent moves a task between a checkout and a worktree. Reeve needs a move that carries the git state.
+45. Agent reads the status of a move operation. Reeve needs a status read with a revision and a wait value.
+46. Agent archives or restores a task. Reeve needs both directions in the background.
+47. Agent renames a task. Reeve needs a background rename.
+48. Agent pins a task. Reeve needs a background pin and unpin.
+49. Agent lists projects before creation. Reeve needs a project list with a repository flag.
+50. Agent navigates the window to a task. Reeve needs a navigation call for the most recent window.
+
+### Capture
+
+51. Agent reads the foreground application during a voice session. Reeve has no voice session, so the need is undecided.
+52. Agent reads the current application page state. Reeve needs a read of the current page and panel state.
+53. Capture permission request during setup. Reeve has no capture onboarding, so the need is undecided.
+
+### Visualizations
+
+54. Application grants a writable visualization root for a turn. Reeve needs a per task directory and a sandbox rule.
+55. Application detects a visualization file write. Reeve needs a detector that marks each file as a create or an update.
+56. Visualization renders inside an isolated container. Reeve needs an isolated view with a strict content policy.
+57. Visualization sends a follow-up message to the task. Reeve needs a confirmed follow-up path from the view.
+58. Visualization reports an error and offers a repair action. Reeve needs an error surface with an agent repair action.
+59. Human opens the visualization from the activity. Reeve needs an action on the file change row.
+
+### Remaining registered capabilities
+
+60. Session scoped application control service. Reeve needs one service that registers every application control for a Session.
+61. Deferred tool loading inside one namespace. Reeve needs a namespace that loads a schema only when the agent needs it.
+62. Agent attaches a pull request to the task. Reeve needs an attachment record on the Session.
+63. Agent removes an attached pull request. Reeve needs the reverse of the attachment record.
+64. Agent lists task attachments. Reeve needs a list of every attachment on the Session.
+65. Agent updates the short running summary. Reeve needs a short status value on the activity row.
+66. Agent creates or changes a scheduled automation. Reeve has no scheduler, so the need is undecided.
+67. Agent finalizes an environment configuration. Reeve has no cloud environment, so the need is undecided.
+68. Agent lists hosts. Reeve has one local host today, so the need is undecided.
+69. Agent creates a project. Reeve needs a project create call, or a stated omission.
+70. Agent redeems a usage reset credit. Reeve has no account credit source, so the need is undecided.
+71. Agent reports bundled runtime paths. Reeve has no bundled runtime set, so the need is undecided.
+72. Agent reads or sets the task emoji. Reeve has no task emoji, so the need is undecided.
+73. Agent creates, renames, or deletes a sidebar section. Reeve has no custom sidebar section, so the need is undecided.
+74. Agent moves a task or a project between sidebar sections. The same sidebar decision governs this capability.
+75. Agent reorders a sidebar section or the projects. The same sidebar decision governs this capability.
+76. Agent reports an onboarding task outcome. Reeve has no onboarding checklist, so the need is undecided.
+77. Agent removes an installed plugin. Reeve manages plugins today, and no ticket gives the agent that control.
+78. Agent fires a celebration effect in the window. Reeve needs a decision on a non functional effect.
+79. Developer instruction text teaches the application tools. Reeve needs instruction text for each control that it adopts.
+80. Human captures a window with a hotkey. Ticket 205 records the decision, and no ticket builds the capture.
+
