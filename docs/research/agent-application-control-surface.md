@@ -864,7 +864,201 @@ The sub-agent tools follow the same approval and sandbox policy as the parent.
 
 ### Panel placement and Tab movement
 
-Evidence pending.
+Codex Desktop uses two panel hosts.
+
+The hosts have the identifiers `right` and `bottom`.
+
+The agent reaches a panel host only through `open_in_codex`.
+
+The agent cannot move, reorder, pin, close, hide, or maximise a Tab.
+
+#### Registration and discovery
+
+| Exact name | Registration point | How the agent learns about it |
+| --- | --- | --- |
+| `open_in_codex` | The Desktop tool builder adds it to `codex_app`. | Its schema names the placement values and the panel targets. |
+| `windows.tabs.open` | The renderer registers this application command. | The agent learns only the enclosing tool. |
+| `right` | The application shell registers this panel host. | The agent does not receive this host directly. |
+| `bottom` | The application shell registers this panel host. | The agent does not receive this host directly. |
+| Side panel toggle command | The command registry registers this human command. | The agent does not receive this command. |
+| Maximise side panel command | The command registry registers this human command. | The agent does not receive this command. |
+| Review Tab commands | The command registry registers two human commands. | The agent does not receive these commands. |
+
+Each panel host exposes open, activate, close, move, reorder, and pin operations.
+
+These host operations are not direct agent tools.
+
+The four human panel commands belong to one command menu group.
+
+#### Actions and identity
+
+The tool accepts an optional task identifier, a target, and an optional placement.
+
+The placement accepts only the value `right` or the value `bottom`.
+
+The schema defines no ordering, move, close, resize, or maximise field.
+
+The target accepts a file, a browser tab, a terminal, or a review view.
+
+The tool call does not run inside the window.
+
+The tool queues an application command for the target task.
+
+The tool result to the agent contains the queued status and the task identifier only.
+
+The tool result to the agent contains no Tab identifier and no placement.
+
+The window computes a fuller record when the queued command runs.
+
+That record contains the task, the target type, the placement, the status, and the Tab identifier.
+
+The window does not return that record to the agent.
+
+The status value in that record is `opened` or `existing`.
+
+| Target type | Tab identity value inside the window |
+| --- | --- |
+| terminal | A terminal prefix followed by the terminal session identifier. |
+| review | One fixed review Tab identifier for the task. |
+| browser | The browser tab identifier. |
+| file | An identifier that the file Tab type derives from the file path. |
+
+An existing Tab keeps its current host, and a placement request cannot move it.
+
+A missing placement uses `right` for a file, a browser tab, and a review view.
+
+A missing placement for a terminal uses the task setting for the default terminal location.
+
+Each Tab type declares its permitted destinations.
+
+A request for `bottom` opens in the right host when the Tab type forbids `bottom`.
+
+The window owns every panel host, and one main window shows one task at a time.
+
+The renderer stores one layout record for each local task.
+
+The record holds the restorable Tab routes and the topology.
+
+The topology holds each host state, the focus area, the layout mode, and the maximise flag.
+
+Each host state holds an open flag, an ordered Tab list, and the active Tab.
+
+Therefore the layout record persists placement, order, activation, and maximise together.
+
+A restore stops when the payload version differs or the Tab type is unavailable.
+
+A preview Tab does not persist.
+
+A task transfer uses a separate layout snapshot with the same fields.
+
+The transfer target reopens each Tab in the recorded host.
+
+#### Placement and human access
+
+A human moves a Tab by a drag between the Tab strips or through a Tab action.
+
+A move stops when the target host already holds the Tab or forbids the Tab type.
+
+A move stops while the Tab is in a transfer.
+
+A terminal Tab keeps its terminal session identifier through a move.
+
+A move of the last right host Tab to the bottom host closes the right panel.
+
+A human reorder moves one Tab to another index in the same host list.
+
+A cancelled drag restores the original index and the original active Tab.
+
+Only the right host supports a maximise state.
+
+A human toggles maximise with a command that carries no default keyboard shortcut.
+
+The maximise state clears when the right host holds no Tab.
+
+#### Transcript rendering
+
+The transcript renders a Desktop tool call as generic tool activity.
+
+The transcript holds the tool result as text content.
+
+The result text is the queued record in a serial data format.
+
+The transcript carries surface metadata for two tool surfaces only.
+
+Those two surfaces are browser use and computer use.
+
+Therefore the transcript shows no panel name, no host, and no Tab identifier.
+
+The queued command reveals and focuses the Tab inside the window.
+
+That reveal happens when the target task is visible in that window.
+
+The transcript activity offers no later action to open the same Tab.
+
+The last sentence is an inference from the missing surface metadata.
+
+#### Instructions and permissions
+
+The tool description teaches six rules to the model.
+
+The calling task in the calling window receives the Tab by default.
+
+The model sets a task identifier only when the user asks for another task.
+
+A hidden target task returns the queued status.
+
+A queued Tab opens when that task becomes visible in the same window.
+
+The model uses the tool after it creates or edits an artifact.
+
+The tool opens user interface only, and other tools inspect the content.
+
+The description also states that a terminal target needs a local task.
+
+The description text changes with the available targets.
+
+The placement field carries no description text.
+
+No separate skill teaches panel placement.
+
+The tool needs no user approval and no sandbox permission.
+
+#### Correction to the earlier reading
+
+The first Terminal reading stated that the panel tool result returns the placement and the Tab identifier.
+
+That reading was wrong.
+
+I inspected the panel tool handler in the current archive for this point.
+
+The handler queues the application command and then returns a fixed result.
+
+That fixed result carries the queued status and the task identifier only.
+
+The placement worker recorded the correct behaviour, and the Files worker agreed with it.
+
+I corrected the Terminal subsection of this report.
+
+#### Failure and unavailable states
+
+| State | Verified result |
+| --- | --- |
+| Invalid tool arguments | The tool returns an unsuccessful result. |
+| Missing Desktop action host | The tool reports that app actions are unavailable. |
+| Unknown target task | The tool reports a failure to open the Codex Tab. |
+| Unavailable target type | The tool reports that this target type is unavailable. |
+| Hidden target task | The command queues until that task becomes visible in the same window. |
+| Queued command failure | The window logs a warning, and the agent receives no error. |
+| Missing application view | The command reports that it requires an app view. |
+| Archived preview | The command reports that panels are unavailable. |
+| No visible task | The command reports that it requires a visible task. |
+| Different visible task | The command names the visible task and rejects the request. |
+| Remote file link for the local browser | The tool refuses the request. |
+| Unsupported Codex deep link | The command reports that panel opens do not support that link. |
+| Forbidden host for a Tab type | The open uses the right host instead of the bottom host. |
+| Forbidden host for a move | The move stops without an error to the agent. |
+| Stored layout with an old payload version | The restore stops for that Tab. |
+| Tab type unavailable for the task route | The restore stops for that Tab. |
 
 ### Settings and approval state
 
