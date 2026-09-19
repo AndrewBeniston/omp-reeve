@@ -258,11 +258,79 @@ The human needs no further approval to open a side chat.
 
 ## Sub-agents
 
-Evidence pending.
+A sub-agent is a separate agent thread that another agent creates.
+
+The bundled application server provides the sub-agent tools.
+
+The Codex Desktop renderer does not register any sub-agent tool.
+
+The renderer displays sub-agent activity and opens sub-agent threads.
+
+The application server carries two sub-agent tool generations.
+
+Version one and version two expose different tool sets.
 
 ### Registration and discovery
 
-Evidence pending.
+| Exact name | Registration point | How the agent learns about it |
+| --- | --- | --- |
+| `spawn_agent` | The application server registers this tool in both generations. | Its schema explains sub-agent creation and returns the new identity. |
+| `send_input` | The application server registers this version one tool. | Its schema explains queued input and immediate redirection. |
+| `send_message` | The application server registers this version two tool. | Its schema explains message delivery without a new turn. |
+| `followup_task` | The application server registers this version two tool. | Its schema explains a new task that triggers a turn. |
+| `wait_agent` | The application server registers this tool in both generations. | Its schema explains blocking until a final status or a timeout. |
+| `interrupt_agent` | The application server registers this tool in both generations. | Its schema explains turn interruption with a returned previous status. |
+| `resume_agent` | The application server registers this version one tool. | Its schema explains reopening a closed agent. |
+| `close_agent` | The application server registers this version one tool. | Its schema explains shutdown of an agent and its descendants. |
+| `list_agents` | The application server registers this tool in both generations. | Its schema explains listing of live agents in the root thread tree. |
+| Sub-agent tool namespace | The application server groups the tools under one namespace. | The namespace description states that the tools spawn and manage sub-agents. |
+| Sub-agents panel Tab | The renderer registers this right side panel Tab. | The agent does not receive this Tab. |
+
+The version one namespace name is `multi_agent_v1`.
+
+The version two namespace name is `collaboration`.
+
+A configuration key can override the namespace name.
+
+The namespace description reads that the namespace holds tools for spawning and managing sub-agents.
+
+A separate configuration section controls the whole feature.
+
+That section can set the maximum concurrent threads for each session.
+
+That section can set the maximum sub-agent depth.
+
+That section can set the default sub-agent model.
+
+That section can set the default sub-agent reasoning effort.
+
+That section can set the maximum job runtime in seconds.
+
+That section can set the interrupt message.
+
+A version two section can set the minimum, maximum, and default wait timeout.
+
+A version two section can disable the wait tool.
+
+A version two section can restrict the tools to non code mode turns.
+
+A version two section can hide the spawn metadata.
+
+A version two section can expose the picker model overrides to the spawn tool.
+
+A version two section can replace the usage hint text.
+
+A version two section can replace the sub-agent developer instructions.
+
+A version two section can replace the multi-agent mode hint text.
+
+An agent role file can add a description, a configuration file, and nickname candidates.
+
+The code mode runtime does not receive the version two tools.
+
+The version two instruction states that the tools are absent from the code mode tool namespace.
+
+The version two instruction requires direct tool calls for every sub-agent tool.
 
 ### Actions, identity, and ownership
 
