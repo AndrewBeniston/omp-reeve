@@ -73,23 +73,99 @@ No agent tool schema in the bundles exposes that service.
 
 Therefore, the agent cannot call Go to definition.
 
-## Actions and identity
+### Actions and identity
+
+`open_in_codex` with a file target opens one workspace file in a panel Tab.
+
+The request accepts a path and an optional positive line number.
+
+The request also accepts an optional placement and an optional thread identifier.
+
+The command selects a viewer in a fixed order.
+
+The order is artifact viewer, extension file viewer, text file editor, an already open file Tab, artifact viewer, and review file source viewer.
+
+The command skips the text file editor when the caller supplies an end line.
+
+The result returns the thread identifier, the target type, the placement, the status, and the viewer name.
+
+The status is `opened` or `existing`.
+
+The viewer name is `artifact`, `mcpExtensionFileViewer`, `textFileEditor`, or `reviewFileSource`.
+
+The file result returns no Tab identifier.
+
+The terminal, browser, and review results each return a Tab identifier.
+
+Each file viewer builds its own Tab identifier from the host and the path.
+
+| Viewer | Tab identifier value |
+| --- | --- |
+| Text file editor | `text-editor:<hostId>:<path>` |
+| Review file source | `file:<hostId>:<path>` |
+| Review file source with an environment | `file:<hostId>:<environmentId>:<path>` |
+| Extension file viewer | `mcp-extension:file-viewer:file:<hostId>:<path>` |
+| Artifact viewer | `artifact:<hostId>:<path>` |
+
+A second call for the same host and path finds the same Tab.
+
+That call returns the status `existing`.
+
+Each file Tab stores a durable route with payload version 1.
+
+The text file editor route stores the host, the path, the line, the column, and the workspace root.
+
+The review file source route also stores the end line, the title, and the environment.
+
+After a renderer reload, the renderer reopens the file from that stored route.
+
+The renderer rejects a stored payload with another version number.
+
+The renderer also rejects a payload that fails parameter validation.
+
+The renderer keeps the Tab but opens no file while the host is disconnected.
+
+The review file source Tab records no durable route when the caller supplies a custom icon or a close callback.
+
+The renderer reports the open file Tab list for each conversation to the main process.
+
+The main process watches those files and reports a change to the conversation.
+
+The bundles show no transfer of a file Tab between tasks.
+
+Therefore, a file Tab does not transfer with a task. This statement is an inference.
+
+The file Tab contains its own workspace file navigation.
+
+That navigation lists one directory at a time under a workspace root.
+
+The service rejects a directory path outside the workspace root.
+
+The service also rejects a symbolic link directory.
+
+The service can hide entries that start with a period.
+
+The agent receives no tool for that navigation service.
+
+The agent changes a file with the core patch tool.
+
+The renderer records each change as a file change item with a path and a change kind.
+
+The change kind can rename a file through a move path.
+
+### Placement and human access
 
 Evidence pending.
 
-## Placement and human access
+### Transcript rendering
 
 Evidence pending.
 
-## Transcript rendering
+### Instructions and permissions
 
 Evidence pending.
 
-## Instructions and permissions
-
-Evidence pending.
-
-## Failure and unavailable states
+### Failure and unavailable states
 
 Evidence pending.
 
