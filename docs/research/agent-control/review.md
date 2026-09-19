@@ -124,3 +124,63 @@ The record also holds the base branch, the commit, the repository root, and the 
 After a reload, the panel restores only when the task, working directory, and host still match.
 
 A mismatch cancels the restore and the Tab does not return.
+
+#### Placement and human access
+
+`open_in_codex` accepts `right` or `bottom` placement for the Review panel.
+
+The Review panel uses the right placement when the call omits a placement.
+
+An existing Review Tab keeps its current placement.
+
+The call reveals and focuses the Review Tab.
+
+The Review Tab is always available in the panel registry.
+
+The panel registry reports no unavailable state for the review Tab type.
+
+The human can open the review surface from several places.
+
+A pull request diff link in the transcript is an active link.
+
+The link shows a preview card with the repository, the destination, and the changed file count.
+
+The card also shows an open, draft, closed, or merged status.
+
+A click on the link opens the pull request code Tab at the named file and line.
+
+An inline comment from the model appears in the Review panel.
+
+A selection of that comment opens the related file and scrolls to the comment.
+
+The human can also open the Review panel without any agent action.
+
+#### Transcript rendering
+
+The Review panel tool call renders as generic `codex_app` tool activity.
+
+The tool result stays text content inside the tool activity.
+
+No review presentation metadata accompanies the result.
+
+The presentation metadata keys cover browser use and computer use only.
+
+The inline comment directive does not render as visible text.
+
+The message renderer removes every directive line from the displayed message.
+
+The comment appears in the Review panel instead.
+
+The application stores model comments per task in a durable comment record.
+
+Each record holds the comment text, the file path, the line, and the side.
+
+The side value is always `right` for a model comment.
+
+The application reads the comments only from the last agent message.
+
+The application collects comments only for a local task.
+
+A user message that returns review comments to the model renders with a comment count.
+
+That message also renders the comment list.
