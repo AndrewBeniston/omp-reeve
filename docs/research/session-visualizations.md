@@ -496,3 +496,101 @@ A visualization needs session isolation for its saved state.
 A visualization needs a typed transcript card and a host action.
 
 This match is an inference from the Browser report and the current Reeve source.
+
+### 7. The five OMP and Reeve answers
+
+#### Question one: can OMP deliver the same skill
+
+Yes. OMP can deliver the bundled skill unchanged.
+
+OMP reads a `SKILL.md` file, removes the frontmatter, and sends the Markdown body.
+
+The skill body is instruction text, so OMP transports it without change.
+
+The skill must sit in a directory OMP already scans.
+
+This answer is source-verified from the OMP 18.1.6 source.
+
+One limit applies. The delivered skill makes the model write an HTML file.
+
+OMP then does nothing with that file.
+
+#### Question two: does OMP have an HTML, widget, or artifact surface
+
+No. OMP has no HTML surface.
+
+| OMP surface | What it accepts | Evidence label |
+| --- | --- | --- |
+| Extension widget | Text lines or a terminal component factory. | Source-verified. |
+| RPC widget | Text lines only. | Source-verified. |
+| Custom interface | A terminal editor replacement or a terminal overlay. | Source-verified. |
+| Tool renderer | Terminal components, including edit differences. | Source-verified. |
+| Artifact | Large text output with a text reference. | Source-verified. |
+| Visualization | No content type and no lifecycle. | Source-verified. |
+
+OMP defines no frame, no content policy, and no widget-state bridge.
+
+#### Question three: does Reeve have a surface for a sandboxed fragment
+
+Yes, in one place only.
+
+The Reeve file viewer already shows an HTML file inside a script-only sandboxed frame.
+
+The Reeve file route already returns a generated document with a strict content policy.
+
+Both facts are source-verified in this repository.
+
+The transcript has no such surface.
+
+The transcript Markdown sanitizer removes a frame element from assistant HTML.
+
+Reeve therefore holds a containment precedent and no transcript host.
+
+A further advantage applies. A sandboxed frame works in the browser build and the desktop build.
+
+The Browser tab and the Terminal tab need the desktop process. A visualization does not.
+
+That portability claim is an inference from the current source.
+
+#### Question four: what Reeve builds and what comes from OMP unchanged
+
+| Item | Owner | Evidence label |
+| --- | --- | --- |
+| The skill Markdown and its instructions | OMP unchanged. | Source-verified. |
+| Skill discovery and delivery to the model | OMP unchanged. | Source-verified. |
+| Model output of an HTML file | OMP unchanged. | Source-verified. |
+| File writing through the agent tools | OMP unchanged. | Source-verified. |
+| A per-session visualization directory and write permission | Reeve builds. | Inference. |
+| The content reference parser in assistant text | Reeve builds. | Inference. |
+| The transcript visualization block | Reeve builds. | Inference. |
+| The sandboxed frame and its content policy | Reeve builds on its file viewer precedent. | Inference. |
+| The host message channel and height reporting | Reeve builds. | Inference. |
+| The widget-state store and its limits | Reeve builds. | Inference. |
+| The follow-up message action | Reeve builds on its existing prompt route. | Inference. |
+| The theme variable bridge | Reeve builds from its own tokens. | Inference. |
+| Failure surfaces and the repair action | Reeve builds. | Inference. |
+| Export and standalone document | Reeve builds. | Inference. |
+
+The division is simple. OMP supplies the instruction and the file.
+
+Reeve supplies every part that renders, contains, and remembers that file.
+
+#### Question five: is a Reeve visualization epic worth proposing
+
+Yes. The epic is worth proposing.
+
+Three reasons support this answer.
+
+The model half already works through OMP with no engine change.
+
+Reeve already contains a sandboxed frame and a strict generated document.
+
+Reeve already parses a structured directive out of assistant text.
+
+Two conditions limit the value.
+
+The epic needs the session service pattern from the Browser research first.
+
+The epic needs an accepted decision record before any transcript frame ships.
+
+The scope appears in item 8.
