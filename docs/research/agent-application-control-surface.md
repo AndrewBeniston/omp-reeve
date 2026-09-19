@@ -1561,7 +1561,197 @@ A goal turn inherits the approval policy, the approvals reviewer, and the sandbo
 
 ### Session lifecycle
 
-Evidence pending.
+Codex Desktop gives the agent a task tool group for the session lifecycle.
+
+A feature override gates the whole group.
+
+The application must also run as a desktop client.
+
+#### Registration and discovery
+
+| Exact name | Registration point | How the agent learns about it |
+| --- | --- | --- |
+| `create_thread` | The task tool group adds it to `codex_app`. | Its schema explains targets, prompts, and returned identity. |
+| `fork_thread` | The task tool group adds it to `codex_app`. | Its schema explains source selection and fork history. |
+| `list_threads` | The task tool group adds it to `codex_app`. | Its schema explains pinned order and recency order. |
+| `list_archived_threads` | The task tool group adds it to `codex_app`. | Its schema explains paging and restoration. |
+| `read_thread` | The task tool group adds it to `codex_app`. | Its schema explains turn reading without opening. |
+| `wait_threads` | The task tool group adds it to `codex_app`. | Its schema explains cursors, timeouts, and wake conditions. |
+| `send_message_to_thread` | The task tool group adds it to `codex_app`. | Its schema explains follow-up prompts. |
+| `handoff_thread` | The task tool group adds it to `codex_app`. | Its schema explains checkout and worktree movement. |
+| `get_handoff_status` | The task tool group adds it to `codex_app`. | Its schema explains revision polling. |
+| `set_thread_archived` | The task tool group adds it to `codex_app`. | Its schema explains background archive and restore. |
+| `set_thread_title` | The task tool group adds it to `codex_app`. | Its schema explains background renaming. |
+| `set_thread_pinned` | The task tool group adds it to `codex_app`. | Its schema explains background pinning. |
+| `list_projects` | The task tool group adds it to `codex_app`. | Its schema explains project selection before creation. |
+| `share_thread` | The Desktop tool builder adds it to `codex_app`. | Its schema explains the immutable share link. |
+| `navigate_to_codex_page` | The Desktop tool builder adds it to `codex_app`. | Its schema explains window navigation. |
+
+The lifecycle tools load as deferred tools.
+
+The navigation tool is an eager tool.
+
+Four separate switches change the registered set.
+
+A fork switch removes the fork tool for an unsupported history mode.
+
+A sharing switch adds the share tool.
+
+A navigation switch adds the navigation tool on a local desktop host.
+
+A sidebar sections switch replaces the pin tool with the sidebar section tools.
+
+A cross host switch adds the destination host property to the handoff tool.
+
+#### Actions and identity
+
+`create_thread` accepts a prompt, a target, an optional title, a model, and an effort.
+
+The target is a project, a projectless task, or a cloud work task.
+
+A project target needs a project identifier and a local or worktree environment.
+
+A worktree environment accepts the working tree or a named branch as a starting state.
+
+A created thread returns a thread identifier and a host identifier.
+
+A pending worktree creation returns a client thread identifier instead.
+
+The schema forbids a client thread identifier where a thread identifier is required.
+
+Creation does not block the calling turn.
+
+`navigate_to_codex_page` shows one thread or chat in the primary window.
+
+The result reports only that navigation happened.
+
+`read_thread` returns recent status and turn summaries without opening the thread.
+
+`wait_threads` waits for up to eight threads and rejects the calling thread.
+
+New human input in the calling thread ends the wait.
+
+`set_thread_archived` archives or restores one thread and returns the archive state.
+
+`fork_thread` forks the calling thread or a named thread.
+
+A same directory fork returns a child thread identifier immediately.
+
+A worktree fork returns a queued status and a client thread identifier.
+
+A fork copies completed history only.
+
+`handoff_thread` moves another thread between its checkout and its Codex worktree.
+
+The calling thread cannot hand itself off, and a cloud thread cannot move.
+
+The tool interrupts a running thread before the move.
+
+The tool returns an operation identifier and a revision.
+
+A repeated call with the same call identifier returns the existing progress.
+
+A successful handoff creates a destination thread and archives the source thread.
+
+Therefore a handoff does not preserve the thread identifier.
+
+`set_thread_title` renames a thread after an acknowledgement from the host.
+
+`share_thread` creates an immutable share link with a workspace or public audience.
+
+The share link does not track later thread changes.
+
+A Codex thread identity is a thread identifier plus a host identifier.
+
+An omitted host identifier resolves to the calling task host.
+
+The tools return the identity as serialized text in a tool result.
+
+The main process stores the client thread identifier under a durable storage key.
+
+The main process also stores thread tab routes and a workspace state under versioned keys.
+
+These keys let the identity survive an application restart. This statement is an inference.
+
+#### Placement and human access
+
+`navigate_to_codex_page` is the only lifecycle tool that opens a thread in the window.
+
+No lifecycle tool result carries a Tab identifier or a window identifier.
+
+The instructions ask the agent to emit a created thread directive after a creation.
+
+That directive carries the thread identifier or the client thread identifier.
+
+A separate handler turns the directive into an openable task item. This statement is an inference.
+
+The transcript also defines archive and unarchive directives.
+
+#### Transcript rendering
+
+The transcript stores a lifecycle tool call as a dynamic tool call item.
+
+The adapter converts that item into a generic dynamic tool activity.
+
+The transcript index stores each creation call in a separate category.
+
+The creation tool and the handoff tool also carry their content items and success flag.
+
+Therefore those two activities can show their own result content.
+
+The transcript also carries a handoff progress item with running, failed, and success steps.
+
+#### Instructions and permissions
+
+The creation schema restricts creation to an explicit human request.
+
+The schema states that the prompt appears as a human visible message.
+
+The coordinator instructions add a delegation policy.
+
+That policy sends slow or multi-step work to another thread.
+
+That policy keeps a human choice in the calling thread.
+
+That policy requires a return report instruction in every worker prompt.
+
+That policy prefers wait snapshots over repeated read calls.
+
+The listing schemas mark returned titles and summaries as untrusted data.
+
+The share flow is the only lifecycle flow with a human approval step.
+
+A permissive sandbox or an approval policy other than never triggers that approval.
+
+An automation task cannot request that approval.
+
+Archive, title, pin, fork, and handoff need no separate approval.
+
+#### Failure and unavailable states
+
+| State | Verified result |
+| --- | --- |
+| Inactive task tools switch | The lifecycle tools are absent. |
+| Unsupported history mode | The fork tool is absent. |
+| Inactive sharing switch | The share tool is absent or reports that sharing is unavailable. |
+| Non-local host | The navigation tool is absent. |
+| Invalid arguments | The tool returns an unsuccessful result with the failed fields. |
+| Missing calling thread identity | The fork and archive tools report the missing identity. |
+| Unknown project identifier | The creation tool asks the agent to list the projects. |
+| Wrong project type for the target | The creation tool reports the wrong target type. |
+| Model override on a cloud target | The creation tool rejects the override. |
+| Incomplete fork setup | The result warns against another fork and a follow-up. |
+| Worktree fork without a directory | The fork tool reports the missing directory. |
+| Self handoff | The handoff tool rejects the request. |
+| Unavailable destination host | The handoff tool reports the unavailable host. |
+| Failed destination creation | The handoff item reports that the destination thread failed. |
+| Failed source archive after handoff | The application logs a warning and keeps the handoff. |
+| Unknown operation identifier | The status tool reports no matching operation. |
+| Wait on the calling thread | The wait tool rejects the target. |
+| New human input during a wait | The wait tool reports an interrupted wait. |
+| Denied share approval | The share tool reports the denied approval. |
+| Failed navigation | The navigation tool reports the failure. |
+| Unsupported dynamic tool or namespace | The dispatcher reports the unsupported name. |
 
 ### Visualizations
 
