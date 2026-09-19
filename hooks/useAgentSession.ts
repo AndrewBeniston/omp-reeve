@@ -13,6 +13,7 @@ import type {
   SubagentSnapshot,
 } from "@/lib/types";
 import { isBlockingExtensionUiRequest } from "@/lib/browser-notifications";
+import type { AgentControlReply, AgentControlRequestEvent } from "@/lib/agent-control/types";
 import { normalizeToolCalls } from "@/lib/normalize";
 import { stripAnsi } from "@/lib/ansi";
 import { isPromptRejectedError, sendAgentCommand } from "@/lib/agent-client";
@@ -201,6 +202,12 @@ export interface UseAgentSessionOptions {
   onSessionCreated?: (session: SessionInfo) => void;
   onSessionForked?: (newSessionId: string) => void;
   onSessionNameChanged?: (sessionId: string, name: string) => void;
+  /**
+   * Answer an agent control request for the Session this view shows. Returning
+   * null leaves the request unanswered, and the control host reports that no
+   * window shows the Session.
+   */
+  onAgentControlRequest?: (request: AgentControlRequestEvent) => AgentControlReply | null;
   modelsRefreshKey?: number;
   chatInputRef?: React.RefObject<ChatInputHandle | null>;
   onBranchDataChange?: (tree: SessionTreeNode[], activeLeafId: string | null, onLeafChange: (leafId: string | null) => void) => void;
@@ -415,7 +422,7 @@ type SlashCommandsResponse = {
 export function useAgentSession(opts: UseAgentSessionOptions) {
   const {
     session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSessionNameChanged,
-    modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange,
+    onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange,
     translate = (key) => key,
   } = opts;
 
@@ -928,6 +935,29 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     };
     setMessages((previous) => [...previous, message]);
   }, []);
+
+  /**
+   * Answer a control request from this Session's control host.
+   *
+   * Only the window that shows the Session answers. The event stream can stay
+   * open for a short while after the human moves to another Session, and a
+   * window that no longer shows it stays silent, because a control reports
+   * what the human sees. Silence costs the host its wait and returns the
+   * no_window value.
+   */
+  const handleAgentControlRequest = useCallback((request: AgentControlRequestEvent) => {
+    const sid = sessionIdRef.current;
+    if (!sid || request.sessionId !== sid) return;
+    const reply: AgentControlReply | null | undefined = onAgentControlRequest?.(request);
+    if (!reply) return;
+    void sendAgentCommand(sid, {
+      type: "agent_control_response",
+      id: request.id,
+      ...(reply.ok ? { ok: true, value: reply.value } : { ok: false, reason: reply.reason }),
+    }).catch((error: unknown) => {
+      console.error("Failed to send an agent control response:", error);
+    });
+  }, [onAgentControlRequest]);
 
   const handleExtensionUiRequest = useCallback((request: ExtensionUiRequest) => {
     if (isBlockingExtensionUiRequest(request)) onAttentionNeeded?.(request);
@@ -1527,6 +1557,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       case "extension_ui_request":
         handleExtensionUiRequest(event as ExtensionUiRequest);
         break;
+      case "agent_control_request":
+        handleAgentControlRequest(event as unknown as AgentControlRequestEvent);
+        break;
       case "collab_status":
         {
           const collaboration = event.collaboration;
@@ -1537,7 +1570,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         }
         break;
     }
-  }, [addNotice, cancelEventStreamGrace, handleExtensionUiRequest, loadSession, notifyPromptStage, onAgentEnd, onSessionNameChanged, refreshContextUsage, scheduleEventStreamClose, settleUiStage]);
+  }, [addNotice, cancelEventStreamGrace, handleAgentControlRequest, handleExtensionUiRequest, loadSession, notifyPromptStage, onAgentEnd, onSessionNameChanged, refreshContextUsage, scheduleEventStreamClose, settleUiStage]);
   handleAgentEventRef.current = handleAgentEvent;
 
   const handleSend = useCallback(async (message: string, images?: AttachedImage[]) => {
