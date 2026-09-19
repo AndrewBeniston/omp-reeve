@@ -655,3 +655,15 @@ The epic is about two thirds the size of the Browser integration epic.
 A sandboxed frame needs no desktop process, so both Reeve builds can show a visualization.
 
 The last statement is an inference. I did not run a visualization in Reeve during this research.
+
+## Report status
+
+This report is complete.
+
+Items one to nine of the remaining-work list are closed.
+
+The earlier Codex Desktop findings remain unchanged above.
+
+I did not run a visualization inside Reeve during this research.
+
+Every Reeve and OMP statement here comes from source reading.
