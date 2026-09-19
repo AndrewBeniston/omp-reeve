@@ -1248,7 +1248,177 @@ The installation can also restrict the allowed approval, sandbox, and web search
 
 ### Questions and option pickers
 
-Evidence pending.
+Codex Desktop carries one general question tool and three onboarding question tools.
+
+The core app server owns the general question tool.
+
+The Desktop tool builder owns the three onboarding tools.
+
+#### Registration and discovery
+
+| Exact name | Registration point | How the agent learns about it |
+| --- | --- | --- |
+| `request_user_input_async` | The core app server registers this Session tool. | The core tool schema teaches the question call. |
+| `request_option_picker` | The Desktop tool builder adds it to a gated onboarding set. | Its schema teaches an option choice in the onboarding flow. |
+| `request_onboarding_input` | The same onboarding set. | Its schema teaches one to three structured onboarding questions. |
+| `setup_codex_step` | The same onboarding set. | Its schema teaches the three native setup steps. |
+| `request_environment_input` | The app server sends it as a tool call. | The agent learns the tool from the environment setup flow. |
+| User input client request | The app server sends this client request. | The agent does not receive this request directly. |
+| Option picker client request | The app server sends this client request. | The agent does not receive this request directly. |
+| MCP elicitation request | An MCP server sends this client request. | The agent learns only the MCP tool. |
+
+The desktop bundle does not define the schema of the core question tool.
+
+Therefore the core app server owns that schema. This statement is an inference.
+
+A feature gate controls the three onboarding tools.
+
+The tool builder removes them for the conversational onboarding kind.
+
+The tool builder also removes them for the environment setup kind.
+
+All three onboarding tools belong to the eager tool set.
+
+#### Actions and identity
+
+The user input request carries a thread identifier, an item identifier, and a turn identifier.
+
+The request carries one or more questions.
+
+Each question carries an identifier, an optional header, and the question text.
+
+Each question carries a free-text flag, a secret flag, and a list of options.
+
+Each option carries a label and an optional description.
+
+The request also carries a blocking flag and an optional auto-resolution window.
+
+The response maps each question identifier to a list of answers.
+
+The client omits a question with no answer from that map.
+
+An empty map means that the human answered nothing.
+
+The option picker request carries one question, a list of options, and two labels.
+
+The picker request also carries a flag that permits more than one selection.
+
+The picker response carries an action, the selected options, and one free-text answer.
+
+A dismissed picker returns an empty selection and no free-text answer.
+
+The onboarding input tool accepts one to three questions with at least two options each.
+
+The dynamic tool path returns the picker response as text.
+
+An async question keeps a stable identity inside the turn.
+
+That identity combines the tool name, the source item identifier, and the question index.
+
+Therefore the identity survives a renderer reload of the same turn.
+
+The app server connection owns the pending question record.
+
+The record is keyed by the conversation, and a second record replaces the first.
+
+Both lookup maps are held in memory only.
+
+Therefore a pending record does not survive an application restart. This statement is an inference.
+
+Each window registers itself with the tracker as a surface.
+
+The tracker holds the focus state of every surface.
+
+Therefore any window that presents the conversation can answer the question.
+
+#### Placement and human access
+
+A user input request renders in the chat surface as a question widget.
+
+An option picker request renders as a separate request surface.
+
+The human answers each surface in place.
+
+The transcript offers no action that reopens an answered question.
+
+The picker offers an explicit skip label for the skip path.
+
+#### Transcript rendering
+
+A user input request renders as a dedicated question activity.
+
+That activity carries the request identifier, the call identifier, and the turn identifier.
+
+It carries the full question list and a completed flag.
+
+An async question renders as one assistant message for each question.
+
+Each of those messages carries the source item identifier and the question index.
+
+A feature flag controls that per-question rendering.
+
+Without that flag the turn renders one ordinary assistant message.
+
+An async question does not count as the final answer of the turn.
+
+An option picker request produces no transcript item.
+
+The widget answer is recorded on the answering message as response metadata.
+
+Telemetry records the shown, dismissed, timed out, and selected events.
+
+#### Instructions and permissions
+
+A setting controls whether Codex can ask a question outside Plan mode.
+
+The default value of that setting permits the question.
+
+The agent can read and write that setting.
+
+The onboarding tool schemas teach their own narrow use.
+
+A question needs no separate user approval.
+
+The tracker can resolve a question without any human answer.
+
+A blocking request is never resolved by the tracker.
+
+A request with an explicit window starts a countdown at once.
+
+That window must be between 5,000 and 300,000 milliseconds.
+
+A request without a window waits 60,000 milliseconds of inactivity first.
+
+The countdown after that period is 90,000 milliseconds.
+
+A conversation with no focused presenting surface starts that countdown at once.
+
+Human activity in the conversation restarts the inactivity period.
+
+A countdown expiry submits an empty answer map for a user input request.
+
+A countdown expiry declines an MCP elicitation request instead.
+
+An automation-owned thread snoozes each non-blocking request without an explicit window.
+
+#### Failure and unavailable states
+
+| State | Verified result |
+| --- | --- |
+| Missing thread identifier | The client logs an error and drops the request. |
+| Wrong request method for an answer | The client logs an error and sends no response. |
+| Invalid onboarding tool arguments | The tool returns an unsuccessful result and names itself. |
+| Invalid picker arguments | The tool returns an unsuccessful result and names itself. |
+| Completion step of the setup tool | The client presents no request surface. |
+| Abandoned conversation, user input | The client answers with an empty answer map. |
+| Abandoned conversation, option picker | The client answers with a dismiss action. |
+| Abandoned conversation, MCP elicitation | The client declines the request. |
+| Countdown expiry, user input | The connection answers with an empty answer map. |
+| Countdown expiry, MCP elicitation | The connection declines the request. |
+| Unsafe MCP elicitation approval | The client raises an error and sends no approval. |
+| Context picker request | The client dismisses the request at once. |
+| Follower stream role | The client forwards the answer to the owning task. |
+| Unknown pending request | The answer path returns without an effect. |
 
 ### Goal state
 
