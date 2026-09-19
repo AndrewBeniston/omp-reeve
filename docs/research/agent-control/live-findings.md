@@ -17,11 +17,12 @@ Two sources. A Codex Desktop task ran twelve tool checks and pasted its raw resu
 | 7 | This build exposes no settings read tool and no settings write tool in the task catalogue. The research placed them behind a feature gate. | Tool catalogue | 451, 482 to 492 |
 | 8 | The bundled runtime tool reports git, Node.js, pnpm, and Python paths plus a bundle version. | Tool result | decision 9 |
 | 9 | The plugin exposes 35 tools with the codex_app prefix in this build. | Tool catalogue | 449 |
+| 10 | The spawn row reads "Created an agent" with a disclosure. A click expands it inline to show the name and the instruction text. It opens no Tab. | Maintainer | 144, 506 |
+| 11 | The finish row reads "<name> finished". A click opens a Tab in the right panel strip titled with the sub-agent name. The Tab shows the sub-agent conversation: the prompt as a user message, the reply, and its own composer with an access mode and a model selector. | Maintainer | 144, 506, 509 |
 
 ## Still open
 
 - Check 11, the visualization block in the transcript. No file was written.
-- The sub-agent Tab placement, because no Tab opened during the check.
 - The sandbox default. The test task ran with full access and no approvals, which is the maintainer's own configuration.
 - The settings surface, because the gate is closed in this build.
 
