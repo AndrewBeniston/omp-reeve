@@ -63,3 +63,64 @@ The developer instruction text always includes the inline comment section.
 The developer instruction text always includes the pull request diff link section.
 
 The instruction text gives the exact directive attributes and the exact link parameters.
+
+#### Actions and identity
+
+`open_in_codex` opens or reveals the Review panel in the calling task.
+
+The Review panel is one Tab with the fixed identifier `diff`.
+
+The panel title is Review.
+
+The tool result returns the task identifier, the type `review`, the placement, the status, and the Tab identifier.
+
+The status is `opened` for a new Tab and `existing` for a present Tab.
+
+The tool accepts four review view values.
+
+| View value | Verified effect |
+| --- | --- |
+| `last-turn` | The panel shows the changes of the most recent turn. |
+| `branch` | The panel compares the branch against its base revision. |
+| `staged` | The panel shows the staged changes. |
+| `unstaged` | The panel shows the unstaged changes. |
+
+The second target shape accepts a base branch value.
+
+A base branch value selects the branch view and stores the base revision for the repository root.
+
+The base branch must resolve locally to a commit.
+
+An optional path value selects one file inside the Review panel.
+
+A path, a view, or a base branch also clears the selected commit.
+
+The panel keeps a separate last explicit view value in durable storage.
+
+That stored value defaults to `branch`.
+
+The agent can also pass a review deep link as a browser target.
+
+A pull request link must contain a pull request address, a file path, and a positive line number.
+
+The link accepts a side value of `left` or `right` and defaults to `right`.
+
+A pull request link opens the pull request code Tab, not the local Review Tab.
+
+A pull request link returns the status `superseded`.
+
+A task review link opens the local Review Tab with the view and path from the link.
+
+A task review link must name the calling task.
+
+The Review Tab identifier does not change between sessions.
+
+The Tab stores a durable route record with version 1.
+
+That record holds the task identifier, the working directory, the host identifier, and the view.
+
+The record also holds the base branch, the commit, the repository root, and the turn identifier.
+
+After a reload, the panel restores only when the task, working directory, and host still match.
+
+A mismatch cancels the restore and the Tab does not return.
