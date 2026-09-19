@@ -1422,7 +1422,142 @@ An automation-owned thread snoozes each non-blocking request without an explicit
 
 ### Goal state
 
-Evidence pending.
+Codex Desktop gives the agent three goal tools.
+
+The application archive defines none of them.
+
+Therefore the core agent server registers the goal tools.
+
+#### Registration and discovery
+
+| Exact name | Registration point | How the agent learns about it |
+| --- | --- | --- |
+| `create_goal` | The core agent server registers this Session tool. | The tool schema explains when a goal may start. |
+| `update_goal` | The core agent server registers this Session tool. | The tool schema explains each permitted status change. |
+| `get_goal` | The core agent server registers this Session tool. | The tool schema explains goal status and budget reading. |
+| Goal set, get, and clear requests | The application client sends these thread requests. | The agent does not receive these requests directly. |
+| Goal slash command | The composer registers this human command. | The human starts a goal with this command. |
+
+The application listens for a goal update notification and a goal clear notification.
+
+#### Actions and identity
+
+`create_goal` accepts an objective and an optional token budget.
+
+`create_goal` fails when an unfinished goal exists.
+
+`update_goal` changes only the status.
+
+`get_goal` returns the status, the budgets, the token use, the elapsed time, and the remainder.
+
+The goal result identifies the thread that owns the goal.
+
+The goal result also carries a creation time and an update time.
+
+The goal has no separate goal identifier in the application state.
+
+The creation time acts as the goal identity in the application.
+
+The application stores one goal for each conversation.
+
+The token budget is a property of the core goal tool.
+
+The application goal request carries an objective and a status only.
+
+Therefore the application does not set or read the token budget.
+
+The token budget depends on a history notes extension.
+
+The application marks a token budget conversation in local storage for each host.
+
+A continuation or a fork of a token budget task needs a compatible app server version.
+
+The goal status has six values.
+
+The values are active, paused, blocked, complete, budget limited, and usage limited.
+
+The agent may set complete, blocked, and paused only.
+
+The human control toggles active to paused.
+
+The human control toggles paused, blocked, and usage limited to active.
+
+A system interrupt or a human stop pauses an active goal before the interrupt runs.
+
+A goal update to complete triggers an automatic clear request.
+
+#### Placement and human access
+
+The goal state drives a dedicated goal view scope.
+
+The Goal state worker did not verify the contents of that view.
+
+The human starts a goal with the composer command.
+
+The human changes the status with the goal control.
+
+The goal objective accepts pasted text attachments and image attachments.
+
+A durable host inlines the pasted text into the objective.
+
+Another host writes each attachment into a goal attachment directory.
+
+An objective longer than 4000 characters moves into a file.
+
+#### Transcript rendering
+
+The application shows the goal objective as a synthetic completed turn.
+
+That turn holds the objective as its only text input and holds no items.
+
+That turn uses the goal update time as its start time.
+
+The application suppresses a duplicate when an identical turn already exists.
+
+The transcript records no separate item for a status change.
+
+A status change updates the stored goal and the goal presentation only.
+
+Goal failures report through toast messages.
+
+#### Instructions and permissions
+
+The creation schema restricts goal creation to an explicit request.
+
+The schema tells the agent not to infer a goal from an ordinary task.
+
+The schema restricts the token budget to an explicit budget request.
+
+The update schema restricts the paused status to an explicit human request.
+
+The update schema restricts the complete status to an achieved objective.
+
+The update schema restricts the blocked status to a condition repeated over three goal turns.
+
+The update schema forbids resume, budget limited, and usage limited from the agent.
+
+The update schema requires a final token report for a budgeted goal.
+
+A goal needs no separate approval dialogue.
+
+A goal turn inherits the approval policy, the approvals reviewer, and the sandbox policy.
+
+#### Failure and unavailable states
+
+| State | Verified result |
+| --- | --- |
+| Existing unfinished goal | The creation call fails. |
+| Empty objective and no attachment | The application rejects the goal. |
+| Uploaded pasted text without a cloud task | The application reports that a cloud task is necessary. |
+| Restricted account attachment | The application reports that goal attachments are unavailable. |
+| Unknown attachment directory | The application reports an unknown goal attachment directory. |
+| Missing history notes support | The application asks for an app server update. |
+| Failed goal set request | The application shows a set failure toast. |
+| Failed goal status request | The application shows an update failure toast. |
+| Failed goal clear request | The application shows a clear failure toast. |
+| Failed pause before a human stop | The application reports a goal pause error. |
+| Failed goal hydration after resume | The application keeps the previous goal and logs a warning. |
+| Not ready conversation | The goal set request fails. |
 
 ### Session lifecycle
 
