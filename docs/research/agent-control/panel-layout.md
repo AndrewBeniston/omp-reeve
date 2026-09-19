@@ -139,3 +139,62 @@ One main window shows one task at a time.
 
 A panel host belongs to the window, and its content belongs to the visible task.
 
+
+## Placement and layout persistence
+
+The renderer stores one layout record for each local task.
+
+The record has a version number, a route list, and a topology.
+
+The renderer writes the record to a client side key value store.
+
+The store key uses the task route, so the record survives a renderer reload.
+
+| Record field | Stored value |
+| --- | --- |
+| routes | One entry for each restorable Tab. |
+| routes entry | The Tab kind, the Tab identifier, a payload version, and the Tab parameters. |
+| topology.right | The right host state. |
+| topology.bottom | The bottom host state. |
+| topology.focusArea | The value "right-panel", "bottom-panel", or "main". |
+| topology.layoutMode | The value "full" or "split". |
+| topology.rightPanelFullWidth | The maximise state of the right host. |
+| topology.tabsHidden | The hidden state of the Tab strips. |
+| version | The value 1. |
+
+Each host state holds an open flag, an ordered Tab identifier list, and the active Tab identifier.
+
+The ordered list holds the Tab order for that host.
+
+The layout record therefore persists placement, order, activation, and maximise together.
+
+A Tab type can refuse persistence for one Tab.
+
+A preview Tab does not persist.
+
+A restore checks the stored payload version against the current Tab type version.
+
+A restore also checks that the Tab type is available for the task route.
+
+A restore stops when the version differs or the Tab type is unavailable.
+
+A Tab close removes the route and removes the identifier from the host list.
+
+A Tab close also clears the maximise flag when the right host becomes empty.
+
+A Tab close moves the focus area to the other host or to the main area.
+
+A task transfer uses a separate layout snapshot.
+
+The snapshot holds each Tab, its host, its active flag, and its kind specific payload.
+
+The snapshot also holds the two panel open flags, the maximise flag, and the focus area.
+
+The transfer target reopens each Tab in the recorded host.
+
+The transfer target then restores the panel open flags and the focus area.
+
+The same snapshot serves a same directory transfer and a pending worktree transfer.
+
+A cancelled worktree transfer discards the pending snapshot.
+
