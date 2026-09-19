@@ -443,7 +443,7 @@ The table below names every remaining Desktop tool.
 | `remove_artifact` | Pull request association enabled | Removes an attached pull request. |
 | `list_artifacts` | Pull request association or worktrees enabled | Lists every attachment on the task. |
 | `update_running_summary` | Running summary enabled | Updates the short status on the activity pill. |
-| `automation_update` | Local desktop host with the automations feature | Creates, views, updates, or deletes an automation. |
+| `automation_update` | Desktop and local desktop host | Creates, views, updates, or deletes an automation. |
 | `request_environment_input` | Environment setup or full thread start | Requests an approved environment configuration. |
 | `finalize_environment` | Environment setup or full thread start | Finalizes a simulated cloud environment. |
 | `fire_confetti` | Toys availability | Fires confetti in the focused main window. |
@@ -453,7 +453,7 @@ The table below names every remaining Desktop tool.
 | `get_usage_limits` | Account sign-in complete | Reads usage limits for the signed-in account. |
 | `consume_usage_reset` | Account sign-in complete | Redeems one usage reset credit. |
 | `share_thread` | Thread sharing enabled | Creates an immutable share link. |
-| `load_workspace_dependencies` | Local host with the dependency feature | Reports bundled runtime paths. |
+| `load_workspace_dependencies` | Local host with the workspace dependencies experimental feature enabled | Reports bundled runtime paths. |
 | `read_settings` | Local host with the settings feature | Reads settings and setting definitions. |
 | `write_settings` | Local host with the settings feature | Updates settings or thread configuration. |
 | `get_thread_emoji` | Thread emojis enabled | Reads the emoji beside a task. |
