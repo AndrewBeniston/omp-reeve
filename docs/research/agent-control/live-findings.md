@@ -19,10 +19,13 @@ Two sources. A Codex Desktop task ran twelve tool checks and pasted its raw resu
 | 9 | The plugin exposes 35 tools with the codex_app prefix in this build. | Tool catalogue | 449 |
 | 10 | The spawn row reads "Created an agent" with a disclosure. A click expands it inline to show the name and the instruction text. It opens no Tab. | Maintainer | 144, 506 |
 | 11 | The finish row reads "<name> finished". A click opens a Tab in the right panel strip titled with the sub-agent name. The Tab shows the sub-agent conversation: the prompt as a user message, the reply, and its own composer with an access mode and a model selector. | Maintainer | 144, 506, 509 |
+| 12 | A file written under the task visualization directory produces a transcript row "Created visualization". | Maintainer | 469, 470 |
+| 13 | A Markdown image reference to that file renders as a broken image tile, about 135 pixels square. | Maintainer | 470 |
+| 14 | The visualize reference line, in the exact form the bundled skill specifies, rendered as raw text on a routed third-party model. The maintainer reports that the same reference renders as a block on the built-in model. The parser therefore depends on the model route, or the routed reply reaches the transcript through a path that skips the parser. The built-in model could not be tested today because the usage window was exhausted. | Maintainer | 446, 470 |
 
 ## Still open
 
-- Check 11, the visualization block in the transcript. No file was written.
+- The rendered visualization block on the built-in model: its height, its border, its header controls, and its resize behaviour. The routed model cannot show it.
 - The sandbox default. The test task ran with full access and no approvals, which is the maintainer's own configuration.
 - The settings surface, because the gate is closed in this build.
 
