@@ -2043,7 +2043,96 @@ The Capture worker did not verify the Windows capture path on a Windows computer
 
 ### Remaining registered services
 
-Evidence pending.
+The sweep worker listed every service, tool, namespace, and command that the other subsections omit.
+
+The surface report holds the complete lists, and this subsection holds the summary.
+
+#### Registration and discovery
+
+| Exact name | Registration point | How the agent learns about it |
+| --- | --- | --- |
+| Window host service registry | The main process builds one host object for each renderer window. | The agent never calls a host service directly. |
+| `codex_app` namespace | The Desktop tool builder wraps every Desktop tool. | The Session receives the namespace at thread start. |
+| Plugin management namespace | The builder adds it when the matching connector is enabled. | One deferred uninstall tool reaches the agent. |
+| Application commands | The renderer registers seven commands. | The agent learns only the enclosing Desktop tool. |
+
+The host registry holds about ninety service keys in the current build.
+
+The renderer calls a host service while it serves an agent tool.
+
+The sweep worker inferred the purpose of each service from its name and constructor.
+
+#### Actions and identity
+
+The sweep worker recorded 35 further Desktop tools beyond the surfaces above.
+
+Those tools cover worktree creation, artifacts, automations, sidebar sections, and usage limits.
+
+Those tools also cover thread emojis, projects, hosts, workspace dependencies, and onboarding steps.
+
+Each tool carries its own gate, and the gate column of the surface report is source-verified.
+
+Four of the seven application commands have no agent path in this build.
+
+Those four commands show the home page and toggle the sidebar, the Terminal, and Review.
+
+The human reaches those four through the command menu or a keyboard shortcut.
+
+Two feature override keys change the Desktop tool set.
+
+One key adds the task tool group, and the other key adds the settings tools.
+
+The application requests the tool set through a thread start event.
+
+The main process routes that request to the primary ready renderer.
+
+The renderer builds the tool set within a five second budget.
+
+A slow lookup falls back to a smaller set, and a build failure returns an empty set.
+
+#### Placement and human access
+
+Most of these tools open no panel and no Tab.
+
+The transcript hides the running summary tool and the workspace dependencies tool.
+
+Three tools receive a special transcript activity.
+
+Those three tools are the automation tool, the creation tool, and the handoff tool.
+
+Every other tool in this group uses the generic tool activity.
+
+Therefore the human cannot open the controlled surface from most of these activities.
+
+#### Transcript rendering
+
+Each call renders as a dynamic tool call activity.
+
+The activity carries the namespace, the tool name, the arguments, and a completion flag.
+
+No surface metadata accompanies these results.
+
+#### Instructions and permissions
+
+Each tool description is the only instruction that teaches the model when to call it.
+
+The plugin namespace tool always loads as a deferred tool.
+
+The confetti tool orders the model to claim success only when the result reports a fired flag.
+
+#### Failure and unavailable states
+
+| State | Verified result |
+| --- | --- |
+| Inactive gate for a tool | The builder omits the tool from the namespace. |
+| Missing Desktop action host | The tool reports that app actions are unavailable. |
+| Slow tool set lookup | The application falls back to a smaller tool set. |
+| Failed tool set build | The application returns an empty tool set. |
+| Unsupported dynamic tool or namespace | The dispatcher reports the unsupported name. |
+
+The sweep worker did not trace the internal behaviour of every host service.
+
+The sweep worker found no agent path for four application commands.
 
 ## Reference-to-OMP mapping
 
