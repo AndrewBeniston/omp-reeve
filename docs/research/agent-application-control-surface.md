@@ -1895,7 +1895,151 @@ The Visualizations worker did not verify the complete theme token contract.
 
 ### Capture and screenshots
 
-Evidence pending.
+Codex Desktop exposes one capture tool to the agent.
+
+The agent cannot start a capture outside a voice chat.
+
+#### Registration and discovery
+
+| Exact name | Registration point | How the agent learns about it |
+| --- | --- | --- |
+| `capture_screen_context` | The Desktop tool builder adds it to `codex_app`. | Its schema teaches the agent to read the foreground application. |
+| Capture host service | The main process registers this window host service. | The agent does not receive this service directly. |
+| Frontmost window lookup | The renderer requests this lookup before a capture. | The agent does not receive this lookup directly. |
+| Application summary command | The capture tool runs this application command. | The agent learns only the enclosing tool. |
+
+The tool builder adds the tool only for a voice thread start kind.
+
+The builder also requires a desktop host and an available capture system.
+
+The tool can arrive as a deferred tool.
+
+Four conditions control availability.
+
+The platform must be macOS or Windows.
+
+A capture feature flag must be active for the account.
+
+The host configuration must permit the capture system.
+
+The user setting for screen context must be on.
+
+Windows also requires a native capture bridge that reports support.
+
+#### Actions and identity
+
+The tool takes no arguments.
+
+The tool first checks the active voice session.
+
+The session must be active for the calling task on the calling host.
+
+The tool then selects one of two routes.
+
+The first route applies when the Codex window is the focused window.
+
+That route returns application state and returns no image.
+
+The state contains the current page kind and the right panel state.
+
+The page kind is a thread, the home page, the settings page, or another page.
+
+For a thread page the state also returns the task identifier and the task title.
+
+The state also returns the right panel Tab list and the focused Tab.
+
+The second route applies when another application is in front.
+
+That route captures a screenshot and the accessibility text of the frontmost window.
+
+The result returns one text item and one image item.
+
+The tool returns no capture identifier and no reusable handle.
+
+Therefore no capture identity survives a reload, a reconnect, or a transfer.
+
+The application stores the accessibility text as a capture context on the composer input.
+
+That context belongs to the pending input and not to a durable record.
+
+Windows uses a different capture sequence and does not capture outside Codex.
+
+#### Placement and human access
+
+The capture tool opens no panel and no Tab.
+
+The result carries no link that opens a capture viewer.
+
+Therefore the human cannot open the captured window from the activity.
+
+The human can start a capture without the agent.
+
+The main process registers a global capture hotkey.
+
+A key press sends a capture message to the primary window.
+
+A destination setting decides between the current task and a new chat.
+
+The capture then becomes a capture context on the composer.
+
+The composer sends the structured text and the screenshot as ordinary input.
+
+Therefore the agent reads a human capture as ordinary input.
+
+#### Transcript rendering
+
+The call enters the transcript as a dynamic tool call item.
+
+The adapter renders it as generic tool activity.
+
+The adapter applies no capture specific presentation and does not hide the tool.
+
+No surface metadata key accompanies the result.
+
+The application logs the dispatch and the delivery of the result.
+
+The logs record only the call identifier, the task identifier, and the elapsed time.
+
+#### Instructions and permissions
+
+The tool schema is the main instruction.
+
+The schema restricts the tool to an active voice chat.
+
+The schema forbids the tool in a normal text conversation.
+
+The schema forbids the tool after a voice chat ends.
+
+The schema orders the model not to guess screen details.
+
+A voice session instruction repeats the rule for the deferred voice tools.
+
+A voice end instruction orders the model to stop loading the tool after the call.
+
+The voice chat settings own the screen context setting.
+
+A voice onboarding step can request the setting and the operating system permission.
+
+#### Failure and unavailable states
+
+| State | Verified result |
+| --- | --- |
+| Invalid arguments | The tool reports invalid arguments. |
+| No active voice session | The tool reports that screen context needs an active voice chat. |
+| Voice session for another task | The tool reports the same restriction. |
+| Screen context setting off on macOS | The tool asks the user to enable the setting. |
+| Another application in front on Windows | The tool reports that outside capture is unsupported. |
+| No foreground application found | The tool reports that it could not find an application. |
+| Host forbids the capture system | The tool reports that screen context is unavailable. |
+| Capture returns no image | The tool reports that it could not capture the application. |
+| Capture throws an error | The tool reports the same capture failure. |
+| Application state read failure | The tool reports that it could not read the application state. |
+| Missing Windows capture bridge | The builder omits the tool. |
+| Abandoned capture permission | The onboarding records an abandoned permission result. |
+
+The Capture worker did not verify a capture result on screen.
+
+The Capture worker did not verify the Windows capture path on a Windows computer.
 
 ### Remaining registered services
 
