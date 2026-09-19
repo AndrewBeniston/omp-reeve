@@ -2233,7 +2233,110 @@ Each theme needs a maintainer decision, because OMP supplies no starting point.
 
 ## Reeve ownership table
 
-Reserved for the mapping worker.
+Reeve owns almost none of this surface today.
+
+The goal tools are the only fully owned group.
+
+The Reeve ownership file records 119 capability rows against the open Reeve issues.
+
+Open tickets own 25 rows. Open tickets partly own 15 rows. No ticket owns 79 rows.
+
+One further row, the human capture hotkey, has a decision ticket but no build ticket.
+
+The unowned total is therefore 80 capabilities.
+
+The ownership worker read the open Reeve issues on 2026-09-19.
+
+The repository held 297 open issues on that day.
+
+Every ownership row is source-verified against the named issue body.
+
+Every judgement about partial coverage is an inference.
+
+### Ownership counts by surface
+
+| Surface | Rows | Owned | Partial | None | Owning epics |
+| --- | --- | --- | --- | --- | --- |
+| Terminal | 9 | 1 | 2 | 6 | 158, 148, 224 |
+| Files | 7 | 2 | 1 | 4 | 129, 224 |
+| Review | 9 | 0 | 4 | 5 | 80 |
+| Side chat and sub-agents | 11 | 5 | 1 | 5 | 119, 139, 224 |
+| Panel placement and layout | 8 | 5 | 0 | 3 | 139, 148 |
+| Settings and approval state | 8 | 0 | 0 | 8 | none |
+| Questions and option pickers | 8 | 0 | 2 | 6 | 261 |
+| Goal state | 10 | 10 | 0 | 0 | 318 |
+| Session lifecycle | 17 | 2 | 2 | 13 | 148, 261, 224 |
+| Capture | 4 | 0 | 1 | 3 | none |
+| Visualizations | 6 | 0 | 0 | 6 | none |
+| Remaining registered capabilities | 22 | 0 | 2 | 20 | 261, 290 |
+| Total | 119 | 25 | 15 | 79 | |
+
+### Owning tickets by surface
+
+| Surface | Owned or partly owned capability | Owning ticket |
+| --- | --- | --- |
+| Terminal | Terminal session survives a renderer reload | 166 |
+| Terminal | Terminal session transfers with a task in one window | 185 |
+| Terminal | Command activity renders in the transcript | 248 |
+| Files | File Tab identity survives a reload | 173 |
+| Files | Language server definition and hover in a file Tab | 137 |
+| Files | File change activity renders in the transcript | 248 |
+| Review | Agent writes an inline review comment | 76 |
+| Review | Agent writes a pull request link, and the human opens it | 78 |
+| Review | Review Tab identity and durable route record | 74 |
+| Side chat | Human opens a side chat | 120 |
+| Side chat | Human moves focus between the two chats | 126 |
+| Side chat | Side chat boundary instruction for the model | 122 |
+| Sub-agents | Sub-agent rows attach to the spawning activity | 251 |
+| Sub-agents | Sub-agent panel as a Tab kind | 144 |
+| Sub-agents | Sub-agent panel restore and missing history | 430 |
+| Panel placement | Workspace record stores and restores every Tab | 141 |
+| Panel placement | Human moves a Tab between the two placements | 181 |
+| Panel placement | Human maximises the right panel | 150 |
+| Panel placement | Human hides the Tab strip | 149 |
+| Panel placement | A Tab kind declares its permitted placement | 140 |
+| Questions | Agent asks the human one to three questions | 315 |
+| Questions | Question window renders options and a free text answer | 315 |
+| Goal state | Goal bridge, status read, and status change | 319 |
+| Goal state | Goal with an optional token budget, and the human command | 321 |
+| Goal state | Goal tool activation and tool restoration | 403 |
+| Goal state | Goal pill and status labels | 322 |
+| Goal state | Goal markers in the transcript | 327 |
+| Goal state | Goal Tab and inactive Tab preview | 328 |
+| Goal state | Goal survives reload and fork | 329 |
+| Session lifecycle | Agent forks a task, and agent creates a share link | 154 |
+| Session lifecycle | Human starts a task in a worktree | 311 |
+| Session lifecycle | Archived task card renders in the transcript | 379 |
+| Capture | Human captures a window with a hotkey | 205 |
+| Remaining | Agent creates a managed worktree | 362 |
+| Remaining | Agent reads account usage limits | 306 |
+
+### Reeve epics named above
+
+| Epic | Title |
+| --- | --- |
+| 80 | Complete Codex Desktop Review parity in the right panel |
+| 119 | The Side chat, to reference parity |
+| 129 | The Files surface, to reference parity |
+| 139 | The bottom placement, on one Tab model |
+| 148 | The panel host and header, to reference parity |
+| 158 | Browser tab and Terminal parity |
+| 224 | The transcript core, to reference parity |
+| 261 | The Composer and the model selector, to reference parity |
+| 290 | The Models settings on OMP, to the OpenCodex Providers page |
+| 318 | Goal mode and token budgets, to reference parity |
+
+### The headline
+
+Goal state is the only surface with full ticket cover.
+
+Settings, approval state, visualizations, and capture have no ticket at all.
+
+Session lifecycle control by the agent is 13 rows short.
+
+Every owned row in the panel group serves the human, and not the agent.
+
+No open ticket gives the agent any panel control call.
 
 ## Unowned-capability list
 
