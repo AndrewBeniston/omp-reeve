@@ -214,26 +214,334 @@ The logs record only the call identifier, the task identifier, and the elapsed t
 
 ## Visualizations
 
-Evidence pending.
+The agent has no visualization tool.
+
+The agent creates a visualization by writing a file.
+
+The application detects the write and renders a visualization activity.
+
+### Registration and discovery
+
+| Exact name | Registration point | How the agent learns about it |
+| --- | --- | --- |
+| `visualizations` | The main process registers this window host service. | The agent does not receive this service directly. |
+| Visualization activity detection | The transcript adapter inspects each file change. | The agent learns nothing about the detection. |
+
+A bundled skill teaches the model when to build a visualization.
+
+The skill is called visualize.
+
+The skill description tells the model to show how something works.
+
+The skill description tells the model to compare options or explore a change.
+
+The skill description tells the model to use standard tools for a static scientific figure.
+
+### Actions and returned identity
+
+The application reserves a visualization directory inside the Codex home directory.
+
+The path adds the year, the month, the day, and the task identifier.
+
+The application grants that directory as a writable root for the turn.
+
+It grants the root only when the sandbox policy allows workspace writes.
+
+The adapter marks each detected file as `create` or `update`.
+
+A create result outranks an update result for the same file in one change set.
+
+The file path is the identity.
+
+The path contains the owning task identifier.
+
+Therefore the identity survives reload because the file stays on disk.
+
+The identity does not transfer to another task.
+
+### Ownership
+
+The visualization directory belongs to one task.
+
+The service resolves the working directory for a local task only.
+
+The service returns no working directory for a cloud chat task.
+
+The window host owns the service instance.
+
+### Transcript rendering and human access
+
+The change renders as a patch activity.
+
+The patch activity carries a list of visualization activities.
+
+Each entry holds the file path and the change kind.
+
+An assistant message can also reference a visualization source path.
+
+The application reads the file through the visualization service to share a thread.
+
+The sharing path refuses a file above the size limit.
+
+The human can therefore open the visualization from the activity.
+
+### Failure and unavailable states
+
+| State | Verified result |
+| --- | --- |
+| Service missing | The sharing path returns no visualization. |
+| File missing | The read returns nothing. |
+| File above the size limit | The application reports the limit and drops the file. |
+| Read error | The application returns no visualization and continues. |
+| Non-workspace-write sandbox | The application grants no temporary visualization root. |
 
 ## Remaining registered services
 
 ### Window host services
 
-Evidence pending.
+The main process builds one application host object for each renderer window.
+
+That object is the complete window host service registry.
+
+I counted about ninety service keys in the current build.
+
+The agent never calls a host service directly.
+
+The renderer calls a host service while it serves an agent tool.
+
+Sibling reports claim the `terminal`, `contentTabs`, `detachedWindows`, and `workspaceFiles` services.
+
+The table below names every remaining service key.
+
+| Service key | Apparent purpose |
+| --- | --- |
+| `httpFetch` | Performs outbound HTTP requests for the window. |
+| `websitePreviews` | Produces website preview data. |
+| `pluginIncentives` | Tracks plugin promotion state. |
+| `ambientSuggestions` | Supplies ambient suggestion content. |
+| `applicationMenu` | Controls the native application menu. |
+| `customRuntime` | Reserved and unset in this build. |
+| `appActions` | Queues application commands for the agent. |
+| `clientCoordination` | Coordinates several renderer clients. |
+| `threadReadState` | Tracks the read state of each task. |
+| `statsig` | Reads feature flag values. |
+| `statsigEvaluations` | Publishes flag evaluation results. |
+| `settings` | Reads and writes application settings. |
+| `configSettingsWriteConfirmations` | Confirms a configuration write. |
+| `workModeAccess` | Gates work mode access. |
+| `appInfo` | Reports application version information. |
+| `accessInputs` | Handles access input prompts. |
+| `installerAttribution` | Reports the install source. |
+| `artifactDocuments` | Manages artifact documents. |
+| `artifactSessions` | Manages artifact viewer sessions. |
+| `avatarOverlay` | Controls the avatar overlay window. |
+| `appUpdates` | Checks and applies application updates. |
+| `realtimeVoiceRuntime` | Runs the realtime voice runtime. |
+| `browserProfileImport` | Imports a browser profile. |
+| `browserHost` | Hosts the in-application browser. |
+| `browserTabs` | Lists and controls browser Tabs. |
+| `browserAutocomplete` | Supplies browser address suggestions. |
+| `browsingHistory` | Reads browsing history. |
+| `debug` | Opens debug windows. |
+| `demoTools` | Supplies demonstration tooling. |
+| `downloads` | Tracks file downloads. |
+| `dynamicToolCalls` | Routes dynamic tool calls to the renderer. |
+| `fileDrags` | Handles file drag operations. |
+| `tabDragPreview` | Draws a Tab drag preview. |
+| `hotkeyWindowCommands` | Runs hotkey window commands. |
+| `hotkeyWindowHotkeys` | Registers hotkey window hotkeys. |
+| `inAppBrowserIncompleteNavigation` | Reports an incomplete browser navigation. |
+| `keyboardModifiers` | Reports keyboard modifier state. |
+| `shortcutCapture` | Captures a keyboard shortcut from the user. |
+| `libraryFiles` | Reads library files. |
+| `localEnvironments` | Lists local environments. |
+| `managedWorktrees` | Creates and lists managed worktrees. |
+| `projects` | Lists and orders projects. |
+| `projectFolderConsent` | Requests consent for a project folder. |
+| `sshConnectionRegistration` | Registers a remote connection. |
+| `projectlessWorkspace` | Manages a workspace without a project. |
+| `executionPaths` | Resolves execution paths. |
+| `localThreadCatalog` | Reads the local task catalog. |
+| `localAutomationsScheduler` | Schedules local automations. |
+| `appshot` | Runs the capture hotkey and capture updates. |
+| `lsp` | Runs language server features. |
+| `browserUsePermissions` | Reads browser use permissions. |
+| `browserPluginConfig` | Reads browser plugin configuration. |
+| `conversationalOnboarding` | Drives conversational onboarding. |
+| `customAvatars` | Manages custom avatars. |
+| `fileAttachments` | Manages file attachments. |
+| `github` | Runs Git and GitHub operations. |
+| `dictationAudio` | Captures dictation audio. |
+| `systemAudioSpectrum` | Reports the system audio spectrum. |
+| `dictationHistory` | Stores dictation history. |
+| `owlFeatures` | Reports browser feature state. |
+| `owlBrowserCrashCounter` | Counts browser crashes. |
+| `primaryRuntime` | Reports the primary runtime. |
+| `localAutomations` | Reads and writes local automations. |
+| `quickChatWindow` | Controls the quick chat window. |
+| `pluginScheduledTasks` | Runs plugin scheduled tasks. |
+| `chromeNativeHost` | Talks to the browser native host. |
+| `chromiumBrowser` | Controls an external browser. |
+| `chatGptProjectFiles` | Reads project files from the account. |
+| `chatGptBrowserSession` | Manages the account browser session. |
+| `chronicle` | Records screen history on macOS. |
+| `performanceTelemetry` | Reports performance telemetry. |
+| `pinnedThreads` | Reads and writes pinned tasks. |
+| `processMemory` | Reports process memory. |
+| `clipboard` | Reads and writes the clipboard. |
+| `computerUseSettings` | Reads computer use settings. |
+| `pullRequestMessageGeneration` | Generates a pull request message. |
+| `textGeneration` | Generates short text. |
+| `realtimeContinuity` | Keeps voice continuity state. |
+| `realtimeMemory` | Stores voice memory. |
+| `realtimeVoiceHistory` | Stores voice history. |
+| `realtimeVoiceMultiAgentActivity` | Reports multi-agent voice activity. |
+| `realtimeVoice` | Controls the voice session. |
+| `realtimeVoicePresentation` | Controls voice presentation. |
+| `requestUserInputAutoResolution` | Resolves a user input request automatically. |
+| `userVerification` | Verifies the user. |
+| `remoteControlEnvironments` | Lists remote control environments. |
+| `remoteHostedPIP` | Controls a hosted picture in picture view. |
+| `startup` | Reports startup state. |
+| `notificationPermissionsSupported` | Reports notification permission support. |
+| `systemPermissions` | Reads operating system permissions. |
+| `systemFonts` | Lists system fonts. |
+| `threadArchive` | Archives and restores a task. |
+| `threadMetadataGeneration` | Generates task metadata. |
+| `threadMetadata` | Reads task metadata. |
+| `threadProjectAssignments` | Assigns a task to a project. |
+| `threadTurnSummaries` | Stores turn summaries. |
+| `triggers` | Reads trigger subscriptions. |
+| `tracing` | Controls tracing sample rates. |
+| `hostedThreadFiles` | Reads files for a hosted task. |
+| `environmentConfigs` | Reads environment configurations. |
+| `mcpAppSandbox` | Hosts an MCP application sandbox. |
+| `visualizations` | Reads visualization files and temporary roots. |
+| `codexMicro` | Controls the compact window. |
+| `notifications` | Sends desktop notifications. |
+| `openIn` | Opens a path in an external application. |
+| `windowNavigation` | Navigates a window. |
+
+This list is source-verified.
+
+The purpose column is an inference from each service name and constructor.
 
 ### Remaining Desktop tools
 
-Evidence pending.
+The Desktop tool builder produces one namespace called `codex_app`.
+
+The builder can mark any tool as deferred.
+
+Sibling reports claim `open_in_codex`, `read_thread_terminal`, and the task lifecycle tools.
+
+The table below names every remaining Desktop tool.
+
+| Tool name | Gate | Action |
+| --- | --- | --- |
+| `create_worktree` | Managed worktrees available and thread tools enabled | Creates a managed Git worktree and attaches it to the task. |
+| `attach_artifact` | Pull request association enabled | Attaches a pull request to the task. |
+| `remove_artifact` | Pull request association enabled | Removes an attached pull request. |
+| `list_artifacts` | Pull request association or worktrees enabled | Lists every attachment on the task. |
+| `update_running_summary` | Running summary enabled | Updates the short status on the activity pill. |
+| `automation_update` | Local desktop host with the automations feature | Creates, views, updates, or deletes an automation. |
+| `request_environment_input` | Environment setup or full thread start | Requests an approved environment configuration. |
+| `finalize_environment` | Environment setup or full thread start | Finalizes a simulated cloud environment. |
+| `fire_confetti` | Toys availability | Fires confetti in the focused main window. |
+| `navigate_to_codex_page` | Desktop, local host, and navigation enabled | Navigates the focused main window to a task or chat. |
+| `list_hosts` | Project tools enabled | Lists the local host and enabled remote hosts. |
+| `create_project` | Project tools enabled | Creates a local or remote project. |
+| `get_usage_limits` | Account sign-in complete | Reads usage limits for the signed-in account. |
+| `consume_usage_reset` | Account sign-in complete | Redeems one usage reset credit. |
+| `share_thread` | Thread sharing enabled | Creates an immutable share link. |
+| `load_workspace_dependencies` | Local host with the dependency feature | Reports bundled runtime paths. |
+| `read_settings` | Local host with the settings feature | Reads settings and setting definitions. |
+| `write_settings` | Local host with the settings feature | Updates settings or thread configuration. |
+| `get_thread_emoji` | Thread emojis enabled | Reads the emoji beside a task. |
+| `set_thread_emoji` | Thread emojis enabled | Sets the emoji beside a task. |
+| `create_sidebar_section` | Custom sidebar sections enabled | Creates a sidebar section. |
+| `rename_sidebar_section` | Custom sidebar sections enabled | Renames a sidebar section. |
+| `delete_sidebar_section` | Custom sidebar sections enabled | Deletes a sidebar section. |
+| `move_project_to_sidebar_section` | Custom sidebar sections enabled | Moves a project between sections. |
+| `move_thread_to_sidebar_section` | Custom sidebar sections enabled | Moves a task between sections. |
+| `reorder_section` | Custom sidebar sections enabled | Reorders items inside a section. |
+| `reorder_sidebar_projects` | Custom sidebar sections enabled | Reorders unpinned projects. |
+| `reorder_sidebar_sections` | Custom sidebar sections enabled | Reorders sidebar sections. |
+| `set_thread_pinned` | Custom sidebar sections disabled | Pins or unpins a task. |
+| `get_handoff_status` | Thread tools enabled | Reads the status of a handoff operation. |
+| `request_option_picker` | Onboarding tool set active | Asks the user to pick options during onboarding. |
+| `request_onboarding_input` | Onboarding tool set active | Asks for onboarding input. |
+| `setup_codex_step` | Onboarding tool set active | Advances the native setup flow. |
+| `complete_conversational_onboarding_task` | Conversational onboarding start | Reports a conversational onboarding outcome. |
+| `complete_sidebar_onboarding_checklist_task` | Sidebar checklist start | Reports a checklist task outcome. |
+
+The gate column is source-verified from the builder conditions.
+
+Each tool description is the only instruction that teaches the model when to call it.
+
+Each call renders as a dynamic tool call activity in the transcript.
+
+The transcript hides `update_running_summary` and `load_workspace_dependencies`.
+
+The transcript gives `automation_update`, `create_thread`, and `handoff_thread` a special activity.
+
+Every other tool in this table uses the generic tool activity.
+
+Therefore the human cannot open the controlled surface from most of these activities.
 
 ### Dynamic tool namespaces
 
-Evidence pending.
+The renderer wraps the Desktop tools in one namespace.
+
+The namespace has the name `codex_app`.
+
+The builder reports that the Session supports dynamic tool namespaces.
+
+The builder can add further namespaces.
+
+| Namespace name | Condition | Tools |
+| --- | --- | --- |
+| `codex_app` | Always for a desktop Session | Every Desktop tool above. |
+| `plugin_management` | The plugin management connector is enabled | `uninstall_plugin`. |
+| `openai_settings` | The settings connector is enabled instead | `uninstall_plugin`. |
+
+The plugin namespace tool always loads as a deferred tool.
+
+Two feature override keys change the Desktop tool set.
+
+The key `thread_tools` adds the task tool group.
+
+The key `settings_tools` adds the settings tools.
+
+The application requests the tool set through a thread start event.
+
+The main process routes the request to the primary ready renderer.
+
+The renderer builds the tool set within a five second budget.
+
+A slow lookup falls back to a smaller set.
+
+A build failure returns an empty tool set.
 
 ### Remaining application commands
 
-Evidence pending.
+The `open_in_codex` tool queues one application command.
+
+The command opens a Tab in a window.
+
+A sibling report covers that command.
+
+I found no further application command that an agent tool queues.
 
 ## Unverified items
 
-Evidence pending.
+I did not perform a live application test.
+
+I did not verify any capture result on screen.
+
+I did not verify the Windows capture path on a Windows computer.
+
+I did not trace the internal behaviour of every window host service.
+
+The purpose column of the host service table is an inference.
+
+I did not confirm which sibling report claims each shared service.
