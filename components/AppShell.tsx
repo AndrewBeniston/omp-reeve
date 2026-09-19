@@ -1158,7 +1158,8 @@ export function AppShell() {
   }, [projectTrustBusy, projectTrustCwd]);
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
-  activeTerminalTabIdRef.current = activeTab?.kind === "terminal" ? activeTab.id : null;
+  const activeTerminalTabId = activeTab?.kind === "terminal" ? activeTab.id : null;
+  activeTerminalTabIdRef.current = activeTerminalTabId;
 
   /**
    * Keep the active Tab in sight.
@@ -1869,7 +1870,7 @@ export function AppShell() {
               {terminalTabs.length > 0 && (
                 <TerminalTabs
                   tabs={terminalTabs}
-                  activeTabId={activeTab?.kind === "terminal" ? activeTab.id : null}
+                  activeTabId={activeTerminalTabId}
                   onTitleChange={handleTerminalTitle}
                   onStateChange={handleTerminalState}
                 />

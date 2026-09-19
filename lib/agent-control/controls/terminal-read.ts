@@ -2,7 +2,12 @@ import { type } from "@oh-my-pi/omptype";
 import type { ToolDefinition } from "@oh-my-pi/pi-coding-agent/extensibility/extensions";
 
 import type { AgentControlChannel } from "../channel";
-import { type AgentControlReply, AGENT_CONTROL_PREFIX, type TerminalReadValue } from "../types";
+import {
+  type AgentControlReason,
+  type AgentControlReply,
+  AGENT_CONTROL_PREFIX,
+  type TerminalReadValue,
+} from "../types";
 
 /**
  * The first control: the agent reads the Terminal the human sees.
@@ -39,7 +44,7 @@ const parameters = type({
 
 interface TerminalReadDetails {
   attached: boolean;
-  reason?: string;
+  reason?: AgentControlReason;
 }
 
 /** Turn the reply into the text the model reads, and the details the UI keeps. */
