@@ -209,7 +209,50 @@ I did not verify that a click on that citation opens a file Tab.
 
 ### Transcript rendering
 
-Evidence pending.
+The transcript stores each agent file edit as a file change item.
+
+The transcript adapter renders that item as a patch activity.
+
+The patch activity carries the item identifier, the status, the change set, and a success value.
+
+| Item status | Success value |
+| --- | --- |
+| `inProgress` | none |
+| `completed` | true |
+| `failed` | false |
+| `declined` | false |
+
+The change set names each path and each change kind.
+
+A rename shows the move path of the change.
+
+The app server streams patch updates and output deltas into the same item.
+
+A patch approval request attaches an approval identifier to the same patch activity.
+
+That request can also attach a grant root path.
+
+The adapter drops an approval request for an unknown item and records a warning.
+
+The adapter drops a file change activity with no visible change and no visualization.
+
+The adapter adds one turn diff activity at the end of a turn.
+
+The turn diff joins every completed patch batch into one unified diff.
+
+The turn diff uses the turn diff from the app server when that diff exists.
+
+The turn diff records the working directory of each batch.
+
+The turn status summary reports the most recent file change item by type and status.
+
+`open_in_codex` renders as a `codex_app` tool activity.
+
+Its result stays text content inside that tool activity.
+
+The tool surface metadata key supports only browser use and computer use.
+
+Therefore, a file result carries no surface specific presentation metadata.
 
 ### Instructions and permissions
 
