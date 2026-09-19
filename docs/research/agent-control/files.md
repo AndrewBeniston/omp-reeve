@@ -256,7 +256,53 @@ Therefore, a file result carries no surface specific presentation metadata.
 
 ### Instructions and permissions
 
-Evidence pending.
+The `open_in_codex` schema is the only file instruction that the agent receives.
+
+That schema teaches the agent to show a workspace file in a Codex panel.
+
+That schema states that the calling task in the calling window receives the Tab.
+
+That schema states that a thread identifier is only for an explicit user request.
+
+That schema states that the call opens the user interface only.
+
+That schema tells the agent to use a file tool to inspect or change the content.
+
+That schema tells the agent to call the tool after it creates or edits a file, when the result helps the human.
+
+The schema requires a path with at least one character.
+
+The schema requires a positive whole line number when the caller sends a line.
+
+The bundles contain no skill and no instruction for the file tree.
+
+Therefore, the agent receives no guidance about file navigation. This statement is an inference.
+
+A file change follows the task sandbox policy and the task approval policy.
+
+| Sandbox policy value | Effect on a file change |
+| --- | --- |
+| `readOnly` | The task cannot write a file. |
+| `workspaceWrite` | The task can write inside the writable roots. |
+| `dangerFullAccess` | The task can write without a root limit. |
+
+The approval policy value is `untrusted`, `on-request`, or `never`.
+
+The app server can request approval before it applies a patch.
+
+That approval request can name a grant root.
+
+The application can add a root to the writable roots of a task.
+
+Therefore, an accepted grant root extends the writable roots. This statement is an inference.
+
+The approval record reports the risk level, the user authorization, and the rationale.
+
+The approval record reports the patch action with its working directory and its file list.
+
+A separate permission request action carries a file system field.
+
+`open_in_codex` needs no separate user approval.
 
 ### Failure and unavailable states
 
