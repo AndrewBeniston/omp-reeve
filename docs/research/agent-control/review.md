@@ -184,3 +184,72 @@ The application collects comments only for a local task.
 A user message that returns review comments to the model renders with a comment count.
 
 That message also renders the comment list.
+
+#### Instructions and permissions
+
+The panel tool description teaches the agent to show a result after it creates an artifact.
+
+The description states that the tool only opens application interface.
+
+The description directs the agent to other tools for inspection of the content.
+
+The review view field lists the four permitted view values.
+
+The base branch field states that the revision must resolve locally to a commit.
+
+The browser url field states that only two review deep link forms work.
+
+One developer instruction section teaches the pull request diff link format.
+
+That section requires an encoded pull request address and an encoded repository relative path.
+
+That section requires a verified one-based line number from the current pull request diff.
+
+That section reserves ordinary file links for workspace code.
+
+That section requires an enterprise link to use the configured remote hostname of the task.
+
+A second developer instruction section teaches the inline comment directive.
+
+That section requires a title, a body, and a file for each comment.
+
+That section permits optional start and end line numbers and a priority from 0 to 3.
+
+That section requires one directive for each comment.
+
+That section requires no directive when no actionable comment exists.
+
+The application adds both instruction sections to every desktop task.
+
+The panel tool requires no separate user approval.
+
+The inline comment directive requires no separate user approval.
+
+A restricted external resource policy changes the pull request link behaviour.
+
+The link then shows plain text and the click follows the external link confirmation path.
+
+#### Failure and unavailable states
+
+| State | Verified result |
+| --- | --- |
+| Missing Desktop action host | The panel tool reports that app actions are unavailable. |
+| Missing application view | The Tab command rejects the request. |
+| Archived preview | The Tab command reports that panels are unavailable. |
+| No visible task | The Tab command rejects the request. |
+| Wrong visible task | The Tab command names the visible task and rejects the target. |
+| Hidden target task | The command queues until that task becomes visible in the same window. |
+| Review Tab registration failure | The command reports that the Review Tab could not open. |
+| Incomplete pull request link | The command reports that the link needs an address, a path, and a positive line. |
+| Review link for another task | The command directs the agent to set the task identifier. |
+| Other Codex deep link | The command reports that panel opens do not support the link. |
+| Enterprise repository absent | The pull request open reports that the enterprise repository is unavailable. |
+| Enterprise host mismatch | The pull request open reports that the host does not match the repository. |
+| Missing account | The pull request open reports that the account is unavailable. |
+| Missing pull request snapshot | The pull request open reports that the snapshot is unavailable. |
+| Failed link open by the human | The application shows a message that the code review could not open. |
+| Restored task mismatch | The Review Tab does not return after the reload. |
+| Non-local task | The application collects no inline comment from the agent message. |
+| Invalid comment attributes | The parser drops that comment. |
+| Empty comment title and body | The parser drops that comment. |
+| Duplicate comment | The store keeps the first comment only. |
