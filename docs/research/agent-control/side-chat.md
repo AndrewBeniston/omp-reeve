@@ -334,21 +334,281 @@ The version two instruction requires direct tool calls for every sub-agent tool.
 
 ### Actions, identity, and ownership
 
-Evidence pending.
+`spawn_agent` creates a new agent for one named task.
+
+The request carries a task name in lowercase letters, digits, and underscores.
+
+The request carries an initial plain-text message or a list of structured input items.
+
+A structured input item can be text, an image, a local image, audio, local audio, a skill, or a mention.
+
+A mention can target a connector path or a plugin path.
+
+The request can override the agent type, the model, and the reasoning effort.
+
+Version one forks the parent history with a context flag.
+
+Version two forks the parent history with a turn count value of none, all, or a positive number.
+
+The result returns the agent identifier.
+
+The result returns the thread identifier of the spawned agent.
+
+The result returns the canonical task name.
+
+The result returns the user-facing nickname when one exists.
+
+The canonical task name nests under the parent task path.
+
+A child of the task path `/root/task1` with the name `task_3` becomes `/root/task1/task_3`.
+
+The parent can then use the relative name or the canonical name.
+
+Another branch of the tree must use the canonical name.
+
+The spawned agent receives the same tools as its parent.
+
+The spawned agent can spawn its own sub-agents.
+
+`send_input` queues a message on a target agent in version one.
+
+`send_input` can instead interrupt the current task and handle the message at once.
+
+`send_input` returns a submission identifier for the queued input.
+
+`send_message` delivers a message in version two without a new turn.
+
+`followup_task` sends a new task in version two and starts a turn when the target is idle.
+
+`followup_task` delivers at a message boundary when the target is already running.
+
+`followup_task` refuses a root target.
+
+`wait_agent` in version one waits for one or more agent identifiers.
+
+`wait_agent` returns when the first listed agent reaches a final status.
+
+`wait_agent` returns the final statuses keyed by agent identifier.
+
+`wait_agent` returns an empty status set after a timeout.
+
+`wait_agent` in version two waits for any mailbox update from any live agent.
+
+That wait also ends early when new user input steers the active turn.
+
+That wait returns a summary only and never the agent content.
+
+The timeout has a configured default, minimum, and maximum in milliseconds.
+
+`interrupt_agent` stops the current turn and returns the previous status.
+
+The target stays available for later messages and tasks.
+
+`close_agent` shuts down one agent and its open descendants.
+
+`close_agent` returns the status observed before shutdown.
+
+A completed agent stays open and counts against the concurrency limit until a close.
+
+`list_agents` lists the live agents in the current root thread tree.
+
+Each entry carries the canonical task name, or the agent identifier when no name exists.
+
+Each entry carries the last known status.
+
+An optional task-path prefix filters the list.
+
+An agent status is one of waiting for start, running, completed, interrupted, shut down, errored, or not found.
+
+The thread record of a sub-agent stores the parent thread identifier.
+
+The thread record also stores the agent path, the agent nickname, and the agent role.
+
+The root thread tree owns every sub-agent thread.
+
+The renderer keeps a descendant snapshot for each parent conversation.
+
+The renderer updates the conversation nickname when the thread record changes it.
 
 ### Resume, transfer, and lifetime
 
-Evidence pending.
+`resume_agent` reopens a previously closed agent by identifier.
+
+The reopened agent can receive input and wait calls again.
+
+A spawned agent keeps a durable thread identifier.
+
+The renderer resolves that thread identifier to a stored conversation.
+
+The renderer rediscovers the descendant tree after a reload.
+
+The Sub-agents panel Tab stores a durable route.
+
+That route records the selected descendant conversation identifier.
+
+After a restart the Tab reopens and hydrates the selected descendant.
+
+A failed restore records a warning and reopens the panel without a selection.
+
+The renderer hydrates background sub-agent threads on demand.
+
+The renderer can interrupt every descendant of a thread.
+
+The renderer can interrupt descendants in the background.
+
+A sub-agent fork requires a thread spawn thread source.
+
+A sub-agent fork requires a fork mode.
+
+A sub-agent fork requires the parent spawn call identifier.
+
+An agent depth limit ends further spawning.
+
+The session limits the concurrent threads for each session.
 
 ### Transcript rendering and human access
 
-Evidence pending.
+The application server emits paired events for every sub-agent action.
+
+The events cover spawn start and end.
+
+The events cover interaction start and end.
+
+The events cover waiting start and end.
+
+The events cover close start and resume start.
+
+The transcript stores two sub-agent item types.
+
+The first item type is a sub-agent tool call.
+
+That item carries the tool, the status, the sender thread, and the receiver threads.
+
+That item also carries the prompt, the model, the reasoning effort, and a state for each agent.
+
+The tool value is one of spawn, send input, resume, wait, or close.
+
+The item status is in progress, completed, or failed.
+
+Each agent state carries a status and an optional message.
+
+The second item type is sub-agent activity.
+
+That item carries an activity kind of started, interacted, or interrupted.
+
+That item also carries the sub-agent thread identifier and the agent path.
+
+The transcript renders the tool call as a multi-agent action item.
+
+The transcript renders the activity as a sub-agent activity item.
+
+The transcript hides a wait tool call.
+
+The transcript hides both item types when background sub-agents are disabled.
+
+The multi-agent action item shows a header for each tool and each status.
+
+The multi-agent action item shows one row for each target agent.
+
+Each row shows the agent state as waiting, working, done, or failed.
+
+The sub-agent activity item shows a summary of started, updated, completed, or interrupted.
+
+The item marks a message sent to an agent and a message sent to a parent.
+
+The item offers an action that opens the sub-agent.
+
+Therefore the human can open the controlled thread from the transcript activity.
+
+The Sub-agents panel Tab lists the descendant threads of the parent thread.
+
+The panel groups the list into active agents and finished agents.
+
+The panel shows the model and the reasoning effort for each agent.
+
+The panel shows a waiting state and an elapsed time since completion.
+
+The panel offers a back action from a selected agent to the list.
+
+The panel reports that no active sub-agent exists when the list is empty.
+
+The Tab thumbnail shows the count of loaded agents.
+
+The thumbnail shows at most four agents.
+
+The thumbnail states each runtime status as working, idle, or failed.
 
 ### Instructions and permissions
 
-Evidence pending.
+The spawn tool description carries the full delegation guidance.
+
+That guidance forbids a spawn unless the user or a project file or a skill asks for it.
+
+That guidance states that a request for depth or research is not permission to spawn.
+
+That guidance requires a plan before any delegation.
+
+That guidance keeps blocking work local.
+
+That guidance requires concrete, bounded, and self-contained subtasks.
+
+That guidance requires a disjoint write scope for each code subtask.
+
+That guidance limits wait calls to a blocked critical path.
+
+That guidance requires useful local work while a sub-agent runs.
+
+That guidance describes parallel delegation patterns.
+
+The spawn tool description also states that the child inherits the parent model.
+
+The description tells the model to omit the model field without an explicit user request.
+
+A separate role instruction describes the agent team.
+
+The root role instruction names the primary agent and its message format.
+
+The sub-agent role instruction states that the final channel returns content to the parent.
+
+Both role instructions warn that a human can read the messages.
+
+A separate usage hint can be added to the turn.
+
+The configuration carries a hint for the root agent and a hint for a sub-agent.
+
+The configuration carries separate developer instructions for a sub-agent.
+
+The side chat instruction forbids all sub-agent interaction inside a side chat.
+
+An agent role file can restrict which roles a spawn can select.
+
+The role guidance never authorizes a spawn by itself.
+
+The sub-agent tools follow the same approval and sandbox policy as the parent.
 
 ### Failure and unavailable states
 
-Evidence pending.
+| State | Verified result |
+| --- | --- |
+| Spawn without permission | The guidance forbids the call. |
+| Agent depth limit reached | The agent is told to solve the task itself. |
+| Unavailable agent type | The tool reports that the agent type is not available. |
+| Unresolved child model | The spawn cannot validate the reasoning effort. |
+| Unresolved child service tier | The spawn cannot validate the service tier. |
+| Missing canonical task name | The spawn reports the missing name. |
+| Version one fork flag in version two | The tool reports that the turn count field replaces it. |
+| Invalid turn count value | The tool requires none, all, or a positive number. |
+| No loaded model override | The tool reports that no picker model override exists. |
+| Unavailable collaboration manager | The tool reports that the manager is unavailable. |
+| Wait timeout | The wait returns a timeout summary with no final status. |
+| Wait interrupted by user input | The wait returns an interruption summary. |
+| Target not found | The agent state reports not found. |
+| Agent error | The agent state reports an error with a message. |
+| Closed agent | The agent state reports shutdown. |
+| Interrupted agent | The agent state reports an interruption. |
+| Tool call failure | The transcript item records the failed status. |
+| Background sub-agents disabled | The transcript hides every sub-agent item. |
+| Code mode call | The version two tools are absent from the code mode namespace. |
+| Failed panel restore | The renderer records a warning and reopens the panel without a selection. |
+| Unavailable descendant | The panel reports that the sub-agent is unavailable. |
 
