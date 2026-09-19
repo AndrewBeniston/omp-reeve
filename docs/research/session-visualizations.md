@@ -464,3 +464,35 @@ Source anchors in this repository:
 - `components/browser/BrowserTabs.tsx`
 - `components/terminal/TerminalTabs.tsx`
 - `components/ExtensionStatusBar.tsx`
+
+### 6. The established Session-scoped service pattern
+
+I read the completed Browser research on the merged main line.
+
+That report is `docs/research/panel-agent-browser-integration.md`.
+
+It defines how Reeve gives an agent a host surface.
+
+| Pattern rule | Statement | Evidence label |
+| --- | --- | --- |
+| Service scope | The host registers one service against the active agent session. | Source-verified. |
+| Identity owner | Reeve owns the stable object identifier. The engine resolves its own target internally. | Source-verified. |
+| Atomic creation | One host operation creates the record and its live object together. | Source-verified. |
+| Isolation | Route checks reject an object that belongs to another session. | Source-verified. |
+| Transport hiding | The model never receives a raw endpoint or a raw host address. | Source-verified. |
+| Engine reuse | Reeve keeps the OMP capability for the work OMP already performs. | Source-verified. |
+| Engine adaptation | Reeve wraps loose OMP matching behind exact Reeve identity. | Source-verified. |
+| Activity card | Tool metadata renders a typed transcript card with a host action. | Source-verified. |
+| Acceptance | One acceptance ticket proves the owner set, the failure matrix, and transcript focus. | Source-verified. |
+
+The visualization work maps onto the same pattern.
+
+A visualization is a session-scoped object with a stable identifier.
+
+A visualization needs atomic creation of its file record and its render surface.
+
+A visualization needs session isolation for its saved state.
+
+A visualization needs a typed transcript card and a host action.
+
+This match is an inference from the Browser report and the current Reeve source.
