@@ -199,7 +199,183 @@ The app server can also request approval before process input.
 
 ### Files
 
-Evidence pending.
+Codex Desktop gives the agent one file presentation tool.
+
+Codex Desktop gives the agent no file tree tool and no file listing tool.
+
+The agent changes a file through a core patch tool.
+
+#### Registration and discovery
+
+| Exact name | Registration point | How the agent learns about it |
+| --- | --- | --- |
+| `open_in_codex` | The Desktop tool builder adds it to `codex_app`. | Its schema lists a workspace file as the first panel target. |
+| `apply_patch` | The app server registers this core Session tool. | The Session tool schema explains freeform patch editing. |
+| `windows.tabs.open` | `open_in_codex` queues this application command. | The agent learns only the enclosing tool. |
+| `workspaceFiles` | Each desktop window registers this host service. | The agent does not receive this service directly. |
+| `lsp` | Each desktop window registers this host service. | The agent does not receive this service directly. |
+
+The tool builder filters the panel targets by availability.
+
+The file target skips that filter and is always present.
+
+The desktop bundles do not contain the core patch schema.
+
+Therefore the core patch registration point is an inference.
+
+Each window registers a language server service for definition and reference lookup.
+
+No agent tool schema exposes that service.
+
+Therefore the agent cannot call a definition lookup.
+
+#### Actions and identity
+
+`open_in_codex` with a file target opens one workspace file in a panel Tab.
+
+The request accepts a path and an optional positive line number.
+
+The command selects a viewer in a fixed order.
+
+The order is artifact viewer, extension file viewer, text file editor, an open file Tab, and review file source viewer.
+
+The command skips the text file editor when the caller supplies an end line.
+
+Each viewer builds its own Tab identifier from the host and the path.
+
+A second call for the same host and path finds the same Tab.
+
+Each file Tab stores a durable route with a payload version.
+
+The route stores the host, the path, the line, the column, and the workspace root.
+
+After a renderer reload, the renderer reopens the file from that stored route.
+
+The renderer rejects a stored payload with another version number.
+
+The renderer keeps the Tab and opens no file while the host is disconnected.
+
+The renderer can copy a complete panel Tab set from one task to another task.
+
+The copy keeps each path and builds a new Tab identifier from the target host.
+
+A worktree copy rebases each path onto the target workspace root.
+
+Therefore a file Tab transfers by path, and a terminal Tab transfers by session.
+
+The file Tab holds its own workspace file navigation for one directory at a time.
+
+That navigation rejects a path outside the workspace root and a symbolic link directory.
+
+The agent receives no tool for that navigation service.
+
+#### Placement and human access
+
+`open_in_codex` accepts `right` or `bottom` placement.
+
+A file target uses `right` when the caller supplies no placement.
+
+An already open file Tab keeps its current placement.
+
+The command searches the requested placement first and then the other placement.
+
+The command pins, activates, and focuses the Tab that it finds.
+
+A new file Tab opens revealed and focused.
+
+A copied file Tab opens without reveal and without focus.
+
+Codex can open a preview Tab for an edited file without a human action.
+
+That automatic open applies only to a slide, document, spreadsheet, or portable document file.
+
+That automatic open needs an enabled experiment setting, an idle task, and a current turn.
+
+That automatic open rejects a file larger than 41,943,040 bytes.
+
+Assistant text can contain a file citation with a path and a line range.
+
+The Files worker did not verify that a click on that citation opens a file Tab.
+
+#### Transcript rendering
+
+The transcript stores each agent file edit as a file change item.
+
+The adapter renders that item as a patch activity.
+
+The patch activity carries the item identifier, the status, the change set, and a success value.
+
+The status can be `inProgress`, `completed`, `failed`, or `declined`.
+
+The change set names each path and each change kind.
+
+A rename shows the move path of the change.
+
+A patch approval request attaches an approval identifier to the same patch activity.
+
+The adapter drops an approval request for an unknown item and records a warning.
+
+The adapter adds one turn diff activity at the end of a turn.
+
+The turn diff joins every completed patch batch into one unified diff.
+
+`open_in_codex` renders as a `codex_app` tool activity.
+
+No file presentation metadata accompanies that result.
+
+#### Instructions and permissions
+
+The `open_in_codex` schema is the only file instruction that the agent receives.
+
+That schema teaches the agent to show a workspace file in a Codex panel.
+
+That schema states that the call opens the user interface only.
+
+That schema tells the agent to use a file tool to inspect or change the content.
+
+That schema tells the agent to call the tool after it creates or edits a file.
+
+The bundles contain no skill and no instruction for the file tree.
+
+Therefore the agent receives no guidance about file navigation. This statement is an inference.
+
+A file change follows the task sandbox policy and the task approval policy.
+
+A read-only sandbox blocks every write.
+
+A workspace write sandbox permits a write inside the writable roots.
+
+A full access sandbox permits a write without a root limit.
+
+The app server can request approval before it applies a patch.
+
+That approval request can name a grant root.
+
+An accepted grant root extends the writable roots. This statement is an inference.
+
+`open_in_codex` needs no separate user approval.
+
+#### Failure and unavailable states
+
+| State | Verified result |
+| --- | --- |
+| Invalid Desktop tool arguments | The tool returns an unsuccessful result. |
+| Missing Desktop action host | `open_in_codex` reports that app actions are unavailable. |
+| Archived preview | The Tab command reports that panels are unavailable. |
+| No visible task | The Tab command rejects the request. |
+| Wrong visible task | The Tab command rejects the target task. |
+| File opener returns nothing | `open_in_codex` reports that the file Tab could not open. |
+| File type without an editor language | The text file editor declines the file. |
+| End line in the request | A source viewer opens the file instead. |
+| Stored Tab payload with another version | The renderer does not restore the file Tab. |
+| Disconnected host during restore | The renderer keeps the Tab and opens no file. |
+| Directory path outside the workspace root | The file navigation service rejects the request. |
+| Symbolic link directory | The file navigation service rejects the request. |
+| Language server request over 30 seconds | The service reports a request timeout. |
+| Patch approval denied | The file change item records the declined status. |
+| Patch failure | The file change item records the failed status. |
+| Automatic preview over the size limit | The preview does not open. |
+| Automatic preview during an active turn | The preview does not open. |
 
 ### Review
 
