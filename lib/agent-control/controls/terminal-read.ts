@@ -43,7 +43,7 @@ interface TerminalReadDetails {
 }
 
 /** Turn the reply into the text the model reads, and the details the UI keeps. */
-export function renderTerminalRead(reply: AgentControlReply<TerminalReadValue>): {
+function renderTerminalRead(reply: AgentControlReply<TerminalReadValue>): {
   text: string;
   details: TerminalReadDetails;
 } {
@@ -51,12 +51,6 @@ export function renderTerminalRead(reply: AgentControlReply<TerminalReadValue>):
     return {
       text: `attached=false reason=${reply.reason}`,
       details: { attached: false, reason: reply.reason },
-    };
-  }
-  if (!reply.value?.attached) {
-    return {
-      text: "attached=false reason=absent",
-      details: { attached: false, reason: "absent" },
     };
   }
   return {

@@ -25,9 +25,8 @@ import { randomUUID } from "crypto";
 import { existsSync, realpathSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { validateAgentImages } from "./image-attachments";
-import { AgentControlChannel, createAgentControlChannel } from "./agent-control/channel";
-import { createAgentControlHost } from "./agent-control/host";
-import { desktopControlSurfacePresent } from "./agent-control/build-surface";
+import type { AgentControlChannel } from "./agent-control/channel";
+import { startSessionControlHost } from "./agent-control/host";
 import type { AgentControlRequestEvent } from "./agent-control/types";
 import { invalidateModelsCache } from "./models-cache";
 import { resolveVisibleModels, selectInitialModelScope } from "./model-scope";
@@ -2070,10 +2069,7 @@ export async function startRpcSession(
       // One control host for each Session, as one in-process extension factory
       // passed at creation. The browser build has no window a control could act
       // on, so it registers nothing at all (lib/agent-control/build-surface.ts).
-      const controlSurfacePresent = desktopControlSurfacePresent();
-      const controlChannel = controlSurfacePresent
-        ? createAgentControlChannel({ surfacePresent: true })
-        : null;
+      const controlHost = startSessionControlHost();
 
       const { modelRegistry } = runtime;
       const scope = await resolveVisibleModels(modelRegistry, settings.get("enabledModels"), settings);
@@ -2102,7 +2098,7 @@ export async function startRpcSession(
             : {}),
         ...(initial.scopedModels.length > 0 ? { scopedModels: initial.scopedModels } : {}),
         ...(toolsOption !== undefined ? { toolNames: toolsOption, restrictToolNames: true } : {}),
-        ...(controlChannel ? { extensions: [createAgentControlHost(controlChannel)] } : {}),
+        ...(controlHost ? { extensions: controlHost.extensions } : {}),
         ...(untrusted ?? {}),
       };
       // omp's own applier, so a prompt file goes through the same templates the
@@ -2137,7 +2133,7 @@ export async function startRpcSession(
 
       const realSessionId = inner.sessionId as string;
       const wrapper = new AgentSessionWrapper(session, eventBus, [sessionId, realSessionId]);
-      if (controlChannel) wrapper.attachControlChannel(controlChannel, realSessionId);
+      if (controlHost) wrapper.attachControlChannel(controlHost.channel, realSessionId);
       wrapper.bindToolUiContext(
         setToolUIContext as unknown as (uiContext: ExtensionUiContextLike, hasUI: boolean) => void,
       );

@@ -54,16 +54,13 @@ export interface AgentControlRequestEvent {
   params: Record<string, unknown>;
 }
 
-/** The reply the window posts back as a Session command. */
-export interface AgentControlResponseCommand {
-  type: "agent_control_response";
-  id: string;
-  ok: boolean;
-  value?: unknown;
-  reason?: string;
+/**
+ * What the Terminal read control returns. It carries no shell identifier,
+ * because no control accepts one. A Session with no Terminal produces the
+ * `absent` reason instead of a value.
+ */
+export interface TerminalReadValue {
+  attached: true;
+  cwd: string;
+  shell: string;
 }
-
-/** What the Terminal read control returns. It carries no shell identifier. */
-export type TerminalReadValue =
-  | { attached: true; cwd: string; shell: string }
-  | { attached: false };

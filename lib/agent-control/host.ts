@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionFactory } from "@oh-my-pi/pi-coding-agent/extensibility/extensions";
 
-import type { AgentControlChannel } from "./channel";
+import { type AgentControlChannel, createAgentControlChannel } from "./channel";
+import { desktopControlSurfacePresent } from "./build-surface";
 import { createTerminalReadControl } from "./controls/terminal-read";
 import { isAgentControlToolName } from "./types";
 
@@ -29,4 +30,27 @@ export function createAgentControlHost(channel: AgentControlChannel): ExtensionF
       return refusal ? { block: true, reason: refusal } : undefined;
     });
   };
+}
+
+/** One Session's control host: its route to the window, and its registration. */
+export interface SessionControlHost {
+  /** The route from this Session to the window that shows it. */
+  channel: AgentControlChannel;
+  /** The factories Reeve passes to `createAgentSession`. */
+  extensions: ExtensionFactory[];
+}
+
+/**
+ * Build the control host for one Session, or nothing in the browser build.
+ *
+ * This is the one decision that answers "does this build register a control".
+ * It lives here, beside the registration itself, so a caller cannot register a
+ * control and forget the gate.
+ */
+export function startSessionControlHost(
+  env: NodeJS.ProcessEnv = process.env,
+): SessionControlHost | null {
+  if (!desktopControlSurfacePresent(env)) return null;
+  const channel = createAgentControlChannel({ surfacePresent: true });
+  return { channel, extensions: [createAgentControlHost(channel)] };
 }

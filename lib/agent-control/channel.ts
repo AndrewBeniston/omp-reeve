@@ -54,10 +54,6 @@ export class AgentControlChannel {
     this.timeoutMs = options.timeoutMs ?? AGENT_CONTROL_REPLY_TIMEOUT_MS;
   }
 
-  get surfacePresent(): boolean {
-    return this.options.surfacePresent;
-  }
-
   /**
    * Name the Session this host belongs to.
    *
@@ -98,7 +94,8 @@ export class AgentControlChannel {
     }
 
     const emit = this.emit;
-    if (!emit || !this.sessionId) return { ok: false, reason: "no_window" };
+    const sessionId = this.sessionId;
+    if (!emit || !sessionId) return { ok: false, reason: "no_window" };
 
     const id = randomUUID();
     const rest: Record<string, unknown> = { ...params };
@@ -115,13 +112,7 @@ export class AgentControlChannel {
         resolve(reply as AgentControlReply<T>);
       });
 
-      emit({
-        type: "agent_control_request",
-        id,
-        sessionId: this.sessionId as string,
-        control,
-        params: rest,
-      });
+      emit({ type: "agent_control_request", id, sessionId, control, params: rest });
     });
   }
 
@@ -146,10 +137,9 @@ export class AgentControlChannel {
   close(): void {
     this.closed = true;
     this.emit = null;
-    for (const [id, settle] of this.pending) {
-      this.pending.delete(id);
-      settle({ ok: false, reason: "unavailable" });
-    }
+    const waiting = [...this.pending.values()];
+    this.pending.clear();
+    for (const settle of waiting) settle({ ok: false, reason: "unavailable" });
   }
 }
 

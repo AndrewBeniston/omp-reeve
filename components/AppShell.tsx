@@ -20,6 +20,9 @@ import { toStoredBrowserTabs } from "@/lib/browser-tab-store";
 import { hasBrowserTabMenu, showBrowserTabMenu } from "@/lib/desktop-browser-tab-menu";
 import { openExternal } from "@/lib/open-external";
 import { TerminalTabs, useSupportsTerminalTab } from "./terminal/TerminalTabs";
+import { answerAgentControlRequest } from "@/lib/agent-control/window";
+import type { TerminalTabState } from "@/lib/agent-control/terminal-snapshot";
+import type { AgentControlRequestEvent } from "@/lib/agent-control/types";
 import { SettingsConfig } from "./SettingsConfig";
 import { ProjectTrustDialog } from "./ProjectTrustDialog";
 import { SummaryPanel } from "./SummaryPanel";
@@ -862,6 +865,41 @@ export function AppShell() {
       t.id === tabId && t.kind === "terminal" && t.label !== title ? { ...t, label: title } : t
     )));
   }, []);
+
+  /**
+   * What every open Terminal runs, for the agent control host.
+   *
+   * A ref rather than state: nothing on screen is drawn from it, so a shell
+   * that starts or exits should not re-render the whole shell. The agent reads
+   * it through the control below, which runs long after any render.
+   */
+  const terminalStatesRef = useRef(new Map<string, TerminalTabState>());
+
+  /** A Terminal started, or ended. A null state means it is gone. */
+  const handleTerminalState = useCallback((tabId: string, state: TerminalTabState | null) => {
+    if (state) terminalStatesRef.current.set(tabId, state);
+    else terminalStatesRef.current.delete(tabId);
+  }, []);
+
+  /** The Terminal the human is looking at, read at the moment a control runs. */
+  const activeTerminalTabIdRef = useRef<string | null>(null);
+
+  /**
+   * Answer a control request for the Session this window shows.
+   *
+   * The control host runs on the server and owns no window, so it asks the
+   * window that shows its Session. This is that answer. A Terminal Tab belongs
+   * to this window's Right panel, and this window shows one Session, so the
+   * Terminals here are the Terminals of that Session.
+   */
+  const handleAgentControlRequest = useCallback((request: AgentControlRequestEvent) => (
+    answerAgentControlRequest(
+      request,
+      [...terminalStatesRef.current.values()],
+      activeTerminalTabIdRef.current,
+    )
+  ), []);
+
   /** The guest navigated. The Tab's URL follows the page, its id never does. */
   const handleBrowserNavigate = useCallback((tabId: string, url: string) => {
     setTabs((prev) => prev.map((t) => (
@@ -1120,6 +1158,7 @@ export function AppShell() {
   }, [projectTrustBusy, projectTrustCwd]);
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
+  activeTerminalTabIdRef.current = activeTab?.kind === "terminal" ? activeTab.id : null;
 
   /**
    * Keep the active Tab in sight.
@@ -1730,6 +1769,7 @@ export function AppShell() {
               onSessionCreated={handleSessionCreated}
               onSessionForked={handleSessionForked}
               onSessionNameChanged={handleSessionNameChanged}
+              onAgentControlRequest={handleAgentControlRequest}
               modelsRefreshKey={modelsRefreshKey}
               chatInputRef={chatInputRef}
               onBranchDataChange={handleBranchDataChange}
@@ -1831,6 +1871,7 @@ export function AppShell() {
                   tabs={terminalTabs}
                   activeTabId={activeTab?.kind === "terminal" ? activeTab.id : null}
                   onTitleChange={handleTerminalTitle}
+                  onStateChange={handleTerminalState}
                 />
               )}
               {renderActiveTab()}
