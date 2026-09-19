@@ -280,3 +280,106 @@ Each Tab type declares its own pane transition for entry and exit.
 
 The agent has no maximise tool and no maximise field.
 
+
+## Transcript rendering and human access
+
+The transcript renders a Desktop tool call as generic tool activity.
+
+The transcript holds the tool result as text content.
+
+The result text is the queued record in a serial data format.
+
+The transcript carries surface metadata for two tool surfaces only.
+
+Those two surfaces are browser use and computer use.
+
+No panel surface metadata accompanies an open_in_codex result.
+
+The transcript therefore shows no panel name, no host, and no Tab identifier.
+
+The queued command reveals and focuses the Tab inside the window.
+
+That reveal happens when the target task is visible in that window.
+
+The human sees the panel open at that moment.
+
+The transcript activity offers no later action to open the same Tab.
+
+I label the last sentence as an inference from the missing surface metadata.
+
+## Instructions and permissions
+
+The open_in_codex description teaches six rules to the model.
+
+1. The calling task in the calling window receives the Tab by default.
+2. The model sets a task identifier only when the user asks for another task.
+3. A hidden target task returns the queued status.
+4. A queued Tab opens when that task becomes visible in the same window.
+5. The model uses the tool after it creates or edits an artifact.
+6. The tool opens user interface only, and other tools inspect the content.
+
+The description also states that a terminal target needs a local task.
+
+The description text changes with the available targets.
+
+A build without browser access describes the browser target as a review deep link only.
+
+The placement field carries no description text.
+
+The schema constrains the placement to two values.
+
+No separate skill teaches panel placement.
+
+The tool needs no user approval.
+
+The tool needs no sandbox permission.
+
+Two review panel commands require local Codex access.
+
+Those commands are human commands, not agent tools.
+
+## Failure and unavailable states
+
+| State | Verified result |
+| --- | --- |
+| Invalid tool arguments | The tool returns an unsuccessful result. |
+| Missing Desktop action host | The tool reports that app actions are unavailable. |
+| Unknown target task | The tool reports a failure to open the Codex Tab. |
+| Remote file link for the local browser | The tool refuses the request. |
+| Hidden target task | The command queues until that task becomes visible in the same window. |
+| Queued command failure | The window logs a warning, and the agent receives no error. |
+| Missing application view | The command reports that it requires an app view. |
+| Archived preview | The command reports that panels are unavailable in archived previews. |
+| No visible task | The command reports that it requires a visible task. |
+| Different visible task | The command names the visible task and rejects the request. |
+| Unsupported Codex deep link | The command reports that panel opens do not support that link. |
+| Review link for another task | The command asks for the task identifier of that task. |
+| Invalid pull request review link | The command asks for a URL, a file path, and a positive line number. |
+| Unavailable target type | The command reports that this target type is unavailable. |
+| Page target | The command reports that Page Tabs are unavailable. |
+| Non local task for a terminal | The command reports that the Terminal Tab is unavailable for this task. |
+| File open failure | The command reports that the file Tab could not open. |
+| Browser open failure | The command reports that the browser Tab could not open. |
+| Terminal open failure | The command reports that the Terminal Tab could not open. |
+| Review open failure | The command reports that the review Tab could not open. |
+| Forbidden host for a Tab type | The open uses the right host instead of the bottom host. |
+| Forbidden host for a move | The move stops without an error to the agent. |
+| Stored layout with an old payload version | The restore stops for that Tab. |
+| Tab type unavailable for the task route | The restore stops for that Tab. |
+
+## Unverified findings
+
+I did not perform a live application test.
+
+I did not verify the rendered panel, the Tab strip, or the maximise state on screen.
+
+I did not verify how the file Tab identifier is derived from the file path.
+
+I did not verify the storage medium behind the client side key value store.
+
+I did not verify whether another build returns the fuller record to the agent.
+
+I did not verify cross window Tab movement, although two Tab types declare a window transfer.
+
+I did not verify the feature gate that controls the bottom host for a drag.
+
