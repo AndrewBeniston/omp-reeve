@@ -170,15 +170,91 @@ The side chat is therefore not durable across a close.
 
 ### Transcript rendering and human access
 
-Evidence pending.
+The side chat renders in its own panel Tab.
+
+The side chat Tab holds a complete thread view with its own composer.
+
+The parent thread transcript does not contain a side chat item.
+
+The parent thread keeps a list of its side chat conversation identifiers.
+
+That list drives two parent-level indicators.
+
+The parent thread shows a running indicator when a side chat turn is in progress.
+
+The parent thread shows an unread indicator when a side chat has an unread turn.
+
+The side chat Tab icon becomes a spinner while the side chat turn runs.
+
+The side chat Tab icon carries an unread badge after a completed turn.
+
+The Tab announces an unread response to assistive technology.
+
+The human opens the side chat from the thread header menu.
+
+The human can also open it from the command menu.
+
+The human can also open it with the keyboard shortcut.
+
+The side chat opens in the right panel by default.
+
+The human can move the Tab to another supported panel.
+
+A focus command moves focus to the main chat.
+
+A second focus command moves focus to the side chat.
+
+The focus command prefers an already active side chat Tab.
+
+The focus command otherwise selects the first side chat Tab it finds.
 
 ### Instructions and permissions
 
-Evidence pending.
+The side conversation instruction is the only side chat instruction the model receives.
+
+The renderer supplies that instruction at thread creation.
+
+The boundary message repeats the same rule in the user channel.
+
+No skill teaches side chat use.
+
+No agent tool description mentions the side chat.
+
+The side chat inherits the parent permissions in the cloud path.
+
+The side chat resolves its own developer instructions for the working directory in the local path.
+
+The instruction permits read-only inspection without a further request.
+
+The instruction requires an explicit user request before any workspace mutation.
+
+The instruction requires an explicit user request before any permission escalation.
+
+The instruction forbids all sub-agent interaction inside the side chat.
+
+The open command requires local Codex access.
+
+The human needs no further approval to open a side chat.
 
 ### Failure and unavailable states
 
-Evidence pending.
+| State | Verified result |
+| --- | --- |
+| Archived source thread | The renderer refuses to create a side chat. |
+| Suppressed source thread | The renderer refuses to create a side chat. |
+| Cloud parent without an environment | Creation fails and reports the missing environment. |
+| Cloud parent without permissions | Creation fails and reports the missing permissions. |
+| Cloud parent without workspace roots | Creation fails and reports the missing workspace roots. |
+| Creation error | The pending Tab fails and the new conversation is discarded. |
+| Failed first turn synchronization | The side chat reports that the first turn did not start. |
+| Tab replaced during creation | The renderer discards the new conversation and stops. |
+| Close with at least one turn | A confirmation dialog asks before the close. |
+| Confirmation dismissed | The Tab stays open. |
+| Do not ask again selected | Later closes skip the confirmation. |
+| Active voice without a voice host | The close reports that the voice host is unavailable. |
+| Voice not stopped within 30 seconds | The close reports that voice did not stop. |
+| Failed voice stop | The renderer reopens the Tab and keeps the side chat. |
+| Failed cache discard | The renderer records a warning and reports the failure. |
 
 ## Sub-agents
 
