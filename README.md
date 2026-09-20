@@ -27,9 +27,9 @@ Reeve checks for a new version on launch and every four hours, downloads it in t
 
 **macOS note.** Download the Apple Silicon package on an M-series Mac and the Intel package on an older Mac. Reeve updates itself with the matching package.
 
-**Windows note.** 0.5.0 has no Windows package. It follows in the next release, unsigned at first, so SmartScreen will show "Windows protected your PC" on first run. Choose **More info**, then **Run anyway**.
+**Windows note.** No Windows package has shipped yet. It follows in a later release, unsigned at first, so SmartScreen will show "Windows protected your PC" on first run. Choose **More info**, then **Run anyway**.
 
-**Linux note.** 0.5.0 has no Linux package. The AppImage follows in the next release. Make it executable, then run it: `chmod +x Reeve-*.AppImage && ./Reeve-*.AppImage`.
+**Linux note.** No Linux package has shipped yet. The AppImage follows in a later release. Make it executable, then run it: `chmod +x Reeve-*.AppImage && ./Reeve-*.AppImage`.
 
 ## What Reeve does
 
@@ -38,6 +38,7 @@ Reeve checks for a new version on launch and every four hours, downloads it in t
 - **Try different directions safely.** Continue from an earlier message or fork a session into a separate route.
 - **Work across branches.** Switch Git worktrees from the sidebar so new sessions and the Explorer follow the checkout you choose.
 - **Chat beside the project.** Browse files on the left and preview source, docs, images, audio, and PDFs on the right while the agent works.
+- **Keep a shell beside the chat.** Open a terminal in the panel, in the project's own directory. The agent can read what that shell is doing without you copying anything across.
 - **See session state clearly.** The Context donut shows usage and cost. Summary shows branches and the system prompt.
 - **Configure less from the terminal.** Manage providers, logins, API keys, model tests, plugins, and skills from the interface.
 
@@ -49,21 +50,21 @@ Reeve is free and will stay free. If it earns its place on your desktop, a star 
 
 ## Screenshots
 
-**Session browsing and file explorer.** Projects and past sessions on the left, the project's real file tree underneath.
+**Sessions and the chat.** Projects and their past sessions on the left. An agent run with its tool calls, its cost, and the context it used.
 
-![Sidebar with session browsing and the file explorer](./docs/screenshots/01-sidebar-and-explorer.png)
+![Reeve showing a project's sessions beside an agent run with tool calls](./docs/screenshots/01-sessions-and-chat.png)
 
-**Chat view.** An agent run with tool calls, cost, and context usage.
+**A file beside the chat.** Open any file from the project in the panel and read it while the agent works.
 
-![Chat view showing an agent run with tool calls, cost, and context usage](./docs/screenshots/02-chat-session.png)
+![A source file open in the right panel beside the chat](./docs/screenshots/02-file-preview.png)
 
-**File preview.** The chat pane next to a rendered Markdown file.
+**A shell beside the chat.** The terminal runs in the project's directory. The agent can read its state on request.
 
-![Chat pane next to a rendered Markdown file preview](./docs/screenshots/03-file-preview.png)
+![A terminal running in the right panel beside the chat](./docs/screenshots/03-terminal.png)
 
-**Settings.** Model role assignments.
+**Settings.** Models, skills, plugins, and agent behaviour, without the terminal.
 
-![Settings panel showing model role assignments](./docs/screenshots/04-settings.png)
+![The Reeve settings window showing input and approval options](./docs/screenshots/04-settings.png)
 
 ## Run from source
 
