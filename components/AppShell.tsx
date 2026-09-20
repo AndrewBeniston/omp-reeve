@@ -1162,7 +1162,12 @@ export function AppShell() {
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
   const activeTerminalTabId = activeTab?.kind === "terminal" ? activeTab.id : null;
-  activeTerminalTabIdRef.current = activeTerminalTabId;
+
+  // The control host reads this ref long after a render, so the write belongs
+  // in an effect. A write during render records a render React can discard.
+  useEffect(() => {
+    activeTerminalTabIdRef.current = activeTerminalTabId;
+  }, [activeTerminalTabId]);
 
   /**
    * Keep the active Tab in sight.
