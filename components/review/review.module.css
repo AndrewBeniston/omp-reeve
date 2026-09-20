@@ -1,0 +1,349 @@
+.panel { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--ui-canvas); color: var(--ui-text); }
+
+/*
+ * The reference's shipped geometry, read from its own stylesheets and
+ * recorded under R20 in docs/research/review-reference.md.
+ *
+ * It is set on the Review panel rather than in app/tokens.css because these
+ * are the reference's numbers for this surface, and Reeve's own scale governs
+ * the rest of the interface. Every override below names the R20 value it
+ * carries. Colour is deliberately absent: it stays with the Tier 1 adapter,
+ * per DESIGN.md section 4.1.
+ */
+.panel {
+  /* R20: every small control Review draws is 28px tall, toolbar included. */
+  --ui-control-sm: 28px;
+  /* R20: a 2px focus ring sitting on the control's own edge. */
+  --ui-focus-offset: 0px;
+  /* R20: a disabled control is at 0.40 opacity, and its hover is suppressed. */
+  --ui-disabled-opacity: 0.40;
+  /*
+   * R20: a hover wash of 8% of the text colour over a transparent base.
+   * Reeve's own --ui-hover follows the theme's --bg-hover, which is a
+   * different ratio, so Review restates the token inside its own panel. The
+   * wash reads --ui-text, so it still follows the Tier 1 adapter through
+   * Tier 2, and no global token changes.
+   */
+  --ui-hover: color-mix(in srgb, var(--ui-text) 8%, transparent);
+}
+
+/* R20: the same wash is 12% in a dark theme. The class comes from the
+   resolved palette, per DESIGN.md section 4.1.1, not from the desktop. */
+:global(html.dark) .panel {
+  --ui-hover: color-mix(in srgb, var(--ui-text) 12%, transparent);
+}
+
+/*
+ * R20 records two radius scales, chosen by whether the engine draws a
+ * superellipse. Reeve's desktop shell runs Electron 44, so the 1.25 scale is
+ * the target and Reeve's own 6/8/10 stays as the fallback for an older engine.
+ */
+@supports (corner-shape: superellipse(1.5)) {
+  .panel {
+    --radius-sm: 7.5px;
+    --radius-md: 10px;
+    --radius-lg: 12.5px;
+    /*
+     * R20: the same feature query gives the toolbar, medium and large radius
+     * utilities a superellipse corner. Review's Button and IconButton come
+     * from lib/ui/recipes.module.css, which reads this hook and keeps its
+     * round corner everywhere else.
+     */
+    --ui-control-corner: superellipse(1.5);
+  }
+}
+/*
+ * The header row's geometry is copied from the reference application's own
+ * review header, read from its shipped bundle:
+ *
+ *   grid           two columns, minmax(0, 1fr) then auto
+ *   row height     40px    (its --height-toolbar-pane)
+ *   branch row     68px    (min-h-[68px]) only when a branch scope is active,
+ *                          and the comparison branch spans both columns on a
+ *                          second row — the header never grows to three
+ *   padding        8px horizontal, 4px vertical while the branch row shows
+ *   scope          label + chevron on the left, then the +/- counts
+ *   actions        a right cluster of 18px icons, then Commit or push
+ */
+/* R20: the toolbar sets 14px text on an 18px line. */
+.toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-1); padding-inline: var(--space-2); min-height: 40px; border-bottom: 1px solid var(--ui-border); font-size: var(--text-ui); line-height: 18px; }
+.toolbar[data-branch-review="true"] { align-items: start; min-height: 68px; padding-block: var(--space-1); }
+.toolbarLead { display: flex; min-width: 0; align-items: center; gap: var(--space-1); }
+.scope { position: relative; }
+.branchScope { grid-column: 1 / -1; display: flex; align-items: center; min-width: 0; padding-inline: 2px 6px; }
+.branchRange { font-size: var(--text-sm); color: var(--ui-text-muted); padding-inline: 6px; }
+.scopeChevron { display: inline-flex; margin-inline-start: 2px; color: var(--ui-text-muted); }
+.menu { position: absolute; top: 100%; left: 0; z-index: 20; min-width: 180px; }
+/* The reference's own break between the recorded turn and the Git scopes. */
+.menuSeparator { height: 1px; margin-block: var(--space-1); background: var(--ui-border); }
+
+/* The +/- counts beside the scope, in the reference's green and red. */
+.diffStat { display: inline-flex; align-items: center; gap: var(--space-1); padding-inline: var(--space-1); font-size: var(--text-sm); font-variant-numeric: tabular-nums; user-select: none; }
+/* What this Tab is bound to, after the totals, yielding width to them first. */
+.binding { min-width: 0; overflow: hidden; padding-inline: var(--space-1); color: var(--ui-text-muted); font-size: var(--text-xs); white-space: nowrap; text-overflow: ellipsis; }
+
+.toolbarActions { display: flex; align-items: center; gap: var(--space-0-5); margin-inline-start: auto; }
+.toolbarCluster { display: flex; align-items: center; gap: var(--space-0-5); }
+.toolbarButton { position: relative; }
+/*
+ * The files toggle's active state is the reference's: a neutral raised
+ * surface, not the accent. A blue fill here reads as a different control.
+ */
+.filesToggleActive { background: color-mix(in srgb, var(--ui-text) 12%, var(--ui-canvas)); color: var(--ui-text); }
+.filesToggleActive:hover:not(:disabled) { background: color-mix(in srgb, var(--ui-text) 16%, var(--ui-canvas)); color: var(--ui-text); }
+
+/*
+ * Commit or push: an outlined control the height of the row's icons, with a
+ * small commit glyph before the label and a chevron after it.
+ */
+/* R20: 28px tall, a 1px border, and the medium radius drawn as a superellipse. */
+.commitButton { display: inline-flex; align-items: center; gap: var(--space-1-5); height: var(--ui-control-sm); margin-inline-start: var(--space-1-5); padding-inline: var(--space-3); border: 1px solid var(--ui-border-strong); border-radius: var(--radius-md); corner-shape: var(--corner-row); background: var(--ui-surface); color: var(--ui-text); font: inherit; font-size: var(--text-sm); cursor: pointer; white-space: nowrap; }
+.commitButton:hover:not(:disabled) { background: var(--ui-hover); }
+.commitButton:focus-visible { outline: var(--ui-focus-ring); outline-offset: var(--ui-focus-offset); }
+/* R20: the disabled rule is one opacity and the default cursor, everywhere. */
+.commitButton:disabled { opacity: var(--ui-disabled-opacity); cursor: default; }
+.commitMenu { position: absolute; top: 100%; right: 0; z-index: 20; min-width: 200px; }
+.commitMore { display: inline-flex; align-items: center; height: var(--ui-control-sm); padding-inline: var(--space-1); border: 1px solid var(--ui-border-strong); border-inline-start: 0; border-start-end-radius: var(--radius-md); border-end-end-radius: var(--radius-md); corner-shape: var(--corner-row); background: var(--ui-surface); color: var(--ui-text); cursor: pointer; }
+.commitMore:hover:not(:disabled) { background: var(--ui-hover); }
+.commitMore:focus-visible { outline: var(--ui-focus-ring); outline-offset: var(--ui-focus-offset); }
+.commitNote { color: var(--ui-text-muted); }
+
+.search { min-width: 0; width: 100%; height: var(--ui-control-sm); padding-inline: 6px; background: var(--ui-canvas); color: var(--ui-text); border: 1px solid var(--ui-border); border-radius: var(--radius-md); corner-shape: var(--corner-row); font: inherit; }
+.search:focus-visible { outline: var(--ui-focus-ring); outline-offset: var(--ui-focus-offset); }
+.submenuAnchor { position: relative; }
+.submenu { position: absolute; top: 0; left: 100%; z-index: 21; width: min(320px, 50vw); }
+.branchMenu { position: absolute; top: 100%; left: 0; z-index: 20; width: min(320px, 70vw); }
+.choices { max-height: 320px; overflow-y: auto; }
+.choiceLabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.choiceDetail { color: var(--ui-text-muted); font-size: var(--text-xs); font-family: var(--font-mono); }
+/*
+ * The diff scroller. It is isolated so the diff renderer's own layering stays
+ * inside it: without that, a sticky gutter or row painted above the floating
+ * section actions, which sit outside this element.
+ */
+.content { position: relative; isolation: isolate; flex: 1; min-height: 0; overflow: auto; }
+.message { padding: var(--space-4); color: var(--ui-text-muted); font-size: var(--text-sm); }
+
+/* The reference's empty state: a centred title, one line under it, nothing else. */
+.emptyState { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2); height: 100%; padding: var(--space-6); text-align: center; }
+.emptyTitle { color: var(--ui-text); font-size: var(--text-sm); }
+.emptyDescription { color: var(--ui-text-muted); font-size: var(--text-sm); }
+
+.fileReview { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.fileLayout { position: relative; display: flex; flex: 1; min-height: 0; }
+/*
+ * The changed-files list, as the reference sizes it: a column that does not
+ * shrink, capped at 60% of the review. Dragging it under its floor closes it
+ * rather than squeezing it, which is the reference's own rule.
+ */
+.fileNavigationContainer { position: relative; flex: 0 0 var(--ui-panel-width); min-width: 0; max-width: 60%; border-left: 1px solid var(--ui-border); background: var(--ui-canvas); }
+.fileNavigation { height: 100%; min-width: 0; overflow: auto; padding: var(--space-2); }
+/* The section pill floats over this column, so its last rows keep clear of it. */
+.fileNavigation[data-reserve-bottom="true"] { padding-bottom: calc(20px + var(--ui-control-sm, 28px) + var(--space-2)); }
+.fileResizeHandle { position: absolute; inset-block: 0; left: -3px; width: 6px; cursor: col-resize; touch-action: none; z-index: 2; }
+.fileResizeHandle:hover, .fileResizeHandle[data-resizing="true"] { background: var(--ui-hover); }
+.fileResizeHandle:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -2px; }
+/* R20: the filter is a small control, so it takes the panel's own height and
+   the medium radius rather than two numbers written here. */
+.fileFilter { display: flex; align-items: center; gap: 6px; height: var(--ui-control-sm); border: 1px solid var(--ui-border); border-radius: var(--radius-md); corner-shape: var(--corner-row); background: var(--ui-surface); }
+.fileFilterIcon { display: inline-flex; margin-inline-start: 6px; color: var(--ui-text-dim); }
+.fileFilter input { width: 100%; min-width: 0; padding-inline: 6px; border: 0; background: transparent; color: var(--ui-text); font: inherit; line-height: 18px; }
+.fileFilter input::placeholder { color: var(--ui-text-dim); }
+.fileFilter input:focus-visible { outline: var(--ui-focus-ring); outline-offset: var(--ui-focus-offset); }
+.fileList { margin: var(--space-1) 0 0; padding: 0; list-style: none; }
+/* R20: a changed-file row is 28px tall, the same as every small control. */
+.fileChoice { display: flex; width: 100%; min-height: var(--ui-control-sm); gap: var(--space-1); text-align: start; padding-inline-start: calc(var(--space-2) + var(--review-tree-indent, 0px)); }
+.fileChoice > span { display: flex; align-items: center; width: 100%; min-width: 0; gap: var(--space-1); }
+.fileChoice[aria-current="true"] { background: var(--ui-hover); }
+/* A folder row in the changed-files tree: chevron, path, change mark. */
+.treeFolder { display: flex; align-items: center; width: 100%; min-height: var(--ui-control-sm); gap: var(--space-1); padding: var(--space-1) var(--space-2); border: 0; background: transparent; color: var(--ui-text); font: inherit; font-size: var(--text-xs); text-align: start; cursor: pointer; }
+.treeFolder:hover { background: var(--ui-hover); }
+.treeFolder:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -2px; }
+.treeChevron { display: inline-flex; transition: transform var(--duration-fast) var(--ease-standard); }
+.treeChevron[data-open="true"] { transform: rotate(90deg); }
+/* The reference indents each nesting level and draws a hairline rail beside it. */
+.treeChildren { margin: 0; margin-inline-start: var(--space-3); padding: 0; padding-inline-start: var(--space-1-5); border-inline-start: 1px solid var(--ui-border); list-style: none; }
+.treeChildren .fileChoice { padding-inline-start: var(--space-2); }
+/* A changed folder: the reference shows an orange dot where the row has no stat. */
+.fileGroupMark { flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%; corner-shape: var(--corner-round); background: var(--ui-warning); }
+/* An untracked file: the reference shows a green U where a tracked file has its stat. */
+.untrackedMark { color: var(--ui-success); font-size: var(--text-xs); font-weight: 600; }
+/* One visible stop per row. The tree is walked with the arrow keys, so the
+   row that has focus has to say so as plainly as the selected one does.
+   The ring is drawn inside the row on purpose, unlike R20's controls: a row
+   at the edge of the scroller would otherwise have half its ring clipped. */
+.fileChoice:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -2px; }
+.viewedMark { display: inline-flex; flex-shrink: 0; color: var(--ui-success); }
+/* A file that has been read is quieter, and still legible. */
+.fileChoice[data-viewed] .choiceLabel { opacity: 0.62; }
+.fileDiffs { flex: 1 1 0; min-width: 0; overflow: auto; }
+/*
+ * One row, always: the icon, the path truncated from its start, the counts,
+ * then the actions. Nothing here wraps, because a wrapped heading in a narrow
+ * panel breaks a file name into single letters.
+ */
+.fileHeading { display: flex; align-items: center; gap: var(--space-1); margin: 0; padding: var(--space-2); border-block: 1px solid var(--ui-border); font-size: var(--text-sm); font-weight: 500; min-width: 0; }
+.fileHeading h3 { display: flex; align-items: center; gap: var(--space-1); flex: 1 1 auto; min-width: 0; margin: 0; font: inherit; white-space: nowrap; overflow: hidden; }
+.fileHeading h3 > svg { flex-shrink: 0; }
+/* The directory gives way first, so the file name survives a narrow panel. */
+.fileHeadingPath { display: flex; flex: 0 1 auto; align-items: center; min-width: 0; white-space: nowrap; }
+.fileHeadingStat { display: inline-flex; flex-shrink: 0; align-items: center; gap: var(--space-2); font-variant-numeric: tabular-nums; }
+/*
+ * The actions rest out of sight and appear on hover or focus, which is how the
+ * reference draws them. Compact icons leave room for the file name. A
+ * pointer that cannot hover keeps them visible.
+ */
+.fileHeading > button, .fileHeading > span { flex-shrink: 0; }
+.viewedButton { font-weight: 400; }
+.fileAction, .viewedButton[aria-pressed="false"] { opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
+.fileHeading:hover .fileAction, .fileHeading:focus-within .fileAction,
+.fileHeading:hover .viewedButton, .fileHeading:focus-within .viewedButton, .viewedButton:focus-visible { opacity: 1; }
+@media (hover: none) {
+  .fileAction, .viewedButton[aria-pressed="false"] { opacity: 1; }
+}
+.additions { color: var(--ui-success); }
+.deletions { color: var(--ui-danger); }
+
+/*
+ * The large-diff notice, in the reference's shape: a banner across the top of
+ * the diff pane carrying an info glyph, the sentence, and the file steppers.
+ */
+.diffBanner { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--ui-border); border-radius: var(--radius-md); background: var(--ui-surface-elevated); font-size: var(--text-sm); }
+.diffBannerIcon { display: inline-flex; flex-shrink: 0; color: var(--ui-accent); }
+.diffBannerText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.diffBannerNav { display: inline-flex; align-items: center; gap: var(--space-0-5); margin-inline-start: auto; }
+/* The file list is hidden, so the walk lives here instead. */
+.fileWalk { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-2); padding: var(--space-1) var(--space-2); border: 1px solid var(--ui-border); border-radius: var(--radius-md); background: var(--ui-surface-elevated); font-size: var(--text-xs); }
+.fileWalkPosition { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.fileWalkName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fileWalkCount { flex-shrink: 0; color: var(--ui-text-muted); }
+
+/*
+ * A file whose diff is withheld: the reason, then the way through. Laid out as
+ * a block rather than a bare sentence so the action reads as part of the
+ * notice and not as an unrelated control below it.
+ */
+.oversizedFile { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-4); }
+.oversizedReason { color: var(--ui-text-muted); font-size: var(--text-sm); }
+
+/*
+ * What happened to a file, above its lines: a rename, a mode change, or a
+ * file added or deleted whole. A pure rename and a mode-only change draw no
+ * lines at all, so this is the only thing that reports them, which is why it
+ * sits at the diff's own text size and reads as part of the file rather than
+ * as a notice about the panel.
+ */
+.fileChangeNote { margin: 0; padding: var(--space-2); color: var(--ui-text-muted); font-size: var(--text-xs); }
+
+.mutedPath { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ui-text-muted); }
+.brightName { flex: 0 0 auto; max-width: 100%; overflow: hidden; text-overflow: ellipsis; color: var(--ui-text); font-weight: 500; }
+/* The selected tree row's trailing ⊕, the reference's add-to-chat control. */
+.addRef { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 16px; height: 16px; border: 1px solid var(--ui-success); border-radius: var(--radius-xs); color: var(--ui-success); cursor: pointer; }
+.addRef:hover { background: color-mix(in srgb, var(--ui-success) 14%, transparent); }
+.addRef:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: 1px; }
+.fileDiffs { position: relative; }
+.diffSurface {
+  --diffs-font-family: var(--font-mono);
+  /*
+   * The reference's own diff geometry, recorded under R20 in
+   * docs/research/review-reference.md: 12px text, a line height of the font
+   * size times 1.8, and no gap between blocks. The renderer would otherwise
+   * fall back to 13px text, a 20px line and an 8px gap, which also puts it at
+   * odds with the row heights REVIEW_VIRTUAL_FILE_METRICS estimates from these
+   * same three numbers.
+   */
+  --diffs-font-size: 12px;
+  --diffs-line-height: calc(12px * 1.8);
+  --diffs-gap-block: 0px;
+  --diffs-addition-color-override: var(--ui-success);
+  --diffs-deletion-color-override: var(--ui-danger);
+  --diffs-modified-color-override: var(--ui-warning);
+  --diffs-bg-buffer-override: var(--ui-canvas);
+  --diffs-bg-context-override: var(--ui-canvas);
+  --diffs-bg-context-gutter-override: var(--ui-canvas);
+  --diffs-bg-separator-override: var(--ui-surface);
+  --diffs-fg-number-override: var(--ui-text-muted);
+  --diffs-bg-addition-override: var(--ui-success-wash);
+  --diffs-bg-deletion-override: var(--ui-danger-wash);
+  --diffs-bg-addition-emphasis-override: color-mix(in srgb, var(--ui-success) 25%, var(--ui-canvas));
+  --diffs-bg-deletion-emphasis-override: color-mix(in srgb, var(--ui-danger) 25%, var(--ui-canvas));
+}
+
+/* A file's own Git actions, beside its name. */
+.fileAction { font-weight: 400; white-space: nowrap; }
+
+
+/*
+ * A hunk and the buttons that act on it. The reference floats them at the
+ * hunk's top corner and reveals them on hover; focus reveals them too, so the
+ * keyboard reaches what the pointer does.
+ */
+.hunkBlock { position: relative; }
+.hunkActions { position: absolute; z-index: 1; inset-block-start: var(--space-1); inset-inline-end: var(--space-3); display: flex; gap: var(--space-0-5); opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
+.hunkBlock:hover .hunkActions, .hunkActions:focus-within { opacity: 1; }
+.hunkAction { border: 1px solid var(--ui-border); background: var(--ui-surface); font-weight: 400; }
+.hunkAction:hover:not(:disabled) { background: var(--ui-hover); }
+
+/* What the last operation did, with the files it could not move under it. */
+.outcome { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--ui-border); border-inline-start: 3px solid var(--ui-border-strong); font-size: var(--text-sm); }
+.outcome[data-tone="success"] { border-inline-start-color: var(--ui-success); }
+.outcome[data-tone="warning"] { border-inline-start-color: var(--ui-warning); }
+.outcome[data-tone="danger"] { border-inline-start-color: var(--ui-danger); }
+.outcomeBody { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: var(--space-1); }
+.outcomeMessage { margin: 0; color: var(--ui-text); }
+.outcomeFailures { margin: 0; padding-inline-start: var(--space-4); color: var(--ui-text-muted); font-size: var(--text-xs); }
+
+.confirmSkip { display: flex; align-items: center; gap: var(--space-2); margin-block: var(--space-3); color: var(--ui-text-muted); font-size: var(--text-sm); }
+.confirmActions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+
+/* The comments this Session holds, and the two ways to hand them over. */
+.commentBar { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border-bottom: 1px solid var(--ui-border); font-size: var(--text-sm); }
+.commentCount { color: var(--ui-text-muted); }
+.commentNote { color: var(--ui-text-dim); font-size: var(--text-xs); }
+
+/* A comment card, drawn under the lines it is about. */
+.commentStack { display: flex; flex-direction: column; gap: var(--space-1); }
+.commentCard { display: flex; flex-direction: column; gap: var(--space-1); margin: var(--space-1) var(--space-3); padding: var(--space-2); border: 1px solid var(--ui-border); border-radius: var(--radius-md); background: var(--ui-surface); font-size: var(--text-sm); }
+.commentCard[data-status="detached"] { border-color: var(--ui-warning); }
+.commentHeading { display: flex; align-items: center; gap: var(--space-2); color: var(--ui-text-muted); font-size: var(--text-xs); }
+.commentStatus { color: var(--ui-text-muted); }
+.commentStatus[data-status="detached"] { color: var(--ui-warning); }
+
+/* Comments whose lines this revision does not show, kept above the diff. */
+.detachedComments { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) 0; border-bottom: 1px solid var(--ui-border); }
+.detachedNote { margin: 0 var(--space-3); color: var(--ui-text-muted); font-size: var(--text-xs); }
+.detachedEntry { display: flex; flex-direction: column; }
+.detachedPath { margin: var(--space-1) var(--space-3) 0; color: var(--ui-text-dim); font-size: var(--text-xs); overflow-wrap: anywhere; }
+.commentBody { margin: 0; color: var(--ui-text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.commentInput { width: 100%; min-height: 56px; padding: var(--space-1) var(--space-2); border: 1px solid var(--ui-border); border-radius: var(--radius-sm); background: var(--ui-canvas); color: var(--ui-text); font: inherit; resize: vertical; }
+.commentInput:focus-visible { outline: var(--ui-focus-ring); outline-offset: var(--ui-focus-offset); }
+.commentActions { display: flex; justify-content: flex-end; gap: var(--space-1); }
+
+/* The commit form: a message, where it lands, and what it will carry. */
+.commitFieldLabel { display: block; margin-block-end: var(--space-1); color: var(--ui-text-muted); font-size: var(--text-sm); }
+.commitMessage { width: 100%; min-height: 96px; padding: var(--space-2); border: 1px solid var(--ui-border); border-radius: var(--radius-sm); background: var(--ui-canvas); color: var(--ui-text); font: inherit; resize: vertical; }
+.commitMessage:focus-visible, .commitInput:focus-visible { outline: var(--ui-focus-ring); outline-offset: var(--ui-focus-offset); }
+.commitInput { width: 100%; height: 30px; margin-block-start: var(--space-1); padding-inline: var(--space-2); border: 1px solid var(--ui-border); border-radius: var(--radius-sm); background: var(--ui-canvas); color: var(--ui-text); font: inherit; }
+.commitRow { display: flex; align-items: center; gap: var(--space-2); margin-block: var(--space-2); }
+.commitCheck { display: flex; align-items: center; gap: var(--space-2); margin-block: var(--space-2); color: var(--ui-text); font-size: var(--text-sm); }
+.commitHidden { margin-block: var(--space-2); padding: var(--space-2); border: 1px solid var(--ui-warning); border-radius: var(--radius-sm); font-size: var(--text-sm); }
+.commitHiddenTitle { margin: 0 0 var(--space-1); color: var(--ui-text); }
+.commitOutcome { margin-block: var(--space-2); font-size: var(--text-sm); }
+.commitOutcome[data-tone="success"] { color: var(--ui-success); }
+.commitOutcome[data-tone="warning"] { color: var(--ui-warning); }
+.commitOutcome[data-tone="danger"] { color: var(--ui-danger); }
+
+/*
+ * The section actions, drawn as the reference draws them: a pill floating over
+ * the diff, centred, clear of the bottom edge, catching pointer events only on
+ * the pill itself so the diff underneath stays usable.
+ */
+/*
+ * Its containing block is the panel, which does not scroll, so the pill stays
+ * 20px above the panel's visible bottom rather than following the diff to the
+ * end of its scrolled content.
+ */
+.sectionPill { position: absolute; z-index: 5; inset-block-end: 20px; inset-inline-start: 50%; transform: translateX(-50%); pointer-events: none; }
+.sectionPillRow { display: flex; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: var(--radius-round); corner-shape: var(--corner-round); background: color-mix(in srgb, var(--ui-surface) 90%, transparent); outline: 1px solid var(--ui-border); box-shadow: 0 12px 32px color-mix(in srgb, var(--ui-backdrop) 40%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); pointer-events: auto; }
+.sectionAction { font-weight: 400; white-space: nowrap; }
+.sectionAction > span { display: inline-flex; align-items: center; gap: var(--space-1); }

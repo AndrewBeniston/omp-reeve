@@ -199,6 +199,12 @@ export type ExtensionUiRequest =
       method: "select";
       title: string;
       options: string[];
+      /**
+       * The tool call this question probably approves, paired by a
+       * conservative heuristic rather than by an id OMP supplied. Absent
+       * means the pairing was refused, which is the safe answer.
+       */
+      approvalToolCallId?: string;
       timeout?: number;
       expiresAt?: number;
     }

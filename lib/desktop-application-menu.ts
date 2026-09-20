@@ -43,6 +43,7 @@ export const TAB_FOCUS_POSITIONS: Record<TabFocusAction, number> = {
 export type ApplicationMenuAction =
   | "new-chat"
   | "toggle-sidebar"
+  | "open-review-tab"
   | "open-terminal-tab"
   | "open-browser-tab"
   | "open-files"
@@ -54,11 +55,13 @@ export type ApplicationMenuAction =
   | "browser-back"
   | "browser-forward"
   | "toggle-maximise-panel"
+  | "toggle-panel"
   | TabFocusAction;
 
 const ACTIONS = new Set<string>([
   "new-chat",
   "toggle-sidebar",
+  "open-review-tab",
   "open-terminal-tab",
   "open-browser-tab",
   "open-files",
@@ -70,6 +73,7 @@ const ACTIONS = new Set<string>([
   "browser-back",
   "browser-forward",
   "toggle-maximise-panel",
+  "toggle-panel",
   ...Object.keys(TAB_FOCUS_POSITIONS),
 ]);
 

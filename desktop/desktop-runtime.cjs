@@ -138,9 +138,53 @@ function isTrustedRendererUrl(value, applicationUrl) {
   }
 }
 
+/*
+ * Chromium's built-in PDF viewer. Drawing a PDF hands the frame to this
+ * extension, which loads one of its own two documents, so refusing them
+ * leaves every PDF blank. Identifier and paths are fixed by the browser
+ * build and were read from the installed framework.
+ */
+const PDF_VIEWER_PROTOCOL = "chrome-extension:";
+const PDF_VIEWER_HOST = "mhjfbmdgcfjbbpaeojofohoefgiehjai";
+const PDF_VIEWER_PATHS = new Set(["/index.html", "/index_print.html"]);
+
+/*
+ * The viewer's own document is `index.html`; the file itself arrives in a
+ * second frame under a per-document identifier the browser mints, so the
+ * shape is allowed rather than any one value. Canonical lowercase form only,
+ * and nothing may follow it.
+ */
+const PDF_VIEWER_STREAM_PATH = /^\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+function isPdfViewerPath(pathname) {
+  return PDF_VIEWER_PATHS.has(pathname) || PDF_VIEWER_STREAM_PATH.test(pathname);
+}
+
+/**
+ * Parts rather than origin: `URL` reports the origin of every non-special
+ * scheme as the string "null", which no extension can be told apart by.
+ */
+function isPdfViewerUrl(value) {
+  if (typeof value !== "string") return false;
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return url.protocol === PDF_VIEWER_PROTOCOL
+    && url.hostname === PDF_VIEWER_HOST
+    && url.port === ""
+    && url.username === ""
+    && url.password === ""
+    && isPdfViewerPath(url.pathname);
+}
+
 function isNavigationAllowed(value, applicationUrl, isMainFrame) {
   if (isTrustedRendererUrl(value, applicationUrl)) return true;
-  return !isMainFrame && (value === "about:blank" || value === "about:srcdoc");
+  // A main frame is the application itself and admits nothing else.
+  if (isMainFrame) return false;
+  return value === "about:blank" || value === "about:srcdoc" || isPdfViewerUrl(value);
 }
 
 /**
@@ -355,7 +399,7 @@ const REEVE_ISSUE_URL = "https://github.com/AndrewBeniston/omp-reeve/issues/new"
  * desktop-runtime.test.mjs fails when the two disagree.
  */
 const PANEL_MENU_ITEMS = [
-  { id: "view-review", panelId: "review", label: "Review", accelerator: "Ctrl+Shift+G", action: null },
+  { id: "view-review", panelId: "review", label: "Review", accelerator: "Ctrl+Shift+G", action: "open-review-tab" },
   { id: "view-terminal", panelId: "terminal", label: "Terminal", accelerator: "Control+`", action: "open-terminal-tab" },
   { id: "view-browser", panelId: "browser", label: "Browser", accelerator: "CmdOrCtrl+T", action: "open-browser-tab" },
   { id: "view-files", panelId: "files", label: "Files", accelerator: "CmdOrCtrl+P", action: "open-files" },
@@ -401,6 +445,7 @@ function tabNavigationMenuItems({ isMac, send }) {
     { id: "view-browser-address", label: "Address bar", accelerator: "CmdOrCtrl+L", click: send("focus-browser-address") },
     { id: "view-browser-back", label: "Back", accelerator: isMac ? "Command+Left" : "Alt+Left", click: send("browser-back") },
     { id: "view-browser-forward", label: "Forward", accelerator: isMac ? "Command+Right" : "Alt+Right", click: send("browser-forward") },
+    { id: "view-toggle-panel", label: "Toggle panel", accelerator: "CmdOrCtrl+Alt+B", click: send("toggle-panel") },
     { id: "view-maximise-panel", label: "Maximise panel", accelerator: "Control+]", click: send("toggle-maximise-panel") },
     // Nine hidden items. The reference shows none of these in its menu either:
     // they are chords a human learns from the shortcut list, not from browsing.
@@ -510,6 +555,7 @@ module.exports = {
   isExternalUrlAllowed,
   isExpectedServerResponse,
   isNavigationAllowed,
+  isPdfViewerUrl,
   isTrustedRendererUrl,
   prepareWritableNext,
   shouldReportLoadFailure,

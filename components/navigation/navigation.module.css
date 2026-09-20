@@ -397,15 +397,70 @@
 .fileIcon[data-icon="_folder"] { --file-icon-light: url("/icons/catppuccin/latte/_folder.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/_folder.svg"); }
 .fileIcon[data-icon="_folder_open"] { --file-icon-light: url("/icons/catppuccin/latte/_folder_open.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/_folder_open.svg"); }
 
+/*
+ * Every typed icon the set ships, one rule each, pointing at the asset of
+ * that name in both themes. Without these a file that knows it is TypeScript
+ * still drew the generic outline: the name reached the markup and stopped
+ * there. Nothing is copied here - the rules name files already in public/.
+ */
+.fileIcon[data-icon="bash"] { --file-icon-light: url("/icons/catppuccin/latte/bash.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/bash.svg"); }
+.fileIcon[data-icon="bun-lock"] { --file-icon-light: url("/icons/catppuccin/latte/bun-lock.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/bun-lock.svg"); }
+.fileIcon[data-icon="config"] { --file-icon-light: url("/icons/catppuccin/latte/config.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/config.svg"); }
+.fileIcon[data-icon="css"] { --file-icon-light: url("/icons/catppuccin/latte/css.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/css.svg"); }
+.fileIcon[data-icon="database"] { --file-icon-light: url("/icons/catppuccin/latte/database.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/database.svg"); }
+.fileIcon[data-icon="docker"] { --file-icon-light: url("/icons/catppuccin/latte/docker.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/docker.svg"); }
+.fileIcon[data-icon="env"] { --file-icon-light: url("/icons/catppuccin/latte/env.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/env.svg"); }
+.fileIcon[data-icon="eslint"] { --file-icon-light: url("/icons/catppuccin/latte/eslint.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/eslint.svg"); }
+.fileIcon[data-icon="git"] { --file-icon-light: url("/icons/catppuccin/latte/git.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/git.svg"); }
+.fileIcon[data-icon="go"] { --file-icon-light: url("/icons/catppuccin/latte/go.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/go.svg"); }
+.fileIcon[data-icon="graphql"] { --file-icon-light: url("/icons/catppuccin/latte/graphql.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/graphql.svg"); }
+.fileIcon[data-icon="html"] { --file-icon-light: url("/icons/catppuccin/latte/html.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/html.svg"); }
+.fileIcon[data-icon="javascript"] { --file-icon-light: url("/icons/catppuccin/latte/javascript.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/javascript.svg"); }
+.fileIcon[data-icon="javascript-react"] { --file-icon-light: url("/icons/catppuccin/latte/javascript-react.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/javascript-react.svg"); }
+.fileIcon[data-icon="json"] { --file-icon-light: url("/icons/catppuccin/latte/json.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/json.svg"); }
+.fileIcon[data-icon="lock"] { --file-icon-light: url("/icons/catppuccin/latte/lock.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/lock.svg"); }
+.fileIcon[data-icon="markdown"] { --file-icon-light: url("/icons/catppuccin/latte/markdown.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/markdown.svg"); }
+.fileIcon[data-icon="ms-word"] { --file-icon-light: url("/icons/catppuccin/latte/ms-word.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/ms-word.svg"); }
+.fileIcon[data-icon="next"] { --file-icon-light: url("/icons/catppuccin/latte/next.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/next.svg"); }
+.fileIcon[data-icon="npm-lock"] { --file-icon-light: url("/icons/catppuccin/latte/npm-lock.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/npm-lock.svg"); }
+.fileIcon[data-icon="pdf"] { --file-icon-light: url("/icons/catppuccin/latte/pdf.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/pdf.svg"); }
+.fileIcon[data-icon="python"] { --file-icon-light: url("/icons/catppuccin/latte/python.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/python.svg"); }
+.fileIcon[data-icon="rust"] { --file-icon-light: url("/icons/catppuccin/latte/rust.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/rust.svg"); }
+.fileIcon[data-icon="sass"] { --file-icon-light: url("/icons/catppuccin/latte/sass.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/sass.svg"); }
+.fileIcon[data-icon="terraform"] { --file-icon-light: url("/icons/catppuccin/latte/terraform.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/terraform.svg"); }
+.fileIcon[data-icon="toml"] { --file-icon-light: url("/icons/catppuccin/latte/toml.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/toml.svg"); }
+.fileIcon[data-icon="typescript"] { --file-icon-light: url("/icons/catppuccin/latte/typescript.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/typescript.svg"); }
+.fileIcon[data-icon="typescript-react"] { --file-icon-light: url("/icons/catppuccin/latte/typescript-react.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/typescript-react.svg"); }
+.fileIcon[data-icon="yaml"] { --file-icon-light: url("/icons/catppuccin/latte/yaml.svg"); --file-icon-dark: url("/icons/catppuccin/mocha/yaml.svg"); }
+
 @supports (mask-image: url("mask.svg")) or (-webkit-mask-image: url("mask.svg")) {
   .fileIcon { background: var(--ui-text-dim); mask: center / contain no-repeat var(--file-icon-light); -webkit-mask: center / contain no-repeat var(--file-icon-light); }
 }
 
-@media (prefers-color-scheme: dark) {
-  .fileIcon { background-image: var(--file-icon-dark); }
-  @supports (mask-image: url("mask.svg")) or (-webkit-mask-image: url("mask.svg")) {
-    .fileIcon { background: var(--ui-text-dim); mask-image: var(--file-icon-dark); -webkit-mask-image: var(--file-icon-dark); }
-  }
+/*
+ * The asset scheme follows the OMP theme, not the operating system.
+ * hooks/useTheme.ts puts `dark` on the document element from the resolved
+ * palette's own colorScheme, so that class is the same signal every Tier 1
+ * colour on the row already obeys. A prefers-color-scheme query here made a
+ * light OMP theme draw the dark assets under a dark system, and the reverse.
+ */
+:global(html.dark) .fileIcon { background-image: var(--file-icon-dark); }
+@supports (mask-image: url("mask.svg")) or (-webkit-mask-image: url("mask.svg")) {
+  :global(html.dark) .fileIcon { background: var(--ui-text-dim); mask-image: var(--file-icon-dark); -webkit-mask-image: var(--file-icon-dark); }
+}
+
+/*
+ * A typed icon is drawn in its own colours. The mask above tints an icon to
+ * the interface text colour, which is right for the generic file and folder
+ * and wrong for the rest: colour is half of how a lockfile reads as a
+ * lockfile at 14px. A typed icon therefore opts out of the mask and draws
+ * the asset itself, in both schemes.
+ */
+@supports (mask-image: url("mask.svg")) or (-webkit-mask-image: url("mask.svg")) {
+  .fileIcon[data-typed] { background: center / contain no-repeat var(--file-icon-light); mask: none; -webkit-mask: none; }
+  /* Outranks the themed generic rule above, which carries the same class plus
+     the theme selector, so a typed icon keeps its own colours in both schemes. */
+  :global(html.dark) .fileIcon[data-typed] { background: center / contain no-repeat var(--file-icon-dark); mask: none; -webkit-mask: none; }
 }
 
 .newSessionButton:not(:disabled):hover {

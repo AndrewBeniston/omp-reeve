@@ -265,7 +265,12 @@ function createMentionView(node: ProseMirrorNode) {
   return {
     dom,
     destroy() {
-      iconRoot.unmount();
+      /*
+       * After the commit, not during it. ProseMirror destroys a mention view
+       * while React is rendering — switching Session does exactly that — and
+       * unmounting a root synchronously there is what React refuses.
+       */
+      queueMicrotask(() => iconRoot.unmount());
     },
   };
 }

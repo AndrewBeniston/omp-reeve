@@ -15,6 +15,7 @@ import { BUILTIN_SLASH_COMMAND_DEFS } from "@oh-my-pi/pi-coding-agent/slash-comm
 import { executeAcpBuiltinSlashCommand, type AcpBuiltinSlashCommandResult } from "@oh-my-pi/pi-coding-agent/slash-commands/acp-builtins";
 import { discoverCustomToolPaths } from "@oh-my-pi/pi-coding-agent/extensibility/custom-tools";
 import { initializeExtensions } from "@oh-my-pi/pi-coding-agent/modes/runtime-init";
+import { approvalSelectToolCallId, ensureApprovalBridgeExtension, registerApprovalBridge } from "./approval-bridge";
 import { readPlanFile } from "@oh-my-pi/pi-coding-agent/plan-mode/plan-files";
 import {
   readRpcSubagentTranscript,
@@ -31,6 +32,13 @@ import { type AgentControlReply, readAgentControlReason } from "./agent-control/
 import { invalidateModelsCache } from "./models-cache";
 import { resolveVisibleModels, selectInitialModelScope } from "./model-scope";
 import { cacheSessionPath, invalidateSessionListCache } from "./session-reader";
+import {
+  forgetTurnLifecycle,
+  noteTurnLifecycle,
+  turnEventForAgentEvent,
+  turnToolEventForAgentEvent,
+} from "./review-turn-recorder";
+import type { TurnLifecycleEvent, TurnToolEvent } from "./review-turn-spans";
 import { untrustedProjectSessionOptions } from "./project-trust";
 import { resolveSessionSystemPrompts } from "./session-system-prompt";
 import { readDefaultModelRole } from "./model-roles";
@@ -333,6 +341,10 @@ export class AgentSessionWrapper {
   private forceEmptySystemPrompt = false;
   private unsubscribe: (() => void) | null = null;
   private unsubscribeSessionName: (() => void) | null = null;
+  /** Stops listening for this Session's approvals when it is destroyed. */
+  private unsubscribeApprovals: (() => void) | null = null;
+  /** Tool calls waiting for an approval answer, newest last. */
+  private pendingToolApprovals: string[] = [];
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private onDestroyCallback: (() => void) | null = null;
   private shutdownPromise: Promise<void> | null = null;
@@ -348,12 +360,21 @@ export class AgentSessionWrapper {
   private controlChannel: AgentControlChannel | null = null;
   private queuePaused = false;
   private _alive = true;
+  /**
+   * The Session this wrapper was opened for.
+   *
+   * A fork rewrites `inner` in place, so by the time this wrapper is destroyed
+   * `inner.sessionId` is the new Session's. The snapshot bookkeeping belongs to
+   * the one that was open here.
+   */
+  private readonly openedSessionId: string;
 
   constructor(
     public readonly inner: AgentSessionLike,
     eventBus: ConstructorParameters<typeof RpcSubagentRegistry>[0],
     eventSessionIds: readonly string[] = [],
   ) {
+    this.openedSessionId = inner.sessionId;
     this.sessionEventChannels = [...new Set(eventSessionIds)].map(acquireSessionEventChannel);
     this.queuedMessageEditor = new QueuedMessageEditor(this.inner.agent as QueueAgent);
     this.collaboration = new CollaborationAdapter({
@@ -486,6 +507,27 @@ export class AgentSessionWrapper {
     return this.inner.sessionManager.getCwd();
   }
 
+  /**
+   * Record one step of the prompt lifecycle, for the before-and-after Review
+   * keeps of each prompt.
+   *
+   * A Session that cannot say where it is working records nothing and carries
+   * on, and a Session that has been destroyed records nothing at all: its
+   * events belong to a run that is over, and the recorder would otherwise
+   * start fresh bookkeeping that a replacement wrapper for the same Session is
+   * already using. Wanting a snapshot is never a reason for a prompt to fail.
+   */
+  private noteTurn(event: TurnLifecycleEvent | TurnToolEvent): Promise<void> {
+    if (!this._alive) return Promise.resolve();
+    let cwd: string;
+    try {
+      cwd = this.cwd;
+    } catch {
+      return Promise.resolve();
+    }
+    return cwd ? noteTurnLifecycle(this.openedSessionId, cwd, event) : Promise.resolve();
+  }
+
   isAlive(): boolean {
     return this._alive;
   }
@@ -507,6 +549,24 @@ export class AgentSessionWrapper {
 
   start(): void {
     this.syncPlanModeFromSession();
+    /*
+     * OMP's own word on approvals, forwarded to the browser. A dialog that
+     * merely looks like an approval never reaches this, which is the point.
+     */
+    this.unsubscribeApprovals = registerApprovalBridge(this.inner.sessionId, (approval) => {
+      if (approval.toolCallId) {
+        this.pendingToolApprovals = approval.phase === "requested"
+          ? [...this.pendingToolApprovals, approval.toolCallId]
+          : this.pendingToolApprovals.filter((id) => id !== approval.toolCallId);
+      }
+      this.emit({
+        type: "tool_approval",
+        phase: approval.phase,
+        ...(approval.toolName ? { toolName: approval.toolName } : {}),
+        ...(approval.toolCallId ? { toolCallId: approval.toolCallId } : {}),
+        ...(approval.approved === undefined ? {} : { approved: approval.approved }),
+      } as unknown as AgentEvent);
+    });
     this.unsubscribeSessionName = this.inner.sessionManager.onSessionNameChanged?.(() => {
       invalidateSessionListCache();
       this.emit({
@@ -518,6 +578,13 @@ export class AgentSessionWrapper {
       if (event.type === "agent_end") {
         invalidateSessionListCache();
       }
+      // What a run started and stopped, for the before-and-after Review keeps.
+      const turnEvent = turnEventForAgentEvent(event);
+      if (turnEvent) void this.noteTurn(turnEvent);
+      // What the run itself did, which is what tells its work from anyone
+      // else's. Recorded beside the span; it can only ever no-op on failure.
+      const toolEvent = turnToolEventForAgentEvent(event);
+      if (toolEvent) void this.noteTurn(toolEvent);
       if (IDLE_RESET_EVENT_TYPES.has(event.type)) this.resetIdleTimer();
       this.emit(event);
       if (event.type === "message_start" || event.type === "agent_end" || event.type === "agent_settled") {
@@ -979,6 +1046,17 @@ export class AgentSessionWrapper {
         this.promptRunning = true;
         notifyRunningChange();
         this.inner.maybeStartTitleGeneration(command.message as string);
+        // Bound to this run where it starts. The promise below can settle long
+        // after this prompt stopped being the open one, and a settle arriving
+        // then must not be read as the end of whatever replaced it.
+        const promptId = randomUUID();
+        // The baseline has to be taken before the run can change anything, so a
+        // new prompt waits for it. A steer or follow-up joins the prompt that is
+        // already open and takes no baseline of its own.
+        await this.noteTurn(streamingBehavior ? { type: "continuation" } : { type: "prompt_started", promptId });
+        // Taking a baseline takes a moment, and this Session can be destroyed
+        // inside it. A wrapper that is gone must not start a run.
+        if (!this._alive) return null;
         this.inner.prompt(command.message as string, {
           ...(promptImages?.length ? { images: promptImages } : {}),
           ...(streamingBehavior ? { streamingBehavior } : {}),
@@ -988,6 +1066,7 @@ export class AgentSessionWrapper {
           this.resetIdleTimer();
           if (streamingBehavior) this.emitQueueUpdate();
           if (!streamingBehavior) this.emit({ type: "prompt_done" });
+          if (!streamingBehavior) void this.noteTurn({ type: "prompt_settled", promptId });
           notifyRunningChange();
         }).catch((error) => {
           this.promptRunning = false;
@@ -998,12 +1077,14 @@ export class AgentSessionWrapper {
             errorMessage: error instanceof Error ? error.message : String(error),
           });
           if (!streamingBehavior) this.emit({ type: "prompt_done" });
+          if (!streamingBehavior) void this.noteTurn({ type: "prompt_settled", failed: true, promptId });
           notifyRunningChange();
         });
         return null;
       }
 
       case "abort":
+        void this.noteTurn({ type: "abort_requested" });
         this.queuedMessageEditor.parkAllAsFollowUp();
         await this.withFinalRunningNotification(() => this.inner.abort({ reason: "Interrupted by user" }));
         this.queuePaused = this.queueSnapshot().items.length > 0;
@@ -1443,11 +1524,14 @@ export class AgentSessionWrapper {
   destroy(): void {
     if (!this._alive) return;
     this._alive = false;
+    forgetTurnLifecycle(this.openedSessionId);
     void this.collaboration.stop("session closed");
     if (this.idleTimer) clearTimeout(this.idleTimer);
     if (this.inner.isBashRunning) this.inner.abortBash();
     this.unsubscribe?.();
     this.unsubscribeSessionName?.();
+    this.unsubscribeApprovals?.();
+    this.pendingToolApprovals = [];
     for (const channel of this.sessionEventChannels) releaseSessionEventChannel(channel);
     this.subagents.dispose();
     this.subagentHistory.clear();
@@ -1707,13 +1791,25 @@ export class AgentSessionWrapper {
         opts?.timeout,
         opts?.signal,
       ),
-      select: (title, options, opts) => this.requestExtensionUi(
-        { method: "select", title, options, ...(opts?.timeout ? { timeout: opts.timeout } : {}) },
-        undefined,
-        (response) => "value" in response ? response.value : undefined,
-        opts?.timeout,
-        opts?.signal,
-      ),
+      select: (title, options, opts) => {
+        // Paired here so the browser can usually tell this question from an
+        // extension's own Approve-or-Deny question. Absent when the heuristic
+        // refuses, which the browser must read as unrelated.
+        const approvalToolCallId = approvalSelectToolCallId(this.pendingToolApprovals, options);
+        return this.requestExtensionUi(
+          {
+            method: "select",
+            title,
+            options,
+            ...(approvalToolCallId ? { approvalToolCallId } : {}),
+            ...(opts?.timeout ? { timeout: opts.timeout } : {}),
+          },
+          undefined,
+          (response) => "value" in response ? response.value : undefined,
+          opts?.timeout,
+          opts?.signal,
+        );
+      },
       confirm: (title, message, opts) => this.requestExtensionUi(
         { method: "confirm", title, message, ...(opts?.timeout ? { timeout: opts.timeout } : {}) },
         false,
@@ -2124,6 +2220,24 @@ export async function startRpcSession(
         discoverCustomToolPaths([], sessionCwd),
       ]);
       const untrusted = untrustedProjectSessionOptions(sessionCwd, agentDir, { extensionPaths, customToolPaths });
+      /*
+       * Reeve's own extension, merged with whatever this Session discovers.
+       * It exists so OMP emits its typed approval events at all: the wrapper
+       * emits them only when a handler is registered, and handlers live in
+       * extensions. Nothing about discovery or project trust changes.
+       */
+      const approvalBridgePath = await ensureApprovalBridgeExtension(agentDir).catch(() => null);
+      /*
+       * An untrusted project takes the SDK's `preloadedExtensionPaths` branch,
+       * which replaces discovery outright, and `additionalExtensionPaths` is
+       * read only by discovery. The bridge therefore has to join the preloaded
+       * list as well, or OMP emits no approval events at all in an untrusted
+       * project. The bridge lives in the agent directory, so the trust filter
+       * that drops project-local paths is unaffected.
+       */
+      const untrustedOptions: typeof untrusted = untrusted && approvalBridgePath
+        ? { ...untrusted, preloadedExtensionPaths: [...untrusted.preloadedExtensionPaths, approvalBridgePath] }
+        : untrusted;
 
       // `SYSTEM.md` / `APPEND_SYSTEM.md`, resolved against this session's cwd the
       // way the CLI resolves them against its own (lib/session-system-prompt.ts).
@@ -2162,7 +2276,8 @@ export async function startRpcSession(
         ...(initial.scopedModels.length > 0 ? { scopedModels: initial.scopedModels } : {}),
         ...(toolsOption !== undefined ? { toolNames: toolsOption, restrictToolNames: true } : {}),
         ...(controlHost ? { extensions: controlHost.extensions } : {}),
-        ...(untrusted ?? {}),
+        ...(untrustedOptions ?? {}),
+        ...(approvalBridgePath ? { additionalExtensionPaths: [approvalBridgePath] } : {}),
       };
       // omp's own applier, so a prompt file goes through the same templates the
       // CLI renders it with instead of overwriting the whole system prompt.

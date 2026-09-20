@@ -308,6 +308,22 @@ export async function getSessionEntries(filePath: string): Promise<SessionEntry[
 }
 
 /**
+ * The entries on one branch of a Session, root-first.
+ *
+ * A Session file holds every branch it has ever had, including the ones an
+ * in-session navigation left behind. A reader that walks the file straight
+ * through sees abandoned work as though it were the conversation. This is the
+ * same walk the chat window uses, offered to the readers that need the branch
+ * rather than the file. The leaf defaults to the last entry, which is the
+ * branch the Session is on now.
+ */
+export function sessionBranchEntries(entries: SessionEntry[], leafId?: string | null): SessionEntry[] {
+  const byId = new Map<string, SessionEntry>();
+  for (const entry of entries) byId.set(entry.id, entry);
+  return collectBranchPath(entries, byId, leafId);
+}
+
+/**
  * Entries on the branch that ends at `leafId`, root-first.
  *
  * Corrupt or pre-fix files can contain parent cycles; stop at the first repeat

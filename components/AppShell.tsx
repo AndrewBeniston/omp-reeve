@@ -11,7 +11,10 @@ import { QuickChat } from "./chat/QuickChat";
 import { SubagentPanel } from "./SubagentPanel";
 import { ChatWindow } from "./ChatWindow";
 import { FileViewer } from "./FileViewer";
-import { TabBar, assertNeverTab, type BrowserTab, type Tab, type TerminalTab } from "./TabBar";
+import { fileTabId, reviewScopeFromSelection, type FileReviewOrigin } from "@/lib/file-review-origin";
+import type { ReviewSourceContext } from "./file-source/FileSourceView";
+import { ReviewPanel } from "./review/ReviewPanel";
+import { TabBar, assertNeverTab, type BrowserTab, type ReviewTab, type Tab, type TerminalTab } from "./TabBar";
 import { Launcher, type LauncherAction } from "./tabs/Launcher";
 import { BrowserTabs, browserTabCommand, useSupportsBrowserTab } from "./browser/BrowserTabs";
 import { RenameDialog } from "./RenameDialog";
@@ -32,9 +35,10 @@ import { SidebarFooter } from "./SidebarFooter";
 import { UpdateCard } from "./UpdateCard";
 import { WhatsNewDialog } from "./WhatsNewDialog";
 import { AppHeader, HeaderAction } from "./shell/AppHeader";
+import { PanelControls } from "./shell/PanelControls";
+import { PanelVisibilityToggle } from "./shell/PanelVisibilityToggle";
 import { ShellLayout } from "./shell/ShellLayout";
 import { ApplicationMenuBar } from "./shell/ApplicationMenuBar";
-import { TypographyTunerPrototype } from "./debug/TypographyTunerPrototype";
 import shellStyles from "./shell/shell.module.css";
 import shellStateStyles from "./shell/state-styles.module.css";
 import { useTheme } from "@/hooks/useTheme";
@@ -68,6 +72,7 @@ import { clearLastOpen, getLastOpenSession, setLastOpenSession } from "@/lib/wor
 import {
   getDefaultRightPanelWidth,
   getBrowserTabPanelWidth,
+  getMaximisedRightPanelWidth,
   getRightPanelMaxWidth,
   getSidebarMaxWidth,
   RIGHT_PANEL_FALLBACK_WIDTH,
@@ -80,6 +85,19 @@ import {
 import type { BlockingExtensionUiRequest, SessionInfo, SessionTreeNode, SubagentSnapshot } from "@/lib/types";
 import type { ProjectTrustStatus } from "@/lib/api-types";
 import { COMPOSER_IMAGE_INPUT_ID, type ChatInputHandle } from "./ChatInput";
+import { reviewTabMatchesSession } from "@/lib/review-comments";
+import { reviewComposerSessionId, reviewTabLabel } from "@/lib/review-owner";
+import { reviewOwnerBody, type ReviewRequestContext } from "@/lib/review-owner";
+import { readReviewSettings, writeReviewSettings } from "@/lib/review-settings-store";
+import type { ReviewDelivery } from "@/lib/review-settings";
+import { reviewComposerDelivery } from "@/lib/review-dispatch";
+import {
+  reviewBaseBranchChoices,
+  reviewBranchDisplayName,
+  type ReviewSlashOutcome,
+  type ReviewSlashRequest,
+} from "@/lib/review-slash-entries";
+import { ReviewTabSync } from "@/lib/review-tab-sync";
 import type { SessionStatsInfo } from "@/lib/omp-types";
 import type { GitStatusResponse } from "@/lib/git-types";
 
@@ -129,10 +147,24 @@ const SUMMARY_DEBUG_SUBAGENTS: SubagentSnapshot[] = [{
   lastUpdate: 0,
 }];
 
+/**
+ * The Review a file Tab is following, or null when there is not one.
+ *
+ * Resolved from the Tab strip on every render rather than copied onto the file
+ * Tab: a Review's owner and what it is comparing belong to that Review, and a
+ * copy of them would keep answering after its Tab had closed or moved on.
+ */
+function reviewSourceContext(tabs: Tab[], origin?: FileReviewOrigin): ReviewSourceContext | null {
+  if (!origin?.tabId) return null;
+  const source = tabs.find((tab): tab is ReviewTab => tab.kind === "review" && tab.id === origin.tabId);
+  if (!source) return null;
+  const scope = reviewScopeFromSelection(source.selection, source.owner);
+  return scope ? { context: { tabId: source.id, owner: source.owner }, scope } : null;
+}
+
 export function AppShell() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const showTypographyTuner = process.env.NODE_ENV === "development" && !searchParams.has("hideTuner");
   const showSummaryDebug = process.env.NODE_ENV === "development" && searchParams.has("summaryDebug");
   const [initialNavigation] = useState(() => getInitialNavigation(searchParams));
   const { t: translate } = useI18n();
@@ -211,6 +243,9 @@ export function AppShell() {
   const [mobileSidebarReady, setMobileSidebarReady] = useState(false);
   const sidebarWidthRef = useRef(SIDEBAR_DEFAULT_WIDTH);
   const rightPanelWidthRef = useRef(RIGHT_PANEL_FALLBACK_WIDTH);
+  // Read by the sidebar's own maximum, which is measured before the right
+  // panel's resizer exists.
+  const rightPanelMaximisedRef = useRef(false);
   const getResponsiveRightPanelWidth = useCallback(
     () => typeof window === "undefined"
       ? RIGHT_PANEL_FALLBACK_WIDTH
@@ -222,7 +257,9 @@ export function AppShell() {
       ? SIDEBAR_MAX_WIDTH
       : getSidebarMaxWidth({
         viewportWidth: window.innerWidth,
-        rightPanelOpen,
+        // A maximised panel covers the chat rather than competing with it, so
+        // it does not take room from the sidebar.
+        rightPanelOpen: rightPanelOpen && !rightPanelMaximisedRef.current,
         rightPanelWidth: rightPanelWidthRef.current,
       }),
     [mobileSidebarReady, rightPanelOpen],
@@ -236,6 +273,16 @@ export function AppShell() {
         sidebarWidth: sidebarWidthRef.current,
       }),
     [mobileSidebarReady, sidebarOpen],
+  );
+  const getResponsiveMaximisedRightPanelWidth = useCallback(
+    () => typeof window === "undefined"
+      ? RIGHT_PANEL_MAX_WIDTH
+      : getMaximisedRightPanelWidth({
+        viewportWidth: window.innerWidth,
+        sidebarOpen,
+        sidebarWidth: sidebarWidthRef.current,
+      }),
+    [sidebarOpen],
   );
   const sidebarResizer = useResizablePanel({
     ariaLabel: translate("layout.resizeSidebar"),
@@ -252,6 +299,7 @@ export function AppShell() {
     defaultWidth: RIGHT_PANEL_FALLBACK_WIDTH,
     getDefaultWidth: getResponsiveRightPanelWidth,
     getMaxWidth: getResponsiveRightPanelMaxWidth,
+    getMaximisedWidth: getResponsiveMaximisedRightPanelWidth,
     growthDirection: "left",
     // No absolute ceiling. The responsive maximum above already encodes the
     // real limit — the workspace less the chat's reserve — and a fixed ceiling
@@ -266,6 +314,12 @@ export function AppShell() {
   const reclampRightPanelWidth = rightPanelResizer.reclampWidth;
   const growRightPanelToAtLeast = rightPanelResizer.growToAtLeast;
   const toggleRightPanelMaximised = rightPanelResizer.toggleMaximised;
+  const rightPanelMaximised = rightPanelResizer.isMaximised;
+  useEffect(() => {
+    rightPanelMaximisedRef.current = rightPanelMaximised;
+  }, [rightPanelMaximised]);
+  /** One action for the header, the panel's own control and the menu chord. */
+  const toggleRightPanel = useCallback(() => setRightPanelOpen((open) => !open), []);
   // On mobile the sidebar is an overlay drawer; hide it by default so the chat
   // is visible on load. Runs once the breakpoint resolves after hydration.
   useEffect(() => {
@@ -311,6 +365,14 @@ export function AppShell() {
   const autoNameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeSessionIdRef = useRef<string | null>(selectedSession?.id ?? null);
   activeSessionIdRef.current = selectedSession?.id ?? null;
+  /*
+   * Reeve's own record of the Review Tabs, and what it has to say when it
+   * cannot keep up: opening, restoring and saving all report rather than fail
+   * quietly, and the panel says so with a way to try again.
+   */
+  const reviewSync = useMemo(() => new ReviewTabSync(), []);
+  const [reviewNotice, setReviewNotice] = useState<string | null>(null);
+  const [reviewSyncRetry, setReviewSyncRetry] = useState(0);
   const handleSessionStatsChange = useCallback((stats: SessionStatsInfo | null) => {
     setSessionStats(stats);
   }, []);
@@ -372,6 +434,9 @@ export function AppShell() {
 
   const initialSessionId = initialNavigation.sessionId;
   const [activeCwd, setActiveCwd] = useState<string | null>(null);
+  /** Where the human is now, read after an answer rather than closed over. */
+  const activeCwdRef = useRef<string | null>(null);
+  activeCwdRef.current = activeCwd;
   useTheme({
     cwd: selectedSession?.cwd ?? newSessionCwd ?? activeCwd,
     syncWithOmp: true,
@@ -516,6 +581,7 @@ export function AppShell() {
     // one repo keep their open tabs. Mirror handleCloseTab and close the
     // now-empty right panel.
     setTabs([]);
+    closedTabsRef.current = [];
     setActiveTabId(null);
     setRightPanelOpen(false);
     // Restore the workspace we switched to: its last open session, or keep
@@ -767,11 +833,18 @@ export function AppShell() {
   const handleOpenFile = useCallback((
     filePath: string,
     fileName: string,
-    options?: { sourceSessionId?: string | null; modeHint?: "diff" },
+    options?: { sourceSessionId?: string | null; modeHint?: "diff"; reviewOrigin?: FileReviewOrigin },
   ) => {
     const sourceSessionId = options?.sourceSessionId;
     const modeHint = options?.modeHint;
-    const tabId = `file:${filePath}`;
+    const reviewOrigin = options?.reviewOrigin;
+    /*
+     * A file opened from a Review is that Review's Tab. Two Reviews looking at
+     * one file are two Tabs, each keeping its own line and its own comparison,
+     * rather than one whose context the other quietly takes. Every other way
+     * of opening a file keeps the identity it has always had.
+     */
+    const tabId = fileTabId(filePath, reviewOrigin);
     setTabs((prev) => {
       const existing = prev.find((t) => t.id === tabId);
       if (!existing) {
@@ -782,17 +855,28 @@ export function AppShell() {
           filePath,
           sourceSessionId,
           initialDisplayMode: modeHint,
+          reviewOrigin,
         }];
       }
       if (existing.kind !== "file") return prev;
       const sourceUnchanged = !sourceSessionId || existing.sourceSessionId === sourceSessionId;
       const modeUnchanged = !modeHint || existing.initialDisplayMode === modeHint;
-      if (sourceUnchanged && modeUnchanged) return prev;
+      /*
+       * Opening a file that is already open at a different line has to move
+       * it. The Tab is not replaced and nothing remounts: the line arrives as
+       * a property, and the view scrolls.
+       */
+      const originUnchanged = !reviewOrigin
+        || (existing.reviewOrigin?.line === reviewOrigin.line
+          && existing.reviewOrigin?.revision === reviewOrigin.revision
+          && existing.reviewOrigin?.relativePath === reviewOrigin.relativePath);
+      if (sourceUnchanged && modeUnchanged && originUnchanged) return prev;
       return prev.map((t) => {
         if (t.id !== tabId || t.kind !== "file") return t;
         const next = { ...t };
         if (sourceSessionId) next.sourceSessionId = sourceSessionId;
         if (modeHint) next.initialDisplayMode = modeHint;
+        if (reviewOrigin) next.reviewOrigin = reviewOrigin;
         return next;
       });
     });
@@ -1049,6 +1133,106 @@ export function AppShell() {
     return () => clearTimeout(timer);
   }, [activeCwd, tabs]);
 
+  /**
+   * The Project the Review Tabs on screen belong to.
+   *
+   * A Session names its own Project; without one the directory stands for it,
+   * and the server resolves the real Project root when a Tab registers.
+   */
+  const activeProjectRoot = useMemo(() => {
+    if (selectedSession && reviewTabMatchesSession(selectedSession.cwd, activeCwd)) {
+      return selectedSession.projectRoot ?? selectedSession.cwd;
+    }
+    return activeCwd;
+  }, [activeCwd, selectedSession]);
+
+  /**
+   * A Project's Review Tabs come back with it, each still bound to the
+   * Worktree and Session it was opened for. A record whose Worktree is gone is
+   * not returned by the registry, so a restored Tab is one that still works.
+   *
+   * The Project is written down as restored only once its own answer has
+   * arrived. Marking it before would turn an aborted first attempt — a
+   * re-run effect, a Project switched and switched back — into a Project that
+   * never loads its Tabs and never tries again.
+   */
+  const restoredReviewKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const project = activeProjectRoot;
+    if (!project) return;
+    const key = `${project}#${reviewSyncRetry}`;
+    if (restoredReviewKeyRef.current === key) return;
+    const controller = new AbortController();
+    reviewSync.changeProject();
+    setTabs((prev) => prev.filter((tab) => tab.kind !== "review"));
+    void reviewSync.restore(project, controller.signal).then((result) => {
+      if (result.status === "superseded") return;
+      if (result.status === "failed") {
+        setReviewNotice(result.message);
+        return;
+      }
+      restoredReviewKeyRef.current = key;
+      setReviewNotice(null);
+      if (result.value.length === 0) return;
+      setTabs((prev) => [
+        ...prev,
+        ...result.value.filter((stored) => !prev.some((tab) => tab.id === stored.tabId)).map((stored) => ({
+          kind: "review" as const,
+          id: stored.tabId,
+          owner: stored.owner,
+          label: reviewTabLabel(stored.owner),
+          ...(stored.selection ? { selection: stored.selection } : {}),
+        })),
+      ]);
+      /*
+       * A Tab that was in front of an open panel comes back that way. The
+       * panel's width is remembered by the browser but its visibility is not,
+       * so without this a restored Review Tab sits behind a closed panel and
+       * has to be found before it can be seen.
+       */
+      const inFront = result.value.find((stored) => stored.active);
+      if (!inFront) return;
+      setActiveTabId(inFront.tabId);
+      setRightPanelOpen(true);
+    });
+    return () => controller.abort();
+  }, [activeProjectRoot, reviewSync, reviewSyncRetry]);
+
+  /**
+   * What each Review Tab is reviewing, remembered as it changes. Written down
+   * as saved only when every Tab was saved, so a failed write is tried again
+   * rather than recorded as a save that happened.
+   */
+  const reviewTabsKey = JSON.stringify(tabs
+    .filter((tab): tab is ReviewTab => tab.kind === "review")
+    .map((tab) => [tab.id, tab.owner, tab.selection ?? null, rightPanelOpen && tab.id === activeTabId]));
+  const persistedReviewTabsRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const key = `${reviewTabsKey}#${reviewSyncRetry}`;
+    if (persistedReviewTabsRef.current === key) return;
+    const reviewTabs = tabs.filter((tab): tab is ReviewTab => tab.kind === "review");
+    const timer = setTimeout(() => {
+      void reviewSync.persist(reviewTabs.map((tab) => ({
+        tabId: tab.id,
+        owner: tab.owner,
+        selection: tab.selection,
+        active: rightPanelOpen && tab.id === activeTabId,
+      })))
+        .then((result) => {
+          if (result.status === "superseded") return;
+          if (result.status === "failed") {
+            setReviewNotice(result.message);
+            return;
+          }
+          persistedReviewTabsRef.current = key;
+          setReviewNotice(null);
+        });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [activeTabId, reviewSync, reviewSyncRetry, reviewTabsKey, rightPanelOpen, tabs]);
+
   const handleCloseTab = useCallback((tabId: string) => {
     // Remember it so Cmd+Shift+T can bring it back. The stack is a ref and is
     // never persisted: it is about the last few minutes, not about the
@@ -1056,6 +1240,13 @@ export function AppShell() {
     const closing = tabs.find((t) => t.id === tabId);
     if (closing && isReopenableTabKind(closing.kind)) {
       closedTabsRef.current = [...closedTabsRef.current.slice(-9), closing];
+    }
+    // A closed Review Tab is forgotten, binding and selection together, so it
+    // does not come back after a restart.
+    if (closing?.kind === "review") {
+      void reviewSync.close({ tabId: closing.id, owner: closing.owner }).then((result) => {
+        if (result.status === "failed") setReviewNotice(result.message);
+      });
     }
     setTabs((prev) => {
       const next = prev.filter((t) => t.id !== tabId);
@@ -1067,7 +1258,7 @@ export function AppShell() {
       const remaining = tabs.filter((t) => t.id !== tabId);
       return remaining.length > 0 ? remaining[remaining.length - 1].id : null;
     });
-  }, [tabs]);
+  }, [reviewSync, tabs]);
 
   const handleViewFullHistory = useCallback(() => {
     if (!selectedSession) return;
@@ -1160,6 +1351,204 @@ export function AppShell() {
     }
   }, [projectTrustBusy, projectTrustCwd]);
 
+  /**
+   * The Review this Session owns. A request carries that owner, so a Session
+   * with no Review of its own asks for nothing.
+   */
+  const reviewRequestContext = useMemo<ReviewRequestContext | null>(() => {
+    const sessionId = selectedSession?.id;
+    if (!sessionId) return null;
+    const tab = tabs.find((candidate): candidate is ReviewTab =>
+      candidate.kind === "review" && candidate.owner.sessionId === sessionId);
+    return tab ? { tabId: tab.id, owner: tab.owner } : null;
+  }, [selectedSession?.id, tabs]);
+
+  // Read after mount: the server has no storage, and a disagreeing first
+  // render would hydrate into the wrong choice.
+  const [reviewDelivery, setReviewDelivery] = useState<ReviewDelivery>("current-chat");
+  useEffect(() => { setReviewDelivery(readReviewSettings().delivery); }, []);
+
+  const handleReviewDeliveryChange = useCallback((delivery: ReviewDelivery) => {
+    setReviewDelivery(delivery);
+    writeReviewSettings({ ...readReviewSettings(), delivery });
+  }, []);
+
+  /**
+   * Select a Session by id, waiting briefly for it to appear.
+   *
+   * A Session created a moment ago may not be in the list yet, and selecting
+   * nothing would leave the human where they were with no sign that anything
+   * happened. Reports whether it selected, so the caller can say so.
+   */
+  const selectSessionById = useCallback(async (sessionId: string): Promise<boolean> => {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const response = await fetch("/api/sessions", { cache: "no-store" });
+      const data = response.ok ? await response.json() as { sessions: SessionInfo[] } : null;
+      const full = data?.sessions.find((candidate) => candidate.id === sessionId);
+      if (full) {
+        handleSelectSession(full);
+        setRefreshKey((key) => key + 1);
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    setRefreshKey((key) => key + 1);
+    return false;
+  }, [handleSelectSession]);
+
+  /**
+   * The owner a request reads, establishing one when this Session has none.
+   *
+   * The reference offers its review command from the composer whenever the
+   * conversation has a workspace, so Reeve does not make opening a panel a
+   * prerequisite. The Tab is registered through the same path the panel uses,
+   * and the server mints its id from the owner it resolved, so the Session
+   * owns what it reviews rather than borrowing another Tab's owner.
+   */
+  const ensureReviewRequestContext = useCallback(async (): Promise<ReviewRequestContext | { error: string }> => {
+    if (reviewRequestContext) return reviewRequestContext;
+    const cwd = selectedSession?.cwd;
+    if (!selectedSession?.id || !cwd) return { error: "Open a Session in a Project to ask for a review." };
+    const result = await reviewSync.open(cwd, selectedSession.id);
+    if (result.status !== "ok") {
+      return { error: result.status === "failed" ? result.message : "This Review could not be opened." };
+    }
+    const stored = result.value;
+    setTabs((current) => current.some((tab) => tab.id === stored.tabId) ? current : [...current, {
+      kind: "review",
+      id: stored.tabId,
+      owner: stored.owner,
+      label: reviewTabLabel(stored.owner),
+      ...(stored.selection ? { selection: stored.selection } : {}),
+    }]);
+    return { tabId: stored.tabId, owner: stored.owner };
+  }, [reviewRequestContext, reviewSync, selectedSession]);
+
+  /**
+   * The bases a review could use, read from the Session's own directory.
+   *
+   * No Tab is opened to answer this: R18 gates the command on a Git root, and
+   * a Tab is what running a review produces, not what offering one needs.
+   */
+  const handleListReviewBranches = useCallback(async (): Promise<{ branches: string[] } | { error: string }> => {
+    const cwd = selectedSession?.cwd;
+    if (!cwd) return { error: "Open a Session in a Project to ask for a review." };
+    try {
+      const response = await fetch(`/api/git/review/branches?cwd=${encodeURIComponent(cwd)}`, { cache: "no-store" });
+      const data = await response.json() as { defaultBranch?: string; currentBranch?: string; branches?: string[]; error?: string };
+      if (!response.ok || data.error) return { error: data.error ?? `HTTP ${response.status}` };
+      return {
+        branches: reviewBaseBranchChoices({
+          defaultBranch: reviewBranchDisplayName(data.defaultBranch),
+          currentBranch: reviewBranchDisplayName(data.currentBranch),
+          recentBranches: data.branches ?? [],
+        }),
+      };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) };
+    }
+  }, [selectedSession?.cwd]);
+
+  /**
+   * Whether the review command is enabled, and why not when it is disabled.
+   * The entry is always offered; only this flag changes.
+   */
+  const [reviewGate, setReviewGate] = useState<{ enabled: boolean; reason?: string }>({ enabled: false });
+  /**
+   * When a review the human asked for was last dispatched, so the panel can
+   * arm the experimental trigger for a review started from the composer as
+   * well as from its own menu. An automatic review never bumps this: a
+   * trigger that re-armed itself would outlive its bound.
+   */
+  const [reviewStartedAt, setReviewStartedAt] = useState(0);
+  useEffect(() => {
+    const cwd = selectedSession?.cwd;
+    if (!cwd) {
+      setReviewGate({ enabled: false, reason: "Open a Session in a Project to ask for a review." });
+      return;
+    }
+    const controller = new AbortController();
+    void fetch(`/api/git/review/branches?cwd=${encodeURIComponent(cwd)}&probe=1`, { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const data = await response.json().catch(() => null) as { gitRoot?: string | null; error?: string } | null;
+        setReviewGate(response.ok && data?.gitRoot
+          ? { enabled: true }
+          : { enabled: false, reason: data?.error ?? "Reeve could not read this directory with Git." });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setReviewGate({ enabled: false, reason: "Reeve could not read this directory with Git." });
+      });
+    return () => controller.abort();
+  }, [selectedSession?.cwd]);
+
+  const handleRequestReview = useCallback(async (request: ReviewSlashRequest): Promise<ReviewSlashOutcome> => {
+    const context = await ensureReviewRequestContext();
+    if ("error" in context) return { kind: "error", error: context.error };
+    /*
+     * Read from storage rather than from this component's copy: the settings
+     * surface writes there, and a copy taken at mount would send a review to
+     * the place the human chose before they changed their mind.
+     */
+    const settings = readReviewSettings();
+    try {
+      const response = await fetch("/api/git/review/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reviewOwnerBody(context, {
+          mode: request.mode,
+          ...(request.base ? { base: request.base } : {}),
+          message: request.message,
+          // Defaulted here rather than at the route, so an armed trigger and
+          // a typed command reach it through one contract.
+          origin: request.origin ?? "requested",
+          security: request.security === true,
+          settings,
+        })),
+      });
+      const data = await response.json() as { prompt?: string; delivery?: ReviewDelivery; error?: string };
+      if (!response.ok || data.error || !data.prompt) {
+        return { kind: "error", error: data.error ?? `HTTP ${response.status}` };
+      }
+      // A review the human asked for, wherever they asked from, is what arms
+      // the experimental trigger. An automatic one must not re-arm it.
+      if ((request.origin ?? "requested") === "requested") setReviewStartedAt(Date.now());
+      if (data.delivery !== "review-chat") return { kind: "prompt", prompt: data.prompt };
+      // A Session of its own, through the endpoint a new chat already uses,
+      // started with the review as its first message.
+      const created = await fetch("/api/agent/new", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cwd: context.owner.worktreePath, type: "prompt", message: data.prompt }),
+      });
+      const session = await created.json() as { sessionId?: string; error?: string };
+      if (!created.ok || session.error || !session.sessionId) {
+        return { kind: "error", error: session.error ?? `HTTP ${created.status}` };
+      }
+      const selected = await selectSessionById(session.sessionId);
+      return selected
+        ? { kind: "delivered", message: "Review started in its own chat" }
+        : { kind: "error", error: "The review chat was created but could not be opened. It is in the sidebar." };
+    } catch (error) {
+      return { kind: "error", error: error instanceof Error ? error.message : String(error) };
+    }
+  }, [ensureReviewRequestContext, selectSessionById]);
+
+  /**
+   * The panel has no composer, so a review for this Session goes through the
+   * composer's own send, which is the only account of whether a turn can
+   * start now. A review the human asked for is left in the composer when a
+   * run is in progress, so their request survives. A review nobody asked for
+   * at that moment writes nothing: the composer holds human work, and the
+   * panel asks again once the run ends.
+   */
+  const handlePanelRequestReview = useCallback(async (request: ReviewSlashRequest): Promise<ReviewSlashOutcome> => {
+    const outcome = await handleRequestReview(request);
+    if (outcome.kind !== "prompt") return outcome;
+    const delivery = reviewComposerDelivery(request, chatInputRef.current?.submitText(outcome.prompt) ?? "unavailable");
+    if (delivery.insertPrompt) chatInputRef.current?.insertText(outcome.prompt);
+    return delivery.outcome;
+  }, [handleRequestReview]);
+
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
   const activeTerminalTabId = activeTab?.kind === "terminal" ? activeTab.id : null;
 
@@ -1202,6 +1591,47 @@ export function AppShell() {
    * startup and cannot follow the Project, and opening a shell somewhere the
    * human did not choose is worse than a chord that does nothing.
    */
+  /**
+   * Open a Worktree's Review Tab, registering its binding first.
+   *
+   * The server resolves the Project and mints the Tab's id from the owner it
+   * resolved, so what appears is the binding every later request is checked
+   * against. A Session is bound only when it is the one working here; a
+   * Project with none opens a Tab bound to the Project alone.
+   */
+  const openReviewTab = useCallback(async (cwd: string) => {
+    const boundSession = selectedSession && reviewTabMatchesSession(cwd, selectedSession.cwd)
+      ? selectedSession.id
+      : null;
+    /*
+     * A Session the chat is showing but OMP is not recording cannot own a Tab,
+     * and opening one against the Project instead would answer a question
+     * nobody asked: the human selected that Session. The refusal is shown in
+     * its own words. A Project-bound Tab is what opening with no Session
+     * selected gives, and stays a deliberate choice.
+     */
+    const result = await reviewSync.open(cwd, boundSession);
+    if (result.status === "superseded") return;
+    if (result.status === "failed") {
+      setReviewNotice(result.message);
+      return;
+    }
+    // The human may have moved to another Project between the click and the
+    // answer; a Tab for where they were is not one to open now.
+    if (activeCwdRef.current !== cwd) return;
+    const stored = result.value;
+    setReviewNotice(null);
+    setTabs((current) => current.some((tab) => tab.id === stored.tabId) ? current : [...current, {
+      kind: "review",
+      id: stored.tabId,
+      owner: stored.owner,
+      label: reviewTabLabel(stored.owner),
+      ...(stored.selection ? { selection: stored.selection } : {}),
+    }]);
+    setActiveTabId(stored.tabId);
+    setRightPanelOpen(true);
+  }, [reviewSync, selectedSession]);
+
   const runPanelAction = useCallback((id: PanelActionId) => {
     switch (id) {
       case "terminal":
@@ -1216,9 +1646,11 @@ export function AppShell() {
           setCommandPaletteOpen(true);
         }
         return;
-      // Declared in the Tab union and unbuilt. Disabled in the launcher and
-      // in the menu, so neither reaches here.
-      case "review":
+      case "review": {
+        if (!activeCwd) return;
+        void openReviewTab(activeCwd);
+        return;
+      }
       case "side-chat":
         return;
       // A sixth surface is a typecheck failure here rather than a row that
@@ -1232,6 +1664,7 @@ export function AppShell() {
     activeCwd,
     handleOpenBrowserTab,
     handleOpenTerminalTab,
+    openReviewTab,
     supportsBrowserTabs,
     supportsTerminalTabs,
   ]);
@@ -1269,10 +1702,17 @@ export function AppShell() {
       handleOpenBrowserTab(tab.url);
       return;
     }
+    if (tab.kind === "review") {
+      // Closing forgot its binding, so reopening registers it again. Restoring
+      // the Tab as it was would put a panel on screen whose every request is
+      // refused, because nothing remembers what it is allowed to read.
+      void openReviewTab(tab.owner.worktreePath);
+      return;
+    }
     setTabs((prev) => (prev.some((t) => t.id === tab.id) ? prev : [...prev, tab]));
     setActiveTabId(tab.id);
     setRightPanelOpen(true);
-  }, [handleOpenBrowserTab]);
+  }, [handleOpenBrowserTab, openReviewTab]);
 
   /** Close every Tab except the active one, keeping them all reopenable. */
   const closeOtherTabs = useCallback(() => {
@@ -1280,8 +1720,16 @@ export function AppShell() {
     if (!keep || tabs.length < 2) return;
     const closing = tabs.filter((t) => t.id !== keep.id && isReopenableTabKind(t.kind));
     closedTabsRef.current = [...closedTabsRef.current, ...closing].slice(-10);
+    // Each closed Review Tab is forgotten as if it had been closed on its own,
+    // or it would come back after a restart having been closed here.
+    for (const tab of closing) {
+      if (tab.kind !== "review") continue;
+      void reviewSync.close({ tabId: tab.id, owner: tab.owner }).then((result) => {
+        if (result.status === "failed") setReviewNotice(result.message);
+      });
+    }
     setTabs([keep]);
-  }, [activeTabId, tabs]);
+  }, [activeTabId, reviewSync, tabs]);
 
   /**
    * The three commands that belong to a Browser tab.
@@ -1321,8 +1769,7 @@ export function AppShell() {
       id: "review",
       label: translate("tabs.review"),
       keys: acceleratorLabel(PANEL_ACCELERATORS.review),
-      // Reeve has no review surface. Declared in the Tab union, unbuilt.
-      unavailableReason: translate("tabs.notYetBuilt"),
+      unavailableReason: activeCwd ? undefined : translate("tabs.needsProject"),
       run: () => runPanelAction("review"),
     },
     {
@@ -1384,6 +1831,42 @@ export function AppShell() {
       return <Launcher actions={launcherActions} label={translate("tabs.suggested")} />;
     }
     switch (activeTab.kind) {
+      case "review":
+        return <ReviewPanel active={rightPanelOpen} key={activeTab.id} tabId={activeTab.id} owner={activeTab.owner} selection={activeTab.selection}
+          /*
+           * The panel says which Review is opening which file at which line;
+           * turning that into a Tab is this layer's business, so it arrives as
+           * a plain third argument and is adapted here. The parameter is
+           * optional, so the panel may pass it or not.
+           */
+          onOpenFile={(filePath: string, fileName: string, origin?: FileReviewOrigin) =>
+            handleOpenFile(filePath, fileName, { reviewOrigin: origin })}
+          /*
+           * A Review Tab keeps the Project and Worktree it was opened in, and
+           * its paths are relative to them. The composer belongs to the
+           * selected Session, so a mention is offered only while that Session
+           * is this Tab's own; otherwise Review hides the control rather than
+           * writing a path the chat cannot resolve.
+           */
+          onAtMention={reviewComposerSessionId(activeTab.owner, activeCwd, selectedSession?.id ?? null)
+            ? (relativePath) => handleAtMention(relativePath, false)
+            : undefined}
+          /*
+           * Comments belong to the Session they were written beside, and are
+           * handed over under the same agreement as a mention. The text is
+           * inserted into the composer and never sent: the human decides when
+           * the agent hears about a review.
+           */
+          onAddToComposer={reviewComposerSessionId(activeTab.owner, activeCwd, selectedSession?.id ?? null)
+            ? (text) => chatInputRef.current?.insertText(text)
+            : undefined}
+          /* Offered, never taken; the delivery choice is picked per review. */
+          onRequestReview={reviewRequestContext && reviewRequestContext.tabId === activeTab.id ? handlePanelRequestReview : undefined}
+          reviewStartedAt={reviewStartedAt}
+          delivery={reviewDelivery}
+          onDeliveryChange={handleReviewDeliveryChange}
+          onSelectionChange={(selection) => setTabs((current) => current.map((tab) =>
+            tab.kind === "review" && tab.id === activeTab.id ? { ...tab, selection } : tab))} />;
       case "browser":
         return null;
       case "terminal":
@@ -1409,6 +1892,14 @@ export function AppShell() {
             sourceSessionId={activeTab.sourceSessionId}
             gitRefreshKey={fileViewerRefreshKey}
             initialDisplayMode={activeTab.initialDisplayMode}
+            reviewOrigin={activeTab.reviewOrigin}
+            /*
+             * The Review this file was opened from, resolved now rather than
+             * remembered: its owner and what it is comparing live on that Tab.
+             * A Tab that has since closed resolves to null, which the view
+             * reports — an owner is never guessed for a Review nobody holds.
+             */
+            review={reviewSourceContext(tabs, activeTab.reviewOrigin)}
             onMentionLines={rightPanelOpen ? handleFileLineMention : undefined}
             onAtMention={handleAtMention}
             onOpenFile={(filePath) => handleOpenFile(
@@ -1473,6 +1964,9 @@ export function AppShell() {
         if (activeCwd) handleNewSession(`menu:${Date.now()}`, activeCwd);
         else void handleNewProjectlessSession();
         return;
+      case "open-review-tab":
+        runPanelAction("review");
+        return;
       case "open-terminal-tab":
         runPanelAction("terminal");
         return;
@@ -1509,6 +2003,9 @@ export function AppShell() {
         setRightPanelOpen(true);
         toggleRightPanelMaximised();
         return;
+      case "toggle-panel":
+        toggleRightPanel();
+        return;
       // A new menu action is a typecheck failure here rather than a chord
       // that reaches nothing.
       default: {
@@ -1527,6 +2024,7 @@ export function AppShell() {
     runPanelAction,
     runBrowserCommand,
     stepTab,
+    toggleRightPanel,
     toggleRightPanelMaximised,
   ]);
 
@@ -1619,7 +2117,6 @@ export function AppShell() {
 
   return (
     <>
-      {showTypographyTuner && <TypographyTunerPrototype />}
       <WhatsNewDialog />
       <ShellLayout
         isMobile={isMobile}
@@ -1749,19 +2246,7 @@ export function AppShell() {
                  </svg>
                </HeaderAction>
              )}
-             <button
-               type="button"
-               onClick={() => setRightPanelOpen((open) => !open)}
-               aria-controls="file-panel"
-               aria-expanded={rightPanelOpen}
-               title={rightPanelOpen ? translate("files.hidePanel") : translate("files.showPanel")}
-               aria-label={rightPanelOpen ? translate("files.hidePanel") : translate("files.showPanel")}
-               className={`${shellStyles.filePanelToggle} ${shellStateStyles.filePanelToggle}`}
-             >
-               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                 <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="15" y1="3" x2="15" y2="21" />
-               </svg>
-             </button>
+             <PanelVisibilityToggle open={rightPanelOpen} onToggle={toggleRightPanel} />
            </div>
           </AppHeader>
         }
@@ -1782,6 +2267,9 @@ export function AppShell() {
               chatInputRef={chatInputRef}
               onBranchDataChange={handleBranchDataChange}
               onSystemPromptChange={handleSystemPromptChange}
+              onRequestReview={handleRequestReview}
+              onListReviewBranches={handleListReviewBranches}
+              reviewGate={reviewGate}
               onSessionStatsChange={handleSessionStatsChange}
               onSummarySourcesChange={setSummarySources}
               onSubagentsChange={setSubagents}
@@ -1882,18 +2370,39 @@ export function AppShell() {
                   onStateChange={handleTerminalState}
                 />
               )}
+              {/*
+                * What Reeve could not remember about Review, said where the
+                * Tabs are rather than in a log nobody reads.
+                */}
+              {reviewNotice && (
+                <div role="alert" data-component="review-sync-notice" className={shellStyles.workspaceState}>
+                  <div className={shellStyles.workspaceError}>{reviewNotice}</div>
+                  <button type="button" className={shellStyles.workspaceRetry}
+                    onClick={() => setReviewSyncRetry((value) => value + 1)}>
+                    {translate("workspace.retry")}
+                  </button>
+                </div>
+              )}
               {renderActiveTab()}
             </>
           ),
           header: (
-            <TabBar
-              tabs={tabs}
-              activeTabId={activeTabId ?? ""}
-              onSelectTab={setActiveTabId}
-              onCloseTab={handleCloseTab}
-              newTabActions={launcherActions}
-              onBrowserTabMenu={hasBrowserTabMenu() ? handleBrowserTabMenu : undefined}
-            />
+            <>
+              <TabBar
+                tabs={tabs}
+                activeTabId={activeTabId ?? ""}
+                onSelectTab={setActiveTabId}
+                onCloseTab={handleCloseTab}
+                newTabActions={launcherActions}
+                onBrowserTabMenu={hasBrowserTabMenu() ? handleBrowserTabMenu : undefined}
+              />
+              <PanelControls
+                maximised={rightPanelMaximised}
+                onToggleMaximised={toggleRightPanelMaximised}
+                panelOpen={rightPanelOpen}
+                onTogglePanel={toggleRightPanel}
+              />
+            </>
           ),
           label: activeTab?.kind === "sources" ? translate("summary.sources") : translate("files.panel"),
           onBackdropClick: () => setRightPanelOpen(false),
@@ -1955,7 +2464,12 @@ export function AppShell() {
         sidebarWidth={settingsSidebarWidth}
         soundEnabled={soundEnabled}
         onSoundToggle={onSoundToggle}
-        onClose={() => setSettingsConfigOpen(false)}
+        onClose={() => {
+          setSettingsConfigOpen(false);
+          // The settings surface writes the delivery choice; the panel shows
+          // it, so it reads it again on the way out.
+          setReviewDelivery(readReviewSettings().delivery);
+        }}
         onModelsChanged={() => setModelsRefreshKey((key) => key + 1)}
         onReloaded={() => setSessionKey((key) => key + 1)}
         onArchivedSessionsChanged={() => setRefreshKey((key) => key + 1)}

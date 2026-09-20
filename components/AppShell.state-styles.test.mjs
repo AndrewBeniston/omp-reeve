@@ -9,12 +9,14 @@ const shellStyles = await readFile(new URL("./shell/shell.module.css", import.me
 const shellLayoutSource = await readFile(new URL("./shell/ShellLayout.tsx", import.meta.url), "utf8");
 const navigationStyles = await readFile(new URL("./navigation/navigation.module.css", import.meta.url), "utf8");
 const menuBarSource = await readFile(new URL("./shell/ApplicationMenuBar.tsx", import.meta.url), "utf8");
+const panelVisibilitySource = await readFile(new URL("./shell/PanelVisibilityToggle.tsx", import.meta.url), "utf8");
 const globalStyles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
 
 test("shell controls expose public state attributes", () => {
   assert.match(appShellSource, /state:\s*autoNameStatus\.kind/);
   assert.match(appShellSource, /disabled:\s*summaryTitleActionDisabled/);
-  assert.match(appShellSource, /aria-expanded=\{rightPanelOpen\}/);
+  assert.match(appShellSource, /<PanelVisibilityToggle open=\{rightPanelOpen\}/);
+  assert.match(panelVisibilitySource, /aria-pressed=\{open\}/);
 
 });
 
@@ -77,7 +79,7 @@ test("shell state styles use selectors instead of event style mutations", () => 
   assert.match(stateStyles, /:hover/);
   assert.match(shellStyles, /\[aria-pressed="true"\]/);
   assert.match(shellStyles, /:disabled/);
-  assert.match(stateStyles, /\[aria-expanded="true"\]/);
+  assert.match(stateStyles, /\[aria-pressed="true"\]/);
 });
 
 test("resizable panels expose measured width through DynamicStyleVars", () => {

@@ -56,6 +56,9 @@
   gap: var(--space-1-5);
   border: 1px solid transparent;
   border-radius: var(--radius-control);
+  /* A surface that draws the reference's corner sets --ui-control-corner in
+     its own scope. Everywhere else the round corner stays. */
+  corner-shape: var(--ui-control-corner, round);
   color: var(--ui-text);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
@@ -106,6 +109,7 @@
   flex: 0 0 auto;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
+  corner-shape: var(--ui-control-corner, round);
   padding: 0;
   background: transparent;
   color: var(--ui-text-muted);

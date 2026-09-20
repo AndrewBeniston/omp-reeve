@@ -106,3 +106,19 @@ export function getRightPanelMaxWidth(options: {
     viewportWidth - visibleSidebarWidth - CHAT_RESERVE,
   );
 }
+
+/**
+ * The width a maximised panel fills.
+ *
+ * Maximising is not a drag. The reference switches to a full workspace mode
+ * where the panel is the workspace and the chat is not shown, and the sidebar
+ * keeps its width. Dragging still stops at `getRightPanelMaxWidth`.
+ */
+export function getMaximisedRightPanelWidth(options: {
+  viewportWidth: number;
+  sidebarOpen: boolean;
+  sidebarWidth: number;
+}): number {
+  const { viewportWidth, sidebarOpen, sidebarWidth } = options;
+  return Math.max(RIGHT_PANEL_MIN_WIDTH, viewportWidth - (sidebarOpen ? sidebarWidth : 0));
+}
