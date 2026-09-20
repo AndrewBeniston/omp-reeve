@@ -133,6 +133,14 @@ directory once, when the shell reports it, so it does not follow a later
 `cd`. The field is named `startDir` for that reason. A live directory needs
 the desktop process to report each change, which is a separate ticket.
 
+## Interim mapping
+
+The control reads the Terminal of the window that shows the Session. This is
+an interim mapping. It holds until the per-Session Tab record of ADR-0014
+lands through epic 158. The control then reads the Terminal that the Session
+owns, which is what specification 449 user story 19 asks for. That change
+amends this record.
+
 ## What this does not decide
 
 The control returns no recent output and no truncation value. The retained
