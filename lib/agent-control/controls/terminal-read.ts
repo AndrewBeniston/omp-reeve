@@ -23,10 +23,9 @@ import {
  * control accepts one. It sends no input, so it declares the read tier and
  * needs no approval.
  *
- * It takes no arguments. The control reads the Terminal of its own Session,
- * and the tool registry belongs to that Session, so a Session id would only
- * be refused. A later control that accepts a task identifier still meets the
- * foreign Session refusal in the channel.
+ * It takes no arguments. The tool registry belongs to one Session, so a
+ * Session id could only be refused. The channel keeps that refusal for a
+ * later control that accepts a task identifier.
  *
  * The retained output buffer is a separate ticket. This control reads what the
  * window already knows about its own Terminal.
@@ -46,8 +45,6 @@ export const TERMINAL_READ_DESCRIPTION =
   + "reason=no_window when no window shows this Session, and reason=unavailable in a build without the Terminal surface. "
   + "It takes no arguments and sends no input.";
 
-// The control takes no arguments. It reads the Terminal of its own Session,
-// and a control cannot reach another Session, so it needs no Session id.
 const parameters = type({});
 
 interface TerminalReadDetails {
