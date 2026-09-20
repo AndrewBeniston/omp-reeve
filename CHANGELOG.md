@@ -9,6 +9,14 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+### Added
+
+- The agent can read the terminal you have open beside a chat. Ask it what the
+  shell is doing and it reports the shell and the directory that shell started
+  in, without asking you to copy anything across. It answers plainly when no
+  terminal is open, and it never types into your shell. This works in the
+  desktop application only, because a browser tab owns no shell of yours.
+
 ### Fixed
 
 - A chat with an attached image no longer opens the application error page
@@ -20,12 +28,6 @@ the What's New dialog adds a second page that invites support.
 ## [0.7.0] - 2026-09-16
 
 ### Added
-
-- The agent can read the terminal you have open beside a chat. Ask it what the
-  shell is doing and it reports the shell and the directory that shell started
-  in, without asking you to copy anything across. It answers plainly when no
-  terminal is open, and it never types into your shell. This works in the
-  desktop application only, because a browser tab owns no shell of yours.
 
 - File icons are typed everywhere they are drawn. A TypeScript file, a
   lockfile, a Dockerfile, a stylesheet and the rest now show their own icon in
