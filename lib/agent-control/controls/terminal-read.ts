@@ -23,6 +23,11 @@ import {
  * control accepts one. It sends no input, so it declares the read tier and
  * needs no approval.
  *
+ * It takes no arguments. The control reads the Terminal of its own Session,
+ * and the tool registry belongs to that Session, so a Session id would only
+ * be refused. A later control that accepts a task identifier still meets the
+ * foreign Session refusal in the channel.
+ *
  * The retained output buffer is a separate ticket. This control reads what the
  * window already knows about its own Terminal.
  */
@@ -39,11 +44,11 @@ export const TERMINAL_READ_DESCRIPTION =
   "Read the Terminal of this Reeve Session. Returns startDir, shell and attached=true when the window that shows it has a Terminal open. "
   + "startDir is where the shell started. Returns attached=false with reason=absent when no Terminal is open, "
   + "reason=no_window when no window shows this Session, and reason=unavailable in a build without the Terminal surface. "
-  + "It sends no input and names no shell.";
+  + "It takes no arguments and sends no input.";
 
-const parameters = type({
-  "session?": type("string").describe("This Session's id. Another Session's id returns reason=unavailable."),
-});
+// The control takes no arguments. It reads the Terminal of its own Session,
+// and a control cannot reach another Session, so it needs no Session id.
+const parameters = type({});
 
 interface TerminalReadDetails {
   attached: boolean;
@@ -103,10 +108,8 @@ export function createTerminalReadControl(
     loadMode: "essential",
     // A read of the window. It changes nothing, so no approval interrupts it.
     approval: "read",
-    async execute(_toolCallId, params) {
-      const reply = await channel.call(TERMINAL_READ_CONTROL, {
-        session: params.session,
-      });
+    async execute() {
+      const reply = await channel.call(TERMINAL_READ_CONTROL);
       const rendered = renderTerminalRead(reply);
       return {
         content: [{ type: "text", text: rendered.text }],

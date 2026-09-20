@@ -52,6 +52,10 @@ block path uses it.
 The first control is `reeve_read_terminal`. It declares `approval: "read"`, so
 no approval interrupts the human, and it sends nothing to a shell.
 
+**The Terminal read takes no arguments.** The reference product takes none
+either. The tool registry belongs to one Session, so a Session id could only
+name the Session that already owns the call, or be refused.
+
 It declares `loadMode: "essential"`, so it stays in the Session tool schema
 from the first turn. OMP defaults an extension tool to `"discoverable"`, which
 keeps the schema off the request until the model searches for it. The long
@@ -94,7 +98,9 @@ These three are the whole list. A later group that needs a fourth reason is
 making a decision that belongs in a new ADR.
 
 A call that names another Session returns `unavailable` and emits nothing, so
-no window ever sees it.
+no window ever sees it. The Terminal read names no Session, so the refusal is
+held in the channel for a later control that accepts a task identifier, such
+as the Tab open.
 
 ## The browser build registers nothing
 
@@ -139,7 +145,7 @@ Delivery to a Session that no window shows is not queued. The call returns
 `no_window`, and a separate ticket owns queued delivery.
 
 The instruction budget for the whole adopted control set is a separate ticket.
-This control's description is 392 characters against a 400 character limit for
+This control's description is 396 characters against a 400 character limit for
 one description.
 
 ## Consequences
