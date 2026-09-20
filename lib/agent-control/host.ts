@@ -51,6 +51,6 @@ export function startSessionControlHost(
   env: NodeJS.ProcessEnv = process.env,
 ): SessionControlHost | null {
   if (!desktopControlSurfacePresent(env)) return null;
-  const channel = createAgentControlChannel({ surfacePresent: true });
+  const channel = createAgentControlChannel();
   return { channel, extensions: [createAgentControlHost(channel)] };
 }

@@ -23,12 +23,6 @@ import type { AgentControlReply, AgentControlRequestHost } from "./types";
 export const AGENT_CONTROL_REPLY_TIMEOUT_MS = 5000;
 
 export interface AgentControlChannelOptions {
-  /**
-   * Whether this build has the desktop control surface at all. The browser
-   * build registers no control, so a channel there answers `unavailable`
-   * without emitting anything.
-   */
-  surfacePresent: boolean;
   /** The reply bound. Tests shorten it; nothing else sets it. */
   timeoutMs?: number;
 }
@@ -45,7 +39,7 @@ export class AgentControlChannel {
   private sessionId: string | null = null;
   private closed = false;
 
-  constructor(private readonly options: AgentControlChannelOptions) {
+  constructor(options: AgentControlChannelOptions = {}) {
     this.timeoutMs = options.timeoutMs ?? AGENT_CONTROL_REPLY_TIMEOUT_MS;
   }
 
@@ -76,7 +70,7 @@ export class AgentControlChannel {
 
   /** Call one control on the window that shows this Session. */
   async call<T>(control: string, params: AgentControlCallParams = {}): Promise<AgentControlReply<T>> {
-    if (!this.options.surfacePresent || this.closed) return { ok: false, reason: "unavailable" };
+    if (this.closed) return { ok: false, reason: "unavailable" };
 
     // A control acts on its own Session only. A named foreign Session changes
     // nothing: the request is never emitted, so no window ever sees it.
@@ -106,6 +100,6 @@ export class AgentControlChannel {
   }
 }
 
-export function createAgentControlChannel(options: AgentControlChannelOptions): AgentControlChannel {
+export function createAgentControlChannel(options: AgentControlChannelOptions = {}): AgentControlChannel {
   return new AgentControlChannel(options);
 }
