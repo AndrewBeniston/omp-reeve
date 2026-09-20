@@ -12,7 +12,8 @@ import type { AgentControlReply, TerminalReadValue } from "./types";
 
 export interface TerminalTabState {
   tabId: string;
-  cwd: string;
+  /** The directory the shell started in. It does not follow a later `cd`. */
+  startDir: string;
   /** The shell the desktop process started. Null until it reports one. */
   shell: string | null;
   /** False once the shell exits, or when it never started. */
@@ -46,5 +47,5 @@ export function terminalReadReply(
 ): AgentControlReply<TerminalReadValue> {
   const terminal = selectSessionTerminal(states, activeTabId);
   if (!terminal || terminal.shell === null) return { ok: false, reason: "absent" };
-  return { ok: true, value: { attached: true, cwd: terminal.cwd, shell: terminal.shell } };
+  return { ok: true, value: { attached: true, startDir: terminal.startDir, shell: terminal.shell } };
 }

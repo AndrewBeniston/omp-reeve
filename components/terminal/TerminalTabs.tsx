@@ -173,7 +173,7 @@ function TerminalSession({
         // which the desktop process reports back.
         stateRef.current?.(tab.id, {
           tabId: tab.id,
-          cwd: opened.cwd,
+          startDir: opened.cwd,
           shell: opened.shell,
           live: true,
           openedAt: Date.now(),

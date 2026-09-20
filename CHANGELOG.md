@@ -12,10 +12,10 @@ the What's New dialog adds a second page that invites support.
 ### Added
 
 - The agent can read the terminal you have open beside a chat. Ask it what the
-  shell is doing and it reports the working directory and the shell, without
-  asking you to copy anything across. It answers plainly when no terminal is
-  open, and it never types into your shell. This works in the desktop
-  application only, because a browser tab owns no shell of yours.
+  shell is doing and it reports the shell and the directory that shell started
+  in, without asking you to copy anything across. It answers plainly when no
+  terminal is open, and it never types into your shell. This works in the
+  desktop application only, because a browser tab owns no shell of yours.
 
 - Keyboard movement between the tabs beside a chat. `Ctrl+Tab` and
   `Ctrl+Shift+Tab` step through them, and they wrap around the ends.

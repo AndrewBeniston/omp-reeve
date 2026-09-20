@@ -119,8 +119,13 @@ live shell. A shell that has exited is never read, although its view and its
 scrollback stay.
 
 `AppShell` holds what each Terminal tab runs, and it answers the request.
-`TerminalTabs` reports the shell, the working directory, and the live state as
+`TerminalTabs` reports the shell, the start directory, and the live state as
 the desktop process gives them. The control host keeps no copy.
+
+**The reported directory is the start directory.** The window records the
+directory once, when the shell reports it, so it does not follow a later
+`cd`. The field is named `startDir` for that reason. A live directory needs
+the desktop process to report each change, which is a separate ticket.
 
 ## What this does not decide
 
@@ -134,7 +139,7 @@ Delivery to a Session that no window shows is not queued. The call returns
 `no_window`, and a separate ticket owns queued delivery.
 
 The instruction budget for the whole adopted control set is a separate ticket.
-This control's description is 374 characters against a 400 character limit for
+This control's description is 392 characters against a 400 character limit for
 one description.
 
 ## Consequences

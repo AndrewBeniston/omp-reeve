@@ -17,9 +17,11 @@ import {
  * answer a question about the shell on screen, and it has to ask the human to
  * copy the text across.
  *
- * It returns the working directory, the shell and the attached state. It
- * returns no shell identifier, because no control accepts one. It sends no
- * input, so it declares the read tier and needs no approval.
+ * It returns the start directory, the shell and the attached state. The start
+ * directory is the directory the shell started in, because that is the only
+ * directory the window records. It returns no shell identifier, because no
+ * control accepts one. It sends no input, so it declares the read tier and
+ * needs no approval.
  *
  * The retained output buffer is a separate ticket. This control reads what the
  * window already knows about its own Terminal.
@@ -34,9 +36,10 @@ export const TERMINAL_READ_TOOL_NAME = `${AGENT_CONTROL_PREFIX}read_terminal`;
  * model never guesses one.
  */
 export const TERMINAL_READ_DESCRIPTION =
-  "Read the Terminal of this Reeve Session. Returns cwd, shell and attached=true when the window that shows this Session has a Terminal open. "
-  + "Returns attached=false with reason=absent when this Session shows no Terminal, reason=no_window when no window shows it, "
-  + "and reason=unavailable in a build without the Terminal surface. It returns no shell identifier and sends no input.";
+  "Read the Terminal of this Reeve Session. Returns startDir, shell and attached=true when the window that shows it has a Terminal open. "
+  + "startDir is where the shell started. Returns attached=false with reason=absent when no Terminal is open, "
+  + "reason=no_window when no window shows this Session, and reason=unavailable in a build without the Terminal surface. "
+  + "It sends no input and names no shell.";
 
 const parameters = type({
   "session?": type("string").describe("This Session's id. Another Session's id returns reason=unavailable."),
@@ -58,10 +61,10 @@ interface TerminalReadDetails {
 function readTerminalValue(value: unknown): TerminalReadValue | null {
   if (typeof value !== "object" || value === null) return null;
   const record = value as Record<string, unknown>;
-  const cwd = record.cwd;
+  const startDir = record.startDir;
   const shell = record.shell;
-  if (typeof cwd !== "string" || typeof shell !== "string") return null;
-  return { attached: true, cwd, shell };
+  if (typeof startDir !== "string" || typeof shell !== "string") return null;
+  return { attached: true, startDir, shell };
 }
 
 /** Turn the reply into the text the model reads, and the details the UI keeps. */
@@ -83,7 +86,7 @@ function renderTerminalRead(reply: AgentControlReply): {
     };
   }
   return {
-    text: `attached=true cwd=${value.cwd} shell=${value.shell}`,
+    text: `attached=true startDir=${value.startDir} shell=${value.shell}`,
     details: { attached: true },
   };
 }

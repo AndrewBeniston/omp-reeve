@@ -81,9 +81,14 @@ export interface AgentControlRequestEvent {
  * What the Terminal read control returns. It carries no shell identifier,
  * because no control accepts one. A Session with no Terminal produces the
  * `absent` reason instead of a value.
+ *
+ * `startDir` is the directory the shell started in. The window records it
+ * once, when the shell reports it, so it does not follow a later `cd`. The
+ * name says so, because a field called `cwd` would state more than the value
+ * can support. A live directory is a separate ticket.
  */
 export interface TerminalReadValue {
   attached: true;
-  cwd: string;
+  startDir: string;
   shell: string;
 }
