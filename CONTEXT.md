@@ -72,6 +72,18 @@ resources. omp has no such record, because running omp in a directory is itself
 the decision. Opening a browser tab is not.
 _Avoid_: allow-list, permission, sandbox
 
+**Control**:
+One Reeve application capability that the agent calls as a tool, such as
+reading the Terminal of its Session. OMP owns Sessions, models and tools.
+Reeve owns the window, so only Reeve can answer a question about it.
+_Avoid_: action, command, application tool
+
+**Control host**:
+The one place a Control registers, built for each Session as an in-process
+extension factory. It routes a call to the window that shows the Session, and
+it ends with the Session. See ADR-0016.
+_Avoid_: control registry, tool host, bridge
+
 **Palette**:
 The set of colour variables that one omp theme supplies to the browser. The
 exact contract is the Tier 1 adapter contract in `DESIGN.md` section 4.1.

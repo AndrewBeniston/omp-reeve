@@ -8,6 +8,7 @@ import { Terminal } from "@xterm/xterm";
 import { ansiPalette } from "@/lib/ansi";
 import { useI18n } from "@/hooks/useI18n";
 import type { TerminalTab } from "@/components/TabBar";
+import type { TerminalTabState } from "@/lib/agent-control/terminal-snapshot";
 import styles from "./terminal.module.css";
 import "@xterm/xterm/css/xterm.css";
 
@@ -49,6 +50,11 @@ interface Props {
   tabs: TerminalTab[];
   activeTabId: string | null;
   onTitleChange: (tabId: string, title: string) => void;
+  /**
+   * Report what this Terminal runs, so the agent control host can read it.
+   * A null state means the Terminal is gone. See AppShell.
+   */
+  onStateChange?: (tabId: string, state: TerminalTabState | null) => void;
 }
 
 /**
@@ -58,7 +64,7 @@ interface Props {
  * process with scrollback, and unmounting its view would throw away everything
  * the human had on screen.
  */
-export function TerminalTabs({ tabs, activeTabId, onTitleChange }: Props) {
+export function TerminalTabs({ tabs, activeTabId, onTitleChange, onStateChange }: Props) {
   return (
     <div className={styles.terminalTabs}>
       {tabs.map((tab) => (
@@ -67,6 +73,7 @@ export function TerminalTabs({ tabs, activeTabId, onTitleChange }: Props) {
           tab={tab}
           isActive={tab.id === activeTabId}
           onTitleChange={onTitleChange}
+          onStateChange={onStateChange}
         />
       ))}
     </div>
@@ -87,10 +94,12 @@ function TerminalSession({
   tab,
   isActive,
   onTitleChange,
+  onStateChange,
 }: {
   tab: TerminalTab;
   isActive: boolean;
   onTitleChange: (tabId: string, title: string) => void;
+  onStateChange?: (tabId: string, state: TerminalTabState | null) => void;
 }) {
   const { t } = useI18n();
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -102,6 +111,8 @@ function TerminalSession({
   // Read inside listeners bound once, which must not close over a stale prop.
   const titleRef = useRef(onTitleChange);
   titleRef.current = onTitleChange;
+  const stateRef = useRef(onStateChange);
+  stateRef.current = onStateChange;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -157,8 +168,23 @@ function TerminalSession({
           return;
         }
         sessionId = opened.id;
+        // The shell is running, so the control host can now answer a read of
+        // this Terminal. The directory is the one the shell really started in,
+        // which the desktop process reports back.
+        stateRef.current?.(tab.id, {
+          tabId: tab.id,
+          startDir: opened.cwd,
+          shell: opened.shell,
+          live: true,
+          openedAt: Date.now(),
+        });
         stopData = bridge.onData(opened.id, (data) => terminal.write(data));
-        stopExit = bridge.onExit(opened.id, (exitCode) => setExited(exitCode));
+        stopExit = bridge.onExit(opened.id, (exitCode) => {
+          setExited(exitCode);
+          // The shell ended. The view stays, and its scrollback with it, but a
+          // control must not report a dead shell as a live one.
+          stateRef.current?.(tab.id, null);
+        });
         terminal.onData((data) => void bridge.write(opened.id, data));
         terminal.onTitleChange((title) => {
           if (title) titleRef.current(tab.id, title);
@@ -182,6 +208,7 @@ function TerminalSession({
       observer.disconnect();
       stopData?.();
       stopExit?.();
+      stateRef.current?.(tab.id, null);
       if (sessionId) void bridge.close(sessionId);
       terminal.dispose();
       terminalRef.current = null;

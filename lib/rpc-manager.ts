@@ -26,6 +26,9 @@ import { randomUUID } from "crypto";
 import { existsSync, realpathSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { validateAgentImages } from "./image-attachments";
+import type { AgentControlChannel } from "./agent-control/channel";
+import { startSessionControlHost } from "./agent-control/host";
+import { type AgentControlReply, readAgentControlReason } from "./agent-control/types";
 import { invalidateModelsCache } from "./models-cache";
 import { resolveVisibleModels, selectInitialModelScope } from "./model-scope";
 import { cacheSessionPath, invalidateSessionListCache } from "./session-reader";
@@ -127,6 +130,7 @@ const MAX_QUEUED_MESSAGE_UNDOS = 32;
 
 const HANDOFF_ALLOWED_COMMAND_TYPES: Record<string, true> = {
   abort: true,
+  agent_control_response: true,
   extension_ui_input: true,
   extension_ui_response: true,
   get_commands: true,
@@ -320,6 +324,10 @@ export class AgentSessionWrapper {
   private readonly sessionEventChannels: SessionEventChannel[];
   private pendingUiResponses = new Map<string, PendingUiResponse>();
   private pendingUiRequests = new Map<string, AgentEvent>();
+  /** One waiting control call for each request id, answered by a window. */
+  private pendingControlReplies = new Map<string, (reply: AgentControlReply) => void>();
+  /** The control requests a listener that attaches late still has to answer. */
+  private pendingControlRequests = new Map<string, AgentEvent>();
   private activeCustomUis = new Map<string, ActiveCustomUi>();
   private extensionStatuses = new Map<string, string>();
   private extensionWidgets = new Map<string, ExtensionWidgetItem>();
@@ -348,6 +356,8 @@ export class AgentSessionWrapper {
   private readonly collaboration: CollaborationAdapter;
   private readonly queuedMessageEdits = new Map<string, RemovedQueuedMessage>();
   private readonly deletedQueuedMessages = new Map<string, RemovedQueuedMessage>();
+  /** This Session's control host channel, when the build registers controls. */
+  private controlChannel: AgentControlChannel | null = null;
   private queuePaused = false;
   private _alive = true;
   /**
@@ -589,6 +599,74 @@ export class AgentSessionWrapper {
   setForceEmptySystemPrompt(force: boolean): void {
     this.forceEmptySystemPrompt = force;
     this.applyForcedEmptySystemPrompt();
+  }
+
+  /**
+   * Give this Session's control host the route to its window.
+   *
+   * The host is built before the Session exists, because OMP takes the
+   * extension factory at creation. The channel therefore learns the Session id
+   * and this wrapper here, which is still before any control can run.
+   */
+  attachControlChannel(channel: AgentControlChannel, sessionId: string): void {
+    this.controlChannel = channel;
+    channel.attachHost(this, sessionId);
+  }
+
+  /**
+   * Ask the window that shows this Session to run one control.
+   *
+   * This has the shape of an extension UI request, and for the same reason.
+   * The pending map lives beside the listener list, so a listener that
+   * attaches after the request still receives it. A reply that never arrives
+   * resolves to the no_window value inside the bound, because a tool call that
+   * never returns holds the agent turn open.
+   */
+  requestAgentControl<T>(
+    control: string,
+    params: Record<string, unknown>,
+    timeoutMs: number,
+  ): Promise<AgentControlReply<T>> {
+    if (!this._alive) return Promise.resolve({ ok: false, reason: "unavailable" });
+    const id = randomUUID();
+    const request = {
+      type: "agent_control_request",
+      id,
+      sessionId: this.inner.sessionId as string,
+      control,
+      params,
+    } as unknown as AgentEvent;
+
+    return new Promise<AgentControlReply<T>>((resolve) => {
+      const settle = (reply: AgentControlReply) => {
+        clearTimeout(timer);
+        this.pendingControlRequests.delete(id);
+        this.pendingControlReplies.delete(id);
+        resolve(reply as AgentControlReply<T>);
+      };
+      const timer = setTimeout(() => settle({ ok: false, reason: "no_window" }), timeoutMs);
+      this.pendingControlRequests.set(id, request);
+      this.pendingControlReplies.set(id, settle);
+      this.emit(request);
+    });
+  }
+
+  /**
+   * A window answered a control request.
+   *
+   * The first answer wins. A second window that answers the same request finds
+   * no pending call, and an unknown id is an answer to a call that already
+   * ended.
+   */
+  private resolveAgentControlResponse(response: Record<string, unknown>): void {
+    const id = typeof response.id === "string" ? response.id : "";
+    const settle = this.pendingControlReplies.get(id);
+    if (!settle) return;
+    settle(
+      response.ok === true
+        ? { ok: true, value: response.value }
+        : { ok: false, reason: readAgentControlReason(response.reason) },
+    );
   }
 
   beginExtensionBinding(options: ExtensionBindingOptions = {}): void {
@@ -929,6 +1007,7 @@ export class AgentSessionWrapper {
   onEvent(listener: EventListener): () => void {
     this.listeners.push(listener);
     for (const event of this.pendingUiRequests.values()) listener(event);
+    for (const event of this.pendingControlRequests.values()) listener(event);
     return () => {
       const i = this.listeners.indexOf(listener);
       if (i !== -1) this.listeners.splice(i, 1);
@@ -1393,6 +1472,14 @@ export class AgentSessionWrapper {
         return null;
       }
 
+      case "agent_control_response": {
+        // The window that shows this Session answered a control request. The
+        // reply travels back on the Session command path the browser already
+        // uses, so the control needs no channel of its own.
+        this.resolveAgentControlResponse(command);
+        return null;
+      }
+
       case "extension_ui_input": {
         this.handleExtensionUiInput(command.id as string, command.data as string);
         return null;
@@ -1454,6 +1541,14 @@ export class AgentSessionWrapper {
     for (const id of Array.from(this.activeCustomUis.keys())) this.closeCustomUi(id, undefined);
     this.pendingUiResponses.clear();
     this.pendingUiRequests.clear();
+    // The control host ends with its Session, and every waiting control call
+    // is answered rather than left to hang.
+    this.controlChannel?.close();
+    for (const settle of [...this.pendingControlReplies.values()]) {
+      settle({ ok: false, reason: "unavailable" });
+    }
+    this.pendingControlReplies.clear();
+    this.pendingControlRequests.clear();
     try {
       void this.inner.dispose?.();
     } finally {
@@ -2148,6 +2243,11 @@ export async function startRpcSession(
       // way the CLI resolves them against its own (lib/session-system-prompt.ts).
       const systemPrompts = await resolveSessionSystemPrompts(sessionCwd);
 
+      // One control host for each Session, as one in-process extension factory
+      // passed at creation. The browser build has no window a control could act
+      // on, so it registers nothing at all (lib/agent-control/build-surface.ts).
+      const controlHost = startSessionControlHost();
+
       const { modelRegistry } = runtime;
       const scope = await resolveVisibleModels(modelRegistry, settings.get("enabledModels"), settings);
       const defaultRole = readDefaultModelRole(settings);
@@ -2175,6 +2275,7 @@ export async function startRpcSession(
             : {}),
         ...(initial.scopedModels.length > 0 ? { scopedModels: initial.scopedModels } : {}),
         ...(toolsOption !== undefined ? { toolNames: toolsOption, restrictToolNames: true } : {}),
+        ...(controlHost ? { extensions: controlHost.extensions } : {}),
         ...(untrustedOptions ?? {}),
         ...(approvalBridgePath ? { additionalExtensionPaths: [approvalBridgePath] } : {}),
       };
@@ -2210,6 +2311,7 @@ export async function startRpcSession(
 
       const realSessionId = inner.sessionId as string;
       const wrapper = new AgentSessionWrapper(session, eventBus, [sessionId, realSessionId]);
+      if (controlHost) wrapper.attachControlChannel(controlHost.channel, realSessionId);
       wrapper.bindToolUiContext(
         setToolUIContext as unknown as (uiContext: ExtensionUiContextLike, hasUI: boolean) => void,
       );
