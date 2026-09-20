@@ -73,3 +73,11 @@ The user stories keep the to-spec form. The 20-word rule governs prose written f
 Six specifications, 446 to 451. Sixty tickets, 452 to 511. Four tickets have no blocker: 452, 464, 468, and 505.
 
 Two groups have no specification yet: capture with the page state read and the onboarding flow, and cloud environments with the bundled runtime packaging.
+
+## Planner decisions at the merge gate of ticket 452
+
+Decided 20 September 2026 from the reference, with Codex Desktop parity as the rule.
+
+**A. Which Terminal the control reads.** The reference binds the Terminal to the task. Its Terminal read tool takes no arguments and reads "the current app terminal output for this desktop thread". Its Terminal Tab transfers by session, and a same-window task transfer can retain the terminal process. Reeve's own panel map already decided one per-Session Tab record in ADR-0014, and epic 158 holds the restoration-per-Session work. So spec 449 user story 19 is the target, and ADR-0016 records an interim. Until the per-Session Tab record lands, the control reads the Terminal of the window that shows the Session. When that record lands, the control reads the Terminal of the Session's own record, and ADR-0016 gets an amendment. Neither the spec nor the decision record changes now. The decision record names the ticket that closes the gap.
+
+**B. The session parameter on the Terminal read control.** The reference Terminal read takes no arguments. The reference panel open accepts a task identifier only for another task. So the parameter comes off the Terminal read control, and spec 449 item 19 applies to controls that accept a task identifier, such as the panel open of ticket 455. The refusal path stays in the host for those controls.
