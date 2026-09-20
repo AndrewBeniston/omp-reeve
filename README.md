@@ -11,64 +11,74 @@
 
 <p align="center">
   <a href="https://github.com/AndrewBeniston/omp-reeve/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/AndrewBeniston/omp-reeve?label=release"></a>
-  <a href="https://github.com/AndrewBeniston/omp-reeve/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AndrewBeniston/omp-reeve/actions/workflows/ci.yml/badge.svg"></a>
   <a href="./LICENSE"><img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-blue"></a>
   <a href="https://ko-fi.com/andrewbeniston"><img alt="Support on Ko-fi" src="https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white"></a>
 </p>
+
+## Why
+
+I use the OMP coding agent every day, and I like it. I wanted a desktop application to sit on top of it. So I am building one.
+
+Reeve is the interface. OMP is the engine. Reeve reads the same sessions, models and skills, so you can start work in the terminal and carry on in the window.
+
+One person builds this in his own time. Progress is steady rather than fast.
 
 ## Download
 
 | macOS | Windows | Linux |
 | --- | --- | --- |
-| [Download for macOS](https://github.com/AndrewBeniston/omp-reeve/releases/latest) | Coming in the next release | Coming in the next release |
+| [Download for macOS](https://github.com/AndrewBeniston/omp-reeve/releases/latest) | [Download for Windows](https://github.com/AndrewBeniston/omp-reeve/releases/latest) | Coming in a later release |
 | `.dmg` for Apple Silicon or Intel, signed and notarized | `.exe` installer, x64 | `.AppImage`, x64 |
 
-Reeve checks for a new version on launch and every four hours, downloads it in the background, and installs it when you press **Restart now**.
+Install the [OMP](https://github.com/can1357/oh-my-pi) coding agent first. Reeve needs it.
 
-**macOS note.** Download the Apple Silicon package on an M-series Mac and the Intel package on an older Mac. Reeve updates itself with the matching package.
+Reeve checks for a new version on launch, downloads it in the background, and installs it when you press **Restart now**. Take the Apple Silicon package on an M-series Mac and the Intel package on an older Mac.
 
-**Windows note.** No Windows package has shipped yet. It follows in a later release, unsigned at first, so SmartScreen will show "Windows protected your PC" on first run. Choose **More info**, then **Run anyway**.
+**Windows note.** The Windows installer is not signed yet. SmartScreen shows "Windows protected your PC" on the first run. Choose **More info**, then **Run anyway**.
 
-**Linux note.** No Linux package has shipped yet. The AppImage follows in a later release. Make it executable, then run it: `chmod +x Reeve-*.AppImage && ./Reeve-*.AppImage`.
+## What it looks like
 
-## What Reeve does
-
-- **Pick work back up.** Browse previous OMP conversations by project without digging through terminal history.
-- **Route by role.** Assign and switch models per scope of work, the same roles OMP uses for subagents, plan mode, and commits.
-- **Try different directions safely.** Continue from an earlier message or fork a session into a separate route.
-- **Work across branches.** Switch Git worktrees from the sidebar so new sessions and the Explorer follow the checkout you choose.
-- **Chat beside the project.** Browse files on the left and preview source, docs, images, audio, and PDFs on the right while the agent works.
-- **Keep a shell beside the chat.** Open a terminal in the panel, in the project's own directory. The agent can read what that shell is doing without you copying anything across.
-- **See session state clearly.** The Context donut shows usage and cost. Summary shows branches and the system prompt.
-- **Configure less from the terminal.** Manage providers, logins, API keys, model tests, plugins, and skills from the interface.
-
-Reeve needs the [OMP](https://github.com/can1357/oh-my-pi) coding agent installed. Reeve is the interface. OMP is the engine.
-
-## Support
-
-Reeve is free and will stay free. If it earns its place on your desktop, a star helps other people find it, and a [coffee on Ko-fi](https://ko-fi.com/andrewbeniston) keeps the macOS signing certificate paid and the releases coming.
-
-## Screenshots
-
-**Sessions and the chat.** Projects and their past sessions on the left. An agent run with its tool calls, its cost, and the context it used.
+**Your projects and their sessions.** Pick up old work without reading terminal history.
 
 ![Reeve showing a project's sessions beside an agent run with tool calls](./docs/screenshots/01-sessions-and-chat.png)
 
-**A file beside the chat.** Open any file from the project in the panel and read it while the agent works.
+**A file beside the chat.** Read source, docs, images, audio and PDFs while the agent works.
 
 ![A source file open in the right panel beside the chat](./docs/screenshots/02-file-preview.png)
 
-**A shell beside the chat.** The terminal runs in the project's directory. The agent can read its state on request.
+**A shell beside the chat.** The terminal runs in the project's own directory.
 
 ![A terminal running in the right panel beside the chat](./docs/screenshots/03-terminal.png)
 
-**Settings.** Models, skills, plugins, and agent behaviour, without the terminal.
+**Settings.** Models, skills, plugins and agent behaviour, without the terminal.
 
 ![The Reeve settings window showing input and approval options](./docs/screenshots/04-settings.png)
 
+## Road map
+
+Shipped:
+
+- [x] Sessions, forks and branches, across your Git worktrees
+- [x] A side panel that holds Review, Files, a terminal, a browser and a second chat
+- [x] Read a pull request, comment on it and submit the review, without leaving the window
+- [x] Providers, models, skills and plugins, all set from the interface
+- [x] macOS and Windows packages
+
+Next:
+
+- [ ] Hand the application to the agent. It opens a tab, reads a page and puts the file it means in front of you.
+- [ ] Sub-agents on screen. Each one gets its own row, its own transcript and its own tab.
+- [ ] Charts and small interactive tools, drawn by the agent inside the chat.
+- [ ] Richer session rows for goals, approvals, commits and pull requests.
+- [ ] A Linux package.
+
+## Support
+
+Reeve is free and stays free. A star helps other people find it. A [coffee on Ko-fi](https://ko-fi.com/andrewbeniston) pays the macOS signing certificate and keeps the releases coming.
+
 ## Run from source
 
-Reeve serves its API on Bun because the OMP SDK imports Bun-specific modules. Install Bun 1.3.14 or newer.
+Reeve serves its API on Bun, because the OMP SDK imports Bun-specific modules. Install Bun 1.3.14 or newer.
 
 ```bash
 curl -fsSL https://bun.sh/install | bash        # macOS / Linux
@@ -78,9 +88,9 @@ bun run dev                                     # http://127.0.0.1:30141
 ```
 
 `bun run desktop:dev` opens the Electron shell against that server. `bun run desktop:build` packages it.
-`RELEASING.md` holds the release procedure. `CONTRIBUTING.md` holds the contributor rules. `AGENTS.md` holds the developer notes and the file map.
+`CONTRIBUTING.md` holds the contributor rules. `AGENTS.md` holds the developer notes and the file map.
 
-## Browser and server use
+## Run in a browser
 
 Reeve also runs as a web application on a machine you control. Every API endpoint can sit behind a local password.
 
@@ -88,11 +98,9 @@ Reeve also runs as a web application on a machine you control. Every API endpoin
 reeve --port 8080
 reeve --hostname 0.0.0.0
 reeve --authenticated
-reeve --reset-password
-OMP_WEB_PASSWORD='a-long-random-password' reeve
 ```
 
-See [docs/authentication.md](./docs/authentication.md), [docs/docker.md](./docs/docker.md), [docs/model-roles.md](./docs/model-roles.md), [docs/http-proxy.md](./docs/http-proxy.md), and [docs/worktrees.md](./docs/worktrees.md).
+See [docs/authentication.md](./docs/authentication.md), [docs/docker.md](./docs/docker.md), [docs/model-roles.md](./docs/model-roles.md), [docs/http-proxy.md](./docs/http-proxy.md) and [docs/worktrees.md](./docs/worktrees.md).
 
 ## Licence
 
