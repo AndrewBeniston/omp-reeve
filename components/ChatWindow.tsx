@@ -45,6 +45,7 @@ import { ComposerTurnStatus } from "./chat/ComposerTurnStatus";
 import { ActiveTurnResponseSpacer } from "./chat/ActiveTurnResponseSpacer";
 import { SessionLoadingState } from "./chat/SessionLoadingState";
 import { TurnErrorBoundary } from "./chat/TurnErrorBoundary";
+import { HistoryLoadFailureRow } from "./chat/HistoryLoadFailureRow";
 import { buildTranscriptRows, dividerPresentation, finalAnswerPosition, presentationAssistantPosition, CompactionNote, ProviderRetryNote, SessionOriginNote, type TranscriptMessageRow } from "./chat/transcript-rows";
 import { Divider } from "./chat/Divider";
 import { ArchivedSessionCard } from "./chat/ArchivedSessionCard";
@@ -125,6 +126,7 @@ interface Props {
   onListReviewBranches?: () => Promise<{ branches: string[] } | { error: string }>;
   /** Whether the review command is enabled, and why not when it is disabled. */
   reviewGate?: { enabled: boolean; reason?: string };
+  historyLoadFailure?: { retry: () => void; retrying?: boolean };
 }
 
 function phaseLabel(phase: AgentPhase, t: (key: string, params?: Record<string, string | number>) => string): string | null {
@@ -194,7 +196,7 @@ function withAssistantBlocks(
   return next;
 }
 
-export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onOpenSession = () => {}, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onRequestReview, onListReviewBranches, reviewGate }: Props) {
+export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onOpenSession = () => {}, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onRequestReview, onListReviewBranches, reviewGate, historyLoadFailure }: Props) {
   const { t } = useI18n();
 
   // Wrap onAgentEnd to play the completion sound. This is more reliable than
@@ -833,6 +835,12 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
               const { startIndex, hasMore } = getVisibleRenderWindow(rendered.length, visibleCount);
               return (
                 <>
+                  {historyLoadFailure ? (
+                    <HistoryLoadFailureRow
+                      onRetry={historyLoadFailure.retry}
+                      retrying={historyLoadFailure.retrying}
+                    />
+                  ) : null}
                   {hasMore && (
                     <div ref={sentinelRef} className={styles.loadEarlier}>
                       {t("chat.loadEarlier", { count: startIndex })}

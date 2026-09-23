@@ -569,6 +569,8 @@ export const zhCNLocale: LocalePlugin = {
     "transcript.modelChangedWarningLine2": "上下文可能会自动压缩。",
     "transcript.turnRenderError.title": "此轮次无法显示",
     "transcript.turnRenderError.retry": "重试",
+    "transcript.historyLoadFailed": "无法加载更早的消息",
+    "transcript.retryHistoryLoad": "重试",
     "transcript.divider.working": "处理中",
     "transcript.divider.workingFor": "已处理 {time}",
     "transcript.divider.workedFor": "处理了 {time}",

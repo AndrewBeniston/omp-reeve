@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Show a retry action when earlier Session messages fail to load.
 - Keep an expanded Turn divider visually still during layout changes for 350 ms.
 - Show a polite loading status above the Composer while a Session loads.
 - Show related Session links above the first message for continued and forked Sessions.
