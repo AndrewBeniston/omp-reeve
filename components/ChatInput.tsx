@@ -2788,7 +2788,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         onOpenChange={(open) => { if (!open) setPendingProjectPath(null); }}
       >
         <p>{t("composer.project.confirmBody")}</p>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+        <div className={cssModule.projectConfirmActions}>
           <Button type="button" size="sm" tone="ghost" onClick={() => setPendingProjectPath(null)}>{t("trust.cancel")}</Button>
           <Button type="button" size="sm" tone="primary" onClick={() => {
             if (pendingProjectPath) onSelectProject?.(pendingProjectPath);
