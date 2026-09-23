@@ -7,19 +7,27 @@ import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import styles from "./goal-set-dialog.module.css";
 
+export interface GoalAttachment {
+  data: string;
+  mimeType: string;
+  previewUrl: string;
+}
+
 export interface GoalSetInput {
   objective: string;
   tokenBudget?: number;
+  attachments?: GoalAttachment[];
 }
 
 interface GoalSetDialogProps {
   existingGoal?: Goal | null;
   initialObjective?: string;
+  initialAttachments?: GoalAttachment[];
   onSubmit: (input: GoalSetInput, operation: "create" | "replace") => Promise<void>;
   onClose: () => void;
 }
 
-export function GoalSetDialog({ existingGoal, initialObjective = "", onSubmit, onClose }: GoalSetDialogProps) {
+export function GoalSetDialog({ existingGoal, initialObjective = "", initialAttachments = [], onSubmit, onClose }: GoalSetDialogProps) {
   const { t } = useI18n();
   const [objective, setObjective] = useState(initialObjective);
   const [budget, setBudget] = useState("");
@@ -27,6 +35,7 @@ export function GoalSetDialog({ existingGoal, initialObjective = "", onSubmit, o
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [attachments, setAttachments] = useState(initialAttachments);
   const busyRef = useRef(false);
   const objectiveRef = useRef<HTMLTextAreaElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
@@ -47,7 +56,11 @@ export function GoalSetDialog({ existingGoal, initialObjective = "", onSubmit, o
       return null;
     }
     setInputError(null);
-    return budget.trim() ? { objective: trimmed, tokenBudget: Number(budget.trim()) } : { objective: trimmed };
+    return {
+      objective: trimmed,
+      ...(budget.trim() ? { tokenBudget: Number(budget.trim()) } : {}),
+      ...(attachments.length ? { attachments } : {}),
+    };
   }
 
   async function submit(input: GoalSetInput, operation: "create" | "replace") {
@@ -59,6 +72,10 @@ export function GoalSetDialog({ existingGoal, initialObjective = "", onSubmit, o
       await onSubmit(input, operation);
       onClose();
     } catch (cause) {
+      if (cause instanceof Error && cause.message === "Failed to prepare goal attachments") {
+        setSubmitError(t("composer.goal.attachmentPreparationFailed"));
+        return;
+      }
       setSubmitError(`${t("composer.threadGoal.setError")}: ${cause instanceof Error ? cause.message : String(cause)}`);
     } finally {
       busyRef.current = false;
@@ -66,7 +83,7 @@ export function GoalSetDialog({ existingGoal, initialObjective = "", onSubmit, o
     }
   }
 
-  const input = { objective: objective.trim(), ...(budget.trim() ? { tokenBudget: Number(budget.trim()) } : {}) };
+  const input = { objective: objective.trim(), ...(budget.trim() ? { tokenBudget: Number(budget.trim()) } : {}), ...(attachments.length ? { attachments } : {}) };
   return (
     <Dialog
       open
@@ -133,6 +150,15 @@ export function GoalSetDialog({ existingGoal, initialObjective = "", onSubmit, o
             onChange={(event) => { setBudget(event.target.value); setInputError(null); }}
           />
           <p className={styles.help}>{t("composer.goal.budgetHelp")}</p>
+          {attachments.map((attachment, index) => (
+            <div key={index} role="listitem" data-goal-attachment>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={attachment.previewUrl} alt="" />
+              <button type="button" aria-label={`${t("composer.goal.removeAttachment")} ${index + 1}`} onClick={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+          ))}
           {inputError && <p role="alert" className={styles.error}>{inputError}</p>}
           {submitError && <p role="alert" className={styles.error}>{submitError}</p>}
           <div className={styles.actions}>

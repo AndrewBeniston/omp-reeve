@@ -13,6 +13,8 @@ export const enLocale: LocalePlugin = {
     "composer.goal.invalidBudget": "Enter a positive whole number of tokens.",
     "composer.goal.budgetHelp": "This limit is a hard OMP Goal budget, not the context window.",
     "composer.goal.submit": "Set goal",
+    "composer.goal.attachmentPreparationFailed": "Failed to prepare goal attachments",
+    "composer.goal.removeAttachment": "Remove image",
     "composer.goalSlashCommand.setDescription": "Set a goal to keep pursuing",
     "composer.placeholder.goal": "Describe your goal, define measurable outcomes for best results",
     "composer.threadGoal.setError": "Failed to set goal",

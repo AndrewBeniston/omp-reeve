@@ -42,6 +42,41 @@ test("a Goal with no limit sends no token budget", async () => {
   } finally { await view.unmount(); }
 });
 
+test("a Goal sends prepared Composer images with its creating Turn", async () => {
+  const submissions = [];
+  const image = { data: "aW1hZ2U=", mimeType: "image/png", previewUrl: "blob:goal-image" };
+  const { view, root, objective } = await open({
+    initialAttachments: [image],
+    onSubmit: async (...args) => submissions.push(args),
+  });
+  try {
+    assert.equal(root.querySelectorAll('[role="listitem"]').length, 1);
+    await typeInto(objective, "Finish the film");
+    await React.act(async () => { root.querySelector('form').dispatchEvent(new DomEvent('submit', { bubbles: true, cancelable: true })); });
+    assert.deepEqual(submissions, [[{ objective: "Finish the film", attachments: [image] }, "create"]]);
+  } finally { await view.unmount(); }
+});
+
+test("Goal submission failure preserves the draft and attachments", async () => {
+  const submissions = [];
+  const image = { data: "aW1hZ2U=", mimeType: "image/png", previewUrl: "blob:goal-image" };
+  const { view, root, objective } = await open({
+    initialAttachments: [image],
+    onSubmit: async (...args) => { submissions.push(args); throw new Error("Failed to prepare goal attachments"); },
+  });
+  try {
+    await typeInto(objective, "Keep this draft");
+    await React.act(async () => { root.querySelector('form').dispatchEvent(new DomEvent('submit', { bubbles: true, cancelable: true })); });
+    assert.equal(objective.value, "Keep this draft");
+    assert.equal(root.querySelectorAll('[role="listitem"]').length, 1);
+    assert.match(root.textContent, /Failed to prepare goal attachments/);
+    await React.act(async () => { root.querySelector('form').dispatchEvent(new DomEvent('submit', { bubbles: true, cancelable: true })); });
+    assert.equal(submissions.length, 2);
+  } finally {
+    await view.unmount();
+  }
+});
+
 test("a Goal accepts positive whole token budgets and rejects other values", async () => {
   const submissions = [];
   const { view, root, objective, budget } = await open({ onSubmit: async (...args) => submissions.push(args) });
@@ -82,12 +117,19 @@ test("the creating message retains its Goal marker after Session reload", async 
   const timestamp = "2026-09-23T12:00:00.000Z";
   const entries = [
     { type: "custom", customType: "goal-message", data: { objective: "Finish the film" }, id: "marker", parentId: null, timestamp },
-    { type: "message", id: "goal-user", parentId: "marker", timestamp, message: { role: "user", content: "Finish the film", timestamp: Date.parse(timestamp) } },
+    { type: "message", id: "goal-user", parentId: "marker", timestamp, message: { role: "user", content: [
+      { type: "text", text: "Finish the film" },
+      { type: "image", source: { type: "base64", media_type: "image/png", data: "aW1hZ2U=" } },
+    ], timestamp: Date.parse(timestamp) } },
     { type: "message", id: "next-user", parentId: "goal-user", timestamp, message: { role: "user", content: "Continue", timestamp: Date.parse(timestamp) } },
   ];
   const { messages, entryIds } = buildSessionContext(entries);
   assert.deepEqual(entryIds, ["goal-user", "next-user"]);
   assert.equal(messages[0].sentAsGoal, true);
+  assert.deepEqual(messages[0].content, [
+    { type: "text", text: "Finish the film" },
+    { type: "image", source: { type: "base64", media_type: "image/png", data: "aW1hZ2U=" } },
+  ]);
   assert.notEqual(messages[1].sentAsGoal, true);
 });
 
@@ -101,12 +143,14 @@ test("an orphan Goal marker never marks a different user message", async () => {
   assert.notEqual(buildSessionContext(entries).messages[0].sentAsGoal, true);
 });
 
-test("submitting a Goal sends one OMP create command before its marked message", async () => {
+test("Goal retry reuses the created Goal and sends its marked message with images", async () => {
   const { useAgentSession } = await jiti.import("../../hooks/useAgentSession.ts");
   const originalFetch = globalThis.fetch;
   const originalEventSource = globalThis.EventSource;
   const commands = [];
+  let promptAttempts = 0;
   const created = { ...existingGoal, id: "new", objective: "Finish the film", tokenBudget: 200000, updatedAt: 2000 };
+  const image = { data: "aW1hZ2U=", mimeType: "image/png", previewUrl: "blob:goal-image" };
   class ConnectedEventSource {
     static OPEN = 1;
     static CLOSED = 2;
@@ -125,6 +169,10 @@ test("submitting a Goal sends one OMP create command before its marked message",
     }
     if (command?.type === "prompt") {
       commands.push(command);
+      promptAttempts += 1;
+      if (promptAttempts === 1) {
+        return { ok: false, async json() { return { error: "prompt rejected", code: "prompt_rejected", accepted: false }; } };
+      }
       return { ok: true, async json() { return { success: true, data: null }; } };
     }
     if (String(url).startsWith("/api/sessions/session-one?")) {
@@ -143,11 +191,16 @@ test("submitting a Goal sends one OMP create command before its marked message",
   }
   const view = await mount(h(Harness));
   try {
-    await React.act(async () => { await client.handleGoalSubmit({ objective: "Finish the film", tokenBudget: 200000 }, "create"); });
+    const input = { objective: "Finish the film", tokenBudget: 200000, attachments: [image] };
+    await React.act(async () => {
+      try { await client.handleGoalSubmit(input, "create"); } catch {}
+      await client.handleGoalSubmit(input, "create");
+    });
     const writes = commands.filter((command) => command.op !== "get");
     assert.deepEqual(writes, [
       { type: "goal", op: "create", objective: "Finish the film", tokenBudget: 200000 },
-      { type: "prompt", message: "Finish the film", sentAsGoal: true },
+      { type: "prompt", message: "Finish the film", sentAsGoal: true, images: [{ type: "image", data: "aW1hZ2U=", mimeType: "image/png" }] },
+      { type: "prompt", message: "Finish the film", sentAsGoal: true, images: [{ type: "image", data: "aW1hZ2U=", mimeType: "image/png" }] },
     ]);
   } finally {
     await view.unmount();
