@@ -84,7 +84,7 @@ import { ComposerProjectControl, type ComposerProjectControlHandle } from "./cha
 import { PausedQueueSubmitDialog } from "./chat/PausedQueueSubmitDialog";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
-import { DictationControl, type DictationAction, type DictationState } from "./chat/DictationControl";
+import { DictationControl, type DictationAction, type DictationError, type DictationState } from "./chat/DictationControl";
 import { ApprovalModeSelector } from "./chat/ApprovalModeSelector";
 import { SendArrowIcon, StopSquareIcon } from "./navigation/CodexIcons";
 import { Menu, MenuItem } from "./ui/Menu";
@@ -593,7 +593,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const [attachmentPickerError, setAttachmentPickerError] = useState<string | null>(null);
   const [dictationState, setDictationState] = useState<DictationState>("idle");
   const [dictationAvailable, setDictationAvailable] = useState(false);
-  const [dictationError, setDictationError] = useState<string | null>(null);
+  const [dictationError, setDictationError] = useState<DictationError>(null);
   const [browserUploadsPending, setBrowserUploadsPending] = useState(0);
   const [localAttachments, setLocalAttachments] = useState<ComposerAttachmentDescriptor[]>(
     () => draftKey ? getDraft(draftKey)?.attachments ?? [] : [],
@@ -707,7 +707,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         if (active) {
           setDictationAvailable(Boolean(availability.enabled));
           if (!availability.enabled) {
-            setDictationError(t("chat.dictationUnsupported"));
+            setDictationError({ kind: "start", message: t("chat.dictationUnsupported") });
             setAttachmentPickerError(t("chat.dictationUnsupported"));
           }
         }
@@ -729,7 +729,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             if (event.type === "state" && event.state) setDictationState(event.state);
             if (event.type === "error") {
               setDictationState("failed");
-              setDictationError(event.code === "permission-denied" ? t("chat.dictationPermissionDenied") : event.code === "transcription" ? t("chat.dictationTranscribeError") : t("chat.dictationStartError"));
+              setDictationError({
+                kind: event.code === "permission-denied" ? "permission" : event.code === "transcription" ? "transcription" : "start",
+                message: event.code === "permission-denied" ? t("chat.dictationPermissionDenied") : event.code === "transcription" ? t("chat.dictationTranscribeError") : t("chat.dictationStartError"),
+              });
             }
             if (event.type === "result" && event.text) {
               textareaRef.current?.insertText(event.text);
@@ -738,7 +741,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           }
         }
       } catch {
-        if (active) setDictationError(t("chat.dictationUnavailable"));
+        if (active) setDictationError({ kind: "start", message: t("chat.dictationUnavailable") });
       }
     });
     return () => { active = false; };
@@ -755,7 +758,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       });
       if (!response.ok) throw new Error("Speech request failed");
     } catch {
-      setDictationError(t("chat.dictationStartError"));
+      setDictationError({ kind: "start", message: t("chat.dictationStartError") });
     }
   }, [onEnsureSession, t]);
 
@@ -2898,8 +2901,18 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         transcribingCancel: t("chat.dictationCancel"), failedRetry: t("chat.dictationRetry"),
         failedView: t("chat.dictationViewRecording"), startError: t("chat.dictationStartError"),
         transcribeError: t("chat.dictationTranscribeError"), unsupported: t("chat.dictationUnsupported"),
-        permissionDenied: t("chat.dictationPermissionDenied"),
-      }} onAction={dictationAction} onViewRecording={() => setDictationError(t("chat.dictationViewRecording"))} />}
+        permissionDenied: t("chat.dictationPermissionDenied"), openMicrophoneSettings: t("chat.dictationOpenMicrophoneSettings"),
+      }} onAction={dictationAction} onViewRecording={() => void (async () => {
+        const sessionId = await onEnsureSession?.();
+        if (!sessionId) return;
+        const anchor = document.createElement("a");
+        anchor.href = `/api/sessions/${encodeURIComponent(sessionId)}/speech?recording=1`;
+        anchor.target = "_blank";
+        anchor.rel = "noreferrer";
+        anchor.click();
+      })()} onOpenMicrophoneSettings={() => {
+        void (globalThis as { ompDesktop?: { openMicrophoneSettings?: () => Promise<unknown> } }).ompDesktop?.openMicrophoneSettings?.();
+      }} />}
       toolbarEndRef={controlsMenuRef}
       isMobile={isMobile}
       plainTextMode={composerDisplayPreferences.plainTextMode}

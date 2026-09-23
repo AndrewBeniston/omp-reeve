@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld(
     openExternal(url) {
       return ipcRenderer.invoke("omp-desktop:open-external", url);
     },
+    openMicrophoneSettings() {
+      return ipcRenderer.invoke("omp-desktop:open-microphone-settings");
+    },
     selectDirectory() {
       return ipcRenderer.invoke("omp-desktop:select-directory");
     },

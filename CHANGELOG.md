@@ -12,6 +12,7 @@ the What's New dialog adds a second page that invites support.
 ### Added
 
 - The new-Session Composer can select a Reeve project and keeps unavailable cloud and remote locations visible with reasons.
+- Dictation failures now show the matching notice, a failed recording opens in a new tab, and microphone denial offers the system settings action.
 - The Composer now shows OMP dictation states, including transcription cancellation, retry, and recording access.
 - A session live API now exposes OMP realtime voice state and lifecycle control.
 - The Session Composer footer keeps its controls ordered while the model area shrinks before the trailing controls.
