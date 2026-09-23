@@ -45,6 +45,7 @@ import { untrustedProjectSessionOptions } from "./project-trust";
 import { resolveSessionSystemPrompts } from "./session-system-prompt";
 import { readDefaultModelRole } from "./model-roles";
 import { getOmpRuntime, getSettingsForCwd } from "./omp-runtime";
+import { closeSpeechSession } from "./speech-bridge";
 import { PRESET_FULL } from "./tool-presets";
 import { persistExplicitStartupPreferences } from "./startup-preferences";
 import { QueuedMessageEditor, type RemovedQueuedMessage, type QueueAgent } from "./queued-message-editor";
@@ -1574,6 +1575,7 @@ export class AgentSessionWrapper {
   destroy(): void {
     if (!this._alive) return;
     this._alive = false;
+    void closeSpeechSession(this.openedSessionId).catch((error) => console.error("[reeve] speech cleanup failed:", error));
     forgetTurnLifecycle(this.openedSessionId);
     void this.collaboration.stop("session closed");
     if (this.idleTimer) clearTimeout(this.idleTimer);
