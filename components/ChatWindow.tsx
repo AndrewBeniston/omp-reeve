@@ -43,6 +43,7 @@ import { EmptyChatHome } from "./chat/EmptyChatHome";
 import { NewMessagesControl } from "./chat/NewMessagesControl";
 import { ComposerTurnStatus } from "./chat/ComposerTurnStatus";
 import { ActiveTurnResponseSpacer } from "./chat/ActiveTurnResponseSpacer";
+import { SessionLoadingState } from "./chat/SessionLoadingState";
 import { TurnErrorBoundary } from "./chat/TurnErrorBoundary";
 import { buildTranscriptRows, finalAnswerPosition, presentationAssistantPosition, CompactionNote, type TranscriptMessageRow } from "./chat/transcript-rows";
 import { ArchivedSessionCard } from "./chat/ArchivedSessionCard";
@@ -564,14 +565,6 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
   const aboveEditorWidgets = extensionWidgets.filter((widget) => widget.placement !== "belowEditor");
   const belowEditorWidgets = extensionWidgets.filter((widget) => widget.placement === "belowEditor");
 
-  if (loading) {
-    return (
-      <div className={styles.centeredState}>
-        {t("chat.loadingSession")}
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className={styles.centeredState} data-tone="error">
@@ -940,6 +933,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
             toolResults={toolResultsMap}
           />
         )}
+        <SessionLoadingState active={loading} />
         {chatInputElement}
         <ExtensionStatusBar statuses={extensionStatuses} />
       </div>

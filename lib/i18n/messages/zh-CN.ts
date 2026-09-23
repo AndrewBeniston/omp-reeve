@@ -575,6 +575,7 @@ export const zhCNLocale: LocalePlugin = {
     "transcript.contextAutomaticallyCompacted": "上下文已自动压缩",
     "transcript.continuedFromChat": "续接自对话",
     "transcript.parentChat": "父对话",
+    "transcript.loadingTask": "正在加载任务…",
     "chat.compactContext": "压缩上下文",
     "chat.compacting": "正在压缩…",
     "chat.compact": "压缩",
