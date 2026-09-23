@@ -1,0 +1,22 @@
+.row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-height: 30px;
+  color: var(--ui-text-muted);
+  font-size: var(--text-sm);
+}
+
+.icon {
+  display: inline-flex;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-text-dim);
+}
+
+.icon svg { width: 14px; height: 14px; }
+.action { white-space: nowrap; }
