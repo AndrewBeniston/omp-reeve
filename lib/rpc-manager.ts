@@ -1073,6 +1073,9 @@ export class AgentSessionWrapper {
         // Taking a baseline takes a moment, and this Session can be destroyed
         // inside it. A wrapper that is gone must not start a run.
         if (!this._alive) return null;
+        if (command.sentAsGoal === true && this.inner.getGoalModeState()?.goal) {
+          this.inner.sessionManager.appendCustomEntry("goal-message", { objective: command.message });
+        }
         this.inner.prompt(command.message as string, {
           ...(promptImages?.length ? { images: promptImages } : {}),
           ...(streamingBehavior ? { streamingBehavior } : {}),

@@ -1678,7 +1678,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, [addNotice, cancelEventStreamGrace, goalState.onEvent, goalState.refresh, handleAgentControlRequest, handleExtensionUiRequest, loadSession, notifyPromptStage, onAgentEnd, onSessionNameChanged, refreshContextUsage, scheduleEventStreamClose, settleUiStage]);
   handleAgentEventRef.current = handleAgentEvent;
 
-  const handleSend = useCallback(async (message: string, images?: AttachedImage[]) => {
+  const handleSend = useCallback(async (message: string, images?: AttachedImage[], sentAsGoal = false) => {
     const trimmedMessage = message.trim();
     if (!trimmedMessage && !images?.length) return;
     if (agentRunningRef.current || bashRunningRef.current) return;
@@ -1700,6 +1700,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     const imageBlocks = images?.map((img) => ({ type: "image" as const, source: { type: "base64" as const, media_type: img.mimeType, data: img.data } }));
     const userMsg: AgentMessage = {
       role: "user",
+      ...(sentAsGoal ? { sentAsGoal: true } : {}),
       content: imageBlocks?.length
         ? [...(message.trim() ? [{ type: "text" as const, text: message }] : []), ...imageBlocks]
         : message,
@@ -1738,6 +1739,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           await sendAgentCommand(sid, {
             type: "prompt",
             message,
+            ...(sentAsGoal ? { sentAsGoal: true } : {}),
             ...(piImages?.length ? { images: piImages } : {}),
           });
           promoteNewSession(1, message);
@@ -1749,12 +1751,14 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         await sendAgentCommand(session.id, {
           type: "prompt",
           message,
+          ...(sentAsGoal ? { sentAsGoal: true } : {}),
           ...(piImages?.length ? { images: piImages } : {}),
         });
       }
       if (isSlashCommandPrompt && sentSessionId) {
         void waitForPromptSettlement(sentSessionId, promptRunId);
       }
+      return Boolean(sentSessionId);
     } catch (e) {
       console.error("Failed to send message:", e);
       const definitivelyRejected = !promptRequestStarted || isPromptRejectedError(e);
@@ -1763,7 +1767,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       // until server state confirms the run is idle.
       if (!definitivelyRejected && sentSessionId) {
         void waitForPromptSettlement(sentSessionId, promptRunId);
-        return;
+        return true;
       }
       rpcPromptPendingRef.current = false;
       agentRunningRef.current = false;
@@ -1792,8 +1796,22 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       setAgentRunning(false);
       setAgentPhase(null);
       dispatch({ type: "end" });
+      return false;
     }
   }, [isNew, newSessionCwd, newSessionModel, session, ensureNewSession, ensureEventsConnected, promoteNewSession, waitForPromptSettlement, addNotice, cancelEventStreamGrace, chatInputRef, closeEvents, holdActiveTurn, setPinned]);
+
+  const handleGoalSubmit = useCallback(async (
+    input: { objective: string; tokenBudget?: number },
+    operation: "create" | "replace",
+  ) => {
+    if (agentRunningRef.current || bashRunningRef.current) throw new Error("Wait for the current Turn to finish.");
+    const sid = sessionIdRef.current ?? session?.id ?? await ensureNewSession();
+    if (!sid) throw new Error("Unable to create a Session for this Goal.");
+    await sendAgentCommand(sid, { type: "goal", op: operation, ...input });
+    await goalState.refresh();
+    const sent = await handleSend(input.objective, undefined, true);
+    if (!sent) throw new Error("The Goal was created, but the first message could not be sent.");
+  }, [ensureNewSession, goalState.refresh, handleSend, session?.id]);
 
   const executeBash = useCallback(async (command: string, excludeFromContext: boolean) => {
     if (agentRunningRef.current || bashRunningRef.current) return;
@@ -2785,7 +2803,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     // Refs
     sessionIdRef, eventSourceRef, messagesEndRef, scrollContainerRef,
     // Actions
-    handleSend, handleAbort, handleFork, handleNavigate, handleModelChange, handleRoleModelChange,
+    handleSend, handleGoalSubmit, handleAbort, handleFork, handleNavigate, handleModelChange, handleRoleModelChange,
     handleCompact, handleSteer, handleFollowUp, handlePromptWithStreamingBehavior, handleAbortCompaction,
     handleDeleteQueuedMessage, handleUndoDeletedQueuedMessage,
     handleEditQueuedMessage, handleCancelQueuedMessageEdit, handleCompleteQueuedMessageEdit,
