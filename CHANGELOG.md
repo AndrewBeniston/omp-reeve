@@ -13,6 +13,8 @@ the What's New dialog adds a second page that invites support.
 
 - The Session API now reads and changes OMP Goals, including token budgets.
   A saved active Goal opens paused after a cold Session restart.
+- Goal mode gives the agent its Goal tool. Pausing, clearing, or completing a
+  Goal restores your previous tools. A Session with tools disabled cannot start a Goal.
 
 ## [0.8.0] - 2026-09-23
 
