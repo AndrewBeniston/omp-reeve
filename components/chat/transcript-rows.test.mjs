@@ -23,6 +23,31 @@ test("a saved Session renders one row per message in Turn order", () => {
   assert.equal(turns[0].settled, true);
 });
 
+test("a classified usage-limit failure is attached to the end of its Turn", () => {
+  const messages = [
+    { role: "user", content: "Question" },
+    { role: "assistant", content: [], model: "test", provider: "test", stopReason: "error", errorMessage: "Usage limit reached retry-after-ms=2000" },
+  ];
+
+  const rows = buildTranscriptRows(messages, ["u1", "a1"], null, false);
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].kind, "turn");
+  assert.equal(rows[0].usageLimitMessage, messages[1]);
+});
+
+test("an unclassified failure has no usage-limit message", () => {
+  const messages = [
+    { role: "user", content: "Question" },
+    { role: "assistant", content: [], model: "test", provider: "test", stopReason: "error", errorMessage: "The provider connection failed" },
+  ];
+
+  const rows = buildTranscriptRows(messages, ["u1", "a1"], null, false);
+
+  assert.equal(rows[0].kind, "turn");
+  assert.equal(rows[0].usageLimitMessage, undefined);
+});
+
 test("a Turn renders a Divider only after final response with renderable activity", () => {
   const items = recorded.phaseEntries.map((entry, index) => ({
     message: entry.message,

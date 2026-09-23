@@ -1,8 +1,10 @@
 import type { AgentMessage, FallbackRouteNote, ModelChangeNote } from "@/lib/types";
+import type { AssistantMessage, UserMessage } from "@/lib/types";
+import { isUsageLimit } from "@oh-my-pi/pi-ai/error";
 import { getAssistantErrorMessage, getDisplayableAssistantBlocks, splitFinalAssistantBlocks } from "@/lib/message-display";
 import { foldTurns, type TranscriptRecord, type TurnClock, type TurnPhase, type TurnTextPhase } from "@/lib/transcript/turn-folder";
 import { classifyActivityTool, type ActivityClassification } from "@/lib/transcript/activity-classifier";
-import type { AssistantMessage, ToolCallContent, ToolResultMessage } from "@/lib/types";
+import type { ToolCallContent, ToolResultMessage } from "@/lib/types";
 import { groupConsecutiveActivityCalls, type ActivityCall } from "@/lib/transcript/repeat-collapsing";
 
 export interface TranscriptMessageRow {
@@ -81,7 +83,17 @@ export interface SessionOrigin {
 export type TranscriptRow =
   | { kind: "archived"; sessionId: string }
   | { kind: "session-origin"; kindOfOrigin: "continued" | "parent"; relatedSessionId: string }
-  | { kind: "turn"; id: string; phase: TurnPhase; settled: boolean; items: TranscriptMessageRow[]; clock: TurnClock; deniedActionCount: number }
+  | {
+      kind: "turn";
+      id: string;
+      phase: TurnPhase;
+      settled: boolean;
+      items: TranscriptMessageRow[];
+      clock: TurnClock;
+      deniedActionCount: number;
+      usageLimitMessage?: AssistantMessage;
+      retryUserMessage?: UserMessage;
+    }
   | {
       kind: "compaction";
       id: string;
@@ -183,6 +195,13 @@ export function buildTranscriptRows(
       }];
     });
     if (items.length === 0) return;
+    const lastItem = items[items.length - 1].message;
+    const usageLimitMessage = lastItem.role === "assistant"
+      && lastItem.stopReason === "error"
+      && isUsageLimit(lastItem)
+      ? lastItem
+      : undefined;
+    const retryUserMessage = usageLimitMessage ? items[0].message as UserMessage : undefined;
     firstItems.set(items[0].index, {
       kind: "turn",
       id: turn.id,
@@ -191,6 +210,8 @@ export function buildTranscriptRows(
       items,
       clock: { status: turn.status, startedAt: turn.startedAt, completedAt: turn.completedAt },
       deniedActionCount: turn.deniedActionCount,
+      usageLimitMessage,
+      retryUserMessage,
     });
   });
 

@@ -99,3 +99,11 @@ test("stores all usage-limit strings in both locales and re-exports the note", a
   const { UsageLimitNote: ReExported } = await jiti.import("./transcript-rows.ts");
   assert.equal(ReExported, UsageLimitNote);
 });
+
+test("ChatWindow renders the note at the failed Turn and uses its user edit path for retry", () => {
+  const source = readFileSync(new URL("../ChatWindow.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /if \(row\.usageLimitMessage && retryUserMessage\)/);
+  assert.match(source, /<UsageLimitNote/);
+  assert.match(source, /onRetry=\{\(\) => handleEditContent\(retryUserMessage\)\}/);
+});
