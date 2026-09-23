@@ -11,6 +11,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The Composer can set a Goal with an optional hard token budget. It confirms replacement and marks the creating message.
+
 - The Goal pill above the Composer shows OMP status, elapsed time, or token progress.
 
 - The Session API now reads and changes OMP Goals, including token budgets.

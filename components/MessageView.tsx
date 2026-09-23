@@ -387,6 +387,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
       ? []
       : message.content.filter((b): b is ImageContent => b.type === "image");
 
+  const { t } = useI18n();
   const time = formatTime(message.timestamp);
   const canFork = !!entryId && !!onFork;
   const canNavigate = !!prevAssistantEntryId && !!onNavigate;
@@ -423,6 +424,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
         </div>
       )}
       {content && <SafeMarkdownBody className="markdown-user-message" cwd={cwd} onOpenFile={onOpenFile}>{content}</SafeMarkdownBody>}
+      {message.sentAsGoal && <span className={styles.goalMessageStatus}>{t("codex.userMessage.goal")}</span>}
     </MessageTurn>
   );
 }

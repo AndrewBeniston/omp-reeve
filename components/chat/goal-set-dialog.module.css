@@ -1,0 +1,74 @@
+.dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(80dvh, 700px);
+  overflow-y: auto;
+  background: var(--ui-surface-elevated);
+  font-family: var(--font-sans);
+}
+
+.label {
+  display: block;
+  margin: 16px 0 7px;
+  color: var(--ui-text);
+  font-size: var(--text-ui);
+  font-weight: 600;
+}
+
+.objective,
+.budget {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-md);
+  background: var(--ui-main);
+  color: var(--ui-text);
+  font: inherit;
+  line-height: 1.5;
+}
+
+.objective {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.objective:focus-visible,
+.budget:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: 2px;
+}
+
+.help {
+  margin: 8px 0 0;
+  color: var(--ui-text-dim);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.error {
+  color: var(--ui-danger);
+  font-size: var(--text-sm);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.preview {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  margin: 16px 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--ui-border);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .actions { flex-direction: column-reverse; }
+  .actions button { width: 100%; min-height: var(--ui-control-touch); }
+}
