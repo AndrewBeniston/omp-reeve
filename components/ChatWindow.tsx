@@ -28,13 +28,7 @@ import type { ProjectTrustStatus } from "@/lib/api-types";
 import type { AgentControlReply, AgentControlRequestEvent } from "@/lib/agent-control/types";
 import type { ReviewSlashOutcome, ReviewSlashRequest } from "@/lib/review-slash-entries";
 import type { SessionStatsInfo } from "@/lib/omp-types";
-import {
-  captureScrollDistance,
-  getNextVisibleCount,
-  getVisibleRenderWindow,
-  restoreScrollTop,
-  VISIBLE_PAGE_SIZE,
-} from "@/lib/chat-lazy-load";
+import { getVisibleRenderWindow } from "@/lib/chat-lazy-load";
 import { ExtensionCustomPanel, ExtensionDialog } from "./chat/ExtensionDialogs";
 import { ApprovalNudge } from "./chat/ApprovalNudge";
 import { QuestionRequestPanel, type QuestionRequest } from "./chat/QuestionRequestPanel";
@@ -51,6 +45,7 @@ import {
 import { followPhaseFromRows, prefersReducedMotion, resolveScrollBehavior } from "./chat/transcript-follow";
 import { useTranscriptHeightRestoration } from "./chat/useTranscriptHeightRestoration";
 import { useTranscriptFollow } from "./chat/useTranscriptFollow";
+import { useTranscriptHistory } from "./chat/useTranscriptHistory";
 import styles from "./chat/chat-window.module.css";
 
 const QUESTION_DEBUG_REQUEST: QuestionRequest = {
@@ -245,7 +240,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     chatInputRef?.current?.replaceMessage(message);
   }, [chatInputRef]);
   const {
-    loading, error, messages, entryIds, streamState,
+    loading, error, activeLeafId, messages, entryIds, streamState,
     agentRunning, bashRunning, pendingBash, modelNames, modelList, modelError, modelScopeWarnings, modelThinkingLevels, modelThinkingLevelMaps, modelRoles, toolPreset, approvalMode, approvalModeChanging, approvalModeError, thinkingLevel, fastModeEnabled, fastModeAvailable,
     retryInfo, contextUsage, forkingEntryId,
     isCompacting, compactError, compactResult, displayModel: displayModelValue, modelSwitching, sessionStats,
@@ -286,15 +281,18 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     if (registerGlobalAbort) registerAbortHandler(sessionBusy ? handleAbort : null);
   }, [sessionBusy, handleAbort, registerGlobalAbort]);
 
-  // --- Lazy-load historical messages ---
-  // Only render the last N messages initially. When the user scrolls to the
-  // top, load another page while keeping the scroll position stable.
-  const [visibleCount, setVisibleCount] = useState(VISIBLE_PAGE_SIZE);
   const [turnStatusDebug, setTurnStatusDebug] = useState(false);
   const [questionDebug, setQuestionDebug] = useState(false);
-  const sentinelRef = useRef<HTMLDivElement>(null);
   const transcriptContentRef = useRef<HTMLDivElement>(null);
-  const prevScrollDistanceRef = useRef<number | null>(null);
+  const transcriptHistory = useTranscriptHistory({
+    containerRef: scrollContainerRef,
+    sessionKey: session?.id ?? newDraftKey ?? newSessionCwd,
+    sessionId: session?.id ?? null,
+    leafId: activeLeafId,
+    pagedHiddenHistory: Boolean(session?.id),
+    autoLoadOnMount: scrollOrigin === "top",
+  });
+  const { visibleCount, sentinelRef } = transcriptHistory;
   const transcriptNavigationItems = useMemo(
     () => buildTranscriptNavigationItems(messages, entryIds),
     [entryIds, messages],
@@ -303,7 +301,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     item: TranscriptNavigationItem,
     behavior: ScrollBehavior,
   ) => {
-    setVisibleCount(messages.length);
+    transcriptHistory.revealAll(messages.length);
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -324,7 +322,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
       duration: prefersReducedMotion() ? 0 : 350,
       easing: "cubic-bezier(0.23, 1, 0.32, 1)",
     });
-  }, [messages.length, scrollContainerRef]);
+  }, [messages.length, scrollContainerRef, transcriptHistory.revealAll]);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return;
@@ -333,35 +331,6 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     setQuestionDebug(params.has("questionDebug"));
   }, []);
 
-  // IntersectionObserver on the sentinel div at the top of the message list.
-  // When it becomes visible, load the next page of older messages.
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    const container = scrollContainerRef.current;
-    if (!sentinel || !container) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          // Save distance from top before prepending to restore scroll later
-          prevScrollDistanceRef.current = captureScrollDistance(container.scrollHeight, container.scrollTop);
-          setVisibleCount((prev) => getNextVisibleCount(prev));
-        }
-      },
-      { root: container, threshold: 0 }
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [visibleCount, messages.length, scrollContainerRef]);
-
-  // After visibleCount increases (more messages prepended), restore the
-  // scroll position so the viewport doesn't jump.
-  useEffect(() => {
-    if (prevScrollDistanceRef.current == null) return;
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    container.scrollTop = restoreScrollTop(container.scrollHeight, prevScrollDistanceRef.current);
-    prevScrollDistanceRef.current = null;
-  }, [visibleCount, scrollContainerRef]);
   // Push session stats up to AppShell for the top bar.
   // Compare scalar fields to avoid loops from new object identity each render.
   const statsKey = sessionStats
@@ -444,11 +413,6 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
   }, [messages, activeStreamingMessage, turnStatusDebug]);
   const followPhase = followPhaseFromRows(transcriptRows);
   const isEmptyNew = isNew && messages.length === 0 && !streamState.isStreaming && !sessionBusy;
-  const requestMoreHistory = useCallback(() => {
-    if (!sentinelRef.current) return false;
-    setVisibleCount((current) => getNextVisibleCount(current));
-    return true;
-  }, []);
   const transcriptFollow = useTranscriptFollow({
     scrollContainerRef,
     contentRef: transcriptContentRef,
@@ -465,7 +429,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     compactPresentation: compactHome !== undefined,
     preserveFooterPosition,
     historyVersion: visibleCount,
-    onNeedHistory: requestMoreHistory,
+    onNeedHistory: transcriptHistory.requestMoreHistory,
     onGoToNewest: releaseActiveTurnHold,
   });
   const inputHistory = useMemo(() => {
@@ -826,7 +790,16 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                 <>
                   {hasMore && (
                     <div ref={sentinelRef} className={styles.loadEarlier}>
-                      {t("chat.loadEarlier", { count: startIndex })}
+                      {transcriptHistory.failure
+                        ? <span role="alert">{t("chat.historyLoadFailed")}</span>
+                        : transcriptHistory.status === "loading"
+                          ? t("chat.loadingEarlier")
+                          : t("chat.loadEarlier", { count: startIndex })}
+                      {transcriptHistory.failure?.retryable && (
+                        <button type="button" className={styles.historyRetry} onClick={transcriptHistory.retry}>
+                          {t("chat.retryHistory")}
+                        </button>
+                      )}
                     </div>
                   )}
                   {rendered.slice(startIndex)}

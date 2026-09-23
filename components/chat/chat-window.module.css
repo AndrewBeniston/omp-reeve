@@ -45,6 +45,16 @@
   text-align: center;
 }
 
+.historyRetry {
+  margin-left: var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--ui-text);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .phaseStatus {
   display: flex;
   max-width: 100%;
