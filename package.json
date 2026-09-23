@@ -108,6 +108,7 @@
     "electron-builder": "26.15.3",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.2.12",
+    "happy-dom": "^20.14.5",
     "jiti": "^2.7.0",
     "katex": "^0.16.47",
     "mammoth": "^1.12.2",

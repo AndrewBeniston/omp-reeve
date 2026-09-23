@@ -374,6 +374,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
   prevAssistantEntryId?: string;
   onEditContent?: (message: UserMessage) => void;
 }) {
+  const { t } = useI18n();
   const content =
     typeof message.content === "string"
       ? message.content
@@ -396,6 +397,9 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
       role="user"
       navigationId={entryId}
       copyContent={content}
+      userText={content.trim()
+        ? <SafeMarkdownBody className="markdown-user-message" cwd={cwd} onOpenFile={onOpenFile}>{content}</SafeMarkdownBody>
+        : imageBlocks.length === 0 ? t("codex.userMessage.noContent") : undefined}
       timestamp={time}
       branchPending={forking}
       onRetry={canNavigate ? () => {
@@ -422,7 +426,6 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
           })}
         </div>
       )}
-      {content && <SafeMarkdownBody className="markdown-user-message" cwd={cwd} onOpenFile={onOpenFile}>{content}</SafeMarkdownBody>}
     </MessageTurn>
   );
 }

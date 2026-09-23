@@ -445,6 +445,12 @@ test("renders transcript turns with stable presentation hooks", () => {
   assert.match(assistantHtml, /An assistant message/);
 });
 
+test("an empty user message has a visible fallback", () => {
+  const html = renderMessage({ role: "user", content: "   " });
+
+  assert.match(html, /\(No content\)/);
+});
+
 test("keeps tool activity status accessible without color", () => {
   const html = renderMessage({
     role: "assistant",
