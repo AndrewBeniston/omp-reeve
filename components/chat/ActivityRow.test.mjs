@@ -153,6 +153,21 @@ test("several sub-agents under one anchor render a grouped summary", async () =>
   await view.unmount();
 });
 
+test("a multi-agent action renders one header and keeps existing sub-agent rows separate", async () => {
+  const view = await mount(h(I18nProvider, null, h(ActivityRow, {
+    block: tool("task", { receiverThreadIds: ["agent-b", "agent-a"] }),
+    result: { role: "toolResult", toolCallId: "call-task", content: [] },
+    subagents: [
+      subagent({ id: "agent-b", parentToolCallId: "call-task", status: "completed" }),
+      subagent({ id: "agent-a", parentToolCallId: "call-task", status: "running" }),
+    ],
+  })));
+  assert.equal(view.container.querySelectorAll("[data-multi-agent-action-header]").length, 1);
+  assert.equal(view.container.querySelector("[data-multi-agent-action-header]")?.textContent, "Creating 2 agents");
+  assert.equal(view.container.querySelectorAll("[data-subagent-summary]").length, 1);
+  await view.unmount();
+});
+
 test("sub-agent rows use the fallback name and drop unusable names", async () => {
   const view = await mount(h(I18nProvider, null, h(ActivityRow, {
     block: tool("task"),

@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Show a multi-agent action header with its aggregate state and distinct agent count.
 - Show a neutral transcript note when OMP routes a request to a fallback model.
 - Show a past-tense summary in the completed Turn Activity header.
 - Show the live Activity header for the newest unfinished action in a Turn.

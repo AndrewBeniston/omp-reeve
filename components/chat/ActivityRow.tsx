@@ -12,6 +12,8 @@ import { selectLiveActivityHeader, type LiveActivityHeaderInput } from "@/lib/tr
 import { composeActivitySummary } from "@/lib/transcript/activity-summary";
 import type { SubagentSnapshot } from "@/lib/types";
 import { SubagentActivityRow, SubagentGroupSummary, visibleSubagentRows } from "./SubagentActivityRow";
+import { MultiAgentActionHeader } from "./MultiAgentActionHeader";
+import { multiAgentActionIds, multiAgentActionKind, multiAgentActionState } from "@/lib/transcript/multi-agent-action-header";
 import styles from "./activity-row.module.css";
 
 interface ActivityRowProps {
@@ -110,6 +112,12 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls, 
   const group = groupedCalls ? activityCallGroups(groupedCalls).find((candidate) => candidate.repeated) : undefined;
   const calls = group?.calls ?? [{ block, result }];
   const first = calls[0];
+  const actionKind = multiAgentActionKind(first.block.toolName);
+  const actionCalls = actionKind ? calls.map((call) => ({
+    kind: actionKind,
+    state: multiAgentActionState(call.result?.isError, Boolean(call.result), call.result?.details),
+    ...multiAgentActionIds(call.block.input),
+  })) : [];
   const content = activityRowContent(first.block, first.result, interrupted);
   const text = rowText(content, first.block.toolName, t);
   const resultText = getResultText(first.result);
@@ -126,6 +134,9 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls, 
         : <SubagentGroupSummary subagents={subagentRows.map(({ snapshot }) => snapshot)} fallbackName={t("transcript.activity.subAgent.defaultName")} onOpen={onOpenSubagent} />}
     </div>
   ) : null;
+  const parentSubagents = subagents.filter((snapshot) => snapshot.parentToolCallId === first.block.toolCallId);
+  const agentStates = new Map(parentSubagents.map((snapshot) => [snapshot.id, snapshot.status === "failed" ? "failed" as const : snapshot.status === "aborted" || (snapshot.status as string) === "cancelled" ? "interrupted" as const : snapshot.status === "completed" ? "completed" as const : "inProgress" as const]));
+  const multiAgentHeader = actionKind ? <MultiAgentActionHeader input={{ actions: actionCalls, agentStates, actionCount: calls.length }} /> : null;
   if (group) {
     return (
       <div data-activity-repeats-group>
@@ -141,6 +152,7 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls, 
           <span className={styles.detail} data-activity-count>{countText}</span>
         </button>
         {expanded ? calls.map((call) => <div data-activity-instance key={call.block.toolCallId}><ActivityRow block={call.block} result={call.result} subagents={subagents} onOpenSubagent={onOpenSubagent} /></div>) : null}
+        {multiAgentHeader}
         {childRows}
       </div>
     );
@@ -155,6 +167,7 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls, 
       {isTerminalCommand ? (
         <TerminalOutput command={text.detail ?? ""} output={resultText ?? ""} pending={!result} isError={isError} />
       ) : null}
+      {multiAgentHeader}
       {childRows}
     </div>
   );
