@@ -39,6 +39,17 @@ export interface ModelRef {
   modelId: string;
 }
 
+/** Return the model named in the warning only for a real change after a turn. */
+export function previousModelNameForWarning(
+  current: ModelRef | null | undefined,
+  next: ModelRef,
+  hasTurn: boolean,
+  registry: readonly Pick<RegistryModel, "provider" | "id" | "name">[],
+): string | null {
+  if (!hasTurn || !current || current.provider === next.provider && current.modelId === next.modelId) return null;
+  return registry.find((entry) => entry.provider === current.provider && entry.id === current.modelId)?.name || current.modelId;
+}
+
 export interface RegistryModel {
   provider: string;
   id: string;

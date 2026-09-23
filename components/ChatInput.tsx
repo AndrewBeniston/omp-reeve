@@ -55,6 +55,7 @@ import {
 import { useI18n } from "@/hooks/useI18n";
 import { PRESET_DEFAULT, PRESET_FULL } from "@/lib/tool-presets";
 import { buildModelSelectorState, filterModelOptions, INITIAL_MODEL_MENU_STATE, reduceModelMenuState, THINKING_STEP_ORDER, thinkingLevelLabelKey } from "@/lib/model-selector";
+import { buildModelCommandSections, buildReasoningCommandSections, readRecentModelConfigurations, rememberModelConfiguration } from "@/lib/model-selector/commands";
 import {
   ComposerFloatingGeometry,
   ComposerFrame,
@@ -125,7 +126,7 @@ interface Props {
   modelError?: string | null;
   /** Diagnostics from resolving `enabledModels`, e.g. a pattern that matched nothing. */
   modelScopeWarnings?: string[];
-  onModelChange?: (provider: string, modelId: string) => void;
+  onModelChange?: (provider: string, modelId: string) => void | boolean | Promise<void | boolean>;
   /** omp's model roles (default/smol/slow/plan/commit/…) with their assignments. */
   modelRoles?: ModelRoleAssignment[];
   onRoleModelChange?: (role: string) => void;
@@ -401,7 +402,11 @@ const BUILTIN_SLASH_COMMANDS: LocalBuiltinSlashCommand[] = [
   { name: "name", descriptionKey: "chat.commandName", icon: "pencil", source: "builtin" },
   { name: "session", descriptionKey: "chat.commandSession", icon: "session", source: "builtin" },
   { name: "copy", descriptionKey: "chat.commandCopy", icon: "copy", source: "builtin" },
+  { name: "model", descriptionKey: "composer.modelSlashCommand.title", icon: "model", source: "builtin" },
+  { name: "reasoning", descriptionKey: "composer.reasoningSlashCommand.title", icon: "model", source: "builtin" },
 ];
+
+const RECENT_MODEL_CONFIGURATIONS_KEY = "reeve-recent-model-configurations";
 
 function imageToDraftImage(image: AttachedImage): ChatDraftImage {
   return { data: image.data, mimeType: image.mimeType };
@@ -494,6 +499,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const isMobile = useIsMobile();
   const [value, setValue] = useState(() => (draftKey ? getDraft(draftKey)?.value ?? "" : ""));
   const [modelMenu, dispatchModelMenu] = useReducer(reduceModelMenuState, INITIAL_MODEL_MENU_STATE);
+  const [recentConfigurations, setRecentConfigurations] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try { return readRecentModelConfigurations(JSON.parse(window.localStorage.getItem(RECENT_MODEL_CONFIGURATIONS_KEY) ?? "[]")); }
+    catch { return []; }
+  });
   const modelDropdownOpen = modelMenu.open;
   const modelSubmenu = modelMenu.submenu;
   const modelFilter = modelMenu.filter;
@@ -1205,12 +1215,58 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     return [...entries, { name: branch.id, description: detail }];
   }, [reviewBranches]);
 
+  const selectorRegistry = modelList && modelList.length > 0
+    ? modelList.map((entry) => ({
+      provider: entry.provider,
+      id: entry.id,
+      name: entry.name,
+      thinkingLevels: modelThinkingLevels?.[`${entry.provider}:${entry.id}`]
+        ?? (entry.provider === model?.provider && entry.id === model.modelId ? availableThinkingLevels ?? [] : []),
+    }))
+    : Object.entries(modelNames ?? {}).map(([key, name]) => {
+      const separator = key.indexOf(":");
+      const provider = separator < 0 ? model?.provider ?? "unknown" : key.slice(0, separator);
+      const id = separator < 0 ? key : key.slice(separator + 1);
+      return {
+        provider,
+        id,
+        name,
+        thinkingLevels: provider === model?.provider && id === model.modelId ? availableThinkingLevels ?? [] : [],
+      };
+    });
+  const selector = buildModelSelectorState({
+    registry: selectorRegistry,
+    roles: modelRoles ?? [],
+    currentModel: model,
+    currentThinkingLevel: thinkingLevel,
+    explicitModelOverride,
+    filter: modelFilter,
+  }, t);
+  const modelOptions = selector.models;
+  const defaultRow = selector.defaultRow;
+  const showModelFilter = modelOptions.length > MODEL_FILTER_THRESHOLD;
+
+  useEffect(() => {
+    if (!model) return;
+    setRecentConfigurations((current) => rememberModelConfiguration(current, {
+      model: { provider: model.provider, modelId: model.modelId },
+      thinkingLevel: thinkingLevel ?? "auto",
+    }));
+  }, [model?.provider, model?.modelId, thinkingLevel]);
+
+  useEffect(() => {
+    try { window.localStorage.setItem(RECENT_MODEL_CONFIGURATIONS_KEY, JSON.stringify(recentConfigurations)); }
+    catch { /* Browser storage is optional. */ }
+  }, [recentConfigurations]);
+
   const availableSlashCommands = useMemo<SlashCommandInfo[]>(() => [
     ...(isStreaming ? [] : BUILTIN_SLASH_COMMANDS.map((command) => ({
       name: command.name,
       description: t(command.descriptionKey),
       icon: command.icon,
       source: command.source,
+      ...(command.name === "model" ? { subcommands: modelOptions.map((option) => ({ name: `${option.provider}/${option.modelId}` })) } : {}),
+      ...(command.name === "reasoning" ? { subcommands: [{ name: "auto" }, ...THINKING_STEP_ORDER.map((name) => ({ name }))] } : {}),
     }))),
     /*
      * Always offered, per R18: a failed Git-root gate disables the entry
@@ -1227,15 +1283,25 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       ...(reviewEnabled ? { subcommands: reviewSubcommands } : {}),
     }] : []),
     ...(slashCommands ?? []),
-  ], [composerHoldsOnlyCommand, isStreaming, reviewEnabled, reviewGate?.reason, reviewSubcommands, slashCommands, t]);
+  ], [composerHoldsOnlyCommand, isStreaming, modelOptions, reviewEnabled, reviewGate?.reason, reviewSubcommands, slashCommands, t]);
   const slashContext = useMemo(
     () => extractSlashQuery(value, availableSlashCommands),
     [availableSlashCommands, value],
   );
   const slashQuery = slashContext?.query ?? null;
+  const modelCommand = buildModelCommandSections(modelOptions, recentConfigurations, slashQuery ?? "", t);
+  const allModelCommands = buildModelCommandSections(modelOptions, recentConfigurations, "", t);
+  const reasoningCommand = buildReasoningCommandSections(
+    availableThinkingLevels ?? selector.steps.map((step) => step.thinkingLevel), slashQuery ?? "", t,
+  );
+  const allReasoningCommands = buildReasoningCommandSections(
+    availableThinkingLevels ?? selector.steps.map((step) => step.thinkingLevel), "", t,
+  );
   const slashSections = useMemo(() => {
     if (!slashContext) return [];
     if (slashContext.parentCommand) {
+      if (slashContext.parentCommand.name === "model") return modelCommand.sections;
+      if (slashContext.parentCommand.name === "reasoning") return reasoningCommand.sections;
       return buildSlashSubcommandSections(slashContext.parentCommand, slashContext.query);
     }
     return buildSlashSections({
@@ -1244,7 +1310,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       skills: composerSkills,
       disabledCommands: reviewEnabled ? undefined : REVIEW_DISABLED_COMMANDS,
     });
-  }, [availableSlashCommands, composerSkills, reviewEnabled, slashContext]);
+  }, [availableSlashCommands, composerSkills, modelCommand.sections, reasoningCommand.sections, reviewEnabled, slashContext]);
   const displayedSlashCommands = useMemo(
     () => flattenSuggestionSections(slashSections),
     [slashSections],
@@ -1408,8 +1474,37 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     });
   }, []);
 
+  const selectSelectorCommand = useCallback((suggestion: ComposerSuggestion, fromSlash: boolean): boolean => {
+    const modelChoice = modelCommand.choices.get(suggestion.id) ?? allModelCommands.choices.get(suggestion.id);
+    if (modelChoice) {
+      if (fromSlash) clearInput();
+      setSlashMenuOpen(false);
+      const sameModel = model?.provider === modelChoice.model.provider && model.modelId === modelChoice.model.modelId;
+      const setEffort = () => {
+        if (modelChoice.thinkingLevel && modelChoice.thinkingLevel !== thinkingLevel) {
+          void onThinkingLevelChange?.(modelChoice.thinkingLevel);
+        }
+      };
+      if (sameModel) setEffort();
+      else if (onModelChange) {
+        void Promise.resolve(onModelChange(modelChoice.model.provider, modelChoice.model.modelId))
+          .then((success) => { if (success !== false) setEffort(); });
+      }
+      return true;
+    }
+    const reasoningChoice = reasoningCommand.choices.get(suggestion.id) ?? allReasoningCommands.choices.get(suggestion.id);
+    if (reasoningChoice) {
+      if (fromSlash) clearInput();
+      setSlashMenuOpen(false);
+      if (reasoningChoice !== thinkingLevel) void onThinkingLevelChange?.(reasoningChoice);
+      return true;
+    }
+    return false;
+  }, [allModelCommands.choices, allReasoningCommands.choices, clearInput, model, modelCommand.choices, onModelChange, onThinkingLevelChange, reasoningCommand.choices, thinkingLevel]);
+
   const applySlashCommand = useCallback((suggestion: ComposerSuggestion) => {
     if (suggestion.disabled) return;
+    if (selectSelectorCommand(suggestion, true)) return;
     const editor = textareaRef.current;
     if (!editor) return;
     editor.replaceRangeWithMention(0, editor.selectionStart, {
@@ -1418,7 +1513,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     }, true);
     setSlashMenuOpen(false);
     setSlashActiveIndex(0);
-  }, []);
+  }, [selectSelectorCommand]);
 
   const sendQueued = useCallback((mode: "steer" | "followUp") => {
     if (browserUploadsPendingRef.current > 0) {
@@ -1678,37 +1773,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       setSlashActiveIndex(Math.max(0, displayedSlashCommands.length - 1));
     }
   }, [displayedSlashCommands.length, slashActiveIndex]);
-
-  const selectorRegistry = modelList && modelList.length > 0
-    ? modelList.map((entry) => ({
-      provider: entry.provider,
-      id: entry.id,
-      name: entry.name,
-      thinkingLevels: modelThinkingLevels?.[`${entry.provider}:${entry.id}`]
-        ?? (entry.provider === model?.provider && entry.id === model.modelId ? availableThinkingLevels ?? [] : []),
-    }))
-    : Object.entries(modelNames ?? {}).map(([key, name]) => {
-      const separator = key.indexOf(":");
-      const provider = separator < 0 ? model?.provider ?? "unknown" : key.slice(0, separator);
-      const id = separator < 0 ? key : key.slice(separator + 1);
-      return {
-        provider,
-        id,
-        name,
-        thinkingLevels: provider === model?.provider && id === model.modelId ? availableThinkingLevels ?? [] : [],
-      };
-    });
-  const selector = buildModelSelectorState({
-    registry: selectorRegistry,
-    roles: modelRoles ?? [],
-    currentModel: model,
-    currentThinkingLevel: thinkingLevel,
-    explicitModelOverride,
-    filter: modelFilter,
-  }, t);
-  const modelOptions = selector.models;
-  const defaultRow = selector.defaultRow;
-  const showModelFilter = modelOptions.length > MODEL_FILTER_THRESHOLD;
 
   useEffect(() => {
     if (modelDropdownOpen && modelSubmenu === "model" && showModelFilter) modelFilterRef.current?.focus();
@@ -2243,6 +2307,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               sections={buildComposerAddSections({ commands: availableSlashCommands, skills: composerSkills, plugins: mentionablePlugins, subagents })}
               onAttachImages={() => fileInputRef.current?.click()}
               childrenFor={item => {
+                if (item.raw === "/model") return allModelCommands.sections;
+                if (item.raw === "/reasoning") return allReasoningCommands.sections;
                 const command = availableSlashCommands.find(command => item.raw === `/${command.name}`);
                 return command?.subcommands?.length ? buildSlashSubcommandSections(command, "") : [];
               }}
@@ -2266,6 +2332,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 requestAnimationFrame(() => textareaRef.current?.focus());
               } : undefined}
               onSelect={(item) => {
+                if (selectSelectorCommand(item, false)) return;
                 const editor = textareaRef.current;
                 if (!editor) return;
                 if (item.kind === "command" && ["/compact", "/copy", "/reload", "/session"].includes(item.raw) && onBuiltinCommand) {
