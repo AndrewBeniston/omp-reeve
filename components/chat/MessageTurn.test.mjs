@@ -156,6 +156,43 @@ test("the user copy label changes only after the clipboard accepts the message",
   }
 });
 
+test("a later user copy keeps the Copied label until its own timer ends", async () => {
+  const previousNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: { clipboard: { writeText: async () => {} } },
+  });
+  const view = await renderMeasuredUserTurn(30);
+  const button = view.container.querySelector('[data-message-action="copy"]');
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  const timers = new Map();
+  let nextTimer = 1;
+  globalThis.setTimeout = (callback, delay) => {
+    const id = nextTimer++;
+    timers.set(id, { callback, delay });
+    return id;
+  };
+  globalThis.clearTimeout = (id) => {
+    timers.delete(id);
+  };
+  try {
+    await React.act(async () => button.click());
+    await React.act(async () => button.click());
+    assert.equal(button.getAttribute("aria-label"), "Copied");
+    assert.equal(timers.size, 1);
+
+    await React.act(async () => timers.values().next().value.callback());
+    assert.equal(button.getAttribute("aria-label"), "Copy message");
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+    if (view.container.isConnected) await view.cleanup();
+    if (previousNavigator) Object.defineProperty(globalThis, "navigator", previousNavigator);
+    else delete globalThis.navigator;
+  }
+});
+
 test("a user message recalculates when its layout changes without a window resize", async () => {
   const view = await renderMeasuredUserTurn(30);
   try {
