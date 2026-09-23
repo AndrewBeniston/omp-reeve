@@ -24,6 +24,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Fixed
 
+- The active Turn spacer uses a 500 ms spring and ignores height changes of 24 px or less.
+  It resets in prework follow on the final answer and places a new Turn only within 300 px.
 - The scroll-to-bottom button now fades in place and uses a 260 ms move that respects reduced motion.
 - The Session transcript follows the active Turn phase, including answers that continue after compaction.
 

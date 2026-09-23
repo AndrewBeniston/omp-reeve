@@ -75,10 +75,7 @@
 .responseSpacer {
   height: var(--ui-response-spacer-height);
   flex: 0 0 auto;
-  transition: height 500ms var(--ease-enter);
 }
-
-.responseSpacer[data-consuming="true"] { transition: none; }
 
 .processDetails {
   margin-bottom: 14px;
