@@ -16,6 +16,7 @@ import { ToolActivity } from "./chat/ToolActivity";
 import { CollaborationCard, isCollaborationSnapshot } from "./chat/CollaborationCard";
 import { AssistantResponseAnnouncer } from "./chat/AssistantResponseAnnouncer";
 import { AssistantMessageActions } from "./chat/AssistantMessageActions";
+import { UserMessageAttachmentRows } from "./chat/UserMessageAttachmentRows";
 import styles from "./chat/message-view.module.css";
 import type {
   AgentMessage,
@@ -408,7 +409,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
       copyContent={content}
       userText={content.trim()
         ? <SafeMarkdownBody className="markdown-user-message" cwd={cwd} onOpenFile={onOpenFile}>{content}</SafeMarkdownBody>
-        : imageBlocks.length === 0 ? t("codex.userMessage.noContent") : undefined}
+        : imageBlocks.length === 0 && !message.attachments?.length ? t("codex.userMessage.noContent") : undefined}
       userEditText={content}
       timestamp={time}
       branchPending={forking}
@@ -416,6 +417,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
       onEditFailure={onEditFailure}
       onBranch={canFork ? () => setForkDialogOpen(true) : undefined}
     >
+      {message.attachments && <UserMessageAttachmentRows attachments={message.attachments} onOpenFile={onOpenFile} />}
       {imageBlocks.length > 0 && (
         <div className={styles.messageImages} data-has-text={Boolean(content)}>
           {imageBlocks.map((img, i) => {

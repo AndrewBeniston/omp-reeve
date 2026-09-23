@@ -1,0 +1,9 @@
+.rows { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-bottom: var(--space-2); }
+.row { display: flex; min-width: 0; align-items: center; gap: var(--space-1); border: 1px solid var(--ui-border); border-radius: var(--radius-sm); padding: 3px var(--space-1-5); background: var(--ui-surface); color: var(--ui-text); font-size: var(--text-sm); }
+.row[data-available="false"] { color: var(--ui-text-dim); }
+.icon { display: flex; flex: 0 0 auto; align-items: center; }
+.name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kind { flex: 0 0 auto; color: var(--ui-text-dim); font-size: var(--text-xs); }
+.open { flex: 0 0 auto; border: 0; padding: 0; background: transparent; color: var(--ui-accent); cursor: pointer; font: inherit; font-size: var(--text-xs); }
+.open:focus-visible { outline: var(--ui-focus-ring); outline-offset: var(--ui-focus-offset); }
+.source { flex-basis: 100%; max-height: 12lh; margin: var(--space-1) 0 0; overflow: auto; white-space: pre-wrap; color: var(--ui-text-dim); font-size: var(--text-xs); }

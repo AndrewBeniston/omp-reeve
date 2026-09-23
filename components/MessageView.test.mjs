@@ -4,6 +4,7 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createJiti } from "jiti";
+import { click, mount } from "../test/dom-harness.mjs";
 
 const jiti = createJiti(import.meta.url, {
   jsx: { runtime: "automatic" },
@@ -19,6 +20,7 @@ const {
   smoothStreamingRate,
 } = await jiti.import("./MessageView.tsx");
 const { I18nProvider } = await jiti.import("../hooks/useI18n.tsx");
+const { UserMessageAttachmentRows } = await jiti.import("./chat/UserMessageAttachmentRows.tsx");
 const { buildSessionContext } = await jiti.import("../lib/session-reader.ts");
 const { buildTranscriptRows } = await jiti.import("./chat/transcript-rows.ts");
 
@@ -31,6 +33,68 @@ function renderMessage(message, props = {}) {
     ),
   );
 }
+
+test("renders saved file, folder, uploaded-file, and unavailable attachment rows", () => {
+  const html = renderMessage({
+    role: "user",
+    content: "Check these",
+    attachments: [
+      { name: "main.ts", kind: "file", available: true, openPath: "src/main.ts" },
+      { name: "docs", kind: "folder", available: true, openPath: "docs" },
+      { name: "notes.txt", kind: "file", available: true, uploaded: true, content: "saved notes" },
+      { name: "external.txt", kind: "file", available: false, uploaded: false },
+    ],
+  });
+
+  assert.match(html, /main\.ts/);
+  assert.match(html, /docs/);
+  assert.match(html, /notes\.txt/);
+  assert.match(html, /external\.txt \(unavailable\)/);
+  assert.match(html, /File/);
+  assert.match(html, /Folder/);
+  assert.match(html, /Show source/);
+  assert.doesNotMatch(html, /saved notes/);
+  assert.doesNotMatch(html, /src\/main\.ts/);
+});
+
+test("attaches saved file mentions to the following user message", () => {
+  const loaded = buildSessionContext([
+    { type: "message", id: "file-1", parentId: null, timestamp: "2026-01-01T00:00:00.000Z", message: { role: "fileMention", files: [
+      { path: "src/main.ts", content: "export {};" },
+      { path: "docs/", content: "guide.md", kind: "folder" },
+      { path: "browser-upload:up_123/notes.txt", content: "saved notes" },
+    ] } },
+    { type: "message", id: "user-1", parentId: "file-1", timestamp: "2026-01-01T00:00:01.000Z", message: { role: "user", content: "Check these" } },
+  ]);
+
+  assert.equal(loaded.messages.length, 1);
+  assert.deepEqual(loaded.messages[0].attachments, [
+    { name: "main.ts", kind: "file", available: true, uploaded: false, openPath: "src/main.ts" },
+    { name: "docs", kind: "folder", available: true, uploaded: false, openPath: "docs/" },
+    { name: "notes.txt", kind: "file", available: true, uploaded: true, content: "saved notes" },
+  ]);
+});
+
+test("opens a ready attachment and reveals saved uploaded content", async () => {
+  const opened = [];
+  const view = await mount(React.createElement(I18nProvider, null, React.createElement(UserMessageAttachmentRows, {
+    attachments: [
+      { name: "main.ts", kind: "file", available: true, uploaded: false, openPath: "src/main.ts" },
+      { name: "notes.txt", kind: "file", available: true, uploaded: true, content: "saved notes" },
+    ],
+    onOpenFile: (path) => opened.push(path),
+  })));
+  try {
+    await click(view.container.querySelector("button"));
+    assert.deepEqual(opened, ["src/main.ts"]);
+    const sourceButton = view.container.querySelectorAll("button")[1];
+    await click(sourceButton);
+    assert.match(view.container.textContent, /saved notes/);
+    assert.doesNotMatch(view.container.textContent, /src\/main\.ts/);
+  } finally {
+    await view.unmount();
+  }
+});
 
 test("renders one persisted live-delegation origin row with safe fallbacks", () => {
   const entries = [

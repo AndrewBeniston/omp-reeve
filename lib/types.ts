@@ -50,7 +50,17 @@ export type AssistantContentBlock = TextContent | ImageContent | ThinkingContent
 export interface UserMessage {
   role: "user";
   content: string | (TextContent | ImageContent)[];
+  attachments?: UserMessageAttachment[];
   timestamp?: number;
+}
+
+export interface UserMessageAttachment {
+  name: string;
+  kind: "file" | "folder";
+  available: boolean;
+  uploaded: boolean;
+  openPath?: string;
+  content?: string;
 }
 
 export interface AssistantMessage {

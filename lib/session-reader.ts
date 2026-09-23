@@ -8,7 +8,7 @@ import type { AgentMessage as OmpAgentMessage } from "@oh-my-pi/pi-agent-core";
 import { calculatePromptTokens, hasContextTokenUsage } from "@oh-my-pi/pi-agent-core/compaction";
 import { closeSync, existsSync, openSync, readSync } from "fs";
 import { normalize as normalizePath } from "path";
-import type { AgentMessage, SessionEntry, SessionHeader, SessionInfo, SessionContext } from "./types";
+import type { AgentMessage, SessionEntry, SessionHeader, SessionInfo, SessionContext, UserMessage, UserMessageAttachment } from "./types";
 import type { ContextUsage } from "./omp-types";
 import type { SessionEntry as OmpSessionEntry, SessionInfo as OmpSessionInfo } from "@oh-my-pi/pi-coding-agent";
 import { getOmpRuntime } from "./omp-runtime";
@@ -419,10 +419,20 @@ export function buildSessionContext(
   // targets stay aligned with what the transcript renders.
   const messages: AgentMessage[] = [];
   const entryIds: string[] = [];
+  let pendingAttachments: UserMessageAttachment[] = [];
   for (const entry of collectDisplayEntries(entries, byId, leafId)) {
+    if (entry.type === "message" && isFileMentionMessage(entry.message)) {
+      pendingAttachments.push(...userMessageAttachmentsFromFileMention(entry.message));
+      continue;
+    }
     const m = entryToUiMessage(entry, options);
     if (m) {
-      messages.push(m);
+      if (m.role === "user" && pendingAttachments.length > 0) {
+        messages.push({ ...m, attachments: [...(m.attachments ?? []), ...pendingAttachments] });
+        pendingAttachments = [];
+      } else {
+        messages.push(m);
+      }
       entryIds.push(entry.id);
     }
   }
@@ -434,6 +444,37 @@ export function buildSessionContext(
     model: parseDefaultModel(ompCtx.models),
     serviceTierByFamily: ompCtx.serviceTier ?? {},
   };
+}
+
+interface SavedFileMentionMessage {
+  role: "fileMention";
+  files: Array<{
+    path: string;
+    content: string;
+    kind?: "file" | "folder";
+  }>;
+}
+
+function isFileMentionMessage(message: unknown): message is SavedFileMentionMessage {
+  if (!message || typeof message !== "object") return false;
+  const candidate = message as { role?: unknown; files?: unknown };
+  return candidate.role === "fileMention" && Array.isArray(candidate.files);
+}
+
+function userMessageAttachmentsFromFileMention(message: SavedFileMentionMessage): UserMessageAttachment[] {
+  return message.files.map((file) => {
+    const uploaded = file.path.startsWith("browser-upload:");
+    const source = uploaded ? file.path.slice(file.path.indexOf("/") + 1) : file.path;
+    const name = source.split(/[/\\]/).filter(Boolean).at(-1) || source;
+    return {
+      name,
+      kind: file.kind ?? (file.path.endsWith("/") ? "folder" : "file"),
+      available: true,
+      uploaded,
+      ...(!uploaded ? { openPath: file.path } : {}),
+      ...(uploaded ? { content: file.content } : {}),
+    };
+  });
 }
 
 type HistoricalAssistantMessage = Extract<OmpAgentMessage, { role: "assistant" }>;
