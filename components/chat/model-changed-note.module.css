@@ -1,0 +1,87 @@
+.note {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  color: var(--ui-text-muted);
+}
+
+.rule {
+  height: 1px;
+  flex: 1 1 0;
+  background: var(--ui-border);
+}
+
+.content {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.tooltipTrigger {
+  position: relative;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--ui-text-muted);
+  cursor: help;
+  outline: none;
+}
+
+.tooltipTrigger:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.icon {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.8;
+}
+
+.label {
+  min-width: 0;
+  color: var(--ui-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.warningTooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  z-index: 100;
+  display: grid;
+  width: min(280px, calc(100vw - 32px));
+  gap: 4px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  background: var(--ui-surface-elevated);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--ui-backdrop) 18%, transparent);
+  color: var(--ui-text);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  text-align: center;
+  transform: translateX(-50%);
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.tooltipTrigger:hover .warningTooltip,
+.tooltipTrigger:focus-visible .warningTooltip {
+  visibility: visible;
+  opacity: 1;
+}

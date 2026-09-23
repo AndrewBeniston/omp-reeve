@@ -1,9 +1,38 @@
 export type TurnPhase = "idle" | "prework" | "final-answer";
 export type TurnTextPhase = Extract<TurnPhase, "prework" | "final-answer">;
+export type TurnStatus = "idle" | "working" | "worked" | "stopped";
+
+export const TURN_CLOCK_INTERVAL_MS = 1_000;
+
+export interface TurnClock {
+  status: TurnStatus;
+  startedAt?: number;
+  completedAt?: number;
+}
+
+export function getTurnElapsedMs(
+  turn: Pick<TurnClock, "startedAt" | "completedAt">,
+  now = Date.now(),
+): number {
+  if (turn.startedAt === undefined) return 0;
+  return Math.max(0, (turn.completedAt ?? now) - turn.startedAt);
+}
+
+export function shouldTickTurnClock(turn: Pick<TurnClock, "status" | "completedAt">): boolean {
+  return turn.status === "working" && turn.completedAt === undefined;
+}
+
+function timestampToMs(timestamp: string | number | undefined): number | undefined {
+  if (typeof timestamp === "number") return Number.isFinite(timestamp) ? timestamp : undefined;
+  if (typeof timestamp !== "string") return undefined;
+  const milliseconds = Date.parse(timestamp);
+  return Number.isFinite(milliseconds) ? milliseconds : undefined;
+}
 
 export interface TranscriptRecord<Message extends { role: string }> {
   type: string;
   id?: string;
+  timestamp?: string | number;
   message?: Message;
 }
 
@@ -15,12 +44,14 @@ export interface TurnItem<Message extends { role: string }> {
   textPhases?: (TurnTextPhase | undefined)[];
 }
 
-export interface Turn<Message extends { role: string }> {
+export interface Turn<Message extends { role: string }> extends TurnClock {
   /** The first Session entry ID, or a positional ID for a live Turn. */
   id: string;
   items: TurnItem<Message>[];
   phase: TurnPhase;
   settled: boolean;
+  /** Historical auto-review denials in this Turn. OMP does not supply this yet. */
+  deniedActionCount: number;
 }
 
 function markPrework<Message extends { role: string }>(turn: Turn<Message>): void {
@@ -85,19 +116,61 @@ export function foldTurns<Message extends { role: string; steering?: boolean; co
   let activeTurn: Turn<Message> | undefined;
   let runActive = false;
   let runHasUser = false;
+  let pendingStartAt: number | undefined;
+  let hasPendingStart = false;
   let provisional: TurnItem<Message> | undefined;
+  const startedTurns = new WeakSet<Turn<Message>>();
   const seenTypes = new WeakMap<TurnItem<Message>, string[]>();
 
   for (const record of records) {
     if (record.type === "agent_start") {
-      if (!runActive) runHasUser = false;
+      if (!runActive) {
+        runHasUser = false;
+        pendingStartAt = timestampToMs(record.timestamp);
+        hasPendingStart = true;
+      }
       runActive = true;
+      if (
+        activeTurn
+        && activeTurn.items.at(-1)?.message.role === "user"
+        && activeTurn.status !== "stopped"
+        && !startedTurns.has(activeTurn)
+      ) {
+        activeTurn.status = "working";
+        activeTurn.startedAt = timestampToMs(record.timestamp);
+        activeTurn.completedAt = undefined;
+        startedTurns.add(activeTurn);
+        runHasUser = true;
+        hasPendingStart = false;
+        pendingStartAt = undefined;
+      }
       continue;
     }
     if (record.type === "prompt_done" || record.type === "agent_settled") {
       runActive = false;
+      hasPendingStart = false;
+      pendingStartAt = undefined;
       provisional = undefined;
-      if (record.type === "prompt_done" && activeTurn) activeTurn.settled = true;
+      if (record.type === "prompt_done" && activeTurn) {
+        activeTurn.settled = true;
+        if (activeTurn.status !== "stopped") {
+          activeTurn.status = "worked";
+          activeTurn.completedAt = timestampToMs(record.timestamp) ?? activeTurn.completedAt;
+        }
+      }
+      continue;
+    }
+    if (record.type === "abort") {
+      runActive = false;
+      runHasUser = false;
+      hasPendingStart = false;
+      pendingStartAt = undefined;
+      provisional = undefined;
+      if (activeTurn) {
+        activeTurn.settled = true;
+        activeTurn.status = "stopped";
+        activeTurn.completedAt = timestampToMs(record.timestamp) ?? activeTurn.completedAt;
+      }
       continue;
     }
     if (record.type === "tool_execution_start" || record.type === "subagent_lifecycle") {
@@ -141,13 +214,22 @@ export function foldTurns<Message extends { role: string; steering?: boolean; co
         message.steering === true || (runActive && runHasUser)
       ));
       if (!interrupted) {
+        const startsLiveRun = runActive && !runHasUser && hasPendingStart;
         activeTurn = {
           id: record.type === "message" && record.id ? record.id : `live:${turns.length}`,
           items: [],
           phase: "idle",
           settled: record.type === "message",
+          deniedActionCount: 0,
+          status: startsLiveRun ? "working" : "idle",
+          startedAt: startsLiveRun ? pendingStartAt : timestampToMs(record.timestamp),
         };
         turns.push(activeTurn);
+        if (startsLiveRun) {
+          startedTurns.add(activeTurn);
+          hasPendingStart = false;
+          pendingStartAt = undefined;
+        }
       }
       if (runActive) runHasUser = true;
     }
@@ -159,7 +241,15 @@ export function foldTurns<Message extends { role: string; steering?: boolean; co
       : { message };
     activeTurn.items.push(item);
     foldAssistantContent(activeTurn, item, seenTypes);
-    if (record.type === "message") activeTurn.settled = true;
+    if (record.type === "message") {
+      activeTurn.settled = true;
+      if (activeTurn.status !== "stopped") {
+        activeTurn.completedAt = timestampToMs(record.timestamp) ?? activeTurn.completedAt;
+      }
+      if (!runActive && message.role === "assistant" && activeTurn.status !== "stopped") {
+        activeTurn.status = "worked";
+      }
+    }
     if (record.type === "message_start" || record.type === "message_update") {
       provisional = item;
     } else {

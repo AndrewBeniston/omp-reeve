@@ -4,7 +4,7 @@ import type { TranscriptRow } from "./transcript-rows";
 
 /** The latest active Turn supplies the reducer phase. Saved Turns are idle. */
 export function followPhaseFromRows(rows: readonly TranscriptRow[]): TurnPhase {
-  const lastTurn = rows.findLast((row) => row.kind !== "message");
+  const lastTurn = rows.findLast((row) => row.kind === "turn" || row.kind === "compaction");
   return lastTurn && !lastTurn.settled ? lastTurn.phase : "idle";
 }
 

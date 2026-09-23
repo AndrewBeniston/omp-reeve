@@ -9,14 +9,12 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
-- Show grouped pasted-text attachment rows on sent user messages.
-- Preserve pasted-text attachment rows on queued, steered, follow-up, and edited user messages.
-
-- Added copy-path and save-copy actions to inline audio players.
-- Queued and steered user messages now keep live file, folder, and uploaded-file attachment rows after send.
-
 ### Added
 
+- Show grouped pasted-text attachment rows on sent user messages.
+- Preserve pasted-text attachment rows on queued, steered, follow-up, and edited user messages.
+- Added copy-path and save-copy actions to inline audio players.
+- Queued and steered user messages now keep live file, folder, and uploaded-file attachment rows after send.
 - Assistant messages now show copy and branch actions in a hover and focus action row.
 - User image and video attachments now show loading, ready, and unavailable states without exposing local paths.
 - The Composer shows a preview of the latest Turn when the reader is away from it.
@@ -38,18 +36,45 @@ the What's New dialog adds a second page that invites support.
 - Long user messages show two lines with a Show more control. Empty messages show "(No content)". The copy control confirms successful copies.
 - The transcript keeps the reader's position when an existing Turn changes height.
 - The Session transcript uses one 24 px band for following and its scroll-to-bottom button.
+- Show a multi-agent action header with its aggregate state and distinct agent count.
+- Show a neutral transcript note when OMP routes a request to a fallback model.
+- Show a past-tense summary in the completed Turn Activity header.
+- Show the live Activity header for the newest unfinished action in a Turn.
+- Group sub-agent activity under its parent Turn action with a status summary.
+- Show a retry action when earlier Session messages fail to load.
+- Show classified usage-limit failures in the transcript with a timed retry action.
+- Render the classified usage-limit note at the end of its failed Turn.
+- Keep an expanded Turn divider visually still during layout changes for 350 ms.
+- Collapse consecutive identical completed tool calls into counted activity rows.
+- Show a polite loading status above the Composer while a Session loads.
+- Show related Session links above the first message for continued and forked Sessions.
+- Add live and saved Turn clock fields and locale-aware duration formatting.
 - Session history can load earlier pages and keep the cursor after a read failure.
 - Add a pure Turn folder and a recorded OMP event stream for future Session transcript rendering.
+- Classify OMP tool calls into pure transcript Activity rows, including application controls.
+- Show sub-agent activity rows under the tool call that spawned them.
 - Track the Turn phase as assistant text and activity arrive, including the settled phase for saved Sessions.
 - Render saved and live Session messages from the Turn list while keeping their current transcript rows.
 - The transcript marks persisted delegated messages with their source app.
-### Fixed
 - Pressing Enter in the in-place user message editor now sends the edited text.
 - Copying a user message twice now keeps the Copied label until the second copy finishes.
 - The active Turn spacer uses a 500 ms spring and ignores height changes of 24 px or less.
   It resets in prework follow on the final answer and places a new Turn only within 300 px.
 - The scroll-to-bottom button now fades in place and uses a 260 ms move that respects reduced motion.
 - The Session transcript follows the active Turn phase, including answers that continue after compaction.
+- Show a transcript note when the default model changes, with warnings about performance and compaction.
+- Opening an archived Session shows a restore card. A successful restore opens the Session.
+- Render the compaction transcript note in four states with shimmer, error details, and preserved card content.
+- Show the live compaction note in the transcript during manual or automatic compaction and errors.
+- Keep the transcript usable when one Turn fails to render, with a retry action for that Turn.
+- Render tool calls as classified Activity rows with separate action and detail text.
+- Show provider retry progress beside the interrupted response.
+- Keep terminal output and accessible status text in classified Activity rows.
+- Render the Session origin note at the start of related transcripts and link back to the source Session.
+- Show Turn duration dividers with live working labels and collapsible activity.
+- Show denied-action counts on Turn dividers when OMP supplies the count.
+- Document the OMP follow-up queue marker gap that prevents queued messages from
+  staying in their interrupted Turn after reload.
 
 ## [0.8.0] - 2026-09-23
 

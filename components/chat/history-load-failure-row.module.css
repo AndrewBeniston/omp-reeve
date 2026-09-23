@@ -1,0 +1,46 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) 0;
+  color: var(--ui-danger);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.row button {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  background: var(--ui-main);
+  color: var(--ui-text);
+  font: inherit;
+  font-weight: var(--ui-font-weight-medium, 500);
+  cursor: pointer;
+}
+
+.row button:hover:not(:disabled) {
+  background: var(--ui-hover);
+}
+
+.row button:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.row button:disabled {
+  cursor: wait;
+  opacity: var(--ui-disabled-opacity);
+}
+
+@media (max-width: 640px) {
+  .row {
+    align-items: stretch;
+    flex-direction: column;
+    text-align: center;
+  }
+}

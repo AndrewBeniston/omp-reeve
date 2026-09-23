@@ -360,6 +360,7 @@ export function AppShell() {
   // Session stats preserve auto-name behavior after compaction.
   const [sessionStats, setSessionStats] = useState<SessionStatsInfo | null>(null);
   const [subagents, setSubagents] = useState<SubagentSnapshot[]>([]);
+  const [selectedSubagentId, setSelectedSubagentId] = useState<string | null>(null);
   const [summarySources, setSummarySources] = useState<SummarySource[]>([]);
   const [autoNameStatus, setAutoNameStatus] = useState<AutoNameStatus>({ kind: "idle" });
   const autoNameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2260,7 +2261,14 @@ export function AppShell() {
               onAgentEnd={handleAgentEnd}
               onAttentionNeeded={handleAttentionNeeded}
               onSessionCreated={handleSessionCreated}
+              onSessionRestored={() => {
+                if (!selectedSession) return;
+                const restoredSession = { ...selectedSession, archived: false };
+                setRefreshKey((key) => key + 1);
+                handleSelectSession(restoredSession, true);
+              }}
               onSessionForked={handleSessionForked}
+              onOpenSession={(sessionId) => { void selectSessionById(sessionId); }}
               onSessionNameChanged={handleSessionNameChanged}
               onAgentControlRequest={handleAgentControlRequest}
               modelsRefreshKey={modelsRefreshKey}
@@ -2273,6 +2281,7 @@ export function AppShell() {
               onSessionStatsChange={handleSessionStatsChange}
               onSummarySourcesChange={setSummarySources}
               onSubagentsChange={setSubagents}
+              onOpenSubagent={setSelectedSubagentId}
               onOpenFile={handleOpenLinkedFile}
               soundEnabled={soundEnabled}
               playDoneSound={playDoneSound}
@@ -2337,6 +2346,8 @@ export function AppShell() {
             sessionId={selectedSession?.id ?? null}
             cwd={selectedSession?.cwd ?? effectiveNewSessionCwd ?? undefined}
             subagents={subagents}
+            selectedId={selectedSubagentId}
+            onSelectedIdChange={setSelectedSubagentId}
           />
         ) : undefined}
         rightPanel={{

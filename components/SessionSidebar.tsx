@@ -725,23 +725,42 @@ export function SessionSidebar({ selectedSessionId, optimisticSession, onSelectS
   // Restore a session only when the URL names it. A plain launch keeps the
   // home composer visible instead of selecting the newest project.
   useEffect(() => {
-    if (allSessions.length === 0 || skipInitialProjectSelection) return;
+    if (loading || skipInitialProjectSelection || selectedCwd !== null || !initialSessionId || restoredRef.current) return;
+    restoredRef.current = true;
 
-    if (selectedCwd === null) {
-      // If restoring a session, set cwd to match that session
-      if (initialSessionId && !restoredRef.current) {
-        restoredRef.current = true;
-        const target = allSessions.find((s) => s.id === initialSessionId);
-        if (target) {
-          setSelectedCwd(target.cwd);
-          onSelectSession(target, true);
+    const target = allSessions.find((session) => session.id === initialSessionId);
+    if (target) {
+      setSelectedCwd(target.cwd);
+      onSelectSession(target, true);
+      return;
+    }
+
+    let cancelled = false;
+    const restoreArchivedTarget = async () => {
+      try {
+        const response = await fetch("/api/sessions?archived=1", { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const result = await response.json() as { sessions?: SessionInfo[] };
+        const archivedTarget = result.sessions?.find((session) => session.id === initialSessionId);
+        if (cancelled) return;
+        if (archivedTarget) {
+          const archivedSelection = { ...archivedTarget, archived: true };
+          setSelectedCwd(archivedTarget.cwd);
+          onSelectSession(archivedSelection, true);
           return;
         }
-        // Session not found — notify parent so it can show the placeholder
-        onInitialRestoreDone?.();
+      } catch {
+        // A missing or unreadable archive entry uses the existing placeholder.
       }
-    }
-  }, [allSessions, selectedCwd, initialSessionId, skipInitialProjectSelection, onSelectSession, onInitialRestoreDone]);
+      if (!cancelled) onInitialRestoreDone?.();
+    };
+
+    void restoreArchivedTarget();
+    return () => {
+      cancelled = true;
+      restoredRef.current = false;
+    };
+  }, [allSessions, loading, selectedCwd, initialSessionId, skipInitialProjectSelection, onSelectSession, onInitialRestoreDone]);
 
   const commitCustomPath = useCallback(async (candidate: string) => {
     const path = candidate.trim();

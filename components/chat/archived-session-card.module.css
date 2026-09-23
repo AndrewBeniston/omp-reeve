@@ -1,0 +1,60 @@
+.frame {
+  display: grid;
+  min-height: 100%;
+  place-items: center;
+  padding: var(--space-6) 0;
+}
+
+.card {
+  display: flex;
+  width: min(100%, 440px);
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-composer-squircle);
+  padding: var(--space-6);
+  background: var(--ui-surface);
+  font-family: var(--font-sans);
+  text-align: center;
+}
+
+.icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--ui-text-muted);
+}
+
+.title {
+  margin: var(--space-4) 0 0;
+  color: var(--ui-text);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--leading-lg);
+}
+
+.description {
+  margin: var(--space-2) 0 0;
+  color: var(--ui-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.action {
+  margin-top: var(--space-5);
+}
+
+.status {
+  min-height: var(--leading-sm);
+  margin: var(--space-3) 0 0;
+  color: var(--ui-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.status[role="alert"] {
+  color: var(--ui-danger);
+}

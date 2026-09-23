@@ -12,7 +12,10 @@ import { ForkDialog } from "./chat/ForkDialog";
 import { MessageOriginRow } from "./chat/MessageOriginRow";
 import { ThinkingDisclosure } from "./chat/ThinkingDisclosure";
 import { BashExecutionActivity } from "./chat/BashExecutionActivity";
-import { ToolActivity } from "./chat/ToolActivity";
+import { ActivityRow } from "./chat/ActivityRow";
+import { activityCallGroups } from "./chat/transcript-rows";
+import type { ActivityCall } from "@/lib/transcript/repeat-collapsing";
+import { CompactionNote } from "./chat/CompactionNote";
 import { CollaborationCard, isCollaborationSnapshot } from "./chat/CollaborationCard";
 import { AssistantResponseAnnouncer } from "./chat/AssistantResponseAnnouncer";
 import { AssistantMessageActions } from "./chat/AssistantMessageActions";
@@ -31,6 +34,7 @@ import type {
   TextContent,
   ImageContent,
   ToolCallContent,
+  SubagentSnapshot,
 } from "@/lib/types";
 
 // CJK chars ~1 token each (GLM/DeepSeek/GPT-o200k); other chars ~4 chars/token.
@@ -303,6 +307,8 @@ interface Props {
    * final answer text-only.
    */
   writtenFiles?: WrittenFile[];
+  subagents?: SubagentSnapshot[];
+  onOpenSubagent?: (id: string) => void;
 }
 
 function formatTime(ts?: number): string | null {
@@ -332,12 +338,12 @@ function haveSameRelevantToolResults(
   return true;
 }
 
-export const MessageView = memo(function MessageView({ message, isStreaming, toolResults, modelNames, cwd, onOpenFile, entryId, onFork, forking, onNavigate, prevAssistantEntryId, onEditSubmit, onEditFailure, showTimestamp, prevTimestamp, sessionId, writtenFiles }: Props) {
+export const MessageView = memo(function MessageView({ message, isStreaming, toolResults, modelNames, cwd, onOpenFile, entryId, onFork, forking, onNavigate, prevAssistantEntryId, onEditSubmit, onEditFailure, showTimestamp, prevTimestamp, sessionId, writtenFiles, subagents, onOpenSubagent }: Props) {
   if (message.role === "user") {
     return <UserMessageView message={message as UserMessage} cwd={cwd} onOpenFile={onOpenFile} entryId={entryId} onFork={onFork} forking={forking} onNavigate={onNavigate} prevAssistantEntryId={prevAssistantEntryId} onEditSubmit={onEditSubmit} onEditFailure={onEditFailure} />;
   }
   if (message.role === "assistant") {
-    return <AssistantMessageView message={message as AssistantMessage} isStreaming={isStreaming} toolResults={toolResults} modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} showTimestamp={showTimestamp} prevTimestamp={prevTimestamp} sessionId={sessionId} entryId={entryId} writtenFiles={writtenFiles} onFork={onFork} forking={forking} />;
+    return <AssistantMessageView message={message as AssistantMessage} isStreaming={isStreaming} toolResults={toolResults} modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} showTimestamp={showTimestamp} prevTimestamp={prevTimestamp} sessionId={sessionId} entryId={entryId} writtenFiles={writtenFiles} onFork={onFork} forking={forking} subagents={subagents} onOpenSubagent={onOpenSubagent} />;
   }
   if (message.role === "toolResult") {
     // Rendered inline under its toolCall — skip standalone rendering if paired
@@ -369,7 +375,9 @@ export const MessageView = memo(function MessageView({ message, isStreaming, too
     && prev.onEditFailure === next.onEditFailure
     && prev.showTimestamp === next.showTimestamp
     && prev.prevTimestamp === next.prevTimestamp
-    && prev.sessionId === next.sessionId;
+    && prev.sessionId === next.sessionId
+    && prev.subagents === next.subagents
+    && prev.onOpenSubagent === next.onOpenSubagent;
 });
 
 function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, onNavigate, prevAssistantEntryId, onEditSubmit, onEditFailure }: {
@@ -448,6 +456,8 @@ function AssistantMessageView({
   writtenFiles,
   onFork,
   forking,
+  subagents,
+  onOpenSubagent,
 }: {
   message: AssistantMessage;
   isStreaming?: boolean;
@@ -462,6 +472,8 @@ function AssistantMessageView({
   writtenFiles?: WrittenFile[];
   onFork?: (entryId: string, options?: { cwd?: string }) => Promise<{ forked: boolean; error?: string } | void> | void;
   forking?: boolean;
+  subagents?: SubagentSnapshot[];
+  onOpenSubagent?: (id: string) => void;
 }) {
   const { t } = useI18n();
   const time = showTimestamp ? formatTime(message.timestamp) : null;
@@ -469,6 +481,30 @@ function AssistantMessageView({
     .map((block, originalIndex) => ({ block, originalIndex }))
     .filter(({ block }) => !isEmptyThinkingBlock(block, { isStreaming })), [message.content, isStreaming]);
   const blocks = useMemo(() => blockItems.map(({ block }) => block), [blockItems]);
+  const renderItems = useMemo(() => {
+    const items: (typeof blockItems[number] & { groupedCalls?: ActivityCall[] })[] = [];
+    for (let index = 0; index < blockItems.length;) {
+      const item = blockItems[index];
+      if (item.block.type !== "toolCall") {
+        items.push(item);
+        index += 1;
+        continue;
+      }
+      const run: ActivityCall[] = [];
+      const runItems = new Map<string, (typeof blockItems)[number]>();
+      while (index < blockItems.length && blockItems[index].block.type === "toolCall") {
+        const callBlock = blockItems[index].block as ToolCallContent;
+        run.push({ block: callBlock, result: toolResults?.get(callBlock.toolCallId) });
+        runItems.set(callBlock.toolCallId, blockItems[index]);
+        index += 1;
+      }
+      for (const group of activityCallGroups(run)) {
+        const firstItem = runItems.get(group.calls[0].block.toolCallId);
+        if (firstItem) items.push({ ...firstItem, block: group.calls[0].block, groupedCalls: group.repeated ? group.calls : undefined });
+      }
+    }
+    return items;
+  }, [blockItems, toolResults]);
   const thinkingBlocksWithLaterContent = useMemo(() => {
     const indices = new Set<number>();
     let hasLaterContent = false;
@@ -643,8 +679,8 @@ function AssistantMessageView({
           plainText={textContent}
           cwd={cwd}
         />
-        {blockItems.map(({ block, originalIndex }) => (
-          <BlockView key={`${entryId ?? "stream"}-${originalIndex}`} block={block} toolResults={toolResults} isStreaming={isStreaming} hasLaterContent={thinkingBlocksWithLaterContent.has(originalIndex)} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
+        {renderItems.map(({ block, originalIndex, groupedCalls }) => (
+          <BlockView key={`${entryId ?? "stream"}-${originalIndex}`} block={block} groupedCalls={groupedCalls} toolResults={toolResults} isStreaming={isStreaming} hasLaterContent={thinkingBlocksWithLaterContent.has(originalIndex)} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} subagents={subagents} onOpenSubagent={onOpenSubagent} />
         ))}
     </MessageTurn>
   );
@@ -653,7 +689,7 @@ function AssistantMessageView({
   return <AssistantMessageActions text={textContent} entryId={entryId} cwd={cwd} onFork={onFork} forking={forking}>{turn}</AssistantMessageActions>;
 }
 
-function BlockView({ block, toolResults, isStreaming, hasLaterContent, streamingDuration, toolCallDurations, cwd, onOpenFile, sessionId, entryId, blockIndex }: { block: AssistantContentBlock; toolResults?: Map<string, ToolResultMessage>; isStreaming?: boolean; hasLaterContent?: boolean; streamingDuration?: number; toolCallDurations?: Map<string, number>; cwd?: string; onOpenFile?: (filePath: string) => void; sessionId?: string; entryId?: string; blockIndex: number }) {
+function BlockView({ block, groupedCalls, toolResults, isStreaming, hasLaterContent, streamingDuration, toolCallDurations, cwd, onOpenFile, sessionId, entryId, blockIndex, subagents, onOpenSubagent }: { block: AssistantContentBlock; groupedCalls?: ActivityCall[]; toolResults?: Map<string, ToolResultMessage>; isStreaming?: boolean; hasLaterContent?: boolean; streamingDuration?: number; toolCallDurations?: Map<string, number>; cwd?: string; onOpenFile?: (filePath: string) => void; sessionId?: string; entryId?: string; blockIndex: number; subagents?: SubagentSnapshot[]; onOpenSubagent?: (id: string) => void }) {
   if (block.type === "text") {
     return <TextBlock block={block as TextContent} isStreaming={isStreaming} cwd={cwd} onOpenFile={onOpenFile} />;
   }
@@ -663,8 +699,7 @@ function BlockView({ block, toolResults, isStreaming, hasLaterContent, streaming
   if (block.type === "toolCall") {
     const tc = block as ToolCallContent;
     const result = toolResults?.get(tc.toolCallId);
-    const duration = toolCallDurations?.get(tc.toolCallId);
-    return <ToolActivity block={tc} result={result} duration={duration} />;
+    return <ActivityRow block={tc} result={result} groupedCalls={groupedCalls} subagents={subagents} onOpenSubagent={onOpenSubagent} />;
   }
   return null;
 }
@@ -678,6 +713,7 @@ function CompactionMessageView({ message }: { message: CustomMessage }) {
   const summary = getMessageText(message.content);
   const parsedSummary = useMemo(() => parseCompactionSummary(summary), [summary]);
   const time = formatTime(message.timestamp);
+  const source = (message.details as { source?: string } | undefined)?.source ?? "automatic";
 
   return (
     <MessageTurn
@@ -685,6 +721,10 @@ function CompactionMessageView({ message }: { message: CustomMessage }) {
       timestamp={time}
       header={<span className={styles.messageCardType}>compaction</span>}
     >
+      <CompactionNote
+        completed={true}
+        source={source}
+      >
       <div className={styles.compactionBody}>
         <div className={styles.compactionTitle}>{t("i18n.conversationCompacted")}</div>
         <div className={styles.compactionDescription}>{t("i18n.compactionDescription")}</div>
@@ -695,6 +735,7 @@ function CompactionMessageView({ message }: { message: CustomMessage }) {
         )}
         <CompactionFileMetadata readFiles={parsedSummary.readFiles} modifiedFiles={parsedSummary.modifiedFiles} />
       </div>
+      </CompactionNote>
     </MessageTurn>
   );
 }

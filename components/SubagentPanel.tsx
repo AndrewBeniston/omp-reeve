@@ -28,14 +28,20 @@ export function SubagentPanel({
   sessionId,
   cwd,
   subagents,
+  selectedId: controlledSelectedId,
+  onSelectedIdChange,
 }: {
   sessionId: string | null;
   cwd?: string;
   subagents: SubagentSnapshot[];
+  selectedId?: string | null;
+  onSelectedIdChange?: (id: string | null) => void;
 }) {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [localSelectedId, setLocalSelectedId] = useState<string | null>(null);
+  const selectedId = controlledSelectedId === undefined ? localSelectedId : controlledSelectedId;
+  const setSelectedId = onSelectedIdChange ?? setLocalSelectedId;
   const running = subagents.filter(isSubagentActive);
   const finished = subagents.filter((subagent) => !isSubagentActive(subagent));
   const selected = selectedId ? subagents.find((subagent) => subagent.id === selectedId) ?? null : null;

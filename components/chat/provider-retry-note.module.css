@@ -1,0 +1,57 @@
+.note {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  color: var(--ui-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.icon {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  animation: providerRetrySpin 1.4s linear infinite;
+}
+
+.counter {
+  display: inline-flex;
+  font-variant-numeric: tabular-nums;
+}
+
+.attempt {
+  display: inline-block;
+  animation: providerRetryRoll 240ms ease-out;
+}
+
+.detail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ui-text-subtle);
+  font-size: var(--text-xs);
+}
+
+@keyframes providerRetrySpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes providerRetryRoll {
+  from {
+    opacity: 0.35;
+    transform: translateY(-45%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon,
+  .attempt {
+    animation: none;
+  }
+}

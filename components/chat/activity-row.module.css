@@ -1,0 +1,55 @@
+.row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-height: 30px;
+  color: var(--ui-text-muted);
+  font-size: var(--text-sm);
+}
+
+.icon {
+  display: inline-flex;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-text-dim);
+}
+
+.icon svg { width: 14px; height: 14px; }
+.row[data-activity-state="interrupted"] .icon { color: var(--ui-danger); }
+
+.action {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.detail {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-text-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repeatsButton {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ui-text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.repeatsButton .detail { flex: 0 0 auto; }
+[data-activity-repeats-group] [data-activity-instance] { padding-left: var(--space-4); }

@@ -16,9 +16,11 @@ import type {
 } from "@/lib/types";
 import { countToolCallBlocks, getAssistantErrorMessage, getDisplayableAssistantBlocks, splitFinalAssistantBlocks } from "@/lib/message-display";
 import { extractTurnWrittenFiles, type WrittenFile } from "@/lib/turn-written-files";
-import type { TurnPhase } from "@/lib/transcript/turn-folder";
+import type { TurnClock, TurnPhase } from "@/lib/transcript/turn-folder";
 import { collectSessionSummarySources, type SummarySource } from "@/lib/session-summary";
 import { MessageView } from "./MessageView";
+import { ModelChangedNote } from "./chat/ModelChangedNote";
+import { FallbackRoutingNote } from "./chat/FallbackRoutingNote";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
 import { ExtensionStatusBar } from "./ExtensionStatusBar";
 import { useI18n } from "@/hooks/useI18n";
@@ -37,7 +39,14 @@ import { NewMessagesControl } from "./chat/NewMessagesControl";
 import { LatestTurnPreview } from "./chat/LatestTurnPreview";
 import { ComposerTurnStatus } from "./chat/ComposerTurnStatus";
 import { ActiveTurnResponseSpacer } from "./chat/ActiveTurnResponseSpacer";
-import { buildTranscriptRows, finalAnswerPosition, presentationAssistantPosition, type TranscriptMessageRow } from "./chat/transcript-rows";
+import { SessionLoadingState } from "./chat/SessionLoadingState";
+import { TurnErrorBoundary } from "./chat/TurnErrorBoundary";
+import { HistoryLoadFailureRow } from "./chat/HistoryLoadFailureRow";
+import { buildTranscriptRows, dividerPresentation, finalAnswerPosition, presentationAssistantPosition, CompactionNote, ProviderRetryNote, SessionOriginNote, UsageLimitNote, type TranscriptMessageRow } from "./chat/transcript-rows";
+import { Divider } from "./chat/Divider";
+import { ActivityHeader } from "./chat/ActivityRow";
+import type { ActivityCall } from "@/lib/transcript/repeat-collapsing";
+import { ArchivedSessionCard } from "./chat/ArchivedSessionCard";
 import {
   TranscriptNavigationRail,
   buildTranscriptNavigationItems,
@@ -85,7 +94,9 @@ interface Props {
   onAgentEnd?: () => void;
   onAttentionNeeded?: (request: BlockingExtensionUiRequest) => void;
   onSessionCreated?: (session: SessionInfo) => void;
+  onSessionRestored?: () => void;
   onSessionForked?: (newSessionId: string) => void;
+  onOpenSession?: (sessionId: string) => void;
   onSessionNameChanged?: (sessionId: string, name: string) => void;
   /** Answer an agent control request for this Session. See AppShell. */
   onAgentControlRequest?: (request: AgentControlRequestEvent) => AgentControlReply | null;
@@ -97,6 +108,7 @@ interface Props {
   onSummarySourcesChange?: (sources: SummarySource[]) => void;
   onOpenFile?: (filePath: string) => void;
   onSubagentsChange?: (subagents: SubagentSnapshot[]) => void;
+  onOpenSubagent?: (id: string) => void;
   /** Completion sound state + controls, owned by AppShell so tasks finishing in
    *  a non-active workspace can still ring. */
   soundEnabled?: boolean;
@@ -118,6 +130,7 @@ interface Props {
   onListReviewBranches?: () => Promise<{ branches: string[] } | { error: string }>;
   /** Whether the review command is enabled, and why not when it is disabled. */
   reviewGate?: { enabled: boolean; reason?: string };
+  historyLoadFailure?: { retry: () => void; retrying?: boolean };
 }
 
 function phaseLabel(phase: AgentPhase, t: (key: string, params?: Record<string, string | number>) => string): string | null {
@@ -217,7 +230,7 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = fa
   );
 }
 
-export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFooterPosition = true, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onRequestReview, onListReviewBranches, reviewGate }: Props) {
+export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFooterPosition = true, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onOpenSession = () => {}, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenSubagent, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onRequestReview, onListReviewBranches, reviewGate, historyLoadFailure }: Props) {
   const { t } = useI18n();
 
   // Wrap onAgentEnd to play the completion sound. This is more reliable than
@@ -237,10 +250,10 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
   }, [onAgentEnd]);
 
   const {
-    loading, error, activeLeafId, messages, entryIds, streamState,
+    data: sessionData, loading, error, activeLeafId, messages, entryIds, streamState,
     agentRunning, bashRunning, pendingBash, modelNames, modelList, modelError, modelScopeWarnings, modelThinkingLevels, modelThinkingLevelMaps, modelRoles, toolPreset, approvalMode, approvalModeChanging, approvalModeError, thinkingLevel, fastModeEnabled, fastModeAvailable,
     retryInfo, contextUsage, forkingEntryId,
-    isCompacting, compactError, compactResult, displayModel: displayModelValue, modelSwitching, sessionStats,
+    isCompacting, compactError, compactResult, compactSource, displayModel: displayModelValue, modelSwitching, sessionStats,
     slashCommands, slashCommandsLoading, queuedMessages, subagents,
     notices, extensionDialog, extensionCustomUi, extensionStatuses, extensionWidgets, respondToExtensionUi, sendExtensionCustomInput,
     approvalNudgeOpen, approvalDialogId, handleApprovalNudgeAccept, handleApprovalNudgeDismiss,
@@ -265,6 +278,9 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const footerRef = useRef<HTMLDivElement | null>(null);
   const sessionBusy = agentRunning || bashRunning;
+  const handleEditContent = useCallback((message: UserMessage) => {
+    chatInputRef?.current?.replaceMessage(message);
+  }, [chatInputRef]);
   const handleEditSubmit = useCallback(async (message: UserMessage, text: string, previousEntryId: string) => {
     await handleNavigate(previousEntryId);
     const images = typeof message.content === "string" ? undefined : message.content.flatMap((block) => {
@@ -396,9 +412,36 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     return map;
   }, [messages]);
   const activeStreamingMessage = streamState.streamingMessage as AgentMessage | null;
+  const archivedSessionId = session && "archived" in session && session.archived === true ? session.id : undefined;
+  const sessionOrigin = session?.parentSessionId
+    ? { kind: "continued" as const, relatedSessionId: session.parentSessionId }
+    : undefined;
   const transcriptRows = useMemo(
-    () => buildTranscriptRows(messages, entryIds, activeStreamingMessage, agentRunning),
-    [messages, entryIds, activeStreamingMessage, agentRunning],
+    () => archivedSessionId
+      ? [{ kind: "archived" as const, sessionId: archivedSessionId }]
+      : buildTranscriptRows(
+          messages,
+          entryIds,
+          activeStreamingMessage,
+          agentRunning,
+          sessionData?.context.modelChanges ?? [],
+          isCompacting || compactError ? { isCompacting, source: compactSource, error: compactError } : null,
+          sessionOrigin,
+          sessionData?.context.fallbackRoutes ?? [],
+        ),
+    [
+      messages,
+      entryIds,
+      activeStreamingMessage,
+      agentRunning,
+      sessionData?.context.modelChanges,
+      archivedSessionId,
+      isCompacting,
+      compactSource,
+      compactError,
+      sessionOrigin?.relatedSessionId,
+      sessionData?.context.fallbackRoutes,
+    ],
   );
   const activeTurnBlocks = useMemo(() => {
     let turnStart = -1;
@@ -561,14 +604,6 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
   const aboveEditorWidgets = extensionWidgets.filter((widget) => widget.placement !== "belowEditor");
   const belowEditorWidgets = extensionWidgets.filter((widget) => widget.placement === "belowEditor");
 
-  if (loading) {
-    return (
-      <div className={styles.centeredState}>
-        {t("chat.loadingSession")}
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className={styles.centeredState} data-tone="error">
@@ -677,7 +712,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                 const idx = item.index;
                 const msg = options.messageOverride ?? item.message;
                 if (item.streaming) {
-                  return <MessageView key={`streaming-view-${idx}`} message={msg} isStreaming modelNames={modelNames} cwd={messageCwd} onOpenFile={onOpenFile} />;
+                  return <MessageView key={`streaming-view-${idx}`} message={msg} isStreaming modelNames={modelNames} cwd={messageCwd} onOpenFile={onOpenFile} subagents={subagents} onOpenSubagent={onOpenSubagent} />;
                 }
                 const prevAssistantEntryId =
                   msg.role === "user" && idx > 0 && messages[idx - 1].role === "assistant"
@@ -717,12 +752,14 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                     prevTimestamp={idx > 0 ? (messages[idx - 1] as AgentMessage & { timestamp?: number }).timestamp : undefined}
                     sessionId={session?.id ?? sessionIdRef.current ?? undefined}
                     writtenFiles={options.writtenFiles}
+                    subagents={subagents}
+                    onOpenSubagent={onOpenSubagent}
                   />
                 );
               };
 
               const rendered: ReactNode[] = [];
-              const renderSection = (items: TranscriptMessageRow[], key: string, live: boolean, phase: TurnPhase) => {
+              const renderSection = (items: TranscriptMessageRow[], key: string, live: boolean, phase: TurnPhase, clock: TurnClock, turnNumber?: number, totalTurnCount?: number, deniedActionCount = 0) => {
                 const assistantPosition = presentationAssistantPosition(items);
                 if (assistantPosition === -1 || live) {
                   for (const item of items) rendered.push(renderMessage(item));
@@ -750,22 +787,31 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                   : null;
 
                 const processCount = visibleProcessItems.length + (finalProcessMessage ? 1 : 0);
-                if (processCount > 0) {
-                  const processGroup = (
+                const divider = dividerPresentation(items, clock, deniedActionCount);
+                if (processCount > 0 && divider) {
+                  const activityCalls: ActivityCall[] = [];
+                  for (const item of items.slice(1, assistantPosition + 1)) {
+                    if (item.message.role !== "assistant") continue;
+                    for (const block of (item.message as AssistantMessage).content ?? []) {
+                      if (block.type === "toolCall") {
+                        activityCalls.push({ block, result: toolResultsMap.get(block.toolCallId) });
+                      }
+                    }
+                  }
+                  rendered.push(
                     <ProcessDetailsGroup
+                      key={`process-group-${key}`}
                       messageCount={processCount}
+                      toolCallCount={activityCalls.length}
                       defaultExpanded={!finalAnswerMessage}
                       t={t}
-                      toolCallCount={countToolCalls(visibleProcessItems) + countToolCallBlocks(processBlocks)}
                     >
-                      {visibleProcessItems.map((item) => renderMessage(item, { keyPrefix: "process" }))}
-                      {finalProcessMessage && renderMessage(finalItem, { keyPrefix: "process-final", messageOverride: finalProcessMessage, showTimestamp: false })}
-                    </ProcessDetailsGroup>
-                  );
-                  rendered.push(
-                    <div key={`process-group-${key}`} data-transcript-resizable-item>
-                      {processGroup}
-                    </div>,
+                      <Divider turnId={key} turnNumber={turnNumber} totalTurnCount={totalTurnCount} {...divider}>
+                        <ActivityHeader input={{ calls: activityCalls, closed: true, inProgress: false, latestVisible: true, exploring: false }} />
+                        {visibleProcessItems.map((item) => renderMessage(item, { keyPrefix: "process" }))}
+                        {finalProcessMessage && renderMessage(finalItem, { keyPrefix: "process-final", messageOverride: finalProcessMessage, showTimestamp: false })}
+                      </Divider>
+                    </ProcessDetailsGroup>,
                   );
                 }
 
@@ -789,24 +835,113 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                 }
               };
 
+              const lastContentRowIndex = transcriptRows.reduce(
+                (lastIndex, row, index) =>
+                  row.kind === "model-change" || (row.kind === "compaction" && row.items.length === 0)
+                    ? lastIndex
+                    : index,
+                -1,
+              );
+              const totalTurnCount = transcriptRows.filter((row) => row.kind === "turn").length;
+              let turnNumber = 0;
               transcriptRows.forEach((row, rowIndex) => {
+                if (row.kind === "archived") {
+                  rendered.push(
+                    <ArchivedSessionCard
+                      key={`archived-${row.sessionId}`}
+                      sessionId={row.sessionId}
+                      onRestored={onSessionRestored}
+                    />,
+                  );
+                  return;
+                }
                 if (row.kind === "message") {
                   rendered.push(renderMessage(row.item));
                   return;
                 }
-                const live = (sessionBusy || streamState.isStreaming) && rowIndex === transcriptRows.length - 1;
+                if (row.kind === "session-origin") {
+                  rendered.push(
+                    <SessionOriginNote
+                      key={`session-origin-${row.relatedSessionId}`}
+                      kind={row.kindOfOrigin}
+                      relatedSessionId={row.relatedSessionId}
+                      onOpenSession={onOpenSession}
+                    />,
+                  );
+                  return;
+                }
+                if (row.kind === "model-change") {
+                  rendered.push(
+                    <ModelChangedNote
+                      key={`model-change-${row.id}`}
+                      fromModel={row.note.fromModel}
+                      toModel={row.note.toModel}
+                    />,
+                  );
+                  return;
+                }
+                if (row.kind === "fallback-route") {
+                  rendered.push(
+                    <FallbackRoutingNote key={`fallback-route-${row.id}`} toModel={row.note.toModel} />,
+                  );
+                  return;
+                }
+                if (row.kind === "compaction" && row.items.length === 0) {
+                  rendered.push(
+                    <CompactionNote
+                      key={`compaction-${row.id}`}
+                      completed={row.completed ?? false}
+                      source={row.source ?? "automatic"}
+                      error={row.error}
+                    />,
+                  );
+                  return;
+                }
+                const turnRenderStart = row.kind === "turn" ? rendered.length : -1;
+                const live = (sessionBusy || streamState.isStreaming) && rowIndex === lastContentRowIndex;
+                const clock = row.kind === "turn" ? row.clock : { status: "worked" as const };
+                if (row.kind === "turn") turnNumber += 1;
                 // A steered user message or compaction remains visible inside
                 // its Turn, even when the surrounding process is collapsed.
                 let start = 0;
                 for (let index = 1; index <= row.items.length; index += 1) {
                   if (index < row.items.length && !isGroupAnchor(row.items[index].message)) continue;
-                  renderSection(row.items.slice(start, index), `${row.id}-${start}`, live && index === row.items.length, row.phase);
+                  renderSection(row.items.slice(start, index), `${row.id}-${start}`, live && index === row.items.length, row.phase, clock, row.kind === "turn" ? turnNumber : undefined, totalTurnCount, row.kind === "turn" ? row.deniedActionCount : 0);
                   start = index;
+                }
+                if (turnRenderStart !== -1) {
+                  if (row.kind !== "turn") return;
+                  const turnContent = rendered.splice(turnRenderStart);
+                  const retryUserMessage = row.retryUserMessage;
+                  if (row.usageLimitMessage && retryUserMessage) {
+                    turnContent.push(
+                      <UsageLimitNote
+                        key={`usage-limit-${row.id}`}
+                        message={row.usageLimitMessage}
+                        onRetry={() => handleEditContent(retryUserMessage)}
+                      />,
+                    );
+                  }
+                  rendered.push(
+                    <TurnErrorBoundary
+                      key={`turn-boundary-${row.id}`}
+                      title={t("transcript.turnRenderError.title")}
+                      retryLabel={t("transcript.turnRenderError.retry")}
+                    >
+                      {turnContent}
+                    </TurnErrorBoundary>,
+                  );
                 }
               });
               const { startIndex, hasMore } = getVisibleRenderWindow(rendered.length, visibleCount);
               return (
                 <>
+                  {historyLoadFailure ? (
+                    <HistoryLoadFailureRow
+                      onRetry={historyLoadFailure.retry}
+                      retrying={historyLoadFailure.retrying}
+                    />
+                  ) : null}
                   {hasMore && (
                     <div ref={sentinelRef} className={styles.loadEarlier}>
                       {transcriptHistory.failure
@@ -822,6 +957,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                     </div>
                   )}
                   {rendered.slice(startIndex)}
+                  {retryInfo ? <ProviderRetryNote {...retryInfo} /> : null}
                 </>
               );
             })()}
@@ -869,7 +1005,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
         />
       </div>
 
-      <div ref={footerRef} className={styles.composerDock}>
+      <div className={styles.composerDock}><div ref={footerRef}>
         <LatestTurnPreview
           turn={latestTurn}
           visible={transcriptFollow.button.visible}
@@ -902,8 +1038,10 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
             toolResults={toolResultsMap}
           />
         )}
+        <SessionLoadingState active={loading} />
         {chatInputElement}
         <ExtensionStatusBar statuses={extensionStatuses} />
+        </div>
       </div>
       </>
       )}
