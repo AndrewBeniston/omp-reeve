@@ -204,7 +204,7 @@ test("renders only the consolidated desktop toolbar controls", () => {
   assert.doesNotMatch(html, /menuitemradio/);
 });
 
-test("renders the desktop footer groups in Codex order with Dictate hidden", () => {
+test("renders the desktop footer groups in Codex order without unavailable Dictate", () => {
   const common = {
     model: { provider: "openai", modelId: "gpt-5.4" },
     modelList: [{ provider: "openai", id: "gpt-5.4", name: "GPT-5.4" }],
@@ -227,30 +227,24 @@ test("renders the desktop footer groups in Codex order with Dictate hidden", () 
     'aria-label="Restricted mode"',
     'aria-label="Context donut: 10%"',
     'aria-label="Model settings"',
-    'aria-label="Dictate"',
     'aria-label="Send"',
   ];
   for (let index = 1; index < expectedOrder.length; index += 1) {
     assert.ok(untrustedHtml.indexOf(expectedOrder[index - 1]) < untrustedHtml.indexOf(expectedOrder[index]));
   }
 
-  const dictate = buttonFor(untrustedHtml, "Dictate");
-  assert.match(dictate, /hidden=""/);
-  assert.equal(
-    expectedOrder.filter((attribute) => !openingTagFor(untrustedHtml, attribute).includes('hidden=""')).length,
-    5,
-  );
+  assert.doesNotMatch(untrustedHtml, /aria-label="Dictate"/);
 
   assert.doesNotMatch(trustedHtml, /aria-label="Restricted mode"/);
   assert.match(trustedHtml, /aria-label="Full access"/);
   assert.ok(trustedHtml.indexOf('aria-label="Add"') < trustedHtml.indexOf('aria-label="Full access"'));
   assert.ok(trustedHtml.indexOf('aria-label="Full access"') < trustedHtml.indexOf('aria-label="Context donut: 10%"'));
   assert.ok(trustedHtml.indexOf('aria-label="Context donut: 10%"') < trustedHtml.indexOf('aria-label="Model settings"'));
-  assert.ok(trustedHtml.indexOf('aria-label="Model settings"') < trustedHtml.indexOf('aria-label="Dictate"'));
-  assert.ok(trustedHtml.indexOf('aria-label="Dictate"') < trustedHtml.indexOf('aria-label="Send"'));
+  assert.ok(trustedHtml.indexOf('aria-label="Model settings"') < trustedHtml.indexOf('aria-label="Send"'));
+  assert.doesNotMatch(trustedHtml, /aria-label="Dictate"/);
 });
 
-test("groups desktop model controls separately from Dictate and Send", () => {
+test("groups desktop model controls separately from Send when Dictate is unavailable", () => {
   const html = renderChatInput({
     model: { provider: "openai", modelId: "gpt-5.4" },
     modelList: [{ provider: "openai", id: "gpt-5.4", name: "GPT-5.4" }],
@@ -259,7 +253,8 @@ test("groups desktop model controls separately from Dictate and Send", () => {
   });
 
   assert.match(html, /class="toolbarModelArea"[^>]*>[\s\S]*aria-label="Context donut: 10%"[\s\S]*aria-label="Model settings"/);
-  assert.match(html, /class="toolbarTrailing"[^>]*>[\s\S]*aria-label="Dictate"[\s\S]*aria-label="Send"/);
+  assert.match(html, /class="toolbarTrailing"[^>]*>[\s\S]*aria-label="Send"/);
+  assert.doesNotMatch(html, /aria-label="Dictate"/);
 });
 
 test("provides Dictate labels in both message catalogs", async () => {
