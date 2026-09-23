@@ -395,6 +395,7 @@ export const enLocale: LocalePlugin = {
     "chat.effortExtended": "Extended",
     "chat.modelDefault": "Default",
     "chat.modelDefaultDescription": "Recommended set of models",
+    "chat.resetToDefault": "Reset to default",
     "chat.ultraUsageWarning": "Consumes usage limits faster",
     "chat.powerKeyboardLabel": "Power",
     "chat.powerKeyboardInstructions": "Use Left and Right arrow keys to adjust power",

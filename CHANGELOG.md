@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The power slider adds a reset control for model overrides and shows a usage warning on the top step.
 - The power slider now supports Left and Right arrow keys and announces each keyboard selection.
 - The Composer shows a working or steer placeholder when a Session is busy.
   The default message text stays unchanged pending the maintainer's wording.

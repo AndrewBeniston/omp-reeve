@@ -127,3 +127,148 @@ test("Shift and Tab still cycles effort when no menu is open", () => {
   assert.equal(shouldCycleComposerEffort({ key: "Tab", shiftKey: true, isComposing: false, menuOpen: false, canCycle: true }), true);
   assert.equal(shouldCycleComposerEffort({ key: "Tab", shiftKey: true, isComposing: false, menuOpen: true, canCycle: true }), false);
 });
+
+test("the reset control is absent while no explicit model override exists", async () => {
+  const view = await renderSlider({ explicitModelOverride: false });
+  try {
+    const reset = view.container.querySelector("[aria-label='Reset to default']");
+    assert.equal(reset, null);
+    const resetByData = view.container.querySelector("[data-reset-control]");
+    assert.equal(resetByData, null);
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("the reset control shows for an explicit override, measures 32 px, and carries accessible label and tooltip", async () => {
+  const view = await renderSlider({ explicitModelOverride: true });
+  try {
+    const reset = view.container.querySelector("[aria-label='Reset to default']");
+    assert.ok(reset);
+    assert.equal(reset.getAttribute("aria-label"), "Reset to default");
+    assert.equal(reset.getAttribute("title"), "Reset to default");
+
+    const sliderRow = view.container.querySelector("[data-slider-row]");
+    assert.ok(sliderRow);
+    assert.ok(sliderRow.contains(reset));
+
+    const sliderStart = view.container.querySelector("[data-slider-start]");
+    assert.ok(sliderStart);
+    assert.ok(sliderStart.contains(reset));
+
+    // Verify 32 px round geometry in CSS
+    const { readFile } = await import("node:fs/promises");
+    const powerCss = await readFile(new URL("./ModelPowerSlider.module.css", import.meta.url), "utf8");
+    assert.match(powerCss, /\.resetControl\s*\{[^}]*width:\s*32px;[^}]*height:\s*32px;/);
+    assert.match(powerCss, /\.resetControl\s*\{[^}]*border-radius:\s*50%;/);
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("activating the reset control triggers onResetToDefault", async () => {
+  let resetCalled = false;
+  const view = await renderSlider({
+    explicitModelOverride: true,
+    onResetToDefault() {
+      resetCalled = true;
+    },
+  });
+  try {
+    const reset = view.container.querySelector("[aria-label='Reset to default']");
+    assert.ok(reset);
+    const { click } = await import("../../test/dom-harness.mjs");
+    await click(reset);
+    assert.equal(resetCalled, true);
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("selecting the top step replaces the reset control with the warning text and makes reset hidden and not focusable", async () => {
+  const view = await renderSlider({
+    explicitModelOverride: true,
+    currentStepId: steps[2].id, // steps[2] is max
+  });
+  try {
+    const warning = view.container.querySelector("[data-usage-warning]");
+    assert.ok(warning);
+    assert.equal(textOf(warning), "Consumes usage limits faster");
+
+    const reset = view.container.querySelector("[aria-label='Reset to default']");
+    assert.ok(reset);
+    assert.equal(reset.getAttribute("aria-hidden"), "true");
+    assert.equal(reset.getAttribute("tabindex"), "-1");
+    assert.equal(reset.hasAttribute("disabled"), true);
+    assert.equal(reset.hasAttribute("hidden"), true);
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("keyboard navigation to top step replaces reset with warning, and moving away restores reset", async () => {
+  const view = await renderSlider({
+    explicitModelOverride: true,
+    currentStepId: steps[0].id,
+  });
+  try {
+    // Initially on minimal: reset visible, warning absent
+    let reset = view.container.querySelector("[aria-label='Reset to default']");
+    assert.ok(reset);
+    assert.equal(reset.hasAttribute("hidden"), false);
+    assert.equal(reset.getAttribute("tabindex"), "0");
+    assert.equal(view.container.querySelector("[data-usage-warning]"), null);
+
+    // Left Arrow wraps to max (top step)
+    const control = view.container.querySelector("[aria-label='Power']");
+    await press(control, "ArrowLeft");
+
+    // Top step active: warning shown, reset hidden and not focusable
+    const warning = view.container.querySelector("[data-usage-warning]");
+    assert.ok(warning);
+    assert.equal(textOf(warning), "Consumes usage limits faster");
+    reset = view.container.querySelector("[aria-label='Reset to default']");
+    assert.equal(reset.getAttribute("aria-hidden"), "true");
+    assert.equal(reset.getAttribute("tabindex"), "-1");
+    assert.equal(reset.hasAttribute("disabled"), true);
+
+    // Right Arrow wraps to minimal (not top step): warning absent, reset restored
+    await press(control, "ArrowRight");
+    assert.equal(view.container.querySelector("[data-usage-warning]"), null);
+    reset = view.container.querySelector("[aria-label='Reset to default']");
+    assert.equal(reset.hasAttribute("hidden"), false);
+    assert.equal(reset.getAttribute("tabindex"), "0");
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("the warning text belongs to the actual top OMP step (max) and is absent on non-max last steps", async () => {
+  const subSteps = steps.slice(0, 2); // minimal and medium, no max
+  const view = await renderSlider({
+    steps: subSteps,
+    currentStepId: subSteps[1].id, // medium is the last step here
+    explicitModelOverride: true,
+  });
+  try {
+    // Medium is the last step in subSteps, but NOT the top OMP step (max)
+    const warning = view.container.querySelector("[data-usage-warning]");
+    assert.equal(warning, null);
+
+    // Reset control remains visible
+    const reset = view.container.querySelector("[aria-label='Reset to default']");
+    assert.ok(reset);
+    assert.equal(reset.hasAttribute("hidden"), false);
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("usage warning CSS includes 1.1s shimmer playing one time and reduced-motion override", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const powerCss = await readFile(new URL("./ModelPowerSlider.module.css", import.meta.url), "utf8");
+
+  assert.match(powerCss, /\.usageWarningText\s*\{[^}]*animation:\s*usageWarningShimmer\s+1\.1s\s+ease-out\s+1;/);
+  assert.match(powerCss, /@keyframes\s+usageWarningShimmer\s*\{/);
+  assert.match(powerCss, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.usageWarningText\s*\{[^}]*animation:\s*none;/);
+});
