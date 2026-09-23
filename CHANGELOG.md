@@ -11,8 +11,12 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+### Added
+
 - Worktree selection now reports branches, detached HEAD, and uncommitted changes. Selecting a worktree leaves its branch unchanged.
 - The model selector now calls OMP's max effort Max and keeps model and effort choices in one state model.
+- Agent commands can send desktop-selected file and folder paths to OMP without
+  quoting them in prompt text. Missing or unreadable selections block the send.
 
 ## [0.8.0] - 2026-09-23
 

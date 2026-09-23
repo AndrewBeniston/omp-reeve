@@ -36,6 +36,9 @@ contextBridge.exposeInMainWorld(
     selectAttachments() {
       return ipcRenderer.invoke("omp-desktop:select-attachments");
     },
+    selectAttachmentsWithCapabilities() {
+      return ipcRenderer.invoke("omp-desktop:select-attachments", { secure: true });
+    },
     showProjectMenu(state) {
       return ipcRenderer.invoke("omp-desktop:show-project-menu", state);
     },

@@ -26,6 +26,8 @@ import { randomUUID } from "crypto";
 import { existsSync, realpathSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { validateAgentImages } from "./image-attachments";
+import { AttachmentPathError, prepareAttachmentPathMessages } from "./attachment-paths";
+import type { FileMentionMessage } from "@oh-my-pi/pi-coding-agent/session/messages";
 import type { AgentControlChannel } from "./agent-control/channel";
 import { startSessionControlHost } from "./agent-control/host";
 import { type AgentControlReply, readAgentControlReason } from "./agent-control/types";
@@ -1021,6 +1023,9 @@ export class AgentSessionWrapper {
   async send(command: Record<string, unknown>): Promise<unknown> {
     this.resetIdleTimer();
     const type = command.type as string;
+    if (command.attachments !== undefined && type !== "prompt") {
+      throw new AttachmentPathError("Attachments are only supported with prompts");
+    }
     if (this.shouldWaitForExtensions(type)) await this.waitForExtensionsBound();
     if (this.handoffRunning && HANDOFF_ALLOWED_COMMAND_TYPES[type] !== true) {
       throw new Error("Cannot modify the session while a handoff is in progress");
@@ -1038,6 +1043,13 @@ export class AgentSessionWrapper {
       case "prompt": {
         if (this.inner.isBashRunning) {
           throw new Error("Cannot send a prompt while a shell command is running");
+        }
+        const attachmentMessages = await prepareAttachmentPathMessages(
+          command.attachments,
+          this.inner.sessionManager.getCwd(),
+        );
+        if (attachmentMessages.length > 0 && this.inner.isStreaming) {
+          throw new AttachmentPathError("Wait for the current response before sending attachments");
         }
         // Fire and forget — events come via subscribe
         const promptImages = command.images as Array<{ type: "image"; data: string; mimeType: string }> | undefined;
@@ -1057,6 +1069,10 @@ export class AgentSessionWrapper {
         // Taking a baseline takes a moment, and this Session can be destroyed
         // inside it. A wrapper that is gone must not start a run.
         if (!this._alive) return null;
+        for (const message of attachmentMessages) {
+          (this.inner.agent as unknown as { appendMessage: (value: FileMentionMessage) => void }).appendMessage(message);
+          this.inner.sessionManager.appendMessage(message);
+        }
         this.inner.prompt(command.message as string, {
           ...(promptImages?.length ? { images: promptImages } : {}),
           ...(streamingBehavior ? { streamingBehavior } : {}),

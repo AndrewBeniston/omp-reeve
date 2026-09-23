@@ -6,6 +6,7 @@ import { invalidateSessionListCache } from "@/lib/session-reader";
 import { startRpcSession } from "@/lib/rpc-manager";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 import { parseRequestedThinkingLevel } from "@/lib/thinking-level";
+import { AttachmentPathError } from "@/lib/attachment-paths";
 // POST /api/agent/new  body: { cwd: string; type: string; message?: string; ... }
 // Spawns a brand-new pi session. Most calls immediately send the first command;
 // type:"ensure_session" only creates the runtime so clients can query commands.
@@ -104,6 +105,6 @@ export async function POST(req: Request) {
       ...(commandType === "prompt" && !promptAccepted
         ? { code: "prompt_rejected", accepted: false }
         : {}),
-    }, { status: 500 });
+    }, { status: error instanceof AttachmentPathError ? error.status : 500 });
   }
 }
