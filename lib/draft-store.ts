@@ -23,7 +23,8 @@ function cloneDraft(draft: ChatDraft): ChatDraft {
     images: draft.images.map((image) => ({ ...image })),
     ...(draft.attachments?.length ? { attachments: draft.attachments.map((attachment) => ({
       ...attachment,
-      selection: { ...attachment.selection },
+      ...(attachment.selection ? { selection: { ...attachment.selection } } : {}),
+      ...(attachment.upload ? { upload: { ...attachment.upload } } : {}),
     })) } : {}),
   };
 }

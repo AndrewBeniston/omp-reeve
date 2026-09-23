@@ -23,6 +23,7 @@ import { ExtensionStatusBar } from "./ExtensionStatusBar";
 import { useI18n } from "@/hooks/useI18n";
 import { useAgentSession, type AgentPhase, type NoticeItem } from "@/hooks/useAgentSession";
 import { useDragDrop } from "@/hooks/useDragDrop";
+import { getSecureAttachmentPicker } from "@/lib/desktop-attachments";
 import type { ProjectTrustStatus } from "@/lib/api-types";
 import type { AgentControlReply, AgentControlRequestEvent } from "@/lib/agent-control/types";
 import type { ReviewSlashOutcome, ReviewSlashRequest } from "@/lib/review-slash-entries";
@@ -275,7 +276,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
     handleReorderQueuedMessages, handleSendQueuedMessageNow, handleResumeQueuedMessages, handleResolvePausedQueueSubmission,
     scrollTranscriptToBottom, releaseActiveTurnHold,
     handleBuiltinSlashCommand,
-    handleToolPresetChange, handleApprovalModeChange, handleThinkingLevelChange, handleCycleThinkingLevel, handleFastModeChange, loadSlashCommands,
+    handleToolPresetChange, handleApprovalModeChange, handleThinkingLevelChange, handleCycleThinkingLevel, handleFastModeChange, loadSlashCommands, ensureNewSession,
   } = useAgentSession({
     session, newSessionCwd, onAgentEnd: wrappedOnAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSessionNameChanged,
     onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onRequestReview, translate: t,
@@ -405,10 +406,10 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
 
   const onDrop = useCallback((files: File[]) => {
     if (sessionBusy) return;
-    chatInputRef?.current?.addImages(files);
+    chatInputRef?.current?.addFiles(files);
   }, [sessionBusy, chatInputRef]);
 
-  const { isDragOver, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragDrop(onDrop);
+  const { isDragOver, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragDrop(onDrop, !getSecureAttachmentPicker());
 
   // Stable Map identity: `messages` doesn't change during streaming updates
   // (the streaming message lives in streamState), so memoized MessageViews
@@ -550,6 +551,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
       onBuiltinCommand={handleBuiltinSlashCommand}
       onAudioUnlock={unlockAudio}
       draftKey={session?.id ?? newDraftKey ?? (newSessionCwd ? `new:${newSessionCwd}` : undefined)}
+      onEnsureSession={ensureNewSession}
       cwd={session?.cwd ?? newSessionCwd}
     />
   );
