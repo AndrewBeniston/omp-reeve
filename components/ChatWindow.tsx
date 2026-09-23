@@ -47,6 +47,8 @@ import { SessionLoadingState } from "./chat/SessionLoadingState";
 import { TurnErrorBoundary } from "./chat/TurnErrorBoundary";
 import { buildTranscriptRows, dividerPresentation, finalAnswerPosition, presentationAssistantPosition, CompactionNote, ProviderRetryNote, SessionOriginNote, type TranscriptMessageRow } from "./chat/transcript-rows";
 import { Divider } from "./chat/Divider";
+import { ActivityHeader } from "./chat/ActivityRow";
+import type { ActivityCall } from "@/lib/transcript/repeat-collapsing";
 import { ArchivedSessionCard } from "./chat/ArchivedSessionCard";
 import {
   TranscriptNavigationRail,
@@ -724,8 +726,18 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                 const processCount = visibleProcessItems.length + (finalProcessMessage ? 1 : 0);
                 const divider = dividerPresentation(items, clock, deniedActionCount);
                 if (processCount > 0 && divider) {
+                  const activityCalls: ActivityCall[] = [];
+                  for (const item of items.slice(1, assistantPosition + 1)) {
+                    if (item.message.role !== "assistant") continue;
+                    for (const block of (item.message as AssistantMessage).content ?? []) {
+                      if (block.type === "toolCall") {
+                        activityCalls.push({ block, result: toolResultsMap.get(block.toolCallId) });
+                      }
+                    }
+                  }
                   rendered.push(
                     <Divider key={`divider-${key}`} turnId={key} turnNumber={turnNumber} totalTurnCount={totalTurnCount} {...divider}>
+                      <ActivityHeader input={{ calls: activityCalls, closed: true, inProgress: false, latestVisible: true, exploring: false }} />
                       {visibleProcessItems.map((item) => renderMessage(item, { keyPrefix: "process" }))}
                       {finalProcessMessage && renderMessage(finalItem, { keyPrefix: "process-final", messageOverride: finalProcessMessage, showTimestamp: false })}
                     </Divider>,

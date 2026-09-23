@@ -113,8 +113,46 @@ test("renders the selected live Activity header", async () => {
       latestVisible: true,
       exploring: false,
     },
-    summary: "Worked",
   })));
   assert.equal(view.container.querySelector("[data-live-activity-header='activity']")?.textContent, "Readingnotes.md");
   await view.unmount();
+});
+
+test("a completed Activity header renders its composed summary", async () => {
+  const calls = [
+    { block: tool("edit", { path: "one.ts" }) },
+    { block: tool("read", { path: "one.ts" }) },
+    { block: tool("read", { path: "two.ts" }) },
+    { block: tool("bash", { command: "bun test" }) },
+    { block: tool("bash", { command: "bun run typecheck" }) },
+    { block: tool("mcp__github__list_issues"), result: { role: "toolResult", toolCallId: "call-list_issues", content: [] } },
+    { block: tool("list_mcp_resources") },
+    { block: tool("web_search", { query: "Reeve" }) },
+    { block: tool("mcp__github__get_issue"), metadata: { source: "github" } },
+    { block: tool("mcp__linear__get_issue"), metadata: { source: "linear" } },
+    { block: tool("create_visualization") },
+  ];
+  const view = await mount(h(I18nProvider, null, h(ActivityHeader, {
+    input: { calls, closed: true, inProgress: false, latestVisible: true, exploring: false },
+  })));
+  assert.equal(
+    view.container.querySelector("[data-live-activity-header='summary']")?.textContent,
+    "Edited a file, read files, ran commands, called a tool, loaded a tool, searched the web, used github and linear as 2 integrations, created a visualization",
+  );
+  await view.unmount();
+});
+
+test("a completed Activity header names the browser source and has an empty fallback", async () => {
+  const browserCall = { block: tool("mcp__browser__navigate"), metadata: { source: "browser" } };
+  const view = await mount(h(I18nProvider, null, h(ActivityHeader, {
+    input: { calls: [browserCall, browserCall], closed: true, inProgress: false, latestVisible: true, exploring: false },
+  })));
+  assert.equal(view.container.querySelector("[data-live-activity-header='summary']")?.textContent, "Used the browser");
+  await view.unmount();
+
+  const empty = await mount(h(I18nProvider, null, h(ActivityHeader, {
+    input: { calls: [], closed: true, inProgress: false, latestVisible: true, exploring: false },
+  })));
+  assert.equal(empty.container.querySelector("[data-live-activity-header='summary']")?.textContent, "Worked");
+  await empty.unmount();
 });

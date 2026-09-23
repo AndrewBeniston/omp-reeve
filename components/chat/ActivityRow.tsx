@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { CircleStop, FilePenLine, FolderSearch, Globe2, List, Search, Terminal, Users, Wrench } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
 import { activityCallGroups, activityRowContent, type ActivityRowContent, type ActivityRowState } from "./transcript-rows";
@@ -9,6 +9,7 @@ import { TerminalOutput } from "./TerminalOutput";
 import type { ToolCallContent, ToolResultMessage } from "@/lib/types";
 import type { ActivityCall } from "@/lib/transcript/repeat-collapsing";
 import { selectLiveActivityHeader, type LiveActivityHeaderInput } from "@/lib/transcript/live-activity-header";
+import { composeActivitySummary } from "@/lib/transcript/activity-summary";
 import styles from "./activity-row.module.css";
 
 interface ActivityRowProps {
@@ -18,7 +19,6 @@ interface ActivityRowProps {
 
 interface ActivityHeaderProps {
   input: LiveActivityHeaderInput;
-  summary?: ReactNode;
 }
 
 const stateKey = (state: ActivityRowState) => state === "running" ? "running" : state === "interrupted" ? "interrupted" : "completed";
@@ -79,11 +79,14 @@ function firstPartyLabel(content: ActivityRowContent): boolean {
   return !["connector", "application-control", "unknown"].includes(content.classification.kind);
 }
 
-/** Render the selected header. Summary composition is supplied by the Turn renderer. */
-export function ActivityHeader({ input, summary }: ActivityHeaderProps) {
-  const { t } = useI18n();
+/** Render the live action or completed summary for an Activity area. */
+export function ActivityHeader({ input }: ActivityHeaderProps) {
+  const { locale, t } = useI18n();
   const selected = selectLiveActivityHeader(input);
-  if (selected.kind === "summary") return <div className={styles.row} data-live-activity-header="summary">{summary}</div>;
+  if (selected.kind === "summary") {
+    const summary = composeActivitySummary({ calls: input.calls, locale, t });
+    return <div className={styles.row} data-live-activity-header="summary">{summary}</div>;
+  }
   if (selected.kind === "thinking") {
     return <div className={styles.row} data-live-activity-header="thinking">{t("transcript.activity.header.thinking")}</div>;
   }

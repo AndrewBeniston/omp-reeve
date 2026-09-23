@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Show a past-tense summary in the completed Turn Activity header.
 - Show the live Activity header for the newest unfinished action in a Turn.
 - Keep an expanded Turn divider visually still during layout changes for 350 ms.
 - Collapse consecutive identical completed tool calls into counted activity rows.
