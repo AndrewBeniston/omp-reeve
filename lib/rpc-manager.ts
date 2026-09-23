@@ -27,6 +27,7 @@ import { existsSync, realpathSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { validateAgentImages } from "./image-attachments";
 import { AttachmentPathError, prepareAttachmentPathMessages, QueuedAttachmentContext } from "./attachment-paths";
+import { prepareBrowserUploadMessages } from "./upload-store";
 import type { FileMentionMessage } from "@oh-my-pi/pi-coding-agent/session/messages";
 import type { AgentControlChannel } from "./agent-control/channel";
 import { startSessionControlHost } from "./agent-control/host";
@@ -1041,7 +1042,8 @@ export class AgentSessionWrapper {
   async send(command: Record<string, unknown>): Promise<unknown> {
     this.resetIdleTimer();
     const type = command.type as string;
-    if (command.attachments !== undefined && type !== "prompt" && type !== "steer" && type !== "follow_up") {
+    if ((command.attachments !== undefined || command.uploads !== undefined)
+      && type !== "prompt" && type !== "steer" && type !== "follow_up") {
       throw new AttachmentPathError("Attachments are only supported with user messages");
     }
     if (this.shouldWaitForExtensions(type)) await this.waitForExtensionsBound();
@@ -1062,10 +1064,14 @@ export class AgentSessionWrapper {
         if (this.inner.isBashRunning) {
           throw new Error("Cannot send a prompt while a shell command is running");
         }
-        const attachmentMessages = await prepareAttachmentPathMessages(
-          command.attachments,
-          this.inner.sessionManager.getCwd(),
-        );
+        const attachmentMessages = [
+          ...await prepareAttachmentPathMessages(command.attachments, this.inner.sessionManager.getCwd()),
+          ...await prepareBrowserUploadMessages({
+            sessionId: this.inner.sessionId,
+            ids: command.uploads,
+            cwd: this.inner.sessionManager.getCwd(),
+          }),
+        ];
         // Fire and forget — events come via subscribe
         const promptImages = command.images as Array<{ type: "image"; data: string; mimeType: string }> | undefined;
         const streamingBehavior = command.streamingBehavior as "steer" | "followUp" | undefined;
@@ -1073,7 +1079,7 @@ export class AgentSessionWrapper {
           throw new AttachmentPathError("Choose Steer or Queue to send attachments during a response");
         }
         if (attachmentMessages.length > 0 && this.inner.isStreaming && (command.message as string).startsWith("/")) {
-          throw new AttachmentPathError("Local attachments cannot accompany a slash command during a response");
+          throw new AttachmentPathError("Attachments cannot accompany a slash command during a response");
         }
         if (attachmentMessages.length > 0 && streamingBehavior && this.inner.isStreaming) {
           await this.noteTurn({ type: "continuation" });
@@ -1433,7 +1439,12 @@ export class AgentSessionWrapper {
 
       case "steer": {
         const steerImages = command.images as Array<{ type: "image"; data: string; mimeType: string }> | undefined;
-        const files = await prepareAttachmentPathMessages(command.attachments, this.inner.sessionManager.getCwd());
+        const files = [
+          ...await prepareAttachmentPathMessages(command.attachments, this.inner.sessionManager.getCwd()),
+          ...await prepareBrowserUploadMessages({
+            sessionId: this.inner.sessionId, ids: command.uploads, cwd: this.inner.sessionManager.getCwd(),
+          }),
+        ];
         const send = () => this.inner.steer(command.message as string, steerImages?.length ? steerImages : undefined);
         if (files.length) await this.attachmentQueue().run(files, send);
         else await send();
@@ -1442,7 +1453,12 @@ export class AgentSessionWrapper {
 
       case "follow_up": {
         const followImages = command.images as Array<{ type: "image"; data: string; mimeType: string }> | undefined;
-        const files = await prepareAttachmentPathMessages(command.attachments, this.inner.sessionManager.getCwd());
+        const files = [
+          ...await prepareAttachmentPathMessages(command.attachments, this.inner.sessionManager.getCwd()),
+          ...await prepareBrowserUploadMessages({
+            sessionId: this.inner.sessionId, ids: command.uploads, cwd: this.inner.sessionManager.getCwd(),
+          }),
+        ];
         const send = () => this.inner.followUp(command.message as string, followImages?.length ? followImages : undefined);
         if (files.length) await this.attachmentQueue().run(files, send);
         else await send();

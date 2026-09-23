@@ -46,6 +46,7 @@ import { getSecureAttachmentPicker } from "@/lib/desktop-attachments";
 import {
   addComposerAttachments,
   addBrowserUpload,
+  deleteBrowserUpload,
   markComposerAttachmentError,
   removeComposerAttachment,
   uploadBrowserFile,
@@ -278,7 +279,7 @@ interface IdleSubmissionOptions {
   onBuiltinCommand?: (message: string) => Promise<BuiltinSlashCommandResult>;
   onBuiltinAction?: (action: "openSessionStats") => void;
   onAudioUnlock?: () => void;
-  clearInput: () => void;
+  clearInput: (preserveUploads?: boolean) => void;
   onAttachmentBlocked?: (error: string) => void;
   onSend: Props["onSend"];
 }
@@ -314,7 +315,7 @@ export async function dispatchIdleSubmission({
       return "command";
     }
   }
-  clearInput();
+  clearInput(attachments.some(attachment => Boolean(attachment.upload)));
   onSend(message, images.length > 0 ? images : undefined, attachments.length ? attachments : undefined);
   return "sent";
 }
@@ -328,7 +329,7 @@ interface StreamingSubmissionOptions {
   onSteer?: Props["onSteer"];
   onFollowUp?: Props["onFollowUp"];
   onAudioUnlock?: () => void;
-  clearInput: () => void;
+  clearInput: (preserveUploads?: boolean) => void;
   onAttachmentBlocked?: (error: string) => void;
 }
 
@@ -353,17 +354,17 @@ export function dispatchStreamingSubmission({
   }
   onAudioUnlock?.();
   if (message.startsWith("/") && images.length === 0 && onPromptWithStreamingBehavior) {
-    clearInput();
+    clearInput(attachments.some(attachment => Boolean(attachment.upload)));
     onPromptWithStreamingBehavior(message, mode, undefined, attachments.length ? attachments : undefined);
     return mode === "steer" ? "steered" : "followed-up";
   }
   if (mode === "steer" && onSteer) {
-    clearInput();
+    clearInput(attachments.some(attachment => Boolean(attachment.upload)));
     onSteer(message, images.length ? images : undefined, attachments.length ? attachments : undefined);
     return "steered";
   }
   if (mode === "followUp" && onFollowUp) {
-    clearInput();
+    clearInput(attachments.some(attachment => Boolean(attachment.upload)));
     onFollowUp(message, images.length ? images : undefined, attachments.length ? attachments : undefined);
     return "followed-up";
   }
@@ -689,12 +690,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       for (const file of files) {
         try {
           const upload = await uploadBrowserFile(sessionId, file);
-          const next = addBrowserUpload(
-            localAttachmentsRef.current,
-            sessionId,
-            upload,
-            t("composer.browserUploadNotSendable"),
-          );
+          const activeDraftKey = draftKeyRef.current;
+          if (activeDraftKey && !activeDraftKey.startsWith("new:") && activeDraftKey !== sessionId) {
+            await deleteBrowserUpload(sessionId, upload.id);
+            continue;
+          }
+          const next = addBrowserUpload(localAttachmentsRef.current, sessionId, upload);
           localAttachmentsRef.current = next;
           setLocalAttachments(next);
         } catch (error) {
@@ -933,13 +934,13 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     });
   }, []);
 
-  const clearInput = useCallback(() => {
+  const clearInput = useCallback((preserveUploads = false) => {
     valueRef.current = "";
     setValue("");
     setAtQuery(null);
     setHistoryMenuOpen(false);
-    if (draftKey) clearDraft(draftKey);
-    if (draftKeyRef.current && draftKeyRef.current !== draftKey) clearDraft(draftKeyRef.current);
+    if (draftKey) clearDraft(draftKey, { preserveUploads });
+    if (draftKeyRef.current && draftKeyRef.current !== draftKey) clearDraft(draftKeyRef.current, { preserveUploads });
     clearImages();
     localAttachmentsRef.current = [];
     setLocalAttachments([]);
@@ -1957,10 +1958,14 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             className={styles.localAttachmentRemove}
             aria-label={t("composer.removeLocalAttachment", { name: attachment.name })}
             onClick={() => {
+              const previous = localAttachmentsRef.current.find(item => item.id === attachment.id);
               const next = removeComposerAttachment(localAttachmentsRef.current, attachment.id);
               localAttachmentsRef.current = next;
               setLocalAttachments(next);
               setAttachmentPickerError(null);
+              if (!draftKeyRef.current && previous?.upload) {
+                void deleteBrowserUpload(previous.upload.sessionId, previous.upload.id).catch(() => {});
+              }
             }}
           >
             <span aria-hidden="true">×</span>
@@ -2258,6 +2263,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                   return;
                 }
                 browserFileInputRef.current?.click();
+                requestAnimationFrame(() => textareaRef.current?.focus());
               } : undefined}
               onSelect={(item) => {
                 const editor = textareaRef.current;
