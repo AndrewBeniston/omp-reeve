@@ -14,6 +14,7 @@ the What's New dialog adds a second page that invites support.
 - Add live and saved Turn clock fields and locale-aware duration formatting.
 - Session history can load earlier pages and keep the cursor after a read failure.
 - Add a pure Turn folder and a recorded OMP event stream for future Session transcript rendering.
+- Classify OMP tool calls into pure transcript Activity rows, including application controls.
 - Track the Turn phase as assistant text and activity arrive, including the settled phase for saved Sessions.
 - Render saved and live Session messages from the Turn list while keeping their current transcript rows.
 - Show a transcript note when the default model changes, with warnings about performance and compaction.
