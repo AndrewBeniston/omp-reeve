@@ -20,6 +20,7 @@ import {
   type StreamingMarkdownKeyState,
 } from "@/lib/streaming-markdown";
 import { MermaidBlock, CodeBlock } from "./MermaidBlock";
+import { MarkdownMedia, MarkdownVideoMedia } from "./MarkdownMedia";
 import { MarkdownTable } from "./MarkdownTable";
 import { FileCitationChip, isFileCitationHref } from "./FileCitationChip";
 
@@ -27,6 +28,7 @@ interface MarkdownBodyProps {
   children: string;
   className?: string;
   isStreaming?: boolean;
+  enableMedia?: boolean;
   cwd?: string;
   onOpenFile?: (filePath: string) => void;
 }
@@ -73,7 +75,7 @@ function StreamingFadeSegment({
   );
 }
 
-export function MarkdownBody({ children, className, isStreaming, cwd, onOpenFile }: MarkdownBodyProps) {
+export function MarkdownBody({ children, className, isStreaming, enableMedia, cwd, onOpenFile }: MarkdownBodyProps) {
   const normalizedMarkdown = useMemo(
     () => normalizeDisplayMath(isStreaming ? stabilizeStreamingMarkdown(children) : children),
     [children, isStreaming],
@@ -182,15 +184,32 @@ export function MarkdownBody({ children, className, isStreaming, cwd, onOpenFile
       const filePath = typeof src === "string" ? resolveLocalFileHref(src, cwd) : null;
       const imageSrc = filePath
         ? `/api/files/${encodeFilePathForApi(filePath)}?type=read`
-        : src;
+        : typeof src === "string" ? src : undefined;
+      if (enableMedia) {
+        return <MarkdownMedia key={imageSrc} src={imageSrc} alt={alt} imageProps={props} />;
+      }
       // Dynamic local paths are served directly by the file API.
       // eslint-disable-next-line @next/next/no-img-element
       return <img src={imageSrc} alt={alt ?? ""} loading="lazy" {...props} />;
     },
+    video({ src, children, ...props }) {
+      const videoSrc = typeof src === "string" ? src : undefined;
+      const alt = typeof (props as { alt?: unknown }).alt === "string"
+        ? (props as { alt: string }).alt
+        : undefined;
+      delete props.node;
+      delete (props as { alt?: string }).alt;
+      if (!enableMedia) return null;
+      return (
+        <MarkdownVideoMedia key={videoSrc} src={videoSrc} alt={alt} videoProps={props}>
+          {children}
+        </MarkdownVideoMedia>
+      );
+    },
     table({ children }) {
       return <MarkdownTable>{children}</MarkdownTable>;
     },
-  }), [cwd, isStreaming, onOpenFile]);
+  }), [cwd, enableMedia, isStreaming, onOpenFile]);
 
   return (
     <div

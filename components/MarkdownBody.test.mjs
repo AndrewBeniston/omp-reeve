@@ -4,14 +4,15 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createJiti } from "jiti";
-import { click, domDocument, focused, mount, press } from "../test/dom-harness.mjs";
+import { click, DomEvent, domDocument, domWindow, focused, mount, press } from "../test/dom-harness.mjs";
 
 const jiti = createJiti(import.meta.url, {
   jsx: { runtime: "automatic" },
   tsconfigPaths: true,
 });
 const { MarkdownBody } = await jiti.import("./MarkdownBody.tsx");
-const { normalizeDisplayMath } = await jiti.import("../lib/markdown.ts");
+const { default: ReactMarkdown } = await jiti.import("react-markdown");
+const { markdownPreviewRehypePlugins, markdownRemarkPlugins, normalizeDisplayMath } = await jiti.import("../lib/markdown.ts");
 const { I18nProvider } = await jiti.import("../hooks/useI18n.tsx");
 const globalCss = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 
@@ -255,4 +256,145 @@ test("does not normalize escaped delimiters or link destinations", () => {
 
   assert.equal(normalizeDisplayMath(escaped), escaped);
   assert.equal(normalizeDisplayMath(link), link);
+});
+
+test("labels inline assistant images while loading and after load", async () => {
+  const view = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MarkdownBody, { enableMedia: true }, "![](https://example.com/diagram.png)")));
+  try {
+    const image = view.container.querySelector("img");
+    const button = view.container.querySelector("button");
+
+    assert.ok(image);
+    assert.ok(button);
+    assert.equal(button.getAttribute("aria-label"), "Image loading");
+    assert.equal(button.getAttribute("aria-busy"), "true");
+
+    await React.act(async () => { image.dispatchEvent(new DomEvent("load")); });
+
+    const loadedButton = view.container.querySelector("button");
+    assert.equal(loadedButton.getAttribute("aria-label"), "Open image preview");
+    assert.equal(loadedButton.getAttribute("aria-busy"), null);
+
+    const opened = [];
+    const previousOpen = domWindow.open;
+    domWindow.open = (...args) => {
+      opened.push(args);
+      return null;
+    };
+    try {
+      await click(loadedButton);
+      assert.deepEqual(opened, [["https://example.com/diagram.png", "_blank", "noopener,noreferrer"]]);
+    } finally {
+      if (previousOpen) domWindow.open = previousOpen;
+      else delete domWindow.open;
+    }
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("uses supplied image alt text for loading and unavailable states", async () => {
+  const view = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MarkdownBody, { enableMedia: true }, "![Release diagram](https://example.com/diagram.png)")));
+  try {
+    const image = view.container.querySelector("img");
+    assert.equal(view.container.querySelector("button").getAttribute("aria-label"), "Release diagram");
+
+    await React.act(async () => { image.dispatchEvent(new DomEvent("load")); });
+
+    assert.equal(view.container.querySelector("button").getAttribute("aria-label"), "Release diagram");
+  } finally {
+    await view.unmount();
+  }
+
+  const failedView = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MarkdownBody, { enableMedia: true }, "![Release diagram](https://example.com/diagram.png)")));
+  try {
+    const image = failedView.container.querySelector("img");
+    await React.act(async () => { image.dispatchEvent(new DomEvent("error")); });
+
+    const fallback = failedView.container.querySelector("[role='img']");
+    assert.ok(fallback);
+    assert.equal(fallback.getAttribute("aria-label"), "Release diagram");
+    assert.equal(failedView.container.querySelector("img"), null);
+  } finally {
+    await failedView.unmount();
+  }
+});
+
+test("shows the unavailable label when an image has no alt text", async () => {
+  const view = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MarkdownBody, { enableMedia: true }, "![](https://example.com/missing.png)")));
+  try {
+    const image = view.container.querySelector("img");
+    await React.act(async () => { image.dispatchEvent(new DomEvent("error")); });
+
+    const fallback = view.container.querySelector("[role='img']");
+    assert.ok(fallback);
+    assert.equal(fallback.getAttribute("aria-label"), "Image unavailable");
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("keeps regular Markdown images outside assistant media controls", () => {
+  const html = renderMarkdown("![Chart](https://example.com/chart.png)");
+
+  assert.match(html, /<img[^>]*alt="Chart"/);
+  assert.doesNotMatch(html, /<button|Image loading|Open image preview/);
+});
+
+test("plays inline assistant Markdown video and labels its unavailable state", async () => {
+  const view = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MarkdownBody, { enableMedia: true }, "<video src=\"https://example.com/clip.mp4\"></video>")));
+  try {
+    const video = view.container.querySelector("video");
+    assert.ok(video);
+    assert.equal(video.getAttribute("aria-label"), "Video");
+    assert.ok(video.hasAttribute("controls"));
+
+    await React.act(async () => { video.dispatchEvent(new DomEvent("error")); });
+
+    const fallback = view.container.querySelector("[role='img']");
+    assert.ok(fallback);
+    assert.equal(fallback.getAttribute("aria-label"), "Video unavailable");
+    assert.equal(view.container.querySelector("video"), null);
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("uses supplied video alt text and leaves non-assistant videos disabled", async () => {
+  const markdown = "<video alt=\"Release clip\"><source src=\"https://example.com/clip.mp4\" type=\"video/mp4\"></video>";
+  const assistant = renderMarkdown(markdown, { enableMedia: true });
+  const nonAssistant = renderMarkdown(markdown);
+
+  assert.match(assistant, /<video[^>]*aria-label="Release clip"/);
+  assert.match(assistant, /<source src="https:\/\/example\.com\/clip\.mp4" type="video\/mp4"/);
+  assert.doesNotMatch(nonAssistant, /<video|Video unavailable/);
+
+  const view = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MarkdownBody, { enableMedia: true }, markdown)));
+  try {
+    const video = view.container.querySelector("video");
+    assert.ok(video);
+    assert.equal(video.getAttribute("aria-label"), "Release clip");
+    await React.act(async () => { video.dispatchEvent(new DomEvent("error")); });
+
+    const fallback = view.container.querySelector("[role='img']");
+    assert.ok(fallback);
+    assert.equal(fallback.getAttribute("aria-label"), "Release clip");
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("keeps raw videos out of file previews", () => {
+  const preview = renderToStaticMarkup(React.createElement(ReactMarkdown, {
+    remarkPlugins: markdownRemarkPlugins,
+    rehypePlugins: markdownPreviewRehypePlugins,
+  }, "<video src=\"https://example.com/clip.mp4\"></video>"));
+
+  assert.doesNotMatch(preview, /<video|<source/);
 });
