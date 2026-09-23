@@ -729,7 +729,7 @@ test("sends signed local selections as structured data and keeps unreadable rows
   assert.deepEqual(calls, ["notes.txt cannot be read"]);
 });
 
-test("retains local attachments when steer or follow-up cannot transport them", async () => {
+test("sends local attachments with steer and follow-up messages", async () => {
   const { addComposerAttachments } = await attachmentState();
   const [attachment] = addComposerAttachments([], [
     { path: "/Projects/notes.txt", issuedAt: 123, signature: "a".repeat(64), kind: "file" },
@@ -743,10 +743,10 @@ test("retains local attachments when steer or follow-up cannot transport them", 
       mode,
       clearInput: () => calls.push("clear"),
       onAttachmentBlocked: () => calls.push("blocked"),
-      onSteer: () => calls.push("steer"),
-      onFollowUp: () => calls.push("followUp"),
-    }), "attachment-blocked");
-    assert.deepEqual(calls, ["blocked"]);
+      onSteer: (text, images, attachments) => calls.push(["steer", text, images, attachments]),
+      onFollowUp: (text, images, attachments) => calls.push(["followUp", text, images, attachments]),
+    }), mode === "steer" ? "steered" : "followed-up");
+    assert.deepEqual(calls, ["clear", [mode, "Review this", undefined, [attachment]]]);
   }
 });
 

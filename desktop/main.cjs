@@ -342,12 +342,29 @@ function registerAttachmentPickerHandler() {
     }
     const window = BrowserWindow.fromWebContents(event.sender);
     if (!window) throw new Error("The attachment-picker request has no application window.");
+    let title = "Add files and folders";
+    let properties = ["openFile", "openDirectory", "multiSelections"];
+    if (process.platform !== "darwin") {
+      // Electron cannot combine file and folder selection on Windows or Linux.
+      const { response } = await dialog.showMessageBox(window, {
+        type: "question",
+        title: "Add files and folders",
+        message: "What would you like to add?",
+        buttons: ["Files", "Folders", "Cancel"],
+        defaultId: 0,
+        cancelId: 2,
+        noLink: true,
+      });
+      if (response === 2) return [];
+      title = response === 1 ? "Add folders" : "Add files";
+      properties = response === 1
+        ? ["openDirectory", "multiSelections"]
+        : ["openFile", "multiSelections"];
+    }
     const result = await dialog.showOpenDialog(window, {
-      title: process.platform === "darwin" ? "Add files and folders" : "Add files",
+      title,
       buttonLabel: "Add",
-      properties: process.platform === "darwin"
-        ? ["openFile", "openDirectory", "multiSelections"]
-        : ["openFile", "multiSelections"],
+      properties,
     });
     if (result.canceled) return [];
     if (options?.secure !== true) return result.filePaths;

@@ -2190,58 +2190,85 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     if (snapshot) setQueuedMessages(normalizeQueuedMessages(snapshot));
   }, []);
 
-  const handleSteer = useCallback(async (message: string, images?: AttachedImage[]) => {
+  const restoreQueuedSubmission = useCallback((
+    message: string,
+    images: AttachedImage[] | undefined,
+    attachments: ComposerAttachmentDescriptor[] | undefined,
+    error: unknown,
+  ) => {
+    const reason = error instanceof Error ? error.message : String(error);
+    addNotice({ type: "error", message: reason });
+    chatInputRef?.current?.restoreSubmission?.(
+      message,
+      images,
+      sessionIdRef.current ?? undefined,
+      attachments,
+      attachments?.length && /attachment/i.test(reason) ? reason : undefined,
+    );
+  }, [addNotice, chatInputRef]);
+
+  const handleSteer = useCallback(async (message: string, images?: AttachedImage[], attachments?: ComposerAttachmentDescriptor[]) => {
     const sid = sessionIdRef.current;
     if (!sid) return;
     const piImages = images?.map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
+    const selectedPaths = attachments?.length ? selectedAttachmentPaths(attachments) : undefined;
     try {
       const result = await sendAgentCommand<QueuedMessageSnapshot>(sid, {
         type: "steer",
         message,
         ...(piImages?.length ? { images: piImages } : {}),
+        ...(selectedPaths?.length ? { attachments: selectedPaths } : {}),
       });
       applyQueueSnapshot(result);
     } catch (e) {
       console.error("Failed to steer:", e);
+      restoreQueuedSubmission(message, images, attachments, e);
     }
-  }, [applyQueueSnapshot]);
+  }, [applyQueueSnapshot, restoreQueuedSubmission]);
 
   const handlePromptWithStreamingBehavior = useCallback(async (
     message: string,
     behavior: "steer" | "followUp",
     images?: AttachedImage[],
+    attachments?: ComposerAttachmentDescriptor[],
   ) => {
     const sid = sessionIdRef.current;
     if (!sid) return;
     const piImages = images?.map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
+    const selectedPaths = attachments?.length ? selectedAttachmentPaths(attachments) : undefined;
     try {
       const result = await sendAgentCommand<QueuedMessageSnapshot>(sid, {
         type: "prompt",
         message,
         streamingBehavior: behavior,
         ...(piImages?.length ? { images: piImages } : {}),
+        ...(selectedPaths?.length ? { attachments: selectedPaths } : {}),
       });
       applyQueueSnapshot(result);
     } catch (e) {
       console.error("Failed to queue prompt:", e);
+      restoreQueuedSubmission(message, images, attachments, e);
     }
-  }, [applyQueueSnapshot]);
+  }, [applyQueueSnapshot, restoreQueuedSubmission]);
 
-  const handleFollowUp = useCallback(async (message: string, images?: AttachedImage[]) => {
+  const handleFollowUp = useCallback(async (message: string, images?: AttachedImage[], attachments?: ComposerAttachmentDescriptor[]) => {
     const sid = sessionIdRef.current;
     if (!sid) return;
     const piImages = images?.map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
+    const selectedPaths = attachments?.length ? selectedAttachmentPaths(attachments) : undefined;
     try {
       const result = await sendAgentCommand<QueuedMessageSnapshot>(sid, {
         type: "follow_up",
         message,
         ...(piImages?.length ? { images: piImages } : {}),
+        ...(selectedPaths?.length ? { attachments: selectedPaths } : {}),
       });
       applyQueueSnapshot(result);
     } catch (e) {
       console.error("Failed to follow up:", e);
+      restoreQueuedSubmission(message, images, attachments, e);
     }
-  }, [applyQueueSnapshot]);
+  }, [applyQueueSnapshot, restoreQueuedSubmission]);
 
   const handleAbortCompaction = useCallback(async () => {
     const sid = sessionIdRef.current;

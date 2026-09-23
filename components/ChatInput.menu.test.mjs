@@ -287,31 +287,37 @@ test("Files and folders returns keyboard focus to the composer", async () => {
   } finally { await view?.unmount(); globalThis.fetch = originalFetch; }
 });
 
-test("native attachment selection inserts every chosen path without replacing the draft", async () => {
+test("native attachment selection adds every chosen path as a row and preserves the draft", async () => {
   const originalBridge = globalThis.ompDesktop;
   const originalFetch = globalThis.fetch;
-  globalThis.ompDesktop = { selectAttachments: async () => ["/tmp/notes.md", "/tmp/folder with space"] };
+  const selections = [
+    { path: "/tmp/notes.md", issuedAt: 123, signature: "a".repeat(64), kind: "file" },
+    { path: "/tmp/folder with space", issuedAt: 123, signature: "b".repeat(64), kind: "folder" },
+  ];
+  globalThis.ompDesktop = { selectAttachmentsWithCapabilities: async () => selections };
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ files: [], skills: [], packages: [] }) });
   const ref = React.createRef();
   const sent = [];
   let view;
   try {
-    view = await mountComposer({ ref, cwd: "/tmp", onSend: value => sent.push(value), onLoadSlashCommands: async () => [] });
+    view = await mountComposer({ ref, cwd: "/tmp", onSend: (value, images, attachments) => sent.push({ value, images, attachments }), onLoadSlashCommands: async () => [] });
     await React.act(async () => { ref.current.insertText("See these"); });
-    // insertText places the caret in a requestAnimationFrame, so until a frame
-    // has passed the caret is still at the start. Without this wait the menu
-    // reads position zero and the paths land in front of the draft, which is
-    // what made this flake in a full run but never on its own.
     await settle();
     await click(triggerFor(view.container, "Add"));
     await click(Array.from(view.container.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("Files and folders")));
     await click(Array.from(view.container.querySelectorAll("[role='menuitem']")).find(button => textOf(button) === "Files and folders"));
     await settle();
+    const rows = view.container.querySelector("[role='list'][aria-label='Local attachments']")?.querySelectorAll("[role='listitem']") ?? [];
+    assert.equal(rows.length, 2);
+    assert.match(textOf(rows[0]), /notes\.md.*File/);
+    assert.match(textOf(rows[1]), /folder with space.*Folder/);
     await React.act(async () => {
       view.container.querySelector("form").dispatchEvent(new DomEvent("submit", { bubbles: true, cancelable: true }));
     });
     assert.equal(sent.length, 1);
-    assert.match(sent[0], /See these @\/tmp\/notes\.md @"\/tmp\/folder with space"/);
+    assert.equal(sent[0].value, "See these");
+    assert.equal(sent[0].images, undefined);
+    assert.deepEqual(sent[0].attachments.map(({ selection }) => selection), selections.map(({ path, issuedAt, signature }) => ({ path, issuedAt, signature })));
   } finally {
     await view?.unmount(); globalThis.ompDesktop = originalBridge; globalThis.fetch = originalFetch;
   }
