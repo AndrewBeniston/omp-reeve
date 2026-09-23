@@ -4,6 +4,7 @@ import {
   distanceFromBottom,
   reduceTranscriptFollow,
   AUTO_FOLLOW_BOTTOM_THRESHOLD_PX,
+  USER_SCROLL_INTENT_DURATION_MS,
   type FollowTurnPhase,
   type TranscriptFollowInput,
   type TranscriptFollowState,
@@ -20,8 +21,10 @@ import {
   type ScrollbarPointer,
 } from "./transcript-follow-input";
 import { prefersReducedMotion, shouldMoveFollowTail } from "./transcript-follow";
+import { readTranscriptOffset, writeTranscriptOffset } from "@/lib/transcript-scroll-offset";
 
 const BUTTON_SCROLL_DURATION_MS = 260;
+const SCROLL_SETTLE_MS = 160;
 
 function metrics(container: HTMLElement) {
   return {
@@ -40,6 +43,14 @@ export function useTranscriptFollow({
   contentChange,
   messageCount,
   sessionKey,
+  sessionId,
+  layoutReady = true,
+  origin = "bottom",
+  footerRef,
+  compactPresentation = false,
+  preserveFooterPosition = true,
+  historyVersion = 0,
+  onNeedHistory,
   onGoToNewest,
 }: {
   scrollContainerRef: RefObject<HTMLDivElement | null>;
@@ -50,6 +61,14 @@ export function useTranscriptFollow({
   contentChange: unknown;
   messageCount: number;
   sessionKey: string | null;
+  sessionId?: string | null;
+  layoutReady?: boolean;
+  origin?: "bottom" | "top";
+  footerRef?: RefObject<HTMLDivElement | null>;
+  compactPresentation?: boolean;
+  preserveFooterPosition?: boolean;
+  historyVersion?: number;
+  onNeedHistory?: () => boolean;
   onGoToNewest: () => void;
 }) {
   const stateRef = useRef<TranscriptFollowState>(createTranscriptFollowState({
@@ -64,12 +83,30 @@ export function useTranscriptFollow({
   const scrollAnimationRef = useRef<number | null>(null);
   const preworkStartHeightRef = useRef<number | null>(null);
   const initialScrollDoneRef = useRef(false);
+  const skipInitialContentRef = useRef(false);
+  const pendingRestoreFrameRef = useRef<number | null>(null);
+  const pendingSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionIdRef = useRef(sessionId);
+  const [initialReady, setInitialReady] = useState(false);
   const phaseRef = useRef(phase);
   const workingRef = useRef(working);
   const heldRef = useRef(activeTurnHeld);
   phaseRef.current = phase;
   workingRef.current = working;
   heldRef.current = activeTurnHeld;
+  sessionIdRef.current = sessionId;
+
+  const cancelPendingRestore = useCallback(() => {
+    if (pendingRestoreFrameRef.current === null) return;
+    cancelAnimationFrame(pendingRestoreFrameRef.current);
+    pendingRestoreFrameRef.current = null;
+  }, []);
+
+  const cancelPendingSave = useCallback(() => {
+    if (pendingSaveRef.current === null) return;
+    clearTimeout(pendingSaveRef.current);
+    pendingSaveRef.current = null;
+  }, []);
 
   const cancelScrollAnimation = useCallback(() => {
     if (scrollAnimationRef.current === null) return;
@@ -151,6 +188,8 @@ export function useTranscriptFollow({
   useEffect(() => {
     const container = scrollContainerRef.current;
     cancelScrollAnimation();
+    cancelPendingRestore();
+    cancelPendingSave();
     stateRef.current = createTranscriptFollowState(container ? metrics(container) : {
       scrollTop: 0, scrollHeight: 0, clientHeight: 0,
     });
@@ -161,15 +200,81 @@ export function useTranscriptFollow({
     pointerRef.current = null;
     preworkStartHeightRef.current = null;
     initialScrollDoneRef.current = false;
-  }, [cancelScrollAnimation, scrollContainerRef, sessionKey]);
+    skipInitialContentRef.current = false;
+    setInitialReady(false);
+    return () => {
+      cancelPendingRestore();
+      cancelPendingSave();
+    };
+  }, [cancelPendingRestore, cancelPendingSave, cancelScrollAnimation, scrollContainerRef, sessionKey]);
 
   useEffect(() => cancelScrollAnimation, [cancelScrollAnimation]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
+    const footer = footerRef?.current;
+    if (!container || !footer) return;
+    let previousHeight: number | null = null;
+    let focusFrame: number | null = null;
+    let focused = footer.contains(document.activeElement);
+    const publishPadding = (height: number) => {
+      const padding = focused ? 0 : height + (compactPresentation ? 0 : 16);
+      container.style.setProperty("--transcript-scroll-padding-bottom", `${padding}px`);
+    };
+    const readHeight = () => Math.max(0, footer.getBoundingClientRect().height);
+    const onResize = () => {
+      const height = readHeight();
+      const delta = previousHeight === null ? 0 : height - previousHeight;
+      previousHeight = height;
+      publishPadding(height);
+      if (delta === 0 || !preserveFooterPosition || !initialScrollDoneRef.current) return;
+      const distanceBeforeResize = distanceFromBottom(metrics(container)) - delta;
+      const intent = intentRef.current;
+      const now = Date.now();
+      const userInterrupted = intent !== null && now >= intent.at
+        && now - intent.at <= USER_SCROLL_INTENT_DURATION_MS;
+      if (distanceBeforeResize <= AUTO_FOLLOW_BOTTOM_THRESHOLD_PX || userInterrupted) return;
+      programmaticScrollAtRef.current = now;
+      container.scrollTo({ top: container.scrollTop + delta, behavior: "instant" });
+    };
+    const onFocusIn = () => {
+      focused = true;
+      publishPadding(previousHeight ?? readHeight());
+    };
+    const onFocusOut = () => {
+      if (focusFrame !== null) cancelAnimationFrame(focusFrame);
+      focusFrame = requestAnimationFrame(() => {
+        focusFrame = null;
+        focused = footer.contains(document.activeElement);
+        publishPadding(previousHeight ?? readHeight());
+      });
+    };
+    onResize();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(onResize);
+    observer?.observe(footer);
+    footer.addEventListener("focusin", onFocusIn);
+    footer.addEventListener("focusout", onFocusOut);
+    return () => {
+      observer?.disconnect();
+      footer.removeEventListener("focusin", onFocusIn);
+      footer.removeEventListener("focusout", onFocusOut);
+      if (focusFrame !== null) cancelAnimationFrame(focusFrame);
+    };
+  }, [compactPresentation, footerRef, layoutReady, preserveFooterPosition, scrollContainerRef, sessionKey]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
     if (!container) return;
     const record = (intent: ScrollIntent | null) => {
-      if (intent) intentRef.current = intent;
+      if (!intent) return;
+      intentRef.current = intent;
+      if (!initialScrollDoneRef.current) {
+        cancelPendingRestore();
+        initialScrollDoneRef.current = true;
+        setInitialReady(true);
+        stateRef.current = createTranscriptFollowState(metrics(container));
+        setMode(stateRef.current.mode);
+      }
     };
     const onWheel = (event: WheelEvent) => {
       record(normalizeWheelIntent({
@@ -228,6 +333,14 @@ export function useTranscriptFollow({
         record({ direction: container.scrollTop < stateRef.current.previousScrollTop ? "away" : "toward", at: Date.now() });
       }
       observe("scroll");
+      if (initialScrollDoneRef.current && sessionId) {
+        cancelPendingSave();
+        pendingSaveRef.current = setTimeout(() => {
+          pendingSaveRef.current = null;
+          if (sessionIdRef.current !== sessionId) return;
+          writeTranscriptOffset(window.localStorage, sessionId, Math.max(0, distanceFromBottom(metrics(container))));
+        }, SCROLL_SETTLE_MS);
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("pointermove", onPointerMove, { passive: true });
@@ -253,29 +366,66 @@ export function useTranscriptFollow({
       container.removeEventListener("pointerdown", onPointerDown);
       container.removeEventListener("scroll", onScroll);
     };
-  }, [messageCount, observe, scrollContainerRef, sessionKey]);
+  }, [cancelPendingRestore, cancelPendingSave, messageCount, observe, scrollContainerRef, sessionId, sessionKey]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || !layoutReady || messageCount === 0 || initialScrollDoneRef.current) return;
+    const savedDistance = readTranscriptOffset(window.localStorage, sessionId ?? null);
+    let previous = metrics(container);
+    let stableFrames = 0;
+    const probe = () => {
+      pendingRestoreFrameRef.current = null;
+      if (initialScrollDoneRef.current || sessionIdRef.current !== sessionId) return;
+      const current = metrics(container);
+      stableFrames = current.scrollHeight === previous.scrollHeight
+        && current.clientHeight === previous.clientHeight ? stableFrames + 1 : 0;
+      previous = current;
+      if (current.clientHeight <= 0 || stableFrames < 2) {
+        pendingRestoreFrameRef.current = requestAnimationFrame(probe);
+        return;
+      }
+      if (origin === "bottom" && savedDistance !== null
+        && savedDistance > AUTO_FOLLOW_BOTTOM_THRESHOLD_PX
+        && current.scrollHeight - current.clientHeight < savedDistance
+        && onNeedHistory?.()) {
+        return;
+      }
+      const maxTop = Math.max(0, current.scrollHeight - current.clientHeight);
+      const top = origin === "top" ? 0
+        : savedDistance !== null && savedDistance > AUTO_FOLLOW_BOTTOM_THRESHOLD_PX
+          ? Math.max(0, maxTop - savedDistance) : maxTop;
+      programmaticScrollAtRef.current = Date.now();
+      container.scrollTo({ top, behavior: "instant" });
+      initialScrollDoneRef.current = true;
+      skipInitialContentRef.current = origin === "top";
+      setInitialReady(true);
+      stateRef.current = createTranscriptFollowState(metrics(container));
+      setMode(stateRef.current.mode);
+      observe("phase");
+    };
+    pendingRestoreFrameRef.current = requestAnimationFrame(probe);
+    return cancelPendingRestore;
+  }, [cancelPendingRestore, historyVersion, layoutReady, messageCount, observe, onNeedHistory, origin, scrollContainerRef, sessionId]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container || messageCount === 0) return;
-    if (!initialScrollDoneRef.current) {
-      initialScrollDoneRef.current = true;
-      scrollToEnd();
-      stateRef.current = createTranscriptFollowState({
-        scrollTop: Math.max(0, container.scrollHeight - container.clientHeight),
-        scrollHeight: container.scrollHeight,
-        clientHeight: container.clientHeight,
-      });
-      setMode(stateRef.current.mode);
+    if (!initialScrollDoneRef.current) return;
+    if (skipInitialContentRef.current) {
+      skipInitialContentRef.current = false;
+      return;
     }
     observe("content");
-  }, [activeTurnHeld, contentChange, messageCount, observe, phase, scrollToEnd, working]);
+  }, [activeTurnHeld, contentChange, initialReady, messageCount, observe, phase, working]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
     const content = contentRef.current;
     if (!container || !content || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => observe("content"));
+    const observer = new ResizeObserver(() => {
+      if (initialScrollDoneRef.current) observe("content");
+    });
     observer.observe(container);
     observer.observe(content);
     return () => observer.disconnect();

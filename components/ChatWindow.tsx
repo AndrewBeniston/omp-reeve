@@ -80,6 +80,8 @@ const QUESTION_DEBUG_REQUEST: QuestionRequest = {
 
 interface Props {
   compactHome?: ReactNode;
+  scrollOrigin?: "bottom" | "top";
+  preserveFooterPosition?: boolean;
   registerGlobalAbort?: boolean;
   newDraftKey?: string;
   session: SessionInfo | null;
@@ -219,7 +221,7 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = fa
   );
 }
 
-export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onRequestReview, onListReviewBranches, reviewGate }: Props) {
+export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFooterPosition = true, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onRequestReview, onListReviewBranches, reviewGate }: Props) {
   const { t } = useI18n();
 
   // Wrap onAgentEnd to play the completion sound. This is more reliable than
@@ -269,6 +271,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
   });
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const footerRef = useRef<HTMLDivElement | null>(null);
   const sessionBusy = agentRunning || bashRunning;
   const showActiveTurnResponseSpacer = agentRunning || streamState.isStreaming;
 
@@ -440,15 +443,29 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
     return blocks;
   }, [messages, activeStreamingMessage, turnStatusDebug]);
   const followPhase = followPhaseFromRows(transcriptRows);
+  const isEmptyNew = isNew && messages.length === 0 && !streamState.isStreaming && !sessionBusy;
+  const requestMoreHistory = useCallback(() => {
+    if (!sentinelRef.current) return false;
+    setVisibleCount((current) => getNextVisibleCount(current));
+    return true;
+  }, []);
   const transcriptFollow = useTranscriptFollow({
     scrollContainerRef,
     contentRef: transcriptContentRef,
+    footerRef,
     phase: followPhase,
     working: sessionBusy || streamState.isStreaming,
     activeTurnHeld,
     contentChange: streamState.streamingMessage ?? pendingBash,
     messageCount: messages.length,
     sessionKey: session?.id ?? newDraftKey ?? newSessionCwd,
+    sessionId: session?.id ?? null,
+    layoutReady: !loading && !error && !isEmptyNew,
+    origin: scrollOrigin,
+    compactPresentation: compactHome !== undefined,
+    preserveFooterPosition,
+    historyVersion: visibleCount,
+    onNeedHistory: requestMoreHistory,
     onGoToNewest: releaseActiveTurnHold,
   });
   const inputHistory = useMemo(() => {
@@ -464,7 +481,6 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
     return history.reverse();
   }, [messages]);
 
-  const isEmptyNew = isNew && messages.length === 0 && !streamState.isStreaming && !sessionBusy;
   useTranscriptHeightRestoration(
     scrollContainerRef,
     transcriptContentRef,
@@ -861,7 +877,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
         />
       </div>
 
-      <div className={styles.composerDock}>
+      <div ref={footerRef} className={styles.composerDock}>
         <NewMessagesControl
           mode={transcriptFollow.mode}
           button={transcriptFollow.button}

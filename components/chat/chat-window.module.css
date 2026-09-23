@@ -14,8 +14,8 @@
  *
  * .chatRoot is a flex column. .transcriptPane takes the free space and
  * .composerDock keeps its content height in the same normal flow. A taller
- * composer therefore removes height from the transcript. No observer and no
- * measured variable takes part. DESIGN.md section 14.1.
+ * composer therefore removes height from the transcript. The measured footer
+ * height also sets the transcript's scroll padding.
  */
 .transcriptPane {
   position: relative;
@@ -184,6 +184,7 @@
 
 .transcriptScroll {
   overflow-anchor: none;
+  scroll-padding-bottom: var(--transcript-scroll-padding-bottom, 0px);
   overscroll-behavior: contain;
   min-width: 0;
   flex: 1;
