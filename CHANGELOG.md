@@ -11,6 +11,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The model menu now opens on a power slider with OMP's supported effort steps. Drag the thumb to choose an effort.
+
 ### Added
 
 - The model menu labels OpenAI API and ChatGPT subscription routes separately and shows the selected route.

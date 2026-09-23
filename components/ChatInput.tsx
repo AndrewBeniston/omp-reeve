@@ -59,6 +59,7 @@ import { ComposerAutocomplete } from "./chat/ComposerAutocomplete";
 import { ComposerAddMenu } from "./chat/ComposerAddMenu";
 import { CommandArgumentsDialog } from "./chat/CommandArgumentsDialog";
 import { ComposerEditor, type ComposerEditorHandle } from "./chat/ComposerEditor";
+import { ModelPowerSlider } from "./chat/ModelPowerSlider";
 import { PausedQueueSubmitDialog } from "./chat/PausedQueueSubmitDialog";
 import { ApprovalModeSelector } from "./chat/ApprovalModeSelector";
 import { SendArrowIcon, StopSquareIcon } from "./navigation/CodexIcons";
@@ -465,7 +466,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, explicitModelOverride, modelNames, modelList, modelError, modelScopeWarnings, onModelChange,
   modelRoles, onRoleModelChange, modelSwitching,
   onCompact, onAbortCompaction, isCompacting, compactError, compactResult, toolPreset, onToolPresetChange,
-  thinkingLevel, onThinkingLevelChange, onCycleThinkingLevel, availableThinkingLevels, modelThinkingLevels, thinkingLevelMap,
+  thinkingLevel, onThinkingLevelChange, onCycleThinkingLevel, availableThinkingLevels, modelThinkingLevels,
   fastModeEnabled = false, fastModeAvailable = false, onFastModeChange,
   retryInfo, queuedMessages, inputHistory = [], subagents = EMPTY_SUBAGENTS,
   onDeleteQueuedMessage, onUndoDeletedQueuedMessage, onEditQueuedMessage,
@@ -567,7 +568,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const modelDropdownPanelRef = useRef<HTMLDivElement>(null);
   const modelTriggerRef = useRef<HTMLButtonElement>(null);
   const modelRowRef = useRef<HTMLButtonElement>(null);
-  const effortRowRef = useRef<HTMLButtonElement>(null);
   const speedRowRef = useRef<HTMLButtonElement>(null);
   const advancedRowRef = useRef<HTMLButtonElement>(null);
   const modelFilterRef = useRef<HTMLInputElement>(null);
@@ -1665,18 +1665,15 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     ? (modelOptions.find((o) => o.modelId === model.modelId && o.provider === model.provider)?.name ?? model.modelId)
     : null;
   const currentName = displayModelName;
-  const effortLevels = selector.steps.map((step) => step.thinkingLevel);
   const currentEffortLabel = selector.currentStep?.effortLabel ?? t(thinkingLevelLabelKey(thinkingLevel ?? "auto"));
   const currentSpeedLabel = fastModeEnabled ? t("chat.speedFast") : t("chat.speedStandard");
   const modelMenuRows: Array<{
-    id: "model" | "effort" | "speed";
+    id: "speed";
     label: string;
     value: string | null;
     disabled: boolean;
     triggerRef: React.RefObject<HTMLButtonElement | null>;
   }> = [
-    { id: "model", label: t("chat.model"), value: currentName && selector.currentRouteLabel ? `${currentName} · ${selector.currentRouteLabel}` : currentName, disabled: !onModelChange, triggerRef: modelRowRef },
-    { id: "effort", label: t("chat.effort"), value: currentEffortLabel, disabled: !onThinkingLevelChange, triggerRef: effortRowRef },
     ...(fastModeAvailable
       ? [{ id: "speed" as const, label: t("chat.speed"), value: currentSpeedLabel, disabled: !onFastModeChange, triggerRef: speedRowRef }]
       : []),
@@ -1994,6 +1991,18 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                           surface="plain"
                           className={styles.modelMenu}
                         >
+                          <ModelPowerSlider
+                            steps={selector.steps}
+                            currentStepId={selector.currentStep?.id}
+                            effortLabel={currentEffortLabel}
+                            modelName={currentName}
+                            modelTriggerRef={modelRowRef}
+                            modelMenuOpen={modelSubmenu === "model"}
+                            canSelectModel={Boolean(onModelChange)}
+                            canChangeEffort={Boolean(onThinkingLevelChange)}
+                            onOpenModels={() => dispatchModelMenu({ type: "submenu", value: "model" })}
+                            onSelectEffort={(level) => onThinkingLevelChange?.(level)}
+                          />
                           {modelMenuRows.map((row) => {
                             return (
                               <MenuItem
@@ -2077,27 +2086,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                                   })}
                                 </div>
                               ))}
-                            </div>
-                          </Menu>
-                        )}
-
-                        {modelSubmenu === "effort" && onThinkingLevelChange && (
-                          <Menu open label={t("chat.effort")} onClose={() => dispatchModelMenu({ type: "submenu", value: null })} triggerRef={effortRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuEffort}`} data-model-submenu="effort">
-                            <div className={styles.modelSubmenuTitle}>{t("chat.effort")}</div>
-                            <div data-menu-section="reasoning">
-                              {effortLevels.length === 0 ? (
-                                <div className={styles.modelSubmenuEmpty}>{t("chat.noEffortLevels")}</div>
-                              ) : effortLevels.map((level) => {
-                                const isActive = (thinkingLevel ?? "auto") === level;
-                                const mappedValue = thinkingLevelMap?.[level];
-                                return (
-                                  <MenuItem key={level} title={mappedValue && mappedValue !== level ? `${level} → ${mappedValue}` : undefined} onClick={() => { closeModelMenu(); if (!isActive) onThinkingLevelChange(level); }} className={styles.submenuChoice} data-selected={isActive ? "true" : "false"} role="menuitemradio" checked={isActive} surface="plain">
-                                    <span>{t(thinkingLevelLabelKey(level))}</span>
-                                    {level === "max" && <span className={styles.ultraWarning}>{t("chat.ultraUsageWarning")}</span>}
-                                    {isActive && <SubmenuSelectionCheck />}
-                                  </MenuItem>
-                                );
-                              })}
                             </div>
                           </Menu>
                         )}

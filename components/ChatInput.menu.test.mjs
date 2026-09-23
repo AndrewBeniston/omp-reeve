@@ -56,6 +56,72 @@ const modelProps = {
   onModelChange() {},
 };
 
+test("the model menu opens on the OMP power steps", async () => {
+  const view = await mountComposer({
+    ...modelProps,
+    thinkingLevel: "high",
+    availableThinkingLevels: ["max", "off", "high", "medium", "ultra"],
+    onThinkingLevelChange() {},
+  });
+
+  await click(triggerFor(view.container, "Model settings"));
+  await settle();
+
+  const menu = view.container.querySelector("[role='menu'][aria-label='Model settings']");
+  assert.ok(menu);
+  assert.equal(menu.querySelector("[data-model-menu-row='effort']"), null);
+  assert.equal(menu.querySelector("[aria-label='Select model']")?.getAttribute("aria-haspopup"), "menu");
+  const dots = menu.querySelectorAll("[data-power-dot]");
+  assert.deepEqual(dots.map((dot) => dot.getAttribute("data-effort")), ["none", "medium", "high", "max"]);
+  assert.deepEqual(dots.map((dot) => dot.getAttribute("data-filled")), ["true", "true", "false", "false"]);
+  assert.equal(menu.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "high");
+  await click(menu.querySelector("[aria-label='Select model']"));
+  await settle();
+  assert.ok(view.container.querySelector("[data-model-submenu='model']"));
+
+  await view.unmount();
+});
+
+test("dragging the power thumb previews steps and selects one effort on release", async () => {
+  const picked = [];
+  const view = await mountComposer({
+    ...modelProps,
+    thinkingLevel: "low",
+    availableThinkingLevels: ["off", "low", "medium", "high", "max"],
+    onThinkingLevelChange: (level) => picked.push(level),
+  });
+
+  await click(triggerFor(view.container, "Model settings"));
+  await settle();
+  const track = view.container.querySelector("[data-power-track]");
+  assert.ok(track);
+  track.getBoundingClientRect = () => ({ left: 100, width: 200 });
+  const pointer = async (type, clientX) => React.act(async () => {
+    track.dispatchEvent(new DomEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      pointerId: 4,
+      clientX,
+    }));
+  });
+
+  await pointer("pointerdown", 150);
+  await pointer("pointermove", 260);
+  assert.equal(view.container.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "high");
+  await pointer("pointermove", 280);
+  assert.deepEqual(picked, []);
+  assert.equal(view.container.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "max");
+  assert.deepEqual(
+    view.container.querySelectorAll("[data-power-dot]").map((dot) => dot.getAttribute("data-filled")),
+    ["true", "true", "true", "true", "false"],
+  );
+  await pointer("pointerup", 280);
+  await pointer("pointerup", 280);
+  assert.deepEqual(picked, ["max"]);
+  await view.unmount();
+});
+
 test("the model control preserves the route when providers share a model name", async () => {
   const picked = [];
   const modelList = [
@@ -277,14 +343,13 @@ test("the Add menu opens command submenus before inserting a complete command", 
   await view.unmount();
 });
 
-test("the Codex model menu opens supported effort levels and keeps its callback", async () => {
-  const picked = [];
+test("the model menu shows supported power steps beside Speed and Advanced", async () => {
   const view = await mountComposer({
     ...modelProps,
     thinkingLevel: "high",
     availableThinkingLevels: ["low", "medium", "high", "xhigh", "max"],
     fastModeAvailable: true,
-    onThinkingLevelChange: (level) => picked.push(level),
+    onThinkingLevelChange() {},
   });
 
   const trigger = triggerFor(view.container, "Model settings");
@@ -296,33 +361,16 @@ test("the Codex model menu opens supported effort levels and keeps its callback"
   assert.ok(menu, "the model menu mounts");
   assert.equal(menu.getAttribute("aria-label"), "Model settings");
   assert.deepEqual(
-    ["model", "effort", "speed", "advanced"].map((row) => {
+    ["model", "speed", "advanced"].map((row) => {
       const item = menu.querySelector(`[data-model-menu-row='${row}']`);
       assert.ok(item, `the model menu contains the ${row} row`);
       return item.getAttribute("aria-haspopup");
     }),
-    ["menu", "menu", "menu", "menu"],
+    ["menu", "menu", "menu"],
   );
-
-  await click(menu.querySelector("[data-model-menu-row='effort']"));
-  await settle();
-
-  const submenu = view.container.querySelector("[data-model-submenu='effort']");
-  assert.ok(submenu, "the Effort row opens its submenu");
-  assert.equal(submenu.getAttribute("aria-label"), "Effort");
-  const items = itemsOf(submenu);
-  assert.deepEqual(items.map(textOf), ["Light", "Medium", "High", "Extra High", "MaxConsumes usage limits faster"]);
-  const checked = items.filter((item) => item.getAttribute("aria-checked") === "true");
-  assert.equal(checked.length, 1);
-  assert.equal(textOf(checked[0]), "High");
-
-  assert.equal(checked[0].getAttribute("data-selected"), "true");
-  await click(items[items.indexOf(checked[0]) + 1]);
-  await settle();
-
-  assert.deepEqual(picked, ["xhigh"]);
-  assert.equal(view.container.querySelector("[role='menu']"), null);
-  assert.equal(domDocument.activeElement, trigger);
+  assert.equal(menu.querySelector("[data-model-menu-row='effort']"), null);
+  assert.deepEqual(menu.querySelectorAll("[data-power-dot]").map((dot) => dot.getAttribute("data-effort")), ["low", "medium", "high", "xhigh", "max"]);
+  assert.equal(menu.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "high");
   await view.unmount();
 });
 
@@ -397,13 +445,10 @@ test("an empty effort capability list reports that the model has no effort level
 
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  await click(view.container.querySelector("[data-model-menu-row='effort']"));
-  await settle();
-
-  const submenu = view.container.querySelector("[data-model-submenu='effort']");
-  assert.ok(submenu);
-  assert.equal(itemsOf(submenu).length, 0);
-  assert.equal(textOf(submenu).includes("This model does not support effort levels"), true);
+  const power = view.container.querySelector("[data-model-power-view]");
+  assert.ok(power);
+  assert.equal(power.querySelectorAll("[data-power-dot]").length, 0);
+  assert.equal(textOf(power).includes("This model does not support effort levels"), true);
   await view.unmount();
 });
 
@@ -417,16 +462,31 @@ test("missing effort capability data does not invent effort choices", async () =
 
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  await click(view.container.querySelector("[data-model-menu-row='effort']"));
-  await settle();
-
-  const submenu = view.container.querySelector("[data-model-submenu='effort']");
-  assert.ok(submenu);
-  assert.equal(itemsOf(submenu).length, 0);
+  const power = view.container.querySelector("[data-model-power-view]");
+  assert.ok(power);
+  assert.equal(power.querySelectorAll("[data-power-dot]").length, 0);
   await view.unmount();
 });
 
-test("the Effort submenu excludes a current level that the selected model does not report", async () => {
+test("an automatic effort stays labelled while the slider has no current thumb", async () => {
+  const view = await mountComposer({
+    ...modelProps,
+    thinkingLevel: "auto",
+    availableThinkingLevels: ["low", "medium"],
+    onThinkingLevelChange() {},
+  });
+
+  await click(triggerFor(view.container, "Model settings"));
+  await settle();
+  const power = view.container.querySelector("[data-model-power-view]");
+  assert.ok(power);
+  assert.equal(power.querySelectorAll("[data-power-dot]").length, 2);
+  assert.equal(power.querySelector("[data-power-thumb]"), null);
+  assert.match(textOf(power), /Auto/);
+  await view.unmount();
+});
+
+test("the power slider excludes a current level that the selected model does not report", async () => {
   const view = await mountComposer({
     ...modelProps,
     thinkingLevel: "max",
@@ -436,12 +496,10 @@ test("the Effort submenu excludes a current level that the selected model does n
 
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  await click(view.container.querySelector("[data-model-menu-row='effort']"));
-  await settle();
-
-  const submenu = view.container.querySelector("[data-model-submenu='effort']");
-  assert.ok(submenu);
-  assert.deepEqual(itemsOf(submenu).map(textOf), ["Light", "High"]);
+  const power = view.container.querySelector("[data-model-power-view]");
+  assert.ok(power);
+  assert.deepEqual(power.querySelectorAll("[data-power-dot]").map((dot) => dot.getAttribute("data-effort")), ["low", "high"]);
+  assert.equal(power.querySelector("[data-power-thumb]"), null);
   await view.unmount();
 });
 
@@ -456,17 +514,17 @@ test("Escape from a nested menu returns focus to its parent row", async () => {
 
   await click(trigger);
   await settle();
-  const effortRow = view.container.querySelector("[data-model-menu-row='effort']");
-  await click(effortRow);
+  const modelRow = view.container.querySelector("[data-model-menu-row='model']");
+  await click(modelRow);
   await settle();
-  const effortMenu = view.container.querySelector("[data-model-submenu='effort']");
-  const activeItem = itemsOf(effortMenu).find((item) => item.getAttribute("aria-checked") === "true");
+  const modelMenu = view.container.querySelector("[data-model-submenu='model']");
+  const activeItem = itemsOf(modelMenu).find((item) => item.getAttribute("aria-checked") === "true");
   await press(activeItem, "Escape");
   await settle();
 
   assert.ok(view.container.querySelector("[role='menu'][aria-label='Model settings']"));
-  assert.equal(view.container.querySelector("[data-model-submenu='effort']"), null);
-  assert.equal(domDocument.activeElement, effortRow);
+  assert.equal(view.container.querySelector("[data-model-submenu='model']"), null);
+  assert.equal(domDocument.activeElement, modelRow);
   await view.unmount();
 });
 

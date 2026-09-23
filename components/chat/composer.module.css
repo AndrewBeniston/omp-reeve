@@ -868,8 +868,7 @@
   width: 280px;
 }
 
-.modelSubmenuEffort { top: 36px; min-width: 180px; }
-.modelSubmenuSpeed { top: 72px; width: 233px; }
+.modelSubmenuSpeed { top: calc(100% - 75px); width: 233px; }
 .modelSubmenuAdvanced { bottom: 0; width: 280px; }
 
 .modelSubmenuTitle {
@@ -877,13 +876,6 @@
   padding: var(--space-1) var(--space-2);
   color: var(--ui-text-dim);
   font-size: var(--text-xs);
-}
-
-.modelSubmenuEmpty {
-  padding: var(--space-2) var(--space-2);
-  color: var(--ui-text-dim);
-  font-size: var(--text-xs);
-  line-height: var(--leading-sm);
 }
 
 .advancedTools {
@@ -919,7 +911,6 @@
   color: var(--ui-text-muted);
 }
 
-.ultraWarning,
 .speedDescription {
   grid-column: 1 / -1;
   color: var(--ui-text-dim);
