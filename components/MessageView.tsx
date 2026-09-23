@@ -10,7 +10,7 @@ import type { WrittenFile } from "@/lib/turn-written-files";
 import { MessageTurn } from "./chat/MessageTurn";
 import { ThinkingDisclosure } from "./chat/ThinkingDisclosure";
 import { BashExecutionActivity } from "./chat/BashExecutionActivity";
-import { ToolActivity } from "./chat/ToolActivity";
+import { ActivityRow } from "./chat/ActivityRow";
 import { CompactionNote } from "./chat/CompactionNote";
 import { CollaborationCard, isCollaborationSnapshot } from "./chat/CollaborationCard";
 import styles from "./chat/message-view.module.css";
@@ -642,8 +642,7 @@ function BlockView({ block, toolResults, isStreaming, hasLaterContent, streaming
   if (block.type === "toolCall") {
     const tc = block as ToolCallContent;
     const result = toolResults?.get(tc.toolCallId);
-    const duration = toolCallDurations?.get(tc.toolCallId);
-    return <ToolActivity block={tc} result={result} duration={duration} />;
+    return <ActivityRow block={tc} result={result} />;
   }
   return null;
 }

@@ -21,6 +21,7 @@ the What's New dialog adds a second page that invites support.
 - Opening an archived Session shows a restore card. A successful restore opens the Session.
 - Render the compaction transcript note in four states with shimmer, error details, and preserved card content.
 - Show the live compaction note in the transcript during manual or automatic compaction and errors.
+- Render tool calls as classified Activity rows with separate action and detail text.
 
 ## [0.8.0] - 2026-09-23
 
