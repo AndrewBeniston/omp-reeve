@@ -1,5 +1,5 @@
 import type { Settings } from "@oh-my-pi/pi-coding-agent";
-import type { ConfiguredThinkingLevel } from "@oh-my-pi/pi-coding-agent/thinking";
+import type { ConfiguredThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
 import { formatRoleSelector } from "./model-roles";
 
 export interface ExplicitStartupPreferences {

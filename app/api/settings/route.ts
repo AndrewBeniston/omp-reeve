@@ -8,11 +8,9 @@ import {
   hasUi,
   isCredential,
   SETTINGS_SCHEMA,
-  SETTING_TABS,
-  TAB_GROUPS,
-  TAB_METADATA,
   type SettingPath,
 } from "@oh-my-pi/pi-coding-agent/config/settings-schema";
+import { SETTING_TABS, TAB_GROUPS, TAB_METADATA } from "@oh-my-pi/pi-tui/overlays/settings-defs";
 import { getOmpRuntime, getSettingsForCwd } from "@/lib/omp-runtime";
 import { getAllowedFileRoots, isExistingFilePathAllowed } from "@/lib/file-access";
 import { getAvailableWebThemes, getWebThemeConfig } from "@/lib/omp-theme";

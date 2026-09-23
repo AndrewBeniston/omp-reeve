@@ -19,6 +19,13 @@ the What's New dialog adds a second page that invites support.
 
 ### Fixed
 
+- Claude Opus 5.5 now answers in Reeve. Reeve now runs OMP 18.2.11, which
+  identifies itself to Anthropic as a Claude Code version that supports the
+  model. Before, Anthropic refused every request with "version too old".
+
+- `/collab list` now shows the active local collaboration hosts. OMP added
+  the command, and Reeve showed it in the menu but refused to run it.
+
 - A chat with an attached image no longer opens the application error page
   after OMP restores the image from its session store.
 
