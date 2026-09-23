@@ -15,7 +15,7 @@ function mountControl(props) {
 }
 
 test("stays away while the transcript follows the newest content", async () => {
-  const view = await mountControl({ pinned: true, streaming: true });
+  const view = await mountControl({ mode: "user_follow", button: { visible: false, workingDots: false } });
 
   assert.equal(view.container.querySelector("button"), null);
   assert.equal(view.container.querySelector("[role='status']"), null);
@@ -23,8 +23,14 @@ test("stays away while the transcript follows the newest content", async () => {
   await view.unmount();
 });
 
+test("hides a stale button state while the transcript follows", async () => {
+  const view = await mountControl({ mode: "prework_follow", button: { visible: true, workingDots: true } });
+  assert.equal(view.container.querySelector("button"), null);
+  await view.unmount();
+});
+
 test("shows an arrow while a detached transcript is idle", async () => {
-  const view = await mountControl({ pinned: false, streaming: false });
+  const view = await mountControl({ mode: "static", button: { visible: true, workingDots: false } });
 
   assert.ok(view.container.querySelector("button").querySelector("svg"));
 
@@ -32,7 +38,7 @@ test("shows an arrow while a detached transcript is idle", async () => {
 });
 
 test("appears when the stream continues and the transcript is detached", async () => {
-  const view = await mountControl({ pinned: false, streaming: true });
+  const view = await mountControl({ mode: "prework_watch", button: { visible: true, workingDots: true } });
   const region = view.container.querySelector("[role='status']");
   const button = view.container.querySelector("button");
 
@@ -49,8 +55,8 @@ test("appears when the stream continues and the transcript is detached", async (
 test("reaches the control with the keyboard and runs the action", async () => {
   const calls = [];
   const view = await mountControl({
-    pinned: false,
-    streaming: true,
+    mode: "static",
+    button: { visible: true, workingDots: true },
     onGoToNewest: () => calls.push("go"),
   });
   const button = view.container.querySelector("button");
@@ -67,12 +73,12 @@ test("reaches the control with the keyboard and runs the action", async () => {
 });
 
 test("leaves once the reader returns to the newest content", async () => {
-  const view = await mountControl({ pinned: false, streaming: true });
+  const view = await mountControl({ mode: "static", button: { visible: true, workingDots: true } });
   assert.ok(view.container.querySelector("button"));
 
   await view.render(h(I18nProvider, null, h(NewMessagesControl, {
-    pinned: true,
-    streaming: true,
+    mode: "user_follow",
+    button: { visible: false, workingDots: false },
     onGoToNewest() {},
   })));
 
@@ -82,7 +88,7 @@ test("leaves once the reader returns to the newest content", async () => {
 });
 
 test("carries no decorative graphic into the accessible name", async () => {
-  const view = await mountControl({ pinned: false, streaming: true });
+  const view = await mountControl({ mode: "static", button: { visible: true, workingDots: true } });
   const graphic = view.container.querySelector("button").querySelector("span");
 
   assert.equal(graphic.getAttribute("aria-hidden"), "true");

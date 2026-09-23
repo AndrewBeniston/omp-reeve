@@ -13,6 +13,10 @@ export interface FollowScrollMetrics {
   clientHeight: number;
 }
 
+export function distanceFromBottom(metrics: FollowScrollMetrics): number {
+  return metrics.scrollHeight - metrics.scrollTop - metrics.clientHeight;
+}
+
 export interface TranscriptFollowState {
   mode: FollowMode;
   phase: FollowTurnPhase;
@@ -35,7 +39,7 @@ export interface TranscriptFollowInput {
 }
 
 export function createTranscriptFollowState(metrics: FollowScrollMetrics): TranscriptFollowState {
-  const distance = metrics.scrollHeight - metrics.scrollTop - metrics.clientHeight;
+  const distance = distanceFromBottom(metrics);
   return {
     mode: distance <= AUTO_FOLLOW_BOTTOM_THRESHOLD_PX ? "user_follow" : "static",
     phase: "idle",
@@ -71,7 +75,7 @@ export function reduceTranscriptFollow(state: TranscriptFollowState, input: Tran
     mode = phase === "prework" ? "prework_follow" : "user_follow";
   }
   const intent = input.userIntent;
-  const distance = input.metrics.scrollHeight - input.metrics.scrollTop - input.metrics.clientHeight;
+  const distance = distanceFromBottom(input.metrics);
   if (input.event === "scroll" && intent
     && input.now >= intent.at && input.now - intent.at <= USER_SCROLL_INTENT_DURATION_MS) {
     if (intent.direction === "away"
@@ -84,11 +88,11 @@ export function reduceTranscriptFollow(state: TranscriptFollowState, input: Tran
       mode = phase === "prework" ? "prework_follow" : "user_follow";
     }
   }
-  const visible = distance > Math.max(0, input.spacerHeight) + AUTO_FOLLOW_BOTTOM_THRESHOLD_PX;
+  const following = mode === "user_follow" || (mode === "prework_follow" && phase === "prework");
+  const visible = !following && distance > Math.max(0, input.spacerHeight) + AUTO_FOLLOW_BOTTOM_THRESHOLD_PX;
   return {
     button: { visible, workingDots: visible && input.working },
-    scrollToEndInstantly: input.event === "content"
-      && (mode === "user_follow" || (mode === "prework_follow" && phase === "prework")),
+    scrollToEndInstantly: input.event === "content" && following,
     state: {
       mode,
       phase,
