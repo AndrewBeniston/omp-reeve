@@ -1,18 +1,19 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import {
   closestCenter,
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { QueuedMessageItem } from "@/lib/queued-message-types";
 import { DynamicStyleVars } from "../ui/DynamicStyleVars";
 import { Menu, MenuItem } from "../ui/Menu";
@@ -32,6 +33,7 @@ export interface QueuedMessageListProps {
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   onReorder: (ids: string[]) => void;
+  onRetry?: (id: string) => void;
   onSendNow: (id: string) => void;
   onQueueingChange: (enabled: boolean) => void;
   onResume: () => void;
@@ -51,6 +53,11 @@ export interface QueuedMessageLabels {
   queueOn: string;
   reorder: string;
   image: string;
+  retry: string;
+  retryTooltip: string;
+  retryTooltipRemedy: string;
+  pausedTooltip: string;
+  pausedTooltipRemedy: string;
 }
 
 const DEFAULT_LABELS: QueuedMessageLabels = {
@@ -66,6 +73,11 @@ const DEFAULT_LABELS: QueuedMessageLabels = {
   queueOn: "Turn on queueing",
   reorder: "Reorder queued message",
   image: "Image attachment",
+  retry: "Retry",
+  retryTooltip: "Try sending this queued message again",
+  retryTooltipRemedy: "Edit or delete it if retry keeps failing",
+  pausedTooltip: "This queued message could not be sent",
+  pausedTooltipRemedy: "Retry, edit, or delete it to continue the queue",
 };
 
 const QUEUE_DROP_ANIMATION = {
@@ -82,6 +94,20 @@ export function reorderQueuedMessageIds(ids: string[], activeId: string, overId:
   if (!active) return ids;
   next.splice(to, 0, active);
   return next;
+}
+
+export function mergeQueuedMessageReorder(reorderedIds: string[], currentIds: string[]): string[] {
+  const known = new Set(reorderedIds);
+  return [...reorderedIds, ...currentIds.filter((id) => !known.has(id))];
+}
+
+function TooltipText({ primary, secondary }: { primary: string; secondary: string }) {
+  return (
+    <span className={styles.tooltipText}>
+      <span>{primary}</span>
+      <span className={styles.tooltipRemedy}>{secondary}</span>
+    </span>
+  );
 }
 
 function QueueArrowIcon() {
@@ -176,9 +202,11 @@ function QueuedMessageRow({
   onMenuOpenChange,
   onDelete,
   onEdit,
+  onRetry,
   onSendNow,
   onQueueingChange,
   labels,
+  onKeyboardMove,
 }: {
   item: QueuedMessageItem;
   isReorderable: boolean;
@@ -187,9 +215,11 @@ function QueuedMessageRow({
   onMenuOpenChange: (open: boolean) => void;
   onDelete: QueuedMessageListProps["onDelete"];
   onEdit: QueuedMessageListProps["onEdit"];
+  onRetry: QueuedMessageListProps["onRetry"];
   onSendNow: QueuedMessageListProps["onSendNow"];
   onQueueingChange: QueuedMessageListProps["onQueueingChange"];
   labels: QueuedMessageLabels;
+  onKeyboardMove: (direction: -1 | 1) => void;
 }) {
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const [menuPosition, setMenuPosition] = useState({ left: 0, top: 0 });
@@ -203,6 +233,13 @@ function QueuedMessageRow({
     transition,
     isDragging,
   } = useSortable({ id: item.id, disabled: !isReorderable });
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (!isReorderable || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onKeyboardMove(event.key === "ArrowUp" ? -1 : 1);
+  };
 
   useEffect(() => setPortalReady(true), []);
 
@@ -244,6 +281,7 @@ function QueuedMessageRow({
       elementRef={setNodeRef}
       role="listitem"
       className={styles.row}
+      data-failed={item.status === "failed" || undefined}
       data-dragging={isDragging || undefined}
       variables={{
         "--ui-queue-translate-x": `${transform?.x ?? 0}px`,
@@ -258,6 +296,7 @@ function QueuedMessageRow({
         aria-label={labels.reorder}
         {...attributes}
         {...listeners}
+        onKeyDown={handleKeyDown}
       >
         {isReorderable && <span className={styles.dragDots}><DragIcon /></span>}
         <QueueArrowIcon />
@@ -266,8 +305,21 @@ function QueuedMessageRow({
         // eslint-disable-next-line @next/next/no-img-element
         <img src={item.imagePreview} alt={labels.image} className={styles.imagePreview} draggable={false} />
       )}
-      <span className={styles.message} title={item.text}>{item.text}</span>
+      {item.status === "failed" ? (
+        <Tooltip content={<TooltipText primary={labels.pausedTooltip} secondary={labels.pausedTooltipRemedy} />}>
+          <span className={`${styles.message} ${styles.failedMessage}`} title={item.text}>{item.text}</span>
+        </Tooltip>
+      ) : (
+        <span className={styles.message} title={item.text}>{item.text}</span>
+      )}
       <div className={styles.actions}>
+        {item.status === "failed" && onRetry && (
+          <Tooltip content={<TooltipText primary={labels.retryTooltip} secondary={labels.retryTooltipRemedy} />}>
+            <button type="button" className={styles.retryAction} data-queue-retry onClick={() => onRetry(item.id)}>
+              {labels.retry}
+            </button>
+          </Tooltip>
+        )}
         <Tooltip content={labels.steerTooltip}>
           <button type="button" className={styles.steerAction} aria-label={labels.steerAria} onClick={() => onSendNow(item.id)}>
             <span aria-hidden="true">↪</span>
@@ -317,6 +369,7 @@ export function QueuedMessageList({
   onDelete,
   onEdit,
   onReorder,
+  onRetry,
   onSendNow,
   onQueueingChange,
   onResume,
@@ -325,7 +378,10 @@ export function QueuedMessageList({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   useEffect(() => {
     if (!openMenuId) return;
@@ -345,8 +401,18 @@ export function QueuedMessageList({
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     setActiveId(null);
     if (!over) return;
-    const next = reorderQueuedMessageIds(ids, String(active.id), String(over.id));
+    const reordered = reorderQueuedMessageIds(ids, String(active.id), String(over.id));
+    const next = mergeQueuedMessageReorder(reordered, ids);
     if (next !== ids) onReorder(next);
+  };
+  const moveItem = (id: string, direction: -1 | 1) => {
+    const from = ids.indexOf(id);
+    const to = from + direction;
+    if (from < 0 || to < 0 || to >= ids.length) return;
+    const next = [...ids];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    onReorder(next);
   };
 
   return (
@@ -377,9 +443,11 @@ export function QueuedMessageList({
                 onMenuOpenChange={(open) => setOpenMenuId(open ? item.id : null)}
                 onDelete={onDelete}
                 onEdit={onEdit}
+                onRetry={onRetry}
                 onSendNow={onSendNow}
                 onQueueingChange={onQueueingChange}
                 labels={labels}
+                onKeyboardMove={(direction) => moveItem(item.id, direction)}
               />
             ))}
           </div>

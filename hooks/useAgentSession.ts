@@ -2309,6 +2309,13 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     applyQueueSnapshot(result);
   }, [applyQueueSnapshot]);
 
+  const handleRetryQueuedMessage = useCallback(async (id: string) => {
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+    const result = await sendAgentCommand<QueuedMessageSnapshot>(sid, { type: "retry_queue_item", id });
+    applyQueueSnapshot(result);
+  }, [applyQueueSnapshot]);
+
   const handleResumeQueuedMessages = useCallback(async () => {
     const sid = sessionIdRef.current;
     if (!sid) return;
@@ -2613,7 +2620,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     handleCompact, handleSteer, handleFollowUp, handlePromptWithStreamingBehavior, handleAbortCompaction,
     handleDeleteQueuedMessage, handleUndoDeletedQueuedMessage,
     handleEditQueuedMessage, handleCancelQueuedMessageEdit, handleCompleteQueuedMessageEdit,
-    handleReorderQueuedMessages, handleSendQueuedMessageNow, handleResumeQueuedMessages, handleResolvePausedQueueSubmission,
+    handleReorderQueuedMessages, handleRetryQueuedMessage, handleSendQueuedMessageNow, handleResumeQueuedMessages, handleResolvePausedQueueSubmission,
     releaseActiveTurnHold,
     handleBuiltinSlashCommand,
     handleToolPresetChange, handleApprovalModeChange, handleThinkingLevelChange, handleCycleThinkingLevel, handleFastModeChange, loadTools, loadSlashCommands, setActiveLeafId, setData, setMessages,

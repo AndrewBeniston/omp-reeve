@@ -4,12 +4,13 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createJiti } from "jiti";
+import { click, mount, press } from "../../test/dom-harness.mjs";
 
 const jiti = createJiti(import.meta.url, {
   jsx: { runtime: "automatic" },
   tsconfigPaths: true,
 });
-const { QueuedMessageList, reorderQueuedMessageIds } = await jiti.import("./QueuedMessageList.tsx");
+const { QueuedMessageList, mergeQueuedMessageReorder, reorderQueuedMessageIds } = await jiti.import("./QueuedMessageList.tsx");
 
 const items = [
   { id: "one", kind: "followUp", text: "First queued message", imageCount: 0 },
@@ -65,6 +66,69 @@ test("renders the interrupted queue header without changing message actions", ()
 test("reorders queue identifiers around the drop target", () => {
   assert.deepEqual(reorderQueuedMessageIds(["one", "two", "three"], "one", "three"), ["two", "three", "one"]);
   assert.deepEqual(reorderQueuedMessageIds(["one", "two"], "missing", "two"), ["one", "two"]);
+});
+
+test("keeps messages added during a reorder and never duplicates the dragged message", () => {
+  assert.deepEqual(
+    mergeQueuedMessageReorder(["two", "one"], ["one", "two", "added"]),
+    ["two", "one", "added"],
+  );
+  assert.deepEqual(
+    mergeQueuedMessageReorder(["two", "one"], ["added", "one", "two"]),
+    ["two", "one", "added"],
+  );
+});
+
+test("renders Retry for a failed row and sends the failed message id", async () => {
+  const retried = [];
+  const view = await mount(React.createElement(QueuedMessageList, {
+    items: [{ ...items[0], status: "failed", errorSummary: "Provider unavailable" }],
+    paused: true,
+    queueingEnabled: true,
+    onDelete() {},
+    onEdit() {},
+    onReorder() {},
+    onRetry(id) { retried.push(id); },
+    onSendNow() {},
+    onQueueingChange() {},
+    onResume() {},
+  }));
+
+  const retry = view.container.querySelector("[data-queue-retry]");
+  assert.ok(retry);
+  assert.equal(retry.textContent, "Retry");
+  assert.match(view.container.textContent, /This queued message could not be sent/);
+  assert.match(view.container.textContent, /Retry, edit, or delete it to continue the queue/);
+  assert.match(view.container.textContent, /Try sending this queued message again/);
+  assert.match(view.container.textContent, /Edit or delete it if retry keeps failing/);
+  assert.ok(view.container.querySelector("[aria-label='Reorder queued message']"));
+  assert.ok(view.container.querySelector("[aria-label='Steer queued message']"));
+  assert.ok(view.container.querySelector("[aria-label='Delete queued message']"));
+  assert.ok(view.container.querySelector("[aria-label='Queued message actions']"));
+
+  await click(retry);
+  assert.deepEqual(retried, ["one"]);
+  await view.unmount();
+});
+
+test("reorders with the keyboard and keeps the new order in focus", async () => {
+  const orders = [];
+  const view = await mount(React.createElement(QueuedMessageList, {
+    items,
+    paused: false,
+    queueingEnabled: true,
+    onDelete() {},
+    onEdit() {},
+    onReorder(ids) { orders.push(ids); },
+    onSendNow() {},
+    onQueueingChange() {},
+    onResume() {},
+  }));
+  const handle = view.container.querySelector("[aria-label='Reorder queued message']");
+  assert.ok(handle);
+  await press(handle, "ArrowDown");
+  assert.deepEqual(orders, [["two", "one"]]);
+  await view.unmount();
 });
 
 test("uses Codex-style live sortable motion instead of native drop-only dragging", async () => {
