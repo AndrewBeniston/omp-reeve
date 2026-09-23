@@ -13,6 +13,7 @@ import { ThinkingDisclosure } from "./chat/ThinkingDisclosure";
 import { BashExecutionActivity } from "./chat/BashExecutionActivity";
 import { ToolActivity } from "./chat/ToolActivity";
 import { CollaborationCard, isCollaborationSnapshot } from "./chat/CollaborationCard";
+import { AssistantResponseAnnouncer } from "./chat/AssistantResponseAnnouncer";
 import styles from "./chat/message-view.module.css";
 import type {
   AgentMessage,
@@ -628,6 +629,14 @@ function AssistantMessageView({
         <div className={styles.usage}>{formatUsage(message.usage)}</div>
       ) : undefined}
     >
+        <AssistantResponseAnnouncer
+          responseId={entryId}
+          sessionId={sessionId}
+          isStreaming={isStreaming}
+          content={message.content}
+          plainText={textContent}
+          cwd={cwd}
+        />
         {blockItems.map(({ block, originalIndex }) => (
           <BlockView key={`${entryId ?? "stream"}-${originalIndex}`} block={block} toolResults={toolResults} isStreaming={isStreaming} hasLaterContent={thinkingBlocksWithLaterContent.has(originalIndex)} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
         ))}
