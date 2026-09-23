@@ -41,6 +41,7 @@ import {
   type ComposerSuggestion,
 } from "@/lib/composer-intelligence";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { selectComposerPlaceholder } from "./composer-placeholder";
 import { getSecureAttachmentPicker } from "@/lib/desktop-attachments";
 import {
   addComposerAttachments,
@@ -1888,12 +1889,22 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     files: fileIndex && fileIndex.cwd === cwd ? fileIndex.entries : [],
     subagents,
   }), [availableSlashCommands, composerSkills, cwd, fileIndex, mentionablePlugins, subagents]);
+  const hasStreamingSubmissionHandler = Boolean(onSteer || onFollowUp || onPromptWithStreamingBehavior);
+  const placeholder = selectComposerPlaceholder({
+    working: () => isStreaming && !hasStreamingSubmissionHandler
+      ? t("chat.agentPlaceholder")
+      : undefined,
+    callerOverride: () => isStreaming && hasStreamingSubmissionHandler
+      ? t("chat.steerPlaceholder")
+      : undefined,
+    fallback: () => t("chat.messagePlaceholder"),
+  });
   const editor = (
     <ComposerEditor
       ref={textareaRef}
       value={value}
       mentions={recognizedMentions}
-      placeholder={t("chat.messagePlaceholder")}
+      placeholder={placeholder}
       ariaLabel="Message"
       onChange={(nextValue) => {
       valueRef.current = nextValue;
