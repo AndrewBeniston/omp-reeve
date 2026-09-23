@@ -1044,13 +1044,10 @@ test("renders the complete semantic composer contract", async () => {
   assert.match(css, /border-radius:\s*var\(--radius-composer\)/);
   assert.match(css, /box-shadow:\s*var\(--shadow-composer\)/);
   assert.match(css, /font-family:\s*var\(--font-sans\)/);
-  // Codex code: the empty attachments strip is 8px + 6px, so the text row starts 14px down.
-  // Codex: the frame keeps a 14px strip while the editor wrapper receives the 2px visual nudge.
-  assert.match(css, /\.composerContent\s*\{[^}]*padding:\s*14px var\(--space-3\) 0;/);
+  assert.match(css, /\.composerContent\s*\{[^}]*padding:\s*14px 12px 0;/);
   assert.match(css, /\.textareaGeometry\s*\{[^}]*transform:\s*translateY\(var\(--composer-text-nudge\)\);/);
   assert.match(tokensCss, /--composer-text-nudge:\s*2px;/);
-  // Codex code: text-base with leading-5, minHeight 2.75rem. 16px on a 20px line, 44px minimum.
-  assert.match(editorCss, /\.editor\s*\{[^}]*min-height:\s*44px;[^}]*max-height:\s*var\(--composer-max-height\);[^}]*font-size:\s*var\(--text-ui\);[^}]*line-height:\s*var\(--leading-ui\);/);
+  assert.match(editorCss, /\.editor\s*\{[^}]*min-height:\s*44px;[^}]*max-height:\s*var\(--composer-max-height\);[^}]*font-size:\s*var\(--text-ui\);[^}]*line-height:\s*20px;[^}]*padding:\s*15px 18px 16px;/);
   assert.match(tokensCss, /--composer-max-height:\s*25dvh;/);
   assert.match(tokensCss, /--leading-ui:\s*20px;/);
   // Codex Electron: --text-base is 14px at the theme root. Only the browser window raises it to 1rem.

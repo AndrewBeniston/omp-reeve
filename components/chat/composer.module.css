@@ -28,6 +28,7 @@
   min-height: var(--composer-frame-min-height);
   margin: 0 auto;
   border-radius: var(--radius-composer);
+  --composer-attachment-radius: max(calc(var(--radius-composer) - 8px), 0px);
   background: var(--ui-composer);
   box-shadow: var(--shadow-composer);
   font-family: var(--font-sans);
@@ -37,13 +38,6 @@
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-@supports (corner-shape: superellipse(1.5)) {
-  .composer {
-    border-radius: var(--radius-composer-squircle);
-    corner-shape: var(--corner-row);
-  }
-}
-
 .composerContent {
   display: flex;
   flex-direction: column;
@@ -51,8 +45,12 @@
   gap: 0;
   width: 100%;
   box-sizing: border-box;
-  /* Codex: the empty attachments strip is 8px + 6px. */
-  padding: 14px var(--space-3) 0;
+  padding: 14px 12px 0;
+}
+
+.composer[data-frame-variant="large"] {
+  border-radius: var(--radius-composer-large);
+  --composer-attachment-radius: max(calc(var(--radius-composer-large) - 8px), 0px);
 }
 
 .hiddenInput {
@@ -143,6 +141,8 @@
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-bottom: var(--space-1);
+  padding: 8px;
+  border-radius: var(--composer-attachment-radius);
 }
 
 .localAttachmentList {
@@ -220,7 +220,7 @@
   position: relative;
   width: 56px;
   height: 56px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--composer-attachment-radius);
   overflow: hidden;
   border: 1px solid var(--ui-border);
 }
@@ -600,6 +600,7 @@
 
 .composer[data-compact="true"] [data-composer-editor] {
   margin-bottom: 0;
+  padding: 0 12px;
 }
 
 .composer[data-compact="true"] .toolbar {
@@ -1093,6 +1094,15 @@
 }
 
 @media (max-width: 640px) {
+  .composer {
+    border-radius: var(--radius-composer-compact);
+    --composer-attachment-radius: max(calc(var(--radius-composer-compact) - 8px), 0px);
+  }
+
+  .composer[data-frame-variant="large"] {
+    border-radius: var(--radius-composer-compact);
+  }
+
   .modelMenuStack[data-mobile="true"] .modelSubmenu {
     top: 0;
     right: 0;

@@ -107,8 +107,11 @@ test("Tier 2 semantic colors derive from the fixed Tier 1 adapter", async () => 
   assert.match(tokens, /--sidebar-item-icon-size:\s*24px;/);
   assert.match(tokens, /--sidebar-item-gap:\s*8px;/);
   assert.match(tokens, /--sidebar-footer-height:\s*46px;/);
-  assert.match(tokens, /--radius-composer:\s*24px;/);
-  assert.match(tokens, /--composer-frame-min-height:\s*98px;/);
+  assert.match(tokens, /--radius-composer:\s*22px;/);
+  assert.match(tokens, /--radius-composer-large:\s*28px;/);
+  assert.match(tokens, /--radius-composer-compact:\s*10px;/);
+  assert.match(tokens, /--radius-3xl:\s*20px;/);
+  assert.match(tokens, /--composer-frame-min-height:\s*44px;/);
   assert.match(tokens, /--composer-footer-inset:\s*8px;/);
   assert.match(tokens, /--composer-control-size:\s*28px;/);
   assert.match(tokens, /--composer-send-size:\s*var\(--composer-control-size\);/);

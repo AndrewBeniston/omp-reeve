@@ -82,12 +82,19 @@ test("owns the composer surface, editor, attachments, toolbar, and status semant
 test("places the queued messages before the Composer surface", async () => {
   const source = await readFile(new URL("./ComposerFrame.tsx", import.meta.url), "utf8");
   const queueIndex = source.indexOf("<QueuedMessageList");
-  const surfaceIndex = source.indexOf("<div className={styles.composer}");
+  const surfaceIndex = source.indexOf("className={styles.composer}");
 
   assert.match(source, /<form[^>]+className=\{styles\.composerShell\}/);
   assert.ok(queueIndex >= 0, "the queue renders");
   assert.ok(surfaceIndex > queueIndex, "the Composer surface follows the queue");
   assert.match(source, /<div className=\{styles\.queuePlacement\}>\s*<QueuedMessageList/);
+});
+
+test("marks a non-compact frame with content as large", async () => {
+  const source = await readFile(new URL("./ComposerFrame.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /const hasLargeContent = Boolean\([\s\S]*?queue[\s\S]*?attachments\.length > 0[\s\S]*?statusLine,/);
+  assert.match(source, /data-frame-variant=\{useSingleRow \|\| !hasLargeContent \? undefined : "large"\}/);
 });
 
 test("collapses the Composer into one control row while a question is open", async () => {
@@ -223,14 +230,28 @@ test("send and stop circles take their fill from the theme primary token", async
   assert.doesNotMatch(css, /#[\da-f]{3,8}\b|rgba?\(|hsla?\(/i);
 });
 
-test("uses the Codex superellipse Composer corner with a round fallback", async () => {
+test("uses the reference frame geometry across default, large, compact, and mobile states", async () => {
   const css = await readFile(new URL("./composer.module.css", import.meta.url), "utf8");
+  const editorCss = await readFile(new URL("./composer-editor.module.css", import.meta.url), "utf8");
   const tokens = await readFile(new URL("../../app/tokens.css", import.meta.url), "utf8");
 
   assert.match(css, /\.composer\s*\{[^}]*border-radius:\s*var\(--radius-composer\);/);
-  assert.match(css, /@supports\s*\(corner-shape:\s*superellipse\(1\.5\)\)\s*\{[\s\S]*?\.composer\s*\{[\s\S]*?border-radius:\s*var\(--radius-composer-squircle\);[\s\S]*?corner-shape:\s*var\(--corner-row\);/);
-  assert.match(tokens, /--radius-composer:\s*24px;/);
-  assert.match(tokens, /--radius-composer-squircle:\s*30px;/);
+  assert.match(css, /\.composer\[data-frame-variant="large"\]\s*\{[^}]*border-radius:\s*var\(--radius-composer-large\);/);
+  assert.match(css, /@media\s*\(max-width:\s*640px\)\s*\{[\s\S]*?\.composer\s*\{[^}]*border-radius:\s*var\(--radius-composer-compact\);/);
+  assert.match(tokens, /--radius-composer:\s*22px;/);
+  assert.match(tokens, /--radius-composer-large:\s*28px;/);
+  assert.match(tokens, /--radius-composer-compact:\s*10px;/);
+  assert.match(tokens, /--radius-3xl:\s*20px;/);
+  assert.match(tokens, /--composer-frame-min-height:\s*44px;/);
+  assert.match(tokens, /--composer-control-size:\s*28px;/);
+  assert.match(css, /\.composerContent\s*\{[^}]*padding:\s*14px 12px 0;/);
+  assert.match(editorCss, /\.editor\s*\{[^}]*min-height:\s*44px;[^}]*line-height:\s*20px;[^}]*padding:\s*15px 18px 16px;/);
+  assert.match(editorCss, /\.editor\[data-empty="true"\]::before\s*\{[^}]*opacity:\s*0\.5;/);
+  assert.match(css, /\.imagePreviews\s*\{[^}]*padding:\s*8px;[^}]*border-radius:\s*var\(--composer-attachment-radius\);/);
+  assert.match(css, /\.imagePreview\s*\{[^}]*border-radius:\s*var\(--composer-attachment-radius\);/);
+  assert.match(css, /--composer-attachment-radius:\s*max\(calc\(var\(--radius-composer-large\) - 8px\), 0px\);/);
+  assert.match(css, /--composer-attachment-radius:\s*max\(calc\(var\(--radius-composer-compact\) - 8px\), 0px\);/);
+  assert.match(css, /\.composer\[data-compact="true"\]\s+\[data-composer-editor\]\s*\{[^}]*padding:\s*0 12px;/);
 });
 
 test("uses the measured gaps for the two desktop footer groups", async () => {
