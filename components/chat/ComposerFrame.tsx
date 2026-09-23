@@ -49,6 +49,7 @@ interface ComposerFrameProps {
   toolbarEnd: ReactNode;
   dictateLabel: string;
   dictationAvailable?: boolean;
+  dictationControl?: ReactNode;
   toolbarEndRef: Ref<HTMLDivElement>;
   isMobile: boolean;
 }
@@ -176,6 +177,7 @@ export function ComposerFrame({
   toolbarEnd,
   dictateLabel,
   dictationAvailable = false,
+  dictationControl,
   toolbarEndRef,
   isMobile,
 }: ComposerFrameProps) {
@@ -202,7 +204,7 @@ export function ComposerFrame({
     || localAttachments
     || statusLine,
   );
-  const dictateControl = (
+  const fallbackDictateControl = (
     <button
       type="button"
       aria-label={dictateLabel}
@@ -285,9 +287,9 @@ export function ComposerFrame({
                     {toolbarModelArea}
                   </div>
                   <div className={styles.toolbarTrailing}>
-                    {dictationAvailable
-                      ? <Tooltip content={dictateLabel}>{dictateControl}</Tooltip>
-                      : dictateControl}
+                    {dictationControl ?? (dictationAvailable
+                      ? <Tooltip content={dictateLabel}>{fallbackDictateControl}</Tooltip>
+                      : fallbackDictateControl)}
                     {toolbarEnd}
                   </div>
                 </>

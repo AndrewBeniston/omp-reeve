@@ -73,6 +73,7 @@ import { ModelList } from "./chat/ModelList";
 import { ModelPowerSlider } from "./chat/ModelPowerSlider";
 import { ComposerWorktreeControl, type ComposerWorktreeControlHandle } from "./chat/ComposerWorktreeControl";
 import { PausedQueueSubmitDialog } from "./chat/PausedQueueSubmitDialog";
+import { DictationControl, type DictationAction, type DictationState } from "./chat/DictationControl";
 import { ApprovalModeSelector } from "./chat/ApprovalModeSelector";
 import { SendArrowIcon, StopSquareIcon } from "./navigation/CodexIcons";
 import { Menu, MenuItem } from "./ui/Menu";
@@ -555,6 +556,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     return () => globalThis.clearTimeout(timer);
   }, [modelDropdownOpen, modelStage, modelSubmenu]);
   const [attachmentPickerError, setAttachmentPickerError] = useState<string | null>(null);
+  const [dictationState, setDictationState] = useState<DictationState>("idle");
+  const [dictationAvailable, setDictationAvailable] = useState(false);
+  const [dictationError, setDictationError] = useState<string | null>(null);
   const [browserUploadsPending, setBrowserUploadsPending] = useState(0);
   const [localAttachments, setLocalAttachments] = useState<ComposerAttachmentDescriptor[]>(
     () => draftKey ? getDraft(draftKey)?.attachments ?? [] : [],
@@ -654,6 +658,70 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   attachedImagesRef.current = attachedImages;
   localAttachmentsRef.current = localAttachments;
   editingQueuedMessageRef.current = editingQueuedMessage;
+
+  useEffect(() => {
+    if (!cwd) return;
+    let active = true;
+    void onEnsureSession?.().then(async (sessionId) => {
+      if (!active || !sessionId) return;
+      try {
+        const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/speech`);
+        if (!response.ok) return;
+        const availability = await response.json() as { enabled?: boolean };
+        if (active) {
+          setDictationAvailable(Boolean(availability.enabled));
+          if (!availability.enabled) {
+            setDictationError(t("chat.dictationUnsupported"));
+            setAttachmentPickerError(t("chat.dictationUnsupported"));
+          }
+        }
+        const stream = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/speech?events`);
+        if (!stream.ok || !stream.body || !active) return;
+        const reader = stream.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (active) {
+          const chunk = await reader.read();
+          if (chunk.done) break;
+          buffer += decoder.decode(chunk.value, { stream: true });
+          const messages = buffer.split("\n\n");
+          buffer = messages.pop() ?? "";
+          for (const message of messages) {
+            const line = message.split("\n").find((entry) => entry.startsWith("data: "));
+            if (!line) continue;
+            const event = JSON.parse(line.slice(6)) as { type: string; state?: DictationState; code?: string; text?: string; submit?: boolean };
+            if (event.type === "state" && event.state) setDictationState(event.state);
+            if (event.type === "error") {
+              setDictationState("failed");
+              setDictationError(event.code === "permission-denied" ? t("chat.dictationPermissionDenied") : event.code === "transcription" ? t("chat.dictationTranscribeError") : t("chat.dictationStartError"));
+            }
+            if (event.type === "result" && event.text) {
+              textareaRef.current?.insertText(event.text);
+              if (event.submit) textareaRef.current?.focus();
+            }
+          }
+        }
+      } catch {
+        if (active) setDictationError(t("chat.dictationUnavailable"));
+      }
+    });
+    return () => { active = false; };
+  }, [cwd, onEnsureSession, t]);
+
+  const dictationAction = useCallback(async (action: DictationAction) => {
+    if (action === "none") return;
+    const sessionId = await onEnsureSession?.();
+    if (!sessionId) return;
+    setDictationError(null);
+    try {
+      const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/speech`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }),
+      });
+      if (!response.ok) throw new Error("Speech request failed");
+    } catch {
+      setDictationError(t("chat.dictationStartError"));
+    }
+  }, [onEnsureSession, t]);
 
   useEffect(() => {
     try {
@@ -2756,6 +2824,14 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       )}
       toolbarEnd={toolbarEnd}
       dictateLabel={t("chat.dictate")}
+      dictationControl={<DictationControl state={dictationState} available={dictationAvailable} error={dictationError} labels={{
+        idle: t("chat.dictate"), starting: t("chat.dictationStarting"), recording: t("chat.dictationRecording"),
+        finishing: t("chat.dictationFinishing"), transcribing: t("chat.dictationTranscribing"),
+        transcribingCancel: t("chat.dictationCancel"), failedRetry: t("chat.dictationRetry"),
+        failedView: t("chat.dictationViewRecording"), startError: t("chat.dictationStartError"),
+        transcribeError: t("chat.dictationTranscribeError"), unsupported: t("chat.dictationUnsupported"),
+        permissionDenied: t("chat.dictationPermissionDenied"),
+      }} onAction={dictationAction} onViewRecording={() => setDictationError(t("chat.dictationViewRecording"))} />}
       toolbarEndRef={controlsMenuRef}
       isMobile={isMobile}
       />

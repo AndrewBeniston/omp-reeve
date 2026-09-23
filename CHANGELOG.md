@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The Composer now shows OMP dictation states, including transcription cancellation, retry, and recording access.
 - A session live API now exposes OMP realtime voice state and lifecycle control.
 - The Composer now supports reference keyboard commands and a configurable Send shortcut.
 - The Composer frame now uses the reference geometry, including its responsive radii, shorter editor, and attachment inset.
