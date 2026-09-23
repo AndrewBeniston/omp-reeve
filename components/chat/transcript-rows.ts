@@ -4,7 +4,6 @@ import { foldTurns, type TranscriptRecord, type TurnClock, type TurnPhase, type 
 import { classifyActivityTool, type ActivityClassification } from "@/lib/transcript/activity-classifier";
 import type { AssistantMessage, ToolCallContent, ToolResultMessage } from "@/lib/types";
 import { groupConsecutiveActivityCalls, type ActivityCall } from "@/lib/transcript/repeat-collapsing";
-import type { ToolCallContent, ToolResultMessage } from "@/lib/types";
 
 export interface TranscriptMessageRow {
   message: AgentMessage;
