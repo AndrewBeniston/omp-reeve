@@ -35,6 +35,7 @@ the What's New dialog adds a second page that invites support.
 - The Question window now uses rounded controls and neutral focus borders for its response field and actions.
 - The Composer shows removable local file and folder rows, keeps them in drafts, and reports unreadable paths before OMP receives a prompt.
 - Worktree selection now reports branches, detached HEAD, and uncommitted changes. Selecting a worktree leaves its branch unchanged.
+- The Composer footer can select or create a Session worktree without changing branches in place.
 - The model selector now calls OMP's max effort Max and keeps model and effort choices in one state model.
 - Agent commands can send desktop-selected file and folder paths to OMP without
   quoting them in prompt text. Missing or unreadable selections block the send.

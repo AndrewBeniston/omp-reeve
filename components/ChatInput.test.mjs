@@ -1140,6 +1140,13 @@ test("the Composer exposes a stable image input for the Summary panel", async ()
   assert.doesNotMatch(html, /id="reeve-composer-image-input"/);
 });
 
+test("the session Composer offers the worktree control while it loads", () => {
+  const html = renderChatInput({ cwd: "/repo", onSelectWorktree() {} });
+  assert.match(html, /aria-label="Switch branch"/);
+  assert.match(html, /Loading branch/);
+  assert.match(html, /Session worktree/);
+});
+
 test("an effort change measures and animates the chip while reduced motion changes it at once", async () => {
   const harness = await import("../test/dom-harness.mjs");
   const prototype = Object.getPrototypeOf(harness.domDocument.createElement("span"));

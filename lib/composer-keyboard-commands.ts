@@ -39,6 +39,14 @@ export interface ComposerKeyLike {
 
 export type DefaultComposerCommand = "composer.addFiles" | "composer.openModelPicker" | "composer.startDictation";
 
+export type ComposerCommandCallback = (command: "composer.toggleWorktreeMode") => void;
+
+export function runComposerCommand(command: "composer.toggleWorktreeMode", callback?: ComposerCommandCallback): boolean {
+  if (command !== "composer.toggleWorktreeMode" || !callback) return false;
+  callback(command);
+  return true;
+}
+
 export function matchDefaultComposerCommand(event: ComposerKeyLike): DefaultComposerCommand | null {
   if (event.isComposing) return null;
   if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "u") return "composer.addFiles";
