@@ -2070,6 +2070,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                             canChangeEffort={Boolean(onThinkingLevelChange)}
                             onOpenModels={() => dispatchModelMenu({ type: "submenu", value: "model" })}
                             onSelectEffort={(level) => onThinkingLevelChange?.(level)}
+                            explicitModelOverride={explicitModelOverride}
+                            onResetToDefault={() => {
+                              if (onRoleModelChange) onRoleModelChange("default");
+                              else if (selector.defaultRow && onModelChange) onModelChange(selector.defaultRow.model.provider, selector.defaultRow.model.modelId);
+                            }}
                           />
                           {modelMenuRows.map((row) => {
                             return (
