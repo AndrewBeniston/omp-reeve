@@ -39,10 +39,11 @@ export interface ComposerKeyLike {
 
 export type DefaultComposerCommand = "composer.addFiles" | "composer.openModelPicker" | "composer.startDictation";
 
-export type ComposerCommandCallback = (command: "composer.toggleWorktreeMode") => void;
+export type ComposerWorkspaceCommand = "composer.toggleWorktreeMode" | "composer.openProjectPicker";
+export type ComposerCommandCallback = (command: ComposerWorkspaceCommand) => void;
 
-export function runComposerCommand(command: "composer.toggleWorktreeMode", callback?: ComposerCommandCallback): boolean {
-  if (command !== "composer.toggleWorktreeMode" || !callback) return false;
+export function runComposerCommand(command: ComposerWorkspaceCommand, callback?: ComposerCommandCallback): boolean {
+  if ((command !== "composer.toggleWorktreeMode" && command !== "composer.openProjectPicker") || !callback) return false;
   callback(command);
   return true;
 }

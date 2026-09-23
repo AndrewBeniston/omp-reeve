@@ -109,6 +109,7 @@ interface Props {
   onHomeProjectSelected?: (path: string) => void;
   onHomeProjectlessSelected?: () => void;
   onSelectWorktree?: (path: string) => void;
+  onRegisterProjectCommand?: (open: () => void) => void;
   /**
    * Compose and deliver a review the human asked for, bound to the Review
    * this Session owns. Absent when it owns none.
@@ -234,7 +235,7 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = fa
   );
 }
 
-export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onSelectWorktree, onRequestReview, onListReviewBranches, reviewGate }: Props) {
+export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onSelectWorktree, onRegisterProjectCommand, onRequestReview, onListReviewBranches, reviewGate }: Props) {
   const { t } = useI18n();
 
   // Wrap onAgentEnd to play the completion sound. This is more reliable than
@@ -556,6 +557,8 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
       onEnsureSession={ensureNewSession}
       cwd={session?.cwd ?? newSessionCwd}
       onSelectWorktree={onSelectWorktree}
+      onSelectProject={onHomeProjectSelected}
+      onRegisterProjectCommand={onRegisterProjectCommand}
       footerMode={isEmptyNew ? "home" : "session"}
     />
   );

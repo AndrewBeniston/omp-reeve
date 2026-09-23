@@ -80,7 +80,10 @@ import { ComposerEditor, type ComposerEditorHandle } from "./chat/ComposerEditor
 import { ModelList } from "./chat/ModelList";
 import { ModelPowerSlider } from "./chat/ModelPowerSlider";
 import { ComposerWorktreeControl, type ComposerWorktreeControlHandle } from "./chat/ComposerWorktreeControl";
+import { ComposerProjectControl, type ComposerProjectControlHandle } from "./chat/ComposerProjectControl";
 import { PausedQueueSubmitDialog } from "./chat/PausedQueueSubmitDialog";
+import { Dialog } from "./ui/Dialog";
+import { Button } from "./ui/Button";
 import { DictationControl, type DictationAction, type DictationState } from "./chat/DictationControl";
 import { ApprovalModeSelector } from "./chat/ApprovalModeSelector";
 import { SendArrowIcon, StopSquareIcon } from "./navigation/CodexIcons";
@@ -187,6 +190,8 @@ interface Props {
   cwd?: string | null;
   onSelectWorktree?: (path: string) => void;
   onRegisterWorktreeCommand?: (open: () => void) => void;
+  onSelectProject?: (path: string) => void;
+  onRegisterProjectCommand?: (open: () => void) => void;
   footerMode?: "home" | "session";
   contextUsage?: ContextUsage | null;
   sessionStats?: SessionStatsInfo | null;
@@ -516,6 +521,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   cwd,
   onSelectWorktree,
   onRegisterWorktreeCommand,
+  onSelectProject,
+  onRegisterProjectCommand,
   footerMode = "session",
   contextUsage,
   sessionStats,
@@ -530,6 +537,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
 }: Props, ref) {
   const { t } = useI18n();
   const worktreeControlRef = useRef<ComposerWorktreeControlHandle>(null);
+  const projectControlRef = useRef<ComposerProjectControlHandle>(null);
+  const [pendingProjectPath, setPendingProjectPath] = useState<string | null>(null);
   const isMobile = useIsMobile();
   useEffect(() => {
     onRegisterWorktreeCommand?.(() => {
@@ -537,6 +546,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     });
     return () => onRegisterWorktreeCommand?.(() => {});
   }, [onRegisterWorktreeCommand]);
+  useEffect(() => {
+    onRegisterProjectCommand?.(() => {
+      runComposerCommand("composer.openProjectPicker", () => projectControlRef.current?.open());
+    });
+    return () => onRegisterProjectCommand?.(() => {});
+  }, [onRegisterProjectCommand]);
   const [value, setValue] = useState(() => (draftKey ? getDraft(draftKey)?.value ?? "" : ""));
   const [modelMenu, dispatchModelMenu] = useReducer(reduceModelMenuState, INITIAL_MODEL_MENU_STATE);
   const [recentConfigurations, setRecentConfigurations] = useState(() => {
@@ -2558,6 +2573,14 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   );
   const toolbarStart = (
     <>
+            {footerMode === "home" && cwd && onSelectProject && <ComposerProjectControl
+              ref={projectControlRef}
+              selectedPath={cwd}
+              onSelect={(path) => {
+                if (value.trim() || attachedImages.length || localAttachments.length) setPendingProjectPath(path);
+                else onSelectProject(path);
+              }}
+            />}
             {cwd && onSelectWorktree && <ComposerWorktreeControl ref={worktreeControlRef} cwd={cwd} onSelect={onSelectWorktree} />}
             {commandActionError && <span role="alert">{commandActionError}</span>}
             <ComposerAddMenu
@@ -2758,6 +2781,21 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           event.target.value = "";
         }}
       />
+      <Dialog
+        open={pendingProjectPath !== null}
+        title={t("composer.project.confirmTitle")}
+        size="sm"
+        onOpenChange={(open) => { if (!open) setPendingProjectPath(null); }}
+      >
+        <p>{t("composer.project.confirmBody")}</p>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+          <Button type="button" size="sm" tone="ghost" onClick={() => setPendingProjectPath(null)}>{t("trust.cancel")}</Button>
+          <Button type="button" size="sm" tone="primary" onClick={() => {
+            if (pendingProjectPath) onSelectProject?.(pendingProjectPath);
+            setPendingProjectPath(null);
+          }}>{t("composer.project.confirmAction")}</Button>
+        </div>
+      </Dialog>
       <ComposerFrame
       requestPending={requestPending}
       onSubmit={(event) => {
