@@ -1189,15 +1189,21 @@ export class AgentSessionWrapper {
         const sessionDir = sessionManager.getSessionDir();
         let newSessionFile: string;
 
+        const targetCwd = typeof command.cwd === "string" && command.cwd.trim()
+          ? command.cwd.trim()
+          : sessionManager.getCwd();
         if (!entry.parentId) {
           // Fork before the first message: create an empty session linked to this one
-          const newManager = SessionManager.create(sessionManager.getCwd(), sessionDir);
+          const newManager = SessionManager.create(targetCwd, sessionDir);
           await newManager.newSession({ parentSession: currentSessionFile });
           await newManager.ensureOnDisk();
           newSessionFile = newManager.getSessionFile() as string;
         } else {
           // Fork after some history: copy path up to (but not including) the fork point
           const sourceManager = await SessionManager.open(currentSessionFile, sessionDir);
+          if (targetCwd !== sessionManager.getCwd()) {
+            sourceManager.setCwdWithoutRelocation(targetCwd);
+          }
           const forkedPath = sourceManager.createBranchedSession(entry.parentId);
           if (!forkedPath) throw new Error("Failed to create forked session");
           newSessionFile = forkedPath;

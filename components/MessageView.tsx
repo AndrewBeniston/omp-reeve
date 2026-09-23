@@ -8,6 +8,7 @@ import { getAssistantErrorMessage, isEmptyThinkingBlock } from "@/lib/message-di
 import { TurnWrittenFiles } from "./TurnWrittenFiles";
 import type { WrittenFile } from "@/lib/turn-written-files";
 import { MessageTurn } from "./chat/MessageTurn";
+import { ForkDialog } from "./chat/ForkDialog";
 import { MessageOriginRow } from "./chat/MessageOriginRow";
 import { ThinkingDisclosure } from "./chat/ThinkingDisclosure";
 import { BashExecutionActivity } from "./chat/BashExecutionActivity";
@@ -281,7 +282,7 @@ interface Props {
   cwd?: string;
   onOpenFile?: (filePath: string) => void;
   entryId?: string;
-  onFork?: (entryId: string) => void;
+  onFork?: (entryId: string, options?: { cwd?: string }) => Promise<{ forked: boolean; error?: string } | void> | void;
   forking?: boolean;
   onNavigate?: (entryId: string) => void;
   prevAssistantEntryId?: string;
@@ -369,7 +370,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
   cwd?: string;
   onOpenFile?: (filePath: string) => void;
   entryId?: string;
-  onFork?: (entryId: string) => void;
+  onFork?: (entryId: string, options?: { cwd?: string }) => Promise<{ forked: boolean; error?: string } | void> | void;
   forking?: boolean;
   onNavigate?: (entryId: string) => void;
   prevAssistantEntryId?: string;
@@ -390,10 +391,12 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
       : message.content.filter((b): b is ImageContent => b.type === "image");
 
   const time = formatTime(message.timestamp);
+  const [forkDialogOpen, setForkDialogOpen] = useState(false);
   const canFork = !!entryId && !!onFork;
   const canNavigate = !!prevAssistantEntryId && !!onNavigate;
 
   return (
+    <>
     <MessageTurn
       role="user"
       navigationId={entryId}
@@ -407,7 +410,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
         onNavigate(prevAssistantEntryId!);
         onEditContent?.(message);
       } : undefined}
-      onBranch={canFork ? () => onFork(entryId!) : undefined}
+      onBranch={canFork ? () => setForkDialogOpen(true) : undefined}
     >
       {imageBlocks.length > 0 && (
         <div className={styles.messageImages} data-has-text={Boolean(content)}>
@@ -428,6 +431,21 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
         </div>
       )}
     </MessageTurn>
+    {canFork && (
+      <ForkDialog
+        open={forkDialogOpen}
+        entryId={entryId}
+        cwd={cwd}
+        onClose={() => setForkDialogOpen(false)}
+        onForkLocal={async () => {
+          return onFork(entryId!);
+        }}
+        onForkWorktree={async (worktreePath) => {
+          return onFork(entryId!, { cwd: worktreePath });
+        }}
+      />
+    )}
+  </>
   );
 }
 

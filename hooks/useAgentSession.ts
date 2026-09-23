@@ -1779,6 +1779,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
    */
   const handleFork = useCallback(async (
     entryId?: string,
+    options?: { cwd?: string },
   ): Promise<{ forked: boolean; error?: string }> => {
     if (bashRunningRef.current) return { forked: false, error: "Cannot fork while a shell command is running" };
     const sid = sessionIdRef.current;
@@ -1788,6 +1789,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       const result = await sendAgentCommand<{ cancelled?: boolean; newSessionId?: string }>(sid, {
         type: "fork",
         ...(entryId ? { entryId } : {}),
+        ...(options?.cwd ? { cwd: options.cwd } : {}),
       });
       const { cancelled, newSessionId } = result ?? {};
       if (!cancelled && newSessionId) {
