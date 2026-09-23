@@ -48,6 +48,8 @@ interface ComposerFrameProps {
   toolbarModelArea: ReactNode;
   toolbarEnd: ReactNode;
   dictateLabel: string;
+  utilityBarLabel?: string;
+  footerMode?: "home" | "session";
   dictationAvailable?: boolean;
   toolbarEndRef: Ref<HTMLDivElement>;
   isMobile: boolean;
@@ -178,6 +180,8 @@ export function ComposerFrame({
   toolbarModelArea,
   toolbarEnd,
   dictateLabel,
+  utilityBarLabel = "Composer utility bar",
+  footerMode = "session",
   dictationAvailable = false,
   toolbarEndRef,
   isMobile,
@@ -284,7 +288,7 @@ export function ComposerFrame({
           </div>
           {statusLine}
           {isMobile && toolbarCenter && <div className={styles.mobileContext}>{toolbarCenter}</div>}
-          <div className={styles.toolbar} data-mobile={isMobile ? "true" : "false"} role="group" aria-label="Composer controls">
+          <div className={styles.toolbar} data-mobile={isMobile ? "true" : "false"} data-footer-mode={footerMode} role="group" aria-label={utilityBarLabel}>
             <div className={styles.toolbarLeft} data-mobile={isMobile ? "true" : "false"}>{toolbarStart}</div>
             <div ref={toolbarEndRef} className={styles.toolbarRight} data-mobile={isMobile ? "true" : "false"}>
               {isMobile ? toolbarEnd : (

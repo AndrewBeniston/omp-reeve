@@ -70,7 +70,7 @@ test("owns the composer surface, editor, attachments, toolbar, and status semant
   assert.match(html, /role="alert"[^>]+data-state="error"/);
   assert.match(html, /role="status"[^>]+data-state="retry"/);
   assert.match(html, /role="status"[^>]+data-state="success"/);
-  assert.match(html, /role="group"[^>]+aria-label="Composer controls"/);
+  assert.match(html, /role="group"[^>]+aria-label="Composer utility bar"/);
   assert.ok(html.indexOf('data-slot="overlay"') < html.indexOf("data-composer-editor"));
   assert.ok(html.indexOf("Attach") < html.indexOf("Context"));
   assert.ok(html.indexOf("Context") < html.indexOf("Send"));
@@ -79,6 +79,7 @@ test("owns the composer surface, editor, attachments, toolbar, and status semant
   assert.ok(html.indexOf('class="toolbarRight"') < html.indexOf("Send"));
 });
 
+<<<<<<< HEAD
 test("applies Composer display preferences without replacing the editor", () => {
   const html = renderToStaticMarkup(
     React.createElement(ComposerFrame, {
@@ -110,6 +111,41 @@ test("applies Composer display preferences without replacing the editor", () => 
   assert.match(html, /data-top-inset="24"/);
   assert.match(html, /data-composer-editor="true"/);
   assert.match(html, /data-local-attachments="true"/);
+=======
+test("names the footer and selects the Session or Home overflow behavior", () => {
+  const props = {
+    onSubmit() {},
+    fileInputRef: React.createRef(),
+    fileInputId: "images",
+    onFileInputChange() {},
+    attachments: [],
+    onRemoveAttachment() {},
+    editor: React.createElement("div", { "data-composer-editor": true }),
+    textareaHeight: "44px",
+    mode: "idle",
+    primaryActions: null,
+    toolbarStart: React.createElement("button", { type: "button" }, "Add"),
+    toolbarCenter: null,
+    toolbarModelArea: null,
+    toolbarEnd: React.createElement("button", { type: "submit" }, "Send"),
+    dictateLabel: "Dictate",
+    toolbarEndRef: React.createRef(),
+    isMobile: false,
+  };
+  const sessionHtml = renderToStaticMarkup(React.createElement(ComposerFrame, { ...props, footerMode: "session" }));
+  const homeHtml = renderToStaticMarkup(React.createElement(ComposerFrame, { ...props, footerMode: "home" }));
+
+  assert.match(sessionHtml, /data-footer-mode="session"[^>]+role="group"[^>]+aria-label="Composer utility bar"/);
+  assert.match(homeHtml, /data-footer-mode="home"[^>]+role="group"[^>]+aria-label="Composer utility bar"/);
+});
+
+test("wraps the Session footer and lets the Home footer scroll with edge fades", async () => {
+  const css = await readFile(new URL("./composer.module.css", import.meta.url), "utf8");
+
+  assert.match(css, /\.toolbar\[data-footer-mode="session"\]\s*\{[^}]*flex-wrap:\s*wrap;/);
+  assert.match(css, /\.toolbar\[data-footer-mode="home"\]\s*\{[^}]*overflow-x:\s*auto;[^}]*scrollbar-width:\s*none;/);
+  assert.match(css, /\.toolbar\[data-footer-mode="home"\]\s*\{[^}]*mask-image:\s*linear-gradient/);
+>>>>>>> codex/session-composer-543
 });
 
 test("places the queued messages before the Composer surface", async () => {
