@@ -180,6 +180,7 @@ test("exposes hover, running, and disabled states for user message actions", asy
       forking: true,
       prevAssistantEntryId: "assistant-1",
       onNavigate() {},
+      onEditSubmit() {},
     },
   );
   const css = await readFile(new URL("./chat/message-view.module.css", import.meta.url), "utf8");
@@ -194,6 +195,50 @@ test("exposes hover, running, and disabled states for user message actions", asy
   assert.match(buttons[2], /disabled/);
   assert.match(css, /\.messageAction:hover:not\(:disabled\)/);
   assert.match(css, /\.messageAction\[data-state="running"\]/);
+});
+
+test("renders the assistant action row with copy before its empty slots", () => {
+  const html = renderMessage({
+    role: "assistant",
+    provider: "openai",
+    model: "gpt-test",
+    content: [{ type: "text", text: "A completed response" }],
+  });
+
+  assert.match(html, /data-assistant-actions="true"/);
+  assert.match(html, /data-visible="false"/);
+  assert.match(html, /data-message-action="copy-response"/);
+  assert.match(html, /aria-label="Copy response"/);
+  assert.ok(html.indexOf('data-message-action="copy-response"') < html.indexOf('data-slot="statistics-first"'));
+  assert.doesNotMatch(html, /data-message-action="fork"/);
+});
+
+test("suppresses assistant actions while the response streams", () => {
+  const html = renderMessage({
+    role: "assistant",
+    provider: "openai",
+    model: "gpt-test",
+    content: [{ type: "text", text: "A streaming response" }],
+  }, { isStreaming: true });
+
+  assert.doesNotMatch(html, /data-assistant-actions/);
+  assert.doesNotMatch(html, /data-message-action="copy-response"/);
+});
+
+test("renders the assistant branch action and its running state", () => {
+  const html = renderMessage({
+    role: "assistant",
+    provider: "openai",
+    model: "gpt-test",
+    content: [{ type: "text", text: "A completed response" }],
+  }, { entryId: "assistant-1", onFork() {}, forking: true });
+
+  assert.match(html, /aria-label="Fork chat from here"/);
+  assert.match(html, /title="Branch in new chat"|Branch in new chat/);
+  assert.match(html, /data-message-action="fork"/);
+  assert.match(html, /data-state="running"/);
+  assert.match(html, /aria-busy="true"/);
+  assert.match(html, /disabled/);
 });
 
 test("renders a provider error when the assistant message has no content", () => {

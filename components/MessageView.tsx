@@ -15,6 +15,7 @@ import { BashExecutionActivity } from "./chat/BashExecutionActivity";
 import { ToolActivity } from "./chat/ToolActivity";
 import { CollaborationCard, isCollaborationSnapshot } from "./chat/CollaborationCard";
 import { AssistantResponseAnnouncer } from "./chat/AssistantResponseAnnouncer";
+import { AssistantMessageActions } from "./chat/AssistantMessageActions";
 import styles from "./chat/message-view.module.css";
 import type {
   AgentMessage,
@@ -333,7 +334,7 @@ export const MessageView = memo(function MessageView({ message, isStreaming, too
     return <UserMessageView message={message as UserMessage} cwd={cwd} onOpenFile={onOpenFile} entryId={entryId} onFork={onFork} forking={forking} onNavigate={onNavigate} prevAssistantEntryId={prevAssistantEntryId} onEditSubmit={onEditSubmit} onEditFailure={onEditFailure} />;
   }
   if (message.role === "assistant") {
-    return <AssistantMessageView message={message as AssistantMessage} isStreaming={isStreaming} toolResults={toolResults} modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} showTimestamp={showTimestamp} prevTimestamp={prevTimestamp} sessionId={sessionId} entryId={entryId} writtenFiles={writtenFiles} />;
+    return <AssistantMessageView message={message as AssistantMessage} isStreaming={isStreaming} toolResults={toolResults} modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} showTimestamp={showTimestamp} prevTimestamp={prevTimestamp} sessionId={sessionId} entryId={entryId} writtenFiles={writtenFiles} onFork={onFork} forking={forking} />;
   }
   if (message.role === "toolResult") {
     // Rendered inline under its toolCall — skip standalone rendering if paired
@@ -463,6 +464,8 @@ function AssistantMessageView({
   sessionId,
   entryId,
   writtenFiles,
+  onFork,
+  forking,
 }: {
   message: AssistantMessage;
   isStreaming?: boolean;
@@ -475,6 +478,8 @@ function AssistantMessageView({
   sessionId?: string;
   entryId?: string;
   writtenFiles?: WrittenFile[];
+  onFork?: (entryId: string, options?: { cwd?: string }) => Promise<{ forked: boolean; error?: string } | void> | void;
+  forking?: boolean;
 }) {
   const { t } = useI18n();
   const time = showTimestamp ? formatTime(message.timestamp) : null;
@@ -621,11 +626,10 @@ function AssistantMessageView({
 
   if (blocks.length === 0 && !isStreaming && !providerError) return null;
 
-  return (
+  const turn = (
     <MessageTurn
       role="assistant"
       streaming={isStreaming}
-      copyContent={textContent || undefined}
       timestamp={time}
       // The model name no longer heads every message. The header carries streaming stats only.
       header={isStreaming ? (() => {
@@ -662,6 +666,9 @@ function AssistantMessageView({
         ))}
     </MessageTurn>
   );
+
+  if (isStreaming) return turn;
+  return <AssistantMessageActions text={textContent} entryId={entryId} cwd={cwd} onFork={onFork} forking={forking}>{turn}</AssistantMessageActions>;
 }
 
 function BlockView({ block, toolResults, isStreaming, hasLaterContent, streamingDuration, toolCallDurations, cwd, onOpenFile, sessionId, entryId, blockIndex }: { block: AssistantContentBlock; toolResults?: Map<string, ToolResultMessage>; isStreaming?: boolean; hasLaterContent?: boolean; streamingDuration?: number; toolCallDurations?: Map<string, number>; cwd?: string; onOpenFile?: (filePath: string) => void; sessionId?: string; entryId?: string; blockIndex: number }) {
