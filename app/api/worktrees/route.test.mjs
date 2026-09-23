@@ -126,6 +126,19 @@ test("POST creates a worktree or reuses an existing branch through the branch co
   assert.equal(git(main, "branch", "--show-current"), "main");
 });
 
+test("POST starts a new worktree branch at the selected base branch", async (t) => {
+  const { main } = repository(t);
+  git(main, "branch", "base");
+  git(main, "checkout", "base");
+  git(main, "commit", "--allow-empty", "-m", "base change");
+
+  const response = await POST(request(main, { branch: "feature", startingState: "base" }));
+  assert.equal(response.status, 200);
+  const worktree = (await response.json()).path;
+  assert.equal(git(worktree, "rev-parse", "HEAD"), git(main, "rev-parse", "base"));
+  assert.notEqual(git(worktree, "rev-parse", "HEAD"), git(main, "rev-parse", "main"));
+});
+
 test("POST rejects a worktree outside the allowed Project and a disallowed cwd", async (t) => {
   const { base, main } = repository(t);
   const unrelated = join(base, "unrelated");

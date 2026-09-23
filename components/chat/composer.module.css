@@ -11,6 +11,13 @@
   line-height: 20px;
 }
 
+.workspaceConfirmActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
 .queuePlacement {
   position: relative;
   z-index: 1;

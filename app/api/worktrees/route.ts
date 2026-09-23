@@ -55,7 +55,7 @@ export async function GET(req: Request) {
   }
 }
 
-// POST /api/worktrees  body: { cwd, branch } creates; { cwd, path } selects.
+// POST /api/worktrees  body: { cwd, branch, startingState? } creates; { cwd, path } selects.
 export async function POST(req: Request) {
   if (!isApiRequestAllowed(req)) {
     return NextResponse.json({ error: "Untrusted API request" }, { status: 403 });
@@ -65,11 +65,11 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json() as { cwd?: string; branch?: string; path?: string };
+    const body = await req.json() as { cwd?: string; branch?: string; startingState?: string; path?: string };
     if (!body.cwd || typeof body.cwd !== "string") {
       return NextResponse.json({ error: "cwd is required" }, { status: 400 });
     }
-    if (body.path !== undefined && body.branch !== undefined) {
+    if (body.path !== undefined && (body.branch !== undefined || body.startingState !== undefined)) {
       return NextResponse.json({ error: "Choose a path or branch" }, { status: 400 });
     }
     if (body.path !== undefined && (typeof body.path !== "string" || !body.path)) {
@@ -77,6 +77,9 @@ export async function POST(req: Request) {
     }
     if (body.path === undefined && (!body.branch || typeof body.branch !== "string")) {
       return NextResponse.json({ error: "branch is required" }, { status: 400 });
+    }
+    if (body.startingState !== undefined && typeof body.startingState !== "string") {
+      return NextResponse.json({ error: "startingState must be a string" }, { status: 400 });
     }
     const denied = await checkCwdAllowed(body.cwd);
     if (denied) return denied;
@@ -90,7 +93,7 @@ export async function POST(req: Request) {
       return NextResponse.json(worktree);
     }
 
-    const result = await addWorktree(body.cwd, body.branch!);
+    const result = await addWorktree(body.cwd, body.branch!, body.startingState);
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

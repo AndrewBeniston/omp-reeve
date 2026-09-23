@@ -26,6 +26,10 @@ function worktreeName(worktree: ComposerWorktree): string {
   return worktree.branch ?? worktree.path.split(/[\\/]/).filter(Boolean).at(-1) ?? worktree.path;
 }
 
+export function worktreeCreateRequest(cwd: string, branch: string, startingState: string) {
+  return { cwd, branch: branch.trim(), startingState: startingState.trim() };
+}
+
 export interface ComposerWorktreeControlHandle {
   open: () => void;
 }
@@ -40,6 +44,7 @@ export const ComposerWorktreeControl = forwardRef<ComposerWorktreeControlHandle,
   const [worktrees, setWorktrees] = useState<ComposerWorktree[]>([]);
   const [creating, setCreating] = useState(false);
   const [branch, setBranch] = useState("");
+  const [startingState, setStartingState] = useState("");
 
   useImperativeHandle(ref, () => ({
     open: () => {
@@ -98,20 +103,21 @@ export const ComposerWorktreeControl = forwardRef<ComposerWorktreeControlHandle,
   };
 
   const create = async () => {
-    const nextBranch = branch.trim();
-    if (!nextBranch || busy) return;
+    const request = worktreeCreateRequest(cwd, branch, startingState);
+    if (!request.branch || !request.startingState || busy) return;
     setBusy(true);
     setError(null);
     try {
       const response = await fetch("/api/worktrees", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cwd, branch: nextBranch }),
+        body: JSON.stringify(request),
       });
       const data = await response.json() as { path?: string; error?: string };
       if (!response.ok || data.error || !data.path) throw new Error(data.error ?? `HTTP ${response.status}`);
       setCreating(false);
       setBranch("");
+      setStartingState("");
       setOpen(false);
       onSelect(data.path);
     } catch (cause) {
@@ -150,8 +156,12 @@ export const ComposerWorktreeControl = forwardRef<ComposerWorktreeControlHandle,
         {worktree.isDirty && <span className={styles.dirty} aria-label={t("composer.worktree.dirty")} title={t("composer.worktree.dirty")} />}
       </MenuItem>)}
       {creating ? <div className={styles.createRow}>
+        <datalist id="composer-worktree-starting-branches">
+          {worktrees.flatMap((worktree) => worktree.branch ? [worktree.branch] : [])}
+        </datalist>
         <input aria-label={t("composer.worktree.branch")} value={branch} onChange={event => setBranch(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void create(); } }} />
-        <MenuItem disabled={busy || !branch.trim()} onClick={() => void create()} icon={<Plus size={14} />}>{t("composer.worktree.create")}</MenuItem>
+        <input aria-label={t("composer.worktree.startingState")} list="composer-worktree-starting-branches" value={startingState} onFocus={() => setStartingState(value => value || current?.branch || "")} placeholder={t("composer.worktree.startingState")} onChange={event => setStartingState(event.target.value)} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void create(); } }} />
+        <MenuItem disabled={busy || !branch.trim() || !startingState.trim()} onClick={() => void create()} icon={<Plus size={14} />}>{t("composer.worktree.create")}</MenuItem>
       </div> : <MenuItem disabled={busy} onClick={() => setCreating(true)} icon={<Plus size={14} />}>{t("composer.worktree.new")}</MenuItem>}
       {error && <p role="alert" className={styles.error}>{error}</p>}
     </Menu>

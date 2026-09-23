@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The Composer starting-state control selects the base branch for a new worktree, and worktree changes confirm before replacing unsent input.
 - The new-Session Composer can select a Reeve project and keeps unavailable cloud and remote locations visible with reasons.
 - Dictation failures now show the matching notice, a failed recording opens in a new tab, and microphone denial offers the system settings action.
 - The Composer now shows OMP dictation states, including transcription cancellation, retry, and recording access.

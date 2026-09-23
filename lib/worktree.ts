@@ -342,7 +342,7 @@ function sanitizeBranchForDir(branch: string): string {
   return branch.replace(/[\/\\:*?"<>|\s]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-export async function addWorktree(cwd: string, branch: string): Promise<{ path: string; branch: string }> {
+export async function addWorktree(cwd: string, branch: string, startingState?: string): Promise<{ path: string; branch: string }> {
   const trimmed = branch.trim();
   if (!trimmed) throw new Error("Branch name is required");
 
@@ -370,7 +370,7 @@ export async function addWorktree(cwd: string, branch: string): Promise<{ path: 
     if (branchExists) {
       await git(repoRoot, ["worktree", "add", "--", worktreePath, trimmed]);
     } else {
-      await git(repoRoot, ["worktree", "add", "-b", trimmed, "--", worktreePath]);
+      await git(repoRoot, ["worktree", "add", "-b", trimmed, "--", worktreePath, startingState?.trim() || "HEAD"]);
     }
   } catch (error) {
     throw new Error(extractGitError(error));
