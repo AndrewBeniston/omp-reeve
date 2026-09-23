@@ -44,6 +44,7 @@ import { NewMessagesControl } from "./chat/NewMessagesControl";
 import { ComposerTurnStatus } from "./chat/ComposerTurnStatus";
 import { ActiveTurnResponseSpacer } from "./chat/ActiveTurnResponseSpacer";
 import { buildTranscriptRows, finalAnswerPosition, presentationAssistantPosition, type TranscriptMessageRow } from "./chat/transcript-rows";
+import { ArchivedSessionCard } from "./chat/ArchivedSessionCard";
 import {
   TranscriptNavigationRail,
   buildTranscriptNavigationItems,
@@ -86,6 +87,7 @@ interface Props {
   onAgentEnd?: () => void;
   onAttentionNeeded?: (request: BlockingExtensionUiRequest) => void;
   onSessionCreated?: (session: SessionInfo) => void;
+  onSessionRestored?: () => void;
   onSessionForked?: (newSessionId: string) => void;
   onSessionNameChanged?: (sessionId: string, name: string) => void;
   /** Answer an agent control request for this Session. See AppShell. */
@@ -218,7 +220,7 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = fa
   );
 }
 
-export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onRequestReview, onListReviewBranches, reviewGate }: Props) {
+export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onRequestReview, onListReviewBranches, reviewGate }: Props) {
   const { t } = useI18n();
 
   // Wrap onAgentEnd to play the completion sound. This is more reliable than
@@ -410,9 +412,12 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
     return map;
   }, [messages]);
   const activeStreamingMessage = streamState.streamingMessage as AgentMessage | null;
+  const archivedSessionId = session && "archived" in session && session.archived === true ? session.id : undefined;
   const transcriptRows = useMemo(
-    () => buildTranscriptRows(messages, entryIds, activeStreamingMessage, agentRunning, sessionData?.context.modelChanges ?? []),
-    [messages, entryIds, activeStreamingMessage, agentRunning, sessionData?.context.modelChanges],
+    () => archivedSessionId
+      ? [{ kind: "archived" as const, sessionId: archivedSessionId }]
+      : buildTranscriptRows(messages, entryIds, activeStreamingMessage, agentRunning, sessionData?.context.modelChanges ?? []),
+    [messages, entryIds, activeStreamingMessage, agentRunning, sessionData?.context.modelChanges, archivedSessionId],
   );
   const activeTurnBlocks = useMemo(() => {
     let turnStart = -1;
@@ -773,6 +778,16 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                 -1,
               );
               transcriptRows.forEach((row, rowIndex) => {
+                if (row.kind === "archived") {
+                  rendered.push(
+                    <ArchivedSessionCard
+                      key={`archived-${row.sessionId}`}
+                      sessionId={row.sessionId}
+                      onRestored={onSessionRestored}
+                    />,
+                  );
+                  return;
+                }
                 if (row.kind === "message") {
                   rendered.push(renderMessage(row.item));
                   return;

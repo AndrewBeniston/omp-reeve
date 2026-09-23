@@ -2260,6 +2260,12 @@ export function AppShell() {
               onAgentEnd={handleAgentEnd}
               onAttentionNeeded={handleAttentionNeeded}
               onSessionCreated={handleSessionCreated}
+              onSessionRestored={() => {
+                if (!selectedSession) return;
+                const restoredSession = { ...selectedSession, archived: false };
+                setRefreshKey((key) => key + 1);
+                handleSelectSession(restoredSession, true);
+              }}
               onSessionForked={handleSessionForked}
               onSessionNameChanged={handleSessionNameChanged}
               onAgentControlRequest={handleAgentControlRequest}
