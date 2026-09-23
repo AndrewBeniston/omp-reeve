@@ -20,6 +20,7 @@ import {
   type StreamingMarkdownKeyState,
 } from "@/lib/streaming-markdown";
 import { MermaidBlock, CodeBlock } from "./MermaidBlock";
+import { MarkdownTable } from "./MarkdownTable";
 
 interface MarkdownBodyProps {
   children: string;
@@ -183,11 +184,7 @@ export function MarkdownBody({ children, className, isStreaming, cwd, onOpenFile
       return <img src={imageSrc} alt={alt ?? ""} loading="lazy" {...props} />;
     },
     table({ children }) {
-      return (
-        <div className="markdown-table-wrap">
-          <table>{children}</table>
-        </div>
-      );
+      return <MarkdownTable>{children}</MarkdownTable>;
     },
   }), [cwd, isStreaming, onOpenFile]);
 

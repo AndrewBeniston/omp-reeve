@@ -4,6 +4,7 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createJiti } from "jiti";
+import { click, domDocument, focused, mount, press } from "../test/dom-harness.mjs";
 
 const jiti = createJiti(import.meta.url, {
   jsx: { runtime: "automatic" },
@@ -116,6 +117,58 @@ x + y
 after`;
 
   assert.equal(normalizeDisplayMath(markdown), markdown);
+});
+
+test("copies only the selected rendered table as tab-separated rows", async () => {
+  const copied = [];
+  const previousClipboard = navigator.clipboard;
+  navigator.clipboard = { writeText: async (text) => { copied.push(text); } };
+  const view = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MarkdownBody, null,
+      "| Name | Value |\n| --- | --- |\n| Alpha | **2** |\n\n| Other | Count |\n| --- | --- |\n| Beta | 3 |")));
+  try {
+    const buttons = view.container.querySelectorAll("[aria-label='Copy table']");
+    assert.equal(buttons.length, 2);
+    await click(buttons[0]);
+    assert.deepEqual(copied, ["Name\tValue\nAlpha\t2"]);
+  } finally {
+    await view.unmount();
+    navigator.clipboard = previousClipboard;
+  }
+});
+
+test("expands one Markdown table into a labelled dialog that closes by button and Escape", async () => {
+  const view = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MarkdownBody, null,
+      "| Name | Value |\n| --- | --- |\n| Alpha | 2 |")));
+  try {
+    const expand = view.container.querySelector("[aria-label='Expand table']");
+    assert.ok(expand);
+    expand.focus();
+    await click(expand);
+
+    let dialog = domDocument.body.querySelector("[role='dialog']");
+    assert.ok(dialog);
+    assert.equal(dialog.getAttribute("aria-modal"), "true");
+    assert.equal(dialog.getAttribute("aria-label"), "Table preview");
+    assert.match(dialog.textContent, /NameValueAlpha2/);
+    assert.equal(dialog.querySelectorAll("table").length, 1);
+    const close = dialog.querySelector("[aria-label='Close table preview']");
+    assert.ok(close);
+    assert.equal(focused(), close);
+    await click(close);
+    assert.equal(domDocument.body.querySelector("[role='dialog']"), null);
+    assert.equal(focused(), expand);
+
+    await click(expand);
+    dialog = domDocument.body.querySelector("[role='dialog']");
+    assert.ok(dialog);
+    await press(dialog, "Escape");
+    assert.equal(domDocument.body.querySelector("[role='dialog']"), null);
+    assert.equal(focused(), expand);
+  } finally {
+    await view.unmount();
+  }
 });
 
 test("does not normalize LaTeX delimiters inside Markdown code", () => {
