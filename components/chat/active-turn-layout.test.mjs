@@ -15,7 +15,8 @@ test("ChatWindow grows a Codex response spacer while prework is active", async (
   assert.match(spacer, /ResizeObserver/);
   assert.match(spacer, /consumeActiveTurnSpacerHeight/);
   assert.match(spacer, /container\.addEventListener\("scroll", consumeSpacer/);
-  assert.match(sheet, /\.responseSpacer\s*\{[^}]*height:\s*var\(--ui-response-spacer-height\);[^}]*transition:\s*height 500ms var\(--ease-enter\);/s);
+  assert.match(sheet, /\.responseSpacer\s*\{[^}]*height:\s*var\(--ui-response-spacer-height\);/s);
+  assert.doesNotMatch(sheet, /\.responseSpacer\s*\{[^}]*transition:\s*height/s);
   assert.match(chat, /phase\?\.kind === "waiting_model"\) return t\("chat\.thinking"\)/);
   assert.match(chat, /<ActiveTurnResponseSpacer[\s\S]*?<div ref=\{messagesEndRef\}/);
 });

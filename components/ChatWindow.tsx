@@ -845,6 +845,8 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
 
             <ActiveTurnResponseSpacer
               active={showActiveTurnResponseSpacer}
+              phase={followPhase}
+              followMode={transcriptFollow.mode}
               scrollContainerRef={scrollContainerRef}
               onConsumed={releaseActiveTurnHold}
             />

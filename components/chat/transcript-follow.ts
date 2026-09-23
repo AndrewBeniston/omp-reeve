@@ -13,6 +13,11 @@ export const ACTIVE_TURN_BOTTOM_DISTANCE_PX = 1;
 
 /** Codex uses a zero-bounce, half-second spring for the response area. */
 export const ACTIVE_TURN_SPACER_DURATION_MS = 500;
+export const ACTIVE_TURN_PLACEMENT_THRESHOLD_PX = 300;
+
+export function shouldPlaceLatestTurnAtEnd(distancePx: number, spacerHeightPx: number): boolean {
+  return distancePx - spacerHeightPx <= ACTIVE_TURN_PLACEMENT_THRESHOLD_PX;
+}
 
 const ACTIVE_TURN_RESPONSE_HEIGHT_RATIO = 2 / 3;
 const ACTIVE_TURN_MIN_REMAINING_HEIGHT_PX = 240;
