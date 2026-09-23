@@ -71,9 +71,73 @@
 
 .audioControls {
   display: grid;
-  grid-template-columns: 2.25rem minmax(0, 1fr);
+  grid-template-columns: 2.25rem minmax(0, 1fr) 2.25rem;
   align-items: center;
   gap: 0.75rem;
+}
+
+.audioActions {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.audioActionsButton,
+.audioMenu button {
+  border: 1px solid var(--ui-border);
+  background: var(--ui-hover);
+  color: var(--ui-text);
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+
+.audioActionsButton {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 1rem;
+}
+
+.audioActionsButton:hover,
+.audioMenu button:hover {
+  background: var(--ui-selected);
+}
+
+.audioActionsButton:focus-visible,
+.audioMenu button:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+}
+
+.audioMenu {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  display: grid;
+  min-width: 9rem;
+  gap: 0.15rem;
+  padding: 0.25rem;
+  border: 1px solid var(--ui-border);
+  border-radius: 0.35rem;
+  background: var(--ui-panel);
+  box-shadow: 0 0.4rem 1rem color-mix(in srgb, var(--ui-shadow) 18%, transparent);
+}
+
+.audioMenu button {
+  padding: 0.45rem 0.55rem;
+  border: 0;
+  border-radius: 0.25rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.audioSaveError {
+  grid-column: 2 / -1;
+  color: var(--ui-danger);
+  font-size: 0.75rem;
 }
 
 .audioPlayButton {

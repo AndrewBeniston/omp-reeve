@@ -9,6 +9,8 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+- Added copy-path and save-copy actions to inline audio players.
+
 ### Added
 
 - Assistant messages now show copy and branch actions in a hover and focus action row.

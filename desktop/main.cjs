@@ -348,6 +348,28 @@ function registerAttachmentPickerHandler() {
   });
 }
 
+function registerAudioSaveHandler() {
+  ipcMain.handle("omp-desktop:save-audio-copy", async (event, filename, bytes) => {
+    if (!event.senderFrame || !desktopUrl || !isTrustedRendererUrl(event.senderFrame.url, desktopUrl)) {
+      throw new Error("The audio-save request did not come from the application.");
+    }
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) throw new Error("The audio-save request has no application window.");
+    const result = await dialog.showSaveDialog(window, {
+      title: "Save a copy",
+      defaultPath: typeof filename === "string" ? filename : "audio",
+    });
+    if (result.canceled || !result.filePath) return false;
+    const destination = openSync(result.filePath, "w");
+    try {
+      writeSync(destination, Buffer.from(bytes));
+    } finally {
+      closeSync(destination);
+    }
+    return true;
+  });
+}
+
 function registerApplicationMenu() {
   const openExternal = (url) => {
     if (!isExternalUrlAllowed(url)) return;
@@ -840,6 +862,7 @@ if (!hasSingleInstanceLock) {
       registerExternalLinkHandler();
       registerDirectoryPickerHandler();
       registerAttachmentPickerHandler();
+      registerAudioSaveHandler();
       registerProjectMenuHandler();
       registerSessionMenuHandler();
       registerApplicationMenuHandler();
