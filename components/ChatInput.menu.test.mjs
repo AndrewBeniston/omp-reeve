@@ -142,7 +142,7 @@ test("the model control preserves the route when providers share a model name", 
   };
   const view = await mountComposer(props);
   const trigger = triggerFor(view.container, "Model settings");
-  assert.match(textOf(trigger), /GPT Example.*ChatGPT subscription/);
+  assert.match(textOf(trigger), /ChatGPT subscription.*GPT Example/);
 
   await click(trigger);
   await settle();
@@ -166,7 +166,7 @@ test("the model control preserves the route when providers share a model name", 
     ...props, model: { provider: "openai", modelId: "gpt-example" },
   })));
   await settle();
-  assert.match(textOf(triggerFor(view.container, "Model settings")), /GPT Example.*OpenAI API/);
+  assert.match(textOf(triggerFor(view.container, "Model settings")), /OpenAI API.*GPT Example/);
   await view.unmount();
 });
 
