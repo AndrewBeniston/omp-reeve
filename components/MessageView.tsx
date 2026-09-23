@@ -17,6 +17,7 @@ import { CollaborationCard, isCollaborationSnapshot } from "./chat/Collaboration
 import { AssistantResponseAnnouncer } from "./chat/AssistantResponseAnnouncer";
 import { AssistantMessageActions } from "./chat/AssistantMessageActions";
 import { UserMessageAttachmentRows } from "./chat/UserMessageAttachmentRows";
+import { hasUserMediaAttachments, UserMediaAttachments } from "./UserMediaAttachments";
 import styles from "./chat/message-view.module.css";
 import type {
   AgentMessage,
@@ -391,11 +392,6 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
           .map((b) => b.text)
           .join("\n");
 
-  const imageBlocks: ImageContent[] =
-    typeof message.content === "string"
-      ? []
-      : message.content.filter((b): b is ImageContent => b.type === "image");
-
   const time = formatTime(message.timestamp);
   const [forkDialogOpen, setForkDialogOpen] = useState(false);
   const canFork = !!entryId && !!onFork;
@@ -409,7 +405,9 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
       copyContent={content}
       userText={content.trim()
         ? <SafeMarkdownBody className="markdown-user-message" cwd={cwd} onOpenFile={onOpenFile}>{content}</SafeMarkdownBody>
-        : imageBlocks.length === 0 && !message.attachments?.length ? t("codex.userMessage.noContent") : undefined}
+        : hasUserMediaAttachments(message.content)
+          ? <UserMediaAttachments content={message.content} />
+          : imageBlocks.length === 0 && !message.attachments?.length ? t("codex.userMessage.noContent") : undefined}
       userEditText={content}
       timestamp={time}
       branchPending={forking}
@@ -418,24 +416,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
       onBranch={canFork ? () => setForkDialogOpen(true) : undefined}
     >
       {message.attachments && <UserMessageAttachmentRows attachments={message.attachments} onOpenFile={onOpenFile} />}
-      {imageBlocks.length > 0 && (
-        <div className={styles.messageImages} data-has-text={Boolean(content)}>
-          {imageBlocks.map((img, i) => {
-            const flat = img as unknown as { data?: string; mimeType?: string };
-            const src = img.source
-              ? img.source.type === "base64"
-                ? `data:${img.source.media_type};base64,${img.source.data}`
-                : img.source.url ?? ""
-              : flat.data
-                ? `data:${flat.mimeType};base64,${flat.data}`
-                : "";
-            return (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={i} src={src} alt="" className={styles.messageImage} />
-            );
-          })}
-        </div>
-      )}
+      {hasUserMediaAttachments(message.content) && <UserMediaAttachments content={message.content} />}
     </MessageTurn>
     {canFork && (
       <ForkDialog

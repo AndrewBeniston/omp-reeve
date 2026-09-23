@@ -1,0 +1,42 @@
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1-5);
+}
+
+.attachments[data-has-text="true"] { margin-bottom: var(--space-2); }
+
+.imageFrame {
+  position: relative;
+  display: block;
+  min-width: 48px;
+  min-height: 48px;
+}
+
+.image {
+  display: block;
+  max-width: 240px;
+  max-height: 240px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+}
+
+.loading,
+.failed,
+.videoMarker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 48px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1-5) var(--space-2);
+  color: var(--ui-text-dim);
+  font-size: var(--text-sm);
+}
+
+.loading { position: absolute; inset: 0; justify-content: center; background: var(--ui-surface); }
+.failed { flex-direction: column; align-items: flex-start; justify-content: center; }
+.shortStatus { color: var(--ui-text-muted); font-size: var(--text-xs); }
+.videoMarker { background: var(--ui-surface); }
