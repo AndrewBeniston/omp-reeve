@@ -72,6 +72,20 @@ test("keeps the session event stream open through the idle grace window", () => 
   assert.match(sendSource, /if \(!definitivelyRejected && sentSessionId\) \{[\s\S]*?return;[\s\S]*?\}[\s\S]*?closeEvents\(\)/);
 });
 
+test("keeps live file mention rows on the following user message", () => {
+  const messageEndSource = source.slice(
+    source.indexOf('case "message_end":'),
+    source.indexOf('case "tool_execution_start":'),
+  );
+
+  assert.match(source, /const pendingFileMentionsRef = useRef<UserMessageAttachment\[\]>/);
+  assert.match(messageEndSource, /isFileMentionMessage\(completed\)/);
+  assert.match(messageEndSource, /userMessageAttachmentsFromFileMention\(completed as FileMentionMessage\)/);
+  assert.match(messageEndSource, /const deliveredWithAttachments = pendingFileMentionsRef\.current\.length > 0/);
+  assert.match(messageEndSource, /attachments: \[\.\.\.\(delivered\.attachments \?\? \[\]\), \.\.\.pendingFileMentionsRef\.current\]/);
+  assert.match(messageEndSource, /pendingFileMentionsRef\.current = \[\]/);
+});
+
 test("publishes generated Session titles through the active Session path", () => {
   const titleSource = source.slice(
     source.indexOf('case "session_name_changed"'),

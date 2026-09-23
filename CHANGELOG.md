@@ -10,6 +10,7 @@ the What's New dialog adds a second page that invites support.
 ## [Unreleased]
 
 - Added copy-path and save-copy actions to inline audio players.
+- Queued and steered user messages now keep live file, folder, and uploaded-file attachment rows after send.
 
 ### Added
 
