@@ -1495,7 +1495,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           agent?: string;
           agentSource?: SubagentSnapshot["agentSource"];
           description?: string;
-          status?: "started" | "completed" | "failed" | "aborted";
+          status?: "started" | "completed" | "failed" | "aborted" | "cancelled";
           sessionFile?: string;
           parentToolCallId?: string;
         } | undefined;
@@ -1503,7 +1503,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         if (payload.status !== "started") {
           const terminalStatus: SubagentSnapshot["status"] = payload.status === "failed"
             ? "failed"
-            : payload.status === "aborted"
+            : payload.status === "aborted" || payload.status === "cancelled"
               ? "aborted"
               : "completed";
           setSubagents((current) => {

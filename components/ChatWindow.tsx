@@ -108,6 +108,7 @@ interface Props {
   onSummarySourcesChange?: (sources: SummarySource[]) => void;
   onOpenFile?: (filePath: string) => void;
   onSubagentsChange?: (subagents: SubagentSnapshot[]) => void;
+  onOpenSubagent?: (id: string) => void;
   /** Completion sound state + controls, owned by AppShell so tasks finishing in
    *  a non-active workspace can still ring. */
   soundEnabled?: boolean;
@@ -199,7 +200,7 @@ function withAssistantBlocks(
   return next;
 }
 
-export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onOpenSession = () => {}, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onRequestReview, onListReviewBranches, reviewGate, historyLoadFailure }: Props) {
+export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onOpenSession = () => {}, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenSubagent, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onRequestReview, onListReviewBranches, reviewGate, historyLoadFailure }: Props) {
   const { t } = useI18n();
 
   // Wrap onAgentEnd to play the completion sound. This is more reliable than
@@ -657,7 +658,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                 const idx = item.index;
                 const msg = options.messageOverride ?? item.message;
                 if (item.streaming) {
-                  return <MessageView key={`streaming-view-${idx}`} message={msg} isStreaming modelNames={modelNames} cwd={messageCwd} onOpenFile={onOpenFile} />;
+                  return <MessageView key={`streaming-view-${idx}`} message={msg} isStreaming modelNames={modelNames} cwd={messageCwd} onOpenFile={onOpenFile} subagents={subagents} onOpenSubagent={onOpenSubagent} />;
                 }
                 const prevAssistantEntryId =
                   msg.role === "user" && idx > 0 && messages[idx - 1].role === "assistant"
@@ -696,6 +697,8 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                     prevTimestamp={idx > 0 ? (messages[idx - 1] as AgentMessage & { timestamp?: number }).timestamp : undefined}
                     sessionId={session?.id ?? sessionIdRef.current ?? undefined}
                     writtenFiles={options.writtenFiles}
+                    subagents={subagents}
+                    onOpenSubagent={onOpenSubagent}
                   />
                 );
               };

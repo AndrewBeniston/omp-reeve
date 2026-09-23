@@ -27,6 +27,7 @@ import type {
   TextContent,
   ImageContent,
   ToolCallContent,
+  SubagentSnapshot,
 } from "@/lib/types";
 
 // CJK chars ~1 token each (GLM/DeepSeek/GPT-o200k); other chars ~4 chars/token.
@@ -298,6 +299,8 @@ interface Props {
    * final answer text-only.
    */
   writtenFiles?: WrittenFile[];
+  subagents?: SubagentSnapshot[];
+  onOpenSubagent?: (id: string) => void;
 }
 
 function formatTime(ts?: number): string | null {
@@ -327,12 +330,12 @@ function haveSameRelevantToolResults(
   return true;
 }
 
-export const MessageView = memo(function MessageView({ message, isStreaming, toolResults, modelNames, cwd, onOpenFile, entryId, onFork, forking, onNavigate, prevAssistantEntryId, onEditContent, showTimestamp, prevTimestamp, sessionId, writtenFiles }: Props) {
+export const MessageView = memo(function MessageView({ message, isStreaming, toolResults, modelNames, cwd, onOpenFile, entryId, onFork, forking, onNavigate, prevAssistantEntryId, onEditContent, showTimestamp, prevTimestamp, sessionId, writtenFiles, subagents, onOpenSubagent }: Props) {
   if (message.role === "user") {
     return <UserMessageView message={message as UserMessage} cwd={cwd} onOpenFile={onOpenFile} entryId={entryId} onFork={onFork} forking={forking} onNavigate={onNavigate} prevAssistantEntryId={prevAssistantEntryId} onEditContent={onEditContent} />;
   }
   if (message.role === "assistant") {
-    return <AssistantMessageView message={message as AssistantMessage} isStreaming={isStreaming} toolResults={toolResults} modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} showTimestamp={showTimestamp} prevTimestamp={prevTimestamp} sessionId={sessionId} entryId={entryId} writtenFiles={writtenFiles} />;
+    return <AssistantMessageView message={message as AssistantMessage} isStreaming={isStreaming} toolResults={toolResults} modelNames={modelNames} cwd={cwd} onOpenFile={onOpenFile} showTimestamp={showTimestamp} prevTimestamp={prevTimestamp} sessionId={sessionId} entryId={entryId} writtenFiles={writtenFiles} subagents={subagents} onOpenSubagent={onOpenSubagent} />;
   }
   if (message.role === "toolResult") {
     // Rendered inline under its toolCall — skip standalone rendering if paired
@@ -363,7 +366,9 @@ export const MessageView = memo(function MessageView({ message, isStreaming, too
     && prev.onEditContent === next.onEditContent
     && prev.showTimestamp === next.showTimestamp
     && prev.prevTimestamp === next.prevTimestamp
-    && prev.sessionId === next.sessionId;
+    && prev.sessionId === next.sessionId
+    && prev.subagents === next.subagents
+    && prev.onOpenSubagent === next.onOpenSubagent;
 });
 
 function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, onNavigate, prevAssistantEntryId, onEditContent }: {
@@ -441,6 +446,8 @@ function AssistantMessageView({
   sessionId,
   entryId,
   writtenFiles,
+  subagents,
+  onOpenSubagent,
 }: {
   message: AssistantMessage;
   isStreaming?: boolean;
@@ -453,6 +460,8 @@ function AssistantMessageView({
   sessionId?: string;
   entryId?: string;
   writtenFiles?: WrittenFile[];
+  subagents?: SubagentSnapshot[];
+  onOpenSubagent?: (id: string) => void;
 }) {
   const { t } = useI18n();
   const time = showTimestamp ? formatTime(message.timestamp) : null;
@@ -652,13 +661,13 @@ function AssistantMessageView({
       ) : undefined}
     >
         {renderItems.map(({ block, originalIndex, groupedCalls }) => (
-          <BlockView key={`${entryId ?? "stream"}-${originalIndex}`} block={block} groupedCalls={groupedCalls} toolResults={toolResults} isStreaming={isStreaming} hasLaterContent={thinkingBlocksWithLaterContent.has(originalIndex)} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
+          <BlockView key={`${entryId ?? "stream"}-${originalIndex}`} block={block} groupedCalls={groupedCalls} toolResults={toolResults} isStreaming={isStreaming} hasLaterContent={thinkingBlocksWithLaterContent.has(originalIndex)} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} subagents={subagents} onOpenSubagent={onOpenSubagent} />
         ))}
     </MessageTurn>
   );
 }
 
-function BlockView({ block, groupedCalls, toolResults, isStreaming, hasLaterContent, streamingDuration, toolCallDurations, cwd, onOpenFile, sessionId, entryId, blockIndex }: { block: AssistantContentBlock; groupedCalls?: ActivityCall[]; toolResults?: Map<string, ToolResultMessage>; isStreaming?: boolean; hasLaterContent?: boolean; streamingDuration?: number; toolCallDurations?: Map<string, number>; cwd?: string; onOpenFile?: (filePath: string) => void; sessionId?: string; entryId?: string; blockIndex: number }) {
+function BlockView({ block, groupedCalls, toolResults, isStreaming, hasLaterContent, streamingDuration, toolCallDurations, cwd, onOpenFile, sessionId, entryId, blockIndex, subagents, onOpenSubagent }: { block: AssistantContentBlock; groupedCalls?: ActivityCall[]; toolResults?: Map<string, ToolResultMessage>; isStreaming?: boolean; hasLaterContent?: boolean; streamingDuration?: number; toolCallDurations?: Map<string, number>; cwd?: string; onOpenFile?: (filePath: string) => void; sessionId?: string; entryId?: string; blockIndex: number; subagents?: SubagentSnapshot[]; onOpenSubagent?: (id: string) => void }) {
   if (block.type === "text") {
     return <TextBlock block={block as TextContent} isStreaming={isStreaming} cwd={cwd} onOpenFile={onOpenFile} />;
   }
@@ -668,7 +677,7 @@ function BlockView({ block, groupedCalls, toolResults, isStreaming, hasLaterCont
   if (block.type === "toolCall") {
     const tc = block as ToolCallContent;
     const result = toolResults?.get(tc.toolCallId);
-    return <ActivityRow block={tc} result={result} groupedCalls={groupedCalls} />;
+    return <ActivityRow block={tc} result={result} groupedCalls={groupedCalls} subagents={subagents} onOpenSubagent={onOpenSubagent} />;
   }
   return null;
 }

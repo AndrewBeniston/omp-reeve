@@ -10,6 +10,8 @@ import type { ToolCallContent, ToolResultMessage } from "@/lib/types";
 import type { ActivityCall } from "@/lib/transcript/repeat-collapsing";
 import { selectLiveActivityHeader, type LiveActivityHeaderInput } from "@/lib/transcript/live-activity-header";
 import { composeActivitySummary } from "@/lib/transcript/activity-summary";
+import type { SubagentSnapshot } from "@/lib/types";
+import { SubagentActivityRow, visibleSubagentRows } from "./SubagentActivityRow";
 import styles from "./activity-row.module.css";
 
 interface ActivityRowProps {
@@ -102,7 +104,7 @@ export function ActivityHeader({ input }: ActivityHeaderProps) {
   );
 }
 
-export function ActivityRow({ block, result, interrupted = false, groupedCalls }: { block: ToolCallContent; result?: ToolResultMessage; interrupted?: boolean; groupedCalls?: ActivityCall[] }) {
+export function ActivityRow({ block, result, interrupted = false, groupedCalls, subagents = [], onOpenSubagent }: { block: ToolCallContent; result?: ToolResultMessage; interrupted?: boolean; groupedCalls?: ActivityCall[]; subagents?: SubagentSnapshot[]; onOpenSubagent?: (id: string) => void }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const group = groupedCalls ? activityCallGroups(groupedCalls).find((candidate) => candidate.repeated) : undefined;
@@ -116,6 +118,14 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls }
   const count = calls.length;
   const countText = t(count === 1 ? "transcript.activity.repeatedCount.one" : "transcript.activity.repeatedCount.other", { count });
   const header = firstPartyLabel(content) ? text.action : first.block.toolName;
+  const subagentRows = visibleSubagentRows(subagents, first.block.toolCallId, t("transcript.activity.subAgent.defaultName"));
+  const childRows = subagentRows.length > 0 ? (
+    <div data-subagent-activity-group>
+      {subagentRows.map(({ snapshot, name }) => (
+        <SubagentActivityRow key={snapshot.id} subagent={snapshot} displayName={name} onOpen={onOpenSubagent} />
+      ))}
+    </div>
+  ) : null;
   if (group) {
     return (
       <div data-activity-repeats-group>
@@ -130,7 +140,8 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls }
           <span className={styles.action}>{header}</span>
           <span className={styles.detail} data-activity-count>{countText}</span>
         </button>
-        {expanded ? calls.map((call) => <div data-activity-instance key={call.block.toolCallId}><ActivityRow block={call.block} result={call.result} /></div>) : null}
+        {expanded ? calls.map((call) => <div data-activity-instance key={call.block.toolCallId}><ActivityRow block={call.block} result={call.result} subagents={subagents} onOpenSubagent={onOpenSubagent} /></div>) : null}
+        {childRows}
       </div>
     );
   }
@@ -144,6 +155,7 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls }
       {isTerminalCommand ? (
         <TerminalOutput command={text.detail ?? ""} output={resultText ?? ""} pending={!result} isError={isError} />
       ) : null}
+      {childRows}
     </div>
   );
 }
