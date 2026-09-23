@@ -15,6 +15,16 @@ const markdownSanitizeSchema = {
   strip: [...(defaultSchema.strip || []), "iframe", "object", "style", "form"],
 };
 
+const markdownMessageSanitizeSchema = {
+  ...markdownSanitizeSchema,
+  tagNames: [...(defaultSchema.tagNames ?? []), "video", "source"],
+  attributes: {
+    ...markdownSanitizeSchema.attributes,
+    video: ["src", "controls", "playsInline", "poster", "preload", "width", "height", "alt", "title"],
+    source: ["src", "type"],
+  },
+};
+
 export function normalizeDisplayMath(markdown: string): string {
   const lineBreak = markdown.includes("\r\n") ? "\r\n" : "\n";
   const lines = markdown.split(/\r?\n/);
@@ -336,7 +346,7 @@ export const markdownPreviewRemarkPlugins: ReactMarkdownOptions["remarkPlugins"]
 
 export const markdownRehypePlugins: ReactMarkdownOptions["rehypePlugins"] = [
   rehypeRaw,
-  [rehypeSanitize, markdownSanitizeSchema],
+  [rehypeSanitize, markdownMessageSanitizeSchema],
   [rehypeKatex, { throwOnError: false, strict: false }],
 ];
 

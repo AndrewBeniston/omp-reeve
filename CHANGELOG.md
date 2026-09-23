@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Assistant Markdown images now show loading and failure states, and inline videos use native playback controls.
 - File citations now show a file chip with its type and location, and open the file panel.
 - The Session transcript now has a four-mode follow model for phase-aware scrolling.
 - Markdown tables now have controls to copy their rows and open a larger table preview.
