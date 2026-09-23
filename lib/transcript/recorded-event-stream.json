@@ -1,0 +1,534 @@
+{
+  "source": "Captured OMP 18.2.11 Agent events and in-memory Session entries with a scripted model. Reeve prompt_done boundaries were added after each prompt. No provider request was made.",
+  "events": [
+    {
+      "type": "agent_start"
+    },
+    {
+      "type": "turn_start"
+    },
+    {
+      "type": "message_start",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "First question"
+          }
+        ],
+        "timestamp": 1790195468825
+      }
+    },
+    {
+      "type": "message_end",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "First question"
+          }
+        ],
+        "timestamp": 1790195468825
+      }
+    },
+    {
+      "type": "message_start",
+      "message": {
+        "role": "assistant",
+        "content": [],
+        "timestamp": 1790195468869
+      }
+    },
+    {
+      "type": "message_update",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 1"
+          }
+        ],
+        "timestamp": 1790195468869
+      }
+    },
+    {
+      "type": "message_update",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 1"
+          }
+        ],
+        "timestamp": 1790195468869
+      }
+    },
+    {
+      "type": "message_update",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 1"
+          }
+        ],
+        "timestamp": 1790195468869
+      }
+    },
+    {
+      "type": "message_end",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 1"
+          }
+        ],
+        "timestamp": 1790195468869
+      }
+    },
+    {
+      "type": "turn_end",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 1"
+          }
+        ],
+        "timestamp": 1790195468869
+      }
+    },
+    {
+      "type": "turn_start"
+    },
+    {
+      "type": "message_start",
+      "message": {
+        "role": "user",
+        "content": "Steered detail",
+        "steering": true,
+        "timestamp": 1790195468869
+      }
+    },
+    {
+      "type": "message_end",
+      "message": {
+        "role": "user",
+        "content": "Steered detail",
+        "steering": true,
+        "timestamp": 1790195468869
+      }
+    },
+    {
+      "type": "message_start",
+      "message": {
+        "role": "assistant",
+        "content": [],
+        "timestamp": 1790195468886
+      }
+    },
+    {
+      "type": "message_update",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 2"
+          }
+        ],
+        "timestamp": 1790195468886
+      }
+    },
+    {
+      "type": "message_update",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 2"
+          }
+        ],
+        "timestamp": 1790195468886
+      }
+    },
+    {
+      "type": "message_update",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 2"
+          }
+        ],
+        "timestamp": 1790195468886
+      }
+    },
+    {
+      "type": "message_end",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 2"
+          }
+        ],
+        "timestamp": 1790195468886
+      }
+    },
+    {
+      "type": "turn_end",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 2"
+          }
+        ],
+        "timestamp": 1790195468886
+      }
+    },
+    {
+      "type": "turn_start"
+    },
+    {
+      "type": "message_start",
+      "message": {
+        "role": "user",
+        "content": "Queued detail",
+        "timestamp": 1790195468869
+      }
+    },
+    {
+      "type": "message_end",
+      "message": {
+        "role": "user",
+        "content": "Queued detail",
+        "timestamp": 1790195468869
+      }
+    },
+    {
+      "type": "message_start",
+      "message": {
+        "role": "assistant",
+        "content": [],
+        "timestamp": 1790195468903
+      }
+    },
+    {
+      "type": "message_update",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 3"
+          }
+        ],
+        "timestamp": 1790195468903
+      }
+    },
+    {
+      "type": "message_update",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 3"
+          }
+        ],
+        "timestamp": 1790195468903
+      }
+    },
+    {
+      "type": "message_update",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 3"
+          }
+        ],
+        "timestamp": 1790195468903
+      }
+    },
+    {
+      "type": "message_end",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 3"
+          }
+        ],
+        "timestamp": 1790195468903
+      }
+    },
+    {
+      "type": "turn_end",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 3"
+          }
+        ],
+        "timestamp": 1790195468903
+      }
+    },
+    {
+      "type": "agent_end"
+    },
+    {
+      "type": "prompt_done"
+    },
+    {
+      "type": "agent_start"
+    },
+    {
+      "type": "turn_start"
+    },
+    {
+      "type": "message_start",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Second question"
+          }
+        ],
+        "timestamp": 1790195468924
+      }
+    },
+    {
+      "type": "message_end",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Second question"
+          }
+        ],
+        "timestamp": 1790195468924
+      }
+    },
+    {
+      "type": "message_start",
+      "message": {
+        "role": "assistant",
+        "content": [],
+        "timestamp": 1790195468940
+      }
+    },
+    {
+      "type": "message_update",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 4"
+          }
+        ],
+        "timestamp": 1790195468940
+      }
+    },
+    {
+      "type": "message_update",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 4"
+          }
+        ],
+        "timestamp": 1790195468940
+      }
+    },
+    {
+      "type": "message_update",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 4"
+          }
+        ],
+        "timestamp": 1790195468940
+      }
+    },
+    {
+      "type": "message_end",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 4"
+          }
+        ],
+        "timestamp": 1790195468940
+      }
+    },
+    {
+      "type": "turn_end",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 4"
+          }
+        ],
+        "timestamp": 1790195468940
+      }
+    },
+    {
+      "type": "agent_end"
+    },
+    {
+      "type": "prompt_done"
+    }
+  ],
+  "entries": [
+    {
+      "type": "message",
+      "id": "c9b5836c",
+      "parentId": null,
+      "timestamp": "2026-09-23T20:31:08.853Z",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "First question"
+          }
+        ],
+        "timestamp": 1790195468825
+      }
+    },
+    {
+      "type": "message",
+      "id": "66bed629",
+      "parentId": "c9b5836c",
+      "timestamp": "2026-09-23T20:31:08.870Z",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 1"
+          }
+        ],
+        "timestamp": 1790195468869
+      }
+    },
+    {
+      "type": "message",
+      "id": "602fc124",
+      "parentId": "66bed629",
+      "timestamp": "2026-09-23T20:31:08.870Z",
+      "message": {
+        "role": "user",
+        "content": "Steered detail",
+        "steering": true,
+        "timestamp": 1790195468869
+      }
+    },
+    {
+      "type": "message",
+      "id": "9d026259",
+      "parentId": "602fc124",
+      "timestamp": "2026-09-23T20:31:08.886Z",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 2"
+          }
+        ],
+        "timestamp": 1790195468886
+      }
+    },
+    {
+      "type": "message",
+      "id": "941a492e",
+      "parentId": "9d026259",
+      "timestamp": "2026-09-23T20:31:08.887Z",
+      "message": {
+        "role": "user",
+        "content": "Queued detail",
+        "timestamp": 1790195468869
+      }
+    },
+    {
+      "type": "message",
+      "id": "93b2ae77",
+      "parentId": "941a492e",
+      "timestamp": "2026-09-23T20:31:08.924Z",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 3"
+          }
+        ],
+        "timestamp": 1790195468903
+      }
+    },
+    {
+      "type": "message",
+      "id": "8d1f8784",
+      "parentId": "93b2ae77",
+      "timestamp": "2026-09-23T20:31:08.924Z",
+      "message": {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Second question"
+          }
+        ],
+        "timestamp": 1790195468924
+      }
+    },
+    {
+      "type": "message",
+      "id": "8e078b95",
+      "parentId": "8d1f8784",
+      "timestamp": "2026-09-23T20:31:08.941Z",
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Reply 4"
+          }
+        ],
+        "timestamp": 1790195468940
+      }
+    }
+  ]
+}

@@ -9,6 +9,10 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+### Added
+
+- Add a pure Turn folder and a recorded OMP event stream for future Session transcript rendering.
+
 ## [0.8.0] - 2026-09-23
 
 ### Added
