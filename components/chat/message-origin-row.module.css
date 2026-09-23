@@ -1,0 +1,11 @@
+.originRow {
+  display: flex;
+  align-items: center;
+  min-height: 1.75rem;
+  margin: 0 0 var(--space-4);
+  color: var(--ui-text-dim);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  overflow-wrap: anywhere;
+}

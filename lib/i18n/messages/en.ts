@@ -11,6 +11,8 @@ export const enLocale: LocalePlugin = {
     "common.skills": "Skills",
     "common.plugins": "Plugins",
     "common.settings": "Settings",
+    "transcript.origin.liveDelegation": "Sent by {appName} from another task",
+    "transcript.origin.unknownApp": "another app",
     "markdown.copyTable": "Copy table",
     "markdown.expandTable": "Expand table",
     "markdown.tablePreview": "Table preview",
