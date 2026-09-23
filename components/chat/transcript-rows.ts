@@ -11,6 +11,7 @@ export interface TranscriptMessageRow {
 }
 
 export type TranscriptRow =
+  | { kind: "archived"; sessionId: string }
   | { kind: "turn"; id: string; phase: TurnPhase; settled: boolean; items: TranscriptMessageRow[] }
   | { kind: "compaction"; id: string; phase: TurnPhase; items: TranscriptMessageRow[] }
   | { kind: "message"; item: TranscriptMessageRow };
