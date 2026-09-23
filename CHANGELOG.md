@@ -23,6 +23,7 @@ the What's New dialog adds a second page that invites support.
 - Assistant Markdown images now show loading and failure states, and inline videos use native playback controls.
 - Session transcripts restore a saved reading distance and preserve the reading position when the composer grows.
 - File citations now show a file chip with its type and location, and open the file panel.
+- File citations now show an unavailable state when the cited file is missing.
 - The Session transcript now has a four-mode follow model for phase-aware scrolling.
 - Markdown tables now have controls to copy their rows and open a larger table preview.
 - Long user messages show two lines with a Show more control. Empty messages show "(No content)". The copy control confirms successful copies.
