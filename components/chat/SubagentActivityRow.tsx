@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import { useI18n } from "@/hooks/useI18n";
 import type { SubagentSnapshot } from "@/lib/types";
+import { composeSubagentSummaryParts, type SubagentGroupState, type SubagentSummaryPart, type SubagentSummaryRow } from "@/lib/transcript/subagent-group-summary";
 import styles from "./subagent-activity-row.module.css";
 
 type RowState = "active" | "updated" | "interrupted" | "completed";
@@ -11,6 +12,14 @@ function rowState(subagent: SubagentSnapshot): RowState {
   if ((subagent.status as string) === "aborted" || (subagent.status as string) === "cancelled") return "interrupted";
   if (subagent.status === "completed") return "completed";
   if (subagent.status === "failed") return "completed";
+  if (subagent.progress) return "updated";
+  return "active";
+}
+
+function groupState(subagent: SubagentSnapshot): SubagentGroupState {
+  if ((subagent.status as string) === "aborted" || (subagent.status as string) === "cancelled") return "interrupted";
+  if (subagent.status === "failed") return "failed";
+  if (subagent.status === "completed" || (subagent.status as string) === "done") return "completed";
   if (subagent.progress) return "updated";
   return "active";
 }
@@ -35,6 +44,42 @@ function avatarStyle(id: string): CSSProperties {
 
 function initial(name: string): string {
   return Array.from(name.trim())[0]?.toLocaleUpperCase() ?? "?";
+}
+
+function summaryRow(subagent: SubagentSnapshot, fallbackName: string): SubagentSummaryRow {
+  return { id: subagent.id, name: displayName(subagent, fallbackName), state: groupState(subagent), parentToolCallId: subagent.parentToolCallId };
+}
+
+function SummaryName({ part, onOpen }: { part: SubagentSummaryPart; onOpen?: (id: string) => void }) {
+  if (part.type !== "name" || !part.id || !onOpen) return <span>{part.text}</span>;
+  return <button type="button" data-subagent-summary-name onClick={() => onOpen(part.id ?? "")}>{part.text}</button>;
+}
+
+/** Render the grouped sentence for sub-agents that share an activity anchor. */
+export function SubagentGroupSummary({ subagents, fallbackName, onOpen, onOpenAll }: {
+  subagents: readonly SubagentSnapshot[];
+  fallbackName: string;
+  onOpen?: (id: string) => void;
+  onOpenAll?: () => void;
+}) {
+  const { locale, t } = useI18n();
+  const rows = subagents.map((subagent) => summaryRow(subagent, fallbackName));
+  const summary = composeSubagentSummaryParts(rows, locale, t, onOpen);
+  return (
+    <div className={styles.group} data-subagent-summary aria-live="polite">
+      <span className={styles.avatars} aria-hidden="true">
+        {subagents.slice(0, 4).map((subagent) => <span key={subagent.id} className={styles.avatar} data-avatar-seed={subagent.id} style={avatarStyle(subagent.id)}>{initial(displayName(subagent, fallbackName))}</span>)}
+      </span>
+      <span className={styles.summary} data-subagent-summary-sentence>
+        {summary.parts.map((part, index) => {
+          if (part.type === "name") return <SummaryName key={`${part.type}-${part.id ?? part.text}-${index}`} part={part} onOpen={onOpen} />;
+          if (part.type === "more" && onOpenAll) return <button key={`${part.type}-${index}`} type="button" data-subagent-summary-more onClick={onOpenAll}>{part.text}</button>;
+          return <span key={`${part.type}-${index}`}>{part.text}</span>;
+        })}
+        <span> {summary.statusText}</span>
+      </span>
+    </div>
+  );
 }
 
 export function visibleSubagentRows(
