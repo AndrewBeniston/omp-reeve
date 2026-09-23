@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useI18n } from "@/hooks/useI18n";
 import { getFileIcon } from "./FileIcons";
 import styles from "./FileCitationChip.module.css";
@@ -67,17 +68,42 @@ function safeLabel(value: string | null): string | null {
 
 export function FileCitationChip({ href, filePath, title, onOpenFile }: FileCitationChipProps) {
   const { t } = useI18n();
+  const [exists, setExists] = useState(true);
   const name = filePath?.split(/[/\\]/).pop() || href.split(/[?#]/)[0].split(/[/\\]/).pop() || t("markdown.fileCitation.artifactType.file");
   const type = getArtifactType(name, title);
   const typeLabel = t(`markdown.fileCitation.artifactType.${type}`);
   const location = locationFromHref(href, type, t);
   const hasExtension = /\.[^./\\]+$/.test(name);
-  const available = Boolean(filePath && onOpenFile);
+  const available = Boolean(filePath && onOpenFile && exists);
   const ariaLabel = hasExtension
     ? location ? t("markdown.fileCitation.ariaLabelWithLine", { fileName: name, lineLabel: location }) : name
     : location
       ? t("markdown.fileCitation.ariaLabelWithTypeAndLine", { fileName: name, fileTypeLabel: typeLabel, lineLabel: location })
       : t("markdown.fileCitation.ariaLabelWithType", { fileName: name, fileTypeLabel: typeLabel });
+
+  useEffect(() => {
+    if (!filePath) {
+      setExists(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setExists(true);
+    fetch("/api/citations/exists", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ filePath }),
+      signal: controller.signal,
+    })
+      .then(async (response) => response.ok ? await response.json() as { exists?: unknown } : { exists: false })
+      .then((result) => setExists(result.exists === true))
+      .catch((error) => {
+        if (error instanceof Error && error.name === "AbortError") return;
+        setExists(false);
+      });
+
+    return () => controller.abort();
+  }, [filePath]);
 
   if (!available) {
     return <span className={styles.unavailable} role="note">

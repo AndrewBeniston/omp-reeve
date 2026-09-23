@@ -119,6 +119,8 @@ test("uses an explicit type for an extensionless citation", () => {
 
 test("opens a citation in the existing file surface", async () => {
   const paths = [];
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ exists: true }) });
   const view = await mount(React.createElement(I18nProvider, null,
     React.createElement(MarkdownBody, { cwd: "/home/me/project", onOpenFile: (path) => paths.push(path) },
       "[source](./src/main.ts#L12)")));
@@ -129,6 +131,25 @@ test("opens a citation in the existing file surface", async () => {
     assert.deepEqual(paths, ["/home/me/project/src/main.ts"]);
   } finally {
     await view.unmount();
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("renders a citation as unavailable when its file does not exist", async () => {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ exists: false }) });
+  const view = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MarkdownBody, { cwd: "/home/me/project", onOpenFile() {} },
+      "[missing](./src/missing.ts#L12)")));
+  try {
+    const citation = view.container.querySelector("[role='note']");
+    assert.ok(citation);
+    assert.match(citation.textContent, /missing\.ts/);
+    assert.match(citation.textContent, /Unavailable/);
+    assert.doesNotMatch(citation.textContent, /\/home\/me\/project/);
+  } finally {
+    await view.unmount();
+    globalThis.fetch = previousFetch;
   }
 });
 
