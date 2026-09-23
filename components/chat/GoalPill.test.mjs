@@ -3,7 +3,7 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createJiti } from "jiti";
-import { mount } from "../../test/dom-harness.mjs";
+import { mount, click, focused } from "../../test/dom-harness.mjs";
 
 const jiti = createJiti(import.meta.url, { jsx: { runtime: "automatic" }, tsconfigPaths: true });
 const { GoalPill } = await jiti.import("./GoalPill.tsx");
@@ -146,4 +146,57 @@ test("the pill places clear, pause or resume, and edit after the metric", () => 
     assert.ok(positions.every((position) => position >= 0));
     assert.ok(positions.every((position, index) => index === 0 || position > positions[index - 1]));
   }
+});
+
+test("clearing during active work asks first and sends one command after confirmation", async () => {
+  let clears = 0;
+  const wrap = () => React.createElement(I18nProvider, null, React.createElement(GoalPill, {
+    goal: makeGoal("active"), isRunning: true, onClear: async () => { clears += 1; return true; },
+  }));
+  const view = await mount(wrap());
+  try {
+    const root = view.container.ownerDocument.body;
+    await click(view.container.querySelector('button[aria-label="Clear goal"]'));
+    assert.equal(clears, 0);
+    assert.match(root.textContent, /Clear current goal\?/);
+    const confirm = root.querySelector('button[data-action="confirm-clear-goal"]');
+    assert.equal(focused(), confirm);
+    await React.act(async () => { confirm.click(); confirm.click(); });
+    assert.equal(clears, 1);
+  } finally { await view.unmount(); }
+});
+
+test("the paused Goal asks before resume and labels the keyboard control", async () => {
+  let resumes = 0;
+  const wrap = () => React.createElement(I18nProvider, null, React.createElement(GoalPill, {
+    goal: makeGoal("paused"), onResume: async () => { resumes += 1; return true; },
+  }));
+  const view = await mount(wrap());
+  try {
+    const root = view.container.ownerDocument.body;
+    const control = view.container.querySelector('button[aria-label="Resume goal"]');
+    assert.equal(control.getAttribute("title"), "Resume goal");
+    control.focus();
+    assert.equal(focused(), control);
+    await click(control);
+    assert.equal(resumes, 0);
+    assert.match(root.textContent, /Resume paused goal\?/);
+    const confirm = root.querySelector('button[data-action="confirm-resume-goal"]');
+    assert.equal(focused(), confirm);
+    await click(confirm);
+    assert.equal(resumes, 1);
+  } finally { await view.unmount(); }
+});
+
+test("a failed action shows the reference error and keeps the controls available", () => {
+  const html = renderGoal(makeGoal("active"), {
+    onClear() {}, onPause() {},
+    actionError: { action: "pause", message: "Unavailable" },
+  });
+  assert.match(html, /role="alert"[^>]*>Failed to update goal: Unavailable/);
+  assert.match(html, /aria-label="Pause goal"[^>]*title="Pause goal"/);
+  assert.doesNotMatch(html, /aria-label="Pause goal"[^>]*disabled/);
+  const busy = renderGoal(makeGoal("active"), { onClear() {}, onPause() {}, pendingAction: "pause" });
+  assert.match(busy, /aria-label="Pause goal"[^>]*disabled/);
+  assert.match(busy, /aria-label="Clear goal"[^>]*disabled/);
 });

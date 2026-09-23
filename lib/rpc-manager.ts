@@ -1105,7 +1105,10 @@ export class AgentSessionWrapper {
       case "abort":
         void this.noteTurn({ type: "abort_requested" });
         this.queuedMessageEditor.parkAllAsFollowUp();
-        await this.withFinalRunningNotification(() => this.inner.abort({ reason: "Interrupted by user" }));
+        await this.withFinalRunningNotification(() => this.inner.abort({
+          reason: "Interrupted by user",
+          goalReason: command.goalReason === "internal" ? "internal" : "interrupted",
+        }));
         this.queuePaused = this.queueSnapshot().items.length > 0;
         this.emitQueueUpdate();
         return null;

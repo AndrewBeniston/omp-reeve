@@ -1854,7 +1854,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       return;
     }
     try {
-      await sendAgentCommand(sid, { type: "abort" });
+      await sendAgentCommand(sid, { type: "abort", goalReason: "interrupted" });
     } catch (e) {
       console.error("Failed to abort:", e);
     }

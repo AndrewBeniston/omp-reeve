@@ -19,6 +19,8 @@ export interface GoalUpdateEvent {
   state?: GoalModeState;
 }
 
+type GoalAction = "pause" | "resume" | "drop";
+
 const INITIAL_STATE: GoalClientState = {
   status: "loading",
   goal: null,
@@ -39,6 +41,10 @@ export function useGoalState(sessionId: string | null) {
   const eventRevisionRef = useRef(0);
   const readIdRef = useRef(0);
   const lastGoalRef = useRef<Goal | null>(null);
+  const pendingActionRef = useRef<GoalAction | null>(null);
+  const actionIdRef = useRef(0);
+  const [pendingAction, setPendingAction] = useState<GoalAction | null>(null);
+  const [actionError, setActionError] = useState<{ action: GoalAction; message: string } | null>(null);
 
   const refresh = useCallback(async () => {
     if (!sessionId) return;
@@ -81,15 +87,66 @@ export function useGoalState(sessionId: string | null) {
       : current);
   }, []);
 
+  const runAction = useCallback(async (action: GoalAction, interrupt = false): Promise<boolean> => {
+    if (!sessionId || sessionRef.current !== sessionId || pendingActionRef.current) return false;
+    const actionId = ++actionIdRef.current;
+    pendingActionRef.current = action;
+    setPendingAction(action);
+    setActionError(null);
+    try {
+      if (interrupt && (action === "pause" || action === "drop")) {
+        await sendAgentCommand(sessionId, {
+          type: "abort",
+          goalReason: action === "drop" ? "internal" : "interrupted",
+        });
+      }
+      const result = await sendAgentCommand<GoalCommandResult>(sessionId, {
+        type: "goal", op: action === "pause" && interrupt ? "get" : action,
+      });
+      if (sessionRef.current !== sessionId) return false;
+      readIdRef.current += 1;
+      eventRevisionRef.current += 1;
+      if (result.goal && lastGoalRef.current && isOlderGoal(result.goal, lastGoalRef.current, "read")) return true;
+      if (result.goal) lastGoalRef.current = result.goal;
+      setState({
+        status: "ready",
+        goal: result.goal?.status === "dropped" ? null : result.goal,
+        modeState: result.goal?.status === "dropped" ? null : result.state,
+        error: null,
+      });
+      return true;
+    } catch (error) {
+      if (sessionRef.current === sessionId) {
+        setActionError({ action, message: error instanceof Error ? error.message : String(error) });
+      }
+      return false;
+    } finally {
+      if (actionIdRef.current === actionId) {
+        pendingActionRef.current = null;
+        if (sessionRef.current === sessionId) setPendingAction(null);
+      }
+    }
+  }, [sessionId]);
+
   useEffect(() => {
     sessionRef.current = sessionId;
     lastGoalRef.current = null;
     eventRevisionRef.current = 0;
     readIdRef.current += 1;
+    pendingActionRef.current = null;
+    actionIdRef.current += 1;
+    setPendingAction(null);
+    setActionError(null);
     setState(sessionId ? INITIAL_STATE : EMPTY_STATE);
     void refresh();
     return () => { sessionRef.current = null; readIdRef.current += 1; };
   }, [sessionId, refresh]);
 
-  return { ...state, refresh, retry: refresh, onEvent, markStale };
+  return {
+    ...state, refresh, retry: refresh, onEvent, markStale,
+    pendingAction, actionError,
+    pause: (interrupt = false) => runAction("pause", interrupt),
+    resume: () => runAction("resume"),
+    clear: (interrupt = false) => runAction("drop", interrupt),
+  };
 }
