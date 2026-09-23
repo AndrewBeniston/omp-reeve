@@ -11,6 +11,8 @@ import { MessageTurn } from "./chat/MessageTurn";
 import { ThinkingDisclosure } from "./chat/ThinkingDisclosure";
 import { BashExecutionActivity } from "./chat/BashExecutionActivity";
 import { ActivityRow } from "./chat/ActivityRow";
+import { activityCallGroups } from "./chat/transcript-rows";
+import type { ActivityCall } from "@/lib/transcript/repeat-collapsing";
 import { CompactionNote } from "./chat/CompactionNote";
 import { CollaborationCard, isCollaborationSnapshot } from "./chat/CollaborationCard";
 import styles from "./chat/message-view.module.css";
@@ -458,6 +460,30 @@ function AssistantMessageView({
     .map((block, originalIndex) => ({ block, originalIndex }))
     .filter(({ block }) => !isEmptyThinkingBlock(block, { isStreaming })), [message.content, isStreaming]);
   const blocks = useMemo(() => blockItems.map(({ block }) => block), [blockItems]);
+  const renderItems = useMemo(() => {
+    const items: (typeof blockItems[number] & { groupedCalls?: ActivityCall[] })[] = [];
+    for (let index = 0; index < blockItems.length;) {
+      const item = blockItems[index];
+      if (item.block.type !== "toolCall") {
+        items.push(item);
+        index += 1;
+        continue;
+      }
+      const run: ActivityCall[] = [];
+      const runItems = new Map<string, (typeof blockItems)[number]>();
+      while (index < blockItems.length && blockItems[index].block.type === "toolCall") {
+        const callBlock = blockItems[index].block as ToolCallContent;
+        run.push({ block: callBlock, result: toolResults?.get(callBlock.toolCallId) });
+        runItems.set(callBlock.toolCallId, blockItems[index]);
+        index += 1;
+      }
+      for (const group of activityCallGroups(run)) {
+        const firstItem = runItems.get(group.calls[0].block.toolCallId);
+        if (firstItem) items.push({ ...firstItem, block: group.calls[0].block, groupedCalls: group.repeated ? group.calls : undefined });
+      }
+    }
+    return items;
+  }, [blockItems, toolResults]);
   const thinkingBlocksWithLaterContent = useMemo(() => {
     const indices = new Set<number>();
     let hasLaterContent = false;
@@ -625,14 +651,14 @@ function AssistantMessageView({
         <div className={styles.usage}>{formatUsage(message.usage)}</div>
       ) : undefined}
     >
-        {blockItems.map(({ block, originalIndex }) => (
-          <BlockView key={`${entryId ?? "stream"}-${originalIndex}`} block={block} toolResults={toolResults} isStreaming={isStreaming} hasLaterContent={thinkingBlocksWithLaterContent.has(originalIndex)} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
+        {renderItems.map(({ block, originalIndex, groupedCalls }) => (
+          <BlockView key={`${entryId ?? "stream"}-${originalIndex}`} block={block} groupedCalls={groupedCalls} toolResults={toolResults} isStreaming={isStreaming} hasLaterContent={thinkingBlocksWithLaterContent.has(originalIndex)} streamingDuration={streamingDurations.get(originalIndex) ?? (block.type === "thinking" ? thinkingDurationFromFile : undefined)} toolCallDurations={toolCallDurations} cwd={cwd} onOpenFile={onOpenFile} sessionId={sessionId} entryId={entryId} blockIndex={originalIndex} />
         ))}
     </MessageTurn>
   );
 }
 
-function BlockView({ block, toolResults, isStreaming, hasLaterContent, streamingDuration, toolCallDurations, cwd, onOpenFile, sessionId, entryId, blockIndex }: { block: AssistantContentBlock; toolResults?: Map<string, ToolResultMessage>; isStreaming?: boolean; hasLaterContent?: boolean; streamingDuration?: number; toolCallDurations?: Map<string, number>; cwd?: string; onOpenFile?: (filePath: string) => void; sessionId?: string; entryId?: string; blockIndex: number }) {
+function BlockView({ block, groupedCalls, toolResults, isStreaming, hasLaterContent, streamingDuration, toolCallDurations, cwd, onOpenFile, sessionId, entryId, blockIndex }: { block: AssistantContentBlock; groupedCalls?: ActivityCall[]; toolResults?: Map<string, ToolResultMessage>; isStreaming?: boolean; hasLaterContent?: boolean; streamingDuration?: number; toolCallDurations?: Map<string, number>; cwd?: string; onOpenFile?: (filePath: string) => void; sessionId?: string; entryId?: string; blockIndex: number }) {
   if (block.type === "text") {
     return <TextBlock block={block as TextContent} isStreaming={isStreaming} cwd={cwd} onOpenFile={onOpenFile} />;
   }
@@ -642,7 +668,7 @@ function BlockView({ block, toolResults, isStreaming, hasLaterContent, streaming
   if (block.type === "toolCall") {
     const tc = block as ToolCallContent;
     const result = toolResults?.get(tc.toolCallId);
-    return <ActivityRow block={tc} result={result} />;
+    return <ActivityRow block={tc} result={result} groupedCalls={groupedCalls} />;
   }
   return null;
 }

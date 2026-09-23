@@ -3,6 +3,8 @@ import { getAssistantErrorMessage, getDisplayableAssistantBlocks, splitFinalAssi
 import { foldTurns, type TranscriptRecord, type TurnClock, type TurnPhase, type TurnTextPhase } from "@/lib/transcript/turn-folder";
 import { classifyActivityTool, type ActivityClassification } from "@/lib/transcript/activity-classifier";
 import type { AssistantMessage, ToolCallContent, ToolResultMessage } from "@/lib/types";
+import { groupConsecutiveActivityCalls, type ActivityCall } from "@/lib/transcript/repeat-collapsing";
+import type { ToolCallContent, ToolResultMessage } from "@/lib/types";
 
 export interface TranscriptMessageRow {
   message: AgentMessage;
@@ -18,6 +20,10 @@ export interface ActivityRowContent {
   classification: ActivityClassification;
   state: ActivityRowState;
   detail?: string;
+}
+
+export function activityCallGroups(calls: readonly ActivityCall[]): ReturnType<typeof groupConsecutiveActivityCalls> {
+  return groupConsecutiveActivityCalls(calls);
 }
 
 export interface ActivityStrings {

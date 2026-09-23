@@ -33,3 +33,23 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.repeatsButton {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ui-text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.repeatsButton .detail { flex: 0 0 auto; }
+[data-activity-repeats-group] [data-activity-instance] { padding-left: var(--space-4); }

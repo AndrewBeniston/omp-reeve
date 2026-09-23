@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { CircleStop, FilePenLine, FolderSearch, Globe2, List, Search, Terminal, Users, Wrench } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
-import { activityRowContent, type ActivityRowContent, type ActivityRowState } from "./transcript-rows";
+import { activityCallGroups, activityRowContent, type ActivityRowContent, type ActivityRowState } from "./transcript-rows";
 import { getResultText } from "./tool-presentation";
 import { TerminalOutput } from "./TerminalOutput";
 import type { ToolCallContent, ToolResultMessage } from "@/lib/types";
+import type { ActivityCall } from "@/lib/transcript/repeat-collapsing";
 import styles from "./activity-row.module.css";
 
 interface ActivityRowProps {
@@ -67,17 +69,46 @@ function ActivityIcon({ content }: ActivityRowProps) {
   }
 }
 
-export function ActivityRow({ block, result, interrupted = false }: { block: ToolCallContent; result?: ToolResultMessage; interrupted?: boolean }) {
+function firstPartyLabel(content: ActivityRowContent): boolean {
+  return !["connector", "application-control", "unknown"].includes(content.classification.kind);
+}
+
+export function ActivityRow({ block, result, interrupted = false, groupedCalls }: { block: ToolCallContent; result?: ToolResultMessage; interrupted?: boolean; groupedCalls?: ActivityCall[] }) {
   const { t } = useI18n();
-  const content = activityRowContent(block, result, interrupted);
-  const text = rowText(content, block.toolName, t);
-  const resultText = getResultText(result);
-  const isError = result?.isError ?? false;
+  const [expanded, setExpanded] = useState(false);
+  const group = groupedCalls ? activityCallGroups(groupedCalls).find((candidate) => candidate.repeated) : undefined;
+  const calls = group?.calls ?? [{ block, result }];
+  const first = calls[0];
+  const content = activityRowContent(first.block, first.result, interrupted);
+  const text = rowText(content, first.block.toolName, t);
+  const resultText = getResultText(first.result);
+  const isError = first.result?.isError ?? false;
   const isTerminalCommand = content.classification.kind === "command";
+  const count = calls.length;
+  const countText = t(count === 1 ? "transcript.activity.repeatedCount.one" : "transcript.activity.repeatedCount.other", { count });
+  const header = firstPartyLabel(content) ? text.action : first.block.toolName;
+  if (group) {
+    return (
+      <div data-activity-repeats-group>
+        <button
+          type="button"
+          className={styles.repeatsButton}
+          data-activity-repeats
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          <span className={styles.icon}><ActivityIcon content={content} toolName={first.block.toolName} /></span>
+          <span className={styles.action}>{header}</span>
+          <span className={styles.detail} data-activity-count>{countText}</span>
+        </button>
+        {expanded ? calls.map((call) => <div data-activity-instance key={call.block.toolCallId}><ActivityRow block={call.block} result={call.result} /></div>) : null}
+      </div>
+    );
+  }
   return (
-    <div aria-label={`${block.toolName}, ${text.action}, ${t(`transcript.activity.state.${content.state}`)}`}>
+    <div aria-label={`${first.block.toolName}, ${text.action}, ${t(`transcript.activity.state.${content.state}`)}`}>
       <div className={styles.row} data-activity-kind={content.classification.kind} data-activity-state={content.state}>
-        <span className={styles.icon} data-activity-icon={content.state === "interrupted" ? "stopped" : content.classification.kind}><ActivityIcon content={content} toolName={block.toolName} /></span>
+        <span className={styles.icon} data-activity-icon={content.state === "interrupted" ? "stopped" : content.classification.kind}><ActivityIcon content={content} toolName={first.block.toolName} /></span>
         <span className={styles.action} data-activity-slot="action">{text.action}</span>
         {text.detail ? <span className={styles.detail} data-activity-slot="detail" title={text.detail}>{text.detail}</span> : null}
       </div>
