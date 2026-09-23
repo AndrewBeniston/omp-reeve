@@ -1,0 +1,62 @@
+.note {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  color: var(--ui-text-muted);
+}
+
+.note[data-origin-kind="parent"] {
+  justify-content: flex-start;
+}
+
+.rule {
+  height: 1px;
+  flex: 1 1 0;
+  background: var(--ui-border);
+}
+
+.label {
+  display: inline-flex;
+  width: 140px;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+  background: transparent;
+  color: var(--ui-text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.note[data-origin-kind="parent"] .label {
+  width: auto;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-surface-raised);
+}
+
+.label:hover {
+  background: var(--ui-surface-raised);
+  color: var(--ui-text);
+}
+
+.label:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  stroke-width: 1.8;
+}

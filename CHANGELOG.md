@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Show related Session links above the first message for continued and forked Sessions.
 - Add live and saved Turn clock fields and locale-aware duration formatting.
 - Session history can load earlier pages and keep the cursor after a read failure.
 - Add a pure Turn folder and a recorded OMP event stream for future Session transcript rendering.
