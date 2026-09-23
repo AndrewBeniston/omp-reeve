@@ -1,4 +1,4 @@
-import type { AgentMessage } from "@/lib/types";
+import type { AgentMessage, ModelChangeNote } from "@/lib/types";
 import { getAssistantErrorMessage, getDisplayableAssistantBlocks } from "@/lib/message-display";
 import { foldTurns, type TranscriptRecord, type TurnPhase, type TurnTextPhase } from "@/lib/transcript/turn-folder";
 
@@ -13,6 +13,7 @@ export interface TranscriptMessageRow {
 export type TranscriptRow =
   | { kind: "turn"; id: string; phase: TurnPhase; settled: boolean; items: TranscriptMessageRow[] }
   | { kind: "compaction"; id: string; phase: TurnPhase; items: TranscriptMessageRow[] }
+  | { kind: "model-change"; id: string; note: Pick<ModelChangeNote, "fromModel" | "toModel"> }
   | { kind: "message"; item: TranscriptMessageRow };
 
 /** Text uses the folder's phase. Images and errors remain visible final replies. */
@@ -43,6 +44,7 @@ export function buildTranscriptRows(
   entryIds: readonly (string | undefined)[],
   streamingMessage: AgentMessage | null,
   running: boolean,
+  modelChanges: readonly ModelChangeNote[] = [],
 ): TranscriptRow[] {
   const sourceMessages = streamingMessage ? [...messages, streamingMessage] : [...messages];
   const records: TranscriptRecord<AgentMessage>[] = [];
@@ -98,7 +100,22 @@ export function buildTranscriptRows(
     streaming: index === messages.length,
   });
   const rows: TranscriptRow[] = [];
-  for (let index = 0; index < sourceMessages.length; index += 1) {
+  const changesAtPosition = new Map<number, ModelChangeNote[]>();
+  for (const change of modelChanges) {
+    const position = Math.max(0, Math.min(change.position, sourceMessages.length));
+    const changes = changesAtPosition.get(position) ?? [];
+    changes.push(change);
+    changesAtPosition.set(position, changes);
+  }
+  for (let index = 0; index <= sourceMessages.length; index += 1) {
+    for (const change of changesAtPosition.get(index) ?? []) {
+      rows.push({
+        kind: "model-change",
+        id: change.entryId,
+        note: { fromModel: change.fromModel, toModel: change.toModel },
+      });
+    }
+    if (index === sourceMessages.length) break;
     const turn = firstItems.get(index);
     if (turn) {
       rows.push(turn);
@@ -109,6 +126,7 @@ export function buildTranscriptRows(
     if (message.role === "custom" && message.customType === "compaction") {
       const items = [messageRow(index)];
       while (index + 1 < sourceMessages.length && !claimed.has(index + 1)) {
+        if (changesAtPosition.has(index + 1)) break;
         const nextMessage = sourceMessages[index + 1];
         if (nextMessage.role === "custom" && nextMessage.customType === "compaction") break;
         items.push(messageRow(++index));

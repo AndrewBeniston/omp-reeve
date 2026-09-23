@@ -19,6 +19,7 @@ import { extractTurnWrittenFiles, type WrittenFile } from "@/lib/turn-written-fi
 import type { TurnPhase } from "@/lib/transcript/turn-folder";
 import { collectSessionSummarySources, type SummarySource } from "@/lib/session-summary";
 import { MessageView } from "./MessageView";
+import { ModelChangedNote } from "./chat/ModelChangedNote";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
 import { ExtensionStatusBar } from "./ExtensionStatusBar";
 import { useI18n } from "@/hooks/useI18n";
@@ -241,7 +242,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
     chatInputRef?.current?.replaceMessage(message);
   }, [chatInputRef]);
   const {
-    loading, error, messages, entryIds, streamState,
+    data: sessionData, loading, error, messages, entryIds, streamState,
     agentRunning, bashRunning, pendingBash, modelNames, modelList, modelError, modelScopeWarnings, modelThinkingLevels, modelThinkingLevelMaps, modelRoles, toolPreset, approvalMode, approvalModeChanging, approvalModeError, thinkingLevel, fastModeEnabled, fastModeAvailable,
     retryInfo, contextUsage, forkingEntryId,
     isCompacting, compactError, compactResult, displayModel: displayModelValue, modelSwitching, sessionStats,
@@ -410,8 +411,8 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
   }, [messages]);
   const activeStreamingMessage = streamState.streamingMessage as AgentMessage | null;
   const transcriptRows = useMemo(
-    () => buildTranscriptRows(messages, entryIds, activeStreamingMessage, agentRunning),
-    [messages, entryIds, activeStreamingMessage, agentRunning],
+    () => buildTranscriptRows(messages, entryIds, activeStreamingMessage, agentRunning, sessionData?.context.modelChanges ?? []),
+    [messages, entryIds, activeStreamingMessage, agentRunning, sessionData?.context.modelChanges],
   );
   const activeTurnBlocks = useMemo(() => {
     let turnStart = -1;
@@ -767,12 +768,26 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                 }
               };
 
+              const lastContentRowIndex = transcriptRows.reduce(
+                (lastIndex, row, index) => row.kind === "model-change" ? lastIndex : index,
+                -1,
+              );
               transcriptRows.forEach((row, rowIndex) => {
                 if (row.kind === "message") {
                   rendered.push(renderMessage(row.item));
                   return;
                 }
-                const live = (sessionBusy || streamState.isStreaming) && rowIndex === transcriptRows.length - 1;
+                if (row.kind === "model-change") {
+                  rendered.push(
+                    <ModelChangedNote
+                      key={`model-change-${row.id}`}
+                      fromModel={row.note.fromModel}
+                      toModel={row.note.toModel}
+                    />,
+                  );
+                  return;
+                }
+                const live = (sessionBusy || streamState.isStreaming) && rowIndex === lastContentRowIndex;
                 // A steered user message or compaction remains visible inside
                 // its Turn, even when the surrounding process is collapsed.
                 let start = 0;

@@ -8,7 +8,7 @@ import type { AgentMessage as OmpAgentMessage } from "@oh-my-pi/pi-agent-core";
 import { calculatePromptTokens, hasContextTokenUsage } from "@oh-my-pi/pi-agent-core/compaction";
 import { closeSync, existsSync, openSync, readSync } from "fs";
 import { normalize as normalizePath } from "path";
-import type { AgentMessage, SessionEntry, SessionHeader, SessionInfo, SessionContext } from "./types";
+import type { AgentMessage, ModelChangeNote, SessionEntry, SessionHeader, SessionInfo, SessionContext } from "./types";
 import type { ContextUsage } from "./omp-types";
 import type { SessionEntry as OmpSessionEntry, SessionInfo as OmpSessionInfo } from "@oh-my-pi/pi-coding-agent";
 import { getOmpRuntime } from "./omp-runtime";
@@ -419,7 +419,36 @@ export function buildSessionContext(
   // targets stay aligned with what the transcript renders.
   const messages: AgentMessage[] = [];
   const entryIds: string[] = [];
+  const modelChanges: ModelChangeNote[] = [];
+  let activeDefaultModel: string | undefined;
   for (const entry of collectDisplayEntries(entries, byId, leafId)) {
+    if (entry.type === "model_change") {
+      const modelEntry = entry as SessionEntry & {
+        model?: string;
+        role?: string;
+        resolvedModelIsFallback?: boolean;
+      };
+      const nextModel = modelEntry.model ?? (
+        "provider" in entry && "modelId" in entry
+          ? `${String(entry.provider)}/${String(entry.modelId)}`
+          : undefined
+      );
+      if ((modelEntry.role ?? "default") === "default" && nextModel && !modelEntry.resolvedModelIsFallback) {
+        if (activeDefaultModel && activeDefaultModel !== nextModel) {
+          modelChanges.push({
+            entryId: entry.id,
+            position: messages.length,
+            fromModel: activeDefaultModel,
+            toModel: nextModel,
+          });
+        }
+        activeDefaultModel = nextModel;
+      }
+    } else if (entry.type === "message" && entry.message.role === "assistant" && !activeDefaultModel) {
+      const assistant = entry.message as OmpAgentMessage & { provider?: string; model?: string };
+      if (assistant.provider && assistant.model) activeDefaultModel = `${assistant.provider}/${assistant.model}`;
+    }
+
     const m = entryToUiMessage(entry, options);
     if (m) {
       messages.push(m);
@@ -430,6 +459,7 @@ export function buildSessionContext(
   return {
     messages,
     entryIds,
+    modelChanges,
     thinkingLevel: ompCtx.configuredThinkingLevel ?? ompCtx.thinkingLevel ?? "off",
     model: parseDefaultModel(ompCtx.models),
     serviceTierByFamily: ompCtx.serviceTier ?? {},

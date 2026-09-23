@@ -7,7 +7,7 @@ const { buildTranscriptRows, finalAnswerPosition, presentationAssistantPosition 
 const recorded = JSON.parse(readFileSync(new URL("../../lib/transcript/recorded-event-stream.json", import.meta.url), "utf8"));
 
 function displayedMessages(rows) {
-  return rows.flatMap((row) => row.kind === "message" ? [row.item.message] : row.items.map((item) => item.message));
+  return rows.flatMap((row) => row.kind === "message" ? [row.item.message] : row.kind === "model-change" ? [] : row.items.map((item) => item.message));
 }
 
 test("a saved Session renders one row per message in Turn order", () => {
@@ -21,6 +21,33 @@ test("a saved Session renders one row per message in Turn order", () => {
   assert.deepEqual(turns[0].items.map((item) => item.entryId), ids.slice(0, 4));
   assert.equal(turns[0].phase, "final-answer");
   assert.equal(turns[0].settled, true);
+});
+
+test("model-change notes appear before the next Turn and after the final Turn", () => {
+  const messages = [
+    { role: "user", content: "First question" },
+    { role: "assistant", content: [{ type: "text", text: "First answer" }] },
+    { role: "user", content: "Second question" },
+    { role: "assistant", content: [{ type: "text", text: "Second answer" }] },
+  ];
+  const modelChanges = [
+    { entryId: "model-1", position: 2, fromModel: "openai/a", toModel: "anthropic/b" },
+    { entryId: "model-2", position: 4, fromModel: "anthropic/b", toModel: "google/c" },
+  ];
+
+  const rows = buildTranscriptRows(messages, ["u1", "a1", "u2", "a2"], null, false, modelChanges);
+
+  assert.deepEqual(rows.map((row) => [row.kind, row.id]), [
+    ["turn", "u1"],
+    ["model-change", "model-1"],
+    ["turn", "u2"],
+    ["model-change", "model-2"],
+  ]);
+  assert.deepEqual(displayedMessages(rows), messages);
+  assert.deepEqual(rows.filter((row) => row.kind === "model-change").map((row) => row.note), [
+    { fromModel: "openai/a", toModel: "anthropic/b" },
+    { fromModel: "anthropic/b", toModel: "google/c" },
+  ]);
 });
 
 test("a live Session adds its provisional assistant message to the active Turn once", () => {
