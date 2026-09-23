@@ -1,0 +1,78 @@
+.dialog {
+  width: min(520px, calc(100vw - 32px));
+  padding: 24px;
+  border-radius: var(--radius-lg, 16px);
+  background: var(--color-surface, var(--bg-surface));
+  color: var(--color-text-default, var(--text-normal));
+  font-family: inherit;
+}
+
+.destinations {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.destinationRow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-subtle, var(--border));
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-surface-subtle, var(--bg-subtle, transparent));
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.destinationRow:hover:not(:disabled) {
+  background: var(--color-bg-hover, var(--hover));
+  border-color: var(--color-border-default, var(--border));
+}
+
+.destinationRow:focus-visible {
+  outline: 2px solid var(--color-focus, var(--focus));
+  outline-offset: 1px;
+}
+
+.destinationRow:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.destinationLabel {
+  font-size: var(--text-sm, 14px);
+  font-weight: 500;
+  color: var(--color-text-default, var(--text-normal));
+  line-height: 1.4;
+}
+
+.destinationDescription {
+  font-size: var(--text-xs, 12px);
+  color: var(--color-text-secondary, var(--text-muted));
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.error {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-danger-subtle, var(--danger-subtle, rgba(239, 68, 68, 0.1)));
+  border: 1px solid var(--color-danger, var(--danger, rgba(239, 68, 68, 0.2)));
+  color: var(--color-danger, var(--danger));
+  font-size: var(--text-xs, 13px);
+  line-height: 1.4;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}

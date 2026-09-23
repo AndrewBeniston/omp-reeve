@@ -26,6 +26,7 @@ import { randomUUID } from "crypto";
 import { existsSync, realpathSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { validateAgentImages } from "./image-attachments";
+import { resolveProject } from "./worktree";
 import type { AgentControlChannel } from "./agent-control/channel";
 import { startSessionControlHost } from "./agent-control/host";
 import { type AgentControlReply, readAgentControlReason } from "./agent-control/types";
@@ -1189,15 +1190,30 @@ export class AgentSessionWrapper {
         const sessionDir = sessionManager.getSessionDir();
         let newSessionFile: string;
 
+        const requestedCwd = typeof command.cwd === "string" ? command.cwd.trim() : "";
+        const targetCwd = requestedCwd || sessionManager.getCwd();
+        if (targetCwd !== sessionManager.getCwd()) {
+          // A fork may move only into a worktree of the same project.
+          const [source, target] = await Promise.all([
+            resolveProject(sessionManager.getCwd()),
+            resolveProject(targetCwd),
+          ]);
+          if (!target.isWorktree || target.projectRoot !== source.projectRoot) {
+            throw new Error("The fork target is not a worktree of this project");
+          }
+        }
         if (!entry.parentId) {
           // Fork before the first message: create an empty session linked to this one
-          const newManager = SessionManager.create(sessionManager.getCwd(), sessionDir);
+          const newManager = SessionManager.create(targetCwd, sessionDir);
           await newManager.newSession({ parentSession: currentSessionFile });
           await newManager.ensureOnDisk();
           newSessionFile = newManager.getSessionFile() as string;
         } else {
           // Fork after some history: copy path up to (but not including) the fork point
           const sourceManager = await SessionManager.open(currentSessionFile, sessionDir);
+          if (targetCwd !== sessionManager.getCwd()) {
+            sourceManager.setCwdWithoutRelocation(targetCwd);
+          }
           const forkedPath = sourceManager.createBranchedSession(entry.parentId);
           if (!forkedPath) throw new Error("Failed to create forked session");
           newSessionFile = forkedPath;
