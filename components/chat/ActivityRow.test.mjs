@@ -104,6 +104,97 @@ test("a first-party label keeps the standalone call count segment", async () => 
   await view.unmount();
 });
 
+function subagent(overrides = {}) {
+  return {
+    id: "agent-thread-1",
+    index: 0,
+    agent: "Reviewer",
+    agentSource: "project",
+    status: "running",
+    lastUpdate: 1,
+    ...overrides,
+  };
+}
+
+test("sub-agent rows render lifecycle state and attach by parent tool call id", async () => {
+  const states = [
+    [subagent(), "Reviewer started working"],
+    [subagent({ progress: { id: "agent-thread-1", index: 0, agent: "Reviewer", status: "running", task: "Review", recentTools: [], recentOutput: [], toolCount: 0, requests: 0, tokens: 0, cost: 0, durationMs: 1 } }), "Reviewer updated"],
+    [subagent({ status: "aborted" }), "Reviewer interrupted"],
+    [subagent({ status: "completed" }), "Reviewer finished"],
+  ];
+  for (const [snapshot, expected] of states) {
+    const view = await mount(h(I18nProvider, null, h(ActivityRow, {
+      block: tool("task"),
+      subagents: [{ ...snapshot, parentToolCallId: "call-task" }],
+    })));
+    assert.equal(view.container.querySelector("[data-subagent-activity]")?.getAttribute("data-state") !== null, true);
+    assert.match(view.container.querySelector("[data-subagent-activity]")?.textContent ?? "", new RegExp(`${expected}$`));
+    await view.unmount();
+  }
+
+  const unrelated = await mount(h(I18nProvider, null, h(ActivityRow, {
+    block: tool("task"),
+    subagents: [subagent({ parentToolCallId: "another-call" })],
+  })));
+  assert.equal(unrelated.container.querySelector("[data-subagent-activity]"), null);
+  await unrelated.unmount();
+});
+
+test("sub-agent rows use the fallback name and drop unusable names", async () => {
+  const view = await mount(h(I18nProvider, null, h(ActivityRow, {
+    block: tool("task"),
+    subagents: [
+      subagent({ id: "blank", agent: "   ", parentToolCallId: "call-task" }),
+      subagent({ id: "named-id", agent: "named-id", parentToolCallId: "call-task" }),
+    ],
+  })));
+  const rows = view.container.querySelectorAll("[data-subagent-activity]");
+  assert.equal(rows.length, 1);
+  assert.match(rows[0]?.textContent ?? "", /Agent started working$/);
+  await view.unmount();
+});
+
+test("only openable sub-agent rows are buttons and they open the selected sub-agent", async () => {
+  let opened = null;
+  const view = await mount(h(I18nProvider, null, h(ActivityRow, {
+    block: tool("task"),
+    onOpenSubagent: (id) => { opened = id; },
+    subagents: [
+      subagent({ id: "active", agent: "Active", parentToolCallId: "call-task" }),
+      subagent({ id: "background", agent: "Background", status: "completed", sessionFile: "/tmp/background.jsonl", parentToolCallId: "call-task" }),
+      subagent({ id: "plain", agent: "Plain", status: "completed", parentToolCallId: "call-task" }),
+      subagent({ id: "updated", agent: "Updated", status: "running", progress: { id: "updated", index: 1, agent: "Updated", status: "running", task: "Review", recentTools: [], recentOutput: [], toolCount: 0, requests: 0, tokens: 0, cost: 0, durationMs: 1 }, parentToolCallId: "call-task" }),
+    ],
+  })));
+  const rows = view.container.querySelectorAll("[data-subagent-activity]");
+  assert.equal(rows.length, 4);
+  assert.equal(rows[0]?.tagName, "BUTTON");
+  assert.equal(rows[0]?.getAttribute("aria-label"), "Open Active subagent");
+  assert.equal(rows[1]?.tagName, "BUTTON");
+  assert.equal(rows[1]?.getAttribute("aria-label"), "Open Background subagent");
+  assert.equal(rows[2]?.tagName, "DIV");
+  assert.equal(rows[2]?.hasAttribute("aria-label"), false);
+  assert.equal(rows[3]?.tagName, "DIV");
+  assert.equal(rows[3]?.hasAttribute("aria-label"), false);
+  await click(rows[0]);
+  assert.equal(opened, "active");
+  await view.unmount();
+});
+
+test("sub-agent avatar colors are stable and seeded by agent thread id", async () => {
+  const first = await mount(h(I18nProvider, null, h(ActivityRow, { block: tool("task"), subagents: [subagent({ parentToolCallId: "call-task" })] })));
+  const same = await mount(h(I18nProvider, null, h(ActivityRow, { block: tool("task"), subagents: [subagent({ parentToolCallId: "call-task" })] })));
+  const different = await mount(h(I18nProvider, null, h(ActivityRow, { block: tool("task"), subagents: [subagent({ id: "other-thread", parentToolCallId: "call-task" })] })));
+  const seed = first.container.querySelector("[data-avatar-seed]")?.getAttribute("data-avatar-seed");
+  assert.ok(seed);
+  assert.equal(same.container.querySelector("[data-avatar-seed]")?.getAttribute("data-avatar-seed"), seed);
+  assert.notEqual(different.container.querySelector("[data-avatar-seed]")?.getAttribute("data-avatar-seed"), seed);
+  await first.unmount();
+  await same.unmount();
+  await different.unmount();
+});
+
 test("renders the selected live Activity header", async () => {
   const view = await mount(h(I18nProvider, null, h(ActivityHeader, {
     input: {
