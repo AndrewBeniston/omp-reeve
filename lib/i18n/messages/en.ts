@@ -602,6 +602,7 @@ export const enLocale: LocalePlugin = {
     "transcript.providerRetryProgressStart": "Retrying (",
     "transcript.providerRetryProgressDenominator": "/{maxAttempts}",
     "transcript.providerRetryProgressEnd": ")…",
+    "transcript.loadingTask": "Loading task…",
     "chat.compactContext": "Compact context",
     "chat.compacting": "Compacting…",
     "chat.compact": "Compact",

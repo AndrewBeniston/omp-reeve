@@ -602,6 +602,7 @@ export const zhCNLocale: LocalePlugin = {
     "transcript.providerRetryProgressStart": "正在重试（",
     "transcript.providerRetryProgressDenominator": "/{maxAttempts}",
     "transcript.providerRetryProgressEnd": "）…",
+    "transcript.loadingTask": "正在加载任务…",
     "chat.compactContext": "压缩上下文",
     "chat.compacting": "正在压缩…",
     "chat.compact": "压缩",
