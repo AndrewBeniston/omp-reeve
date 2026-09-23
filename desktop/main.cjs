@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { closeSync, openSync, writeSync } = require("node:fs");
+const { closeSync, constants: fsConstants, openSync, writeSync } = require("node:fs");
+const { access, open, opendir, stat } = require("node:fs/promises");
 const { createHmac, randomUUID } = require("node:crypto");
 const http = require("node:http");
 const os = require("node:os");
@@ -351,12 +352,33 @@ function registerAttachmentPickerHandler() {
     if (result.canceled) return [];
     if (options?.secure !== true) return result.filePaths;
     const issuedAt = Date.now();
-    return result.filePaths.map((selectedPath) => ({
-      path: selectedPath,
-      issuedAt,
-      signature: createHmac("sha256", attachmentSigningToken)
-        .update(JSON.stringify(["reeve-attachment-v1", selectedPath, issuedAt]))
-        .digest("hex"),
+    return Promise.all(result.filePaths.map(async (selectedPath) => {
+      let kind = "file";
+      let readError = null;
+      try {
+        const info = await stat(selectedPath);
+        kind = info.isDirectory() ? "folder" : "file";
+        if (!info.isFile() && !info.isDirectory()) throw new Error("Unsupported item");
+        await access(selectedPath, fsConstants.R_OK);
+        if (info.isDirectory()) {
+          const directory = await opendir(selectedPath);
+          await directory.close();
+        } else {
+          const file = await open(selectedPath, "r");
+          await file.close();
+        }
+      } catch {
+        readError = "inaccessible";
+      }
+      return {
+        path: selectedPath,
+        issuedAt,
+        signature: createHmac("sha256", attachmentSigningToken)
+          .update(JSON.stringify(["reeve-attachment-v1", selectedPath, issuedAt]))
+          .digest("hex"),
+        kind,
+        readError,
+      };
     }));
   });
 }

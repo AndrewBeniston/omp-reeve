@@ -2,6 +2,7 @@ import {
   MAX_ATTACHED_IMAGES,
   isBase64ImageWithinLimits,
 } from "./image-attachments";
+import type { ComposerAttachmentDescriptor } from "./composer-attachment-state";
 
 export interface ChatDraftImage {
   data: string;
@@ -11,6 +12,7 @@ export interface ChatDraftImage {
 export interface ChatDraft {
   value: string;
   images: ChatDraftImage[];
+  attachments?: ComposerAttachmentDescriptor[];
 }
 
 const drafts = new Map<string, ChatDraft>();
@@ -19,11 +21,15 @@ function cloneDraft(draft: ChatDraft): ChatDraft {
   return {
     value: draft.value,
     images: draft.images.map((image) => ({ ...image })),
+    ...(draft.attachments?.length ? { attachments: draft.attachments.map((attachment) => ({
+      ...attachment,
+      selection: { ...attachment.selection },
+    })) } : {}),
   };
 }
 
 function isEmptyDraft(draft: ChatDraft): boolean {
-  return !draft.value && draft.images.length === 0;
+  return !draft.value && draft.images.length === 0 && !draft.attachments?.length;
 }
 
 export function getDraft(key: string): ChatDraft | null {
@@ -54,15 +60,19 @@ export function mergeRestoredSubmissionDraft(
   submittedImages: ChatDraftImage[] | undefined,
   currentText: string,
   currentImages: ChatDraftImage[],
+  submittedAttachments?: ComposerAttachmentDescriptor[],
+  currentAttachments?: ComposerAttachmentDescriptor[],
 ): ChatDraft {
   const images = [...(submittedImages ?? []), ...currentImages]
     .filter(isBase64ImageWithinLimits)
     .slice(0, MAX_ATTACHED_IMAGES)
     .map(({ data, mimeType }) => ({ data, mimeType }));
 
+  const attachments = [...(submittedAttachments ?? []), ...(currentAttachments ?? [])];
   return {
     value: mergeRestoredSubmissionText(submittedText, currentText),
     images,
+    ...(attachments.length ? { attachments: cloneDraft({ value: "", images: [], attachments }).attachments } : {}),
   };
 }
 
@@ -70,6 +80,7 @@ export function restoreDraftSubmission(
   key: string,
   text: string,
   images?: ChatDraftImage[],
+  attachments?: ComposerAttachmentDescriptor[],
 ): ChatDraft {
   const current = getDraft(key) ?? { value: "", images: [] };
   const restored = mergeRestoredSubmissionDraft(
@@ -77,6 +88,8 @@ export function restoreDraftSubmission(
     images,
     current.value,
     current.images,
+    attachments,
+    current.attachments,
   );
   setDraft(key, restored);
   return restored;
@@ -98,7 +111,7 @@ export function rekeyDraft(
   if (!previous) return next;
 
   const merged = next
-    ? mergeRestoredSubmissionDraft(next.value, next.images, previous.value, previous.images)
+    ? mergeRestoredSubmissionDraft(next.value, next.images, previous.value, previous.images, next.attachments, previous.attachments)
     : previous;
   setDraft(nextKey, merged);
   return cloneDraft(merged);

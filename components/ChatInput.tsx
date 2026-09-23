@@ -18,6 +18,7 @@ import {
   mergeRestoredSubmissionText,
   rekeyDraft as rekeyStoredDraft,
   setDraft,
+  type ChatDraft,
   type ChatDraftImage,
 } from "@/lib/draft-store";
 import {
@@ -40,7 +41,13 @@ import {
   type ComposerSuggestion,
 } from "@/lib/composer-intelligence";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { getAttachmentPicker } from "@/lib/desktop-attachments";
+import { getSecureAttachmentPicker } from "@/lib/desktop-attachments";
+import {
+  addComposerAttachments,
+  markComposerAttachmentError,
+  removeComposerAttachment,
+  type ComposerAttachmentDescriptor,
+} from "@/lib/composer-attachment-state";
 import { useI18n } from "@/hooks/useI18n";
 import { PRESET_DEFAULT, PRESET_FULL } from "@/lib/tool-presets";
 import { buildModelSelectorState, filterModelOptions, INITIAL_MODEL_MENU_STATE, reduceModelMenuState, THINKING_STEP_ORDER, thinkingLevelLabelKey } from "@/lib/model-selector";
@@ -98,7 +105,7 @@ export async function dispatchPausedQueueSubmission({
 
 interface Props {
   requestPending?: boolean;
-  onSend: (message: string, images?: AttachedImage[]) => void;
+  onSend: (message: string, images?: AttachedImage[], attachments?: ComposerAttachmentDescriptor[]) => void;
   onAbort: () => void;
   onSteer?: (message: string, images?: AttachedImage[]) => void;
   onFollowUp?: (message: string, images?: AttachedImage[]) => void;
@@ -181,7 +188,7 @@ export interface ChatInputHandle {
   prependText: (text: string) => void;
   addImages: (files: File[]) => void;
   rekeyDraft: (previousKey: string, nextKey: string) => void;
-  restoreSubmission: (text: string, images?: ChatDraftImage[], targetDraftKey?: string) => void;
+  restoreSubmission: (text: string, images?: ChatDraftImage[], targetDraftKey?: string, attachments?: ComposerAttachmentDescriptor[], attachmentError?: string) => void;
 }
 
 export const COMPOSER_IMAGE_INPUT_ID = "reeve-composer-image-input";
@@ -259,28 +266,37 @@ export function shouldCycleComposerEffort({
 interface IdleSubmissionOptions {
   value: string;
   images: AttachedImage[];
+  attachments?: ComposerAttachmentDescriptor[];
   isStreaming: boolean;
   onBuiltinCommand?: (message: string) => Promise<BuiltinSlashCommandResult>;
   onBuiltinAction?: (action: "openSessionStats") => void;
   onAudioUnlock?: () => void;
   clearInput: () => void;
+  onAttachmentBlocked?: (error: string) => void;
   onSend: Props["onSend"];
 }
 
 export async function dispatchIdleSubmission({
   value,
   images,
+  attachments = [],
   isStreaming,
   onBuiltinCommand,
   onBuiltinAction,
   onAudioUnlock,
   clearInput,
+  onAttachmentBlocked,
   onSend,
-}: IdleSubmissionOptions): Promise<"ignored" | "command" | "sent"> {
+}: IdleSubmissionOptions): Promise<"ignored" | "command" | "sent" | "attachment-blocked"> {
   const message = value.trim();
-  if ((!message && images.length === 0) || isStreaming) return "ignored";
+  if ((!message && images.length === 0 && attachments.length === 0) || isStreaming) return "ignored";
+  const readError = attachments.find((attachment) => attachment.readError)?.readError;
+  if (readError) {
+    onAttachmentBlocked?.(readError);
+    return "attachment-blocked";
+  }
   onAudioUnlock?.();
-  if (images.length === 0 && message.startsWith("/") && onBuiltinCommand) {
+  if (images.length === 0 && attachments.length === 0 && message.startsWith("/") && onBuiltinCommand) {
     const result = await onBuiltinCommand(message);
     if (result.handled) {
       if (result.action) onBuiltinAction?.(result.action);
@@ -292,33 +308,41 @@ export async function dispatchIdleSubmission({
     }
   }
   clearInput();
-  onSend(message, images.length > 0 ? images : undefined);
+  onSend(message, images.length > 0 ? images : undefined, attachments.length ? attachments : undefined);
   return "sent";
 }
 
 interface StreamingSubmissionOptions {
   value: string;
   images: AttachedImage[];
+  attachments?: ComposerAttachmentDescriptor[];
   mode: "steer" | "followUp";
   onPromptWithStreamingBehavior?: Props["onPromptWithStreamingBehavior"];
   onSteer?: Props["onSteer"];
   onFollowUp?: Props["onFollowUp"];
   onAudioUnlock?: () => void;
   clearInput: () => void;
+  onAttachmentBlocked?: () => void;
 }
 
 export function dispatchStreamingSubmission({
   value,
   images,
+  attachments = [],
   mode,
   onPromptWithStreamingBehavior,
   onSteer,
   onFollowUp,
   onAudioUnlock,
   clearInput,
-}: StreamingSubmissionOptions): "ignored" | "steered" | "followed-up" {
+  onAttachmentBlocked,
+}: StreamingSubmissionOptions): "ignored" | "steered" | "followed-up" | "attachment-blocked" {
   const message = value.trim();
-  if (!message && images.length === 0) return "ignored";
+  if (!message && images.length === 0 && attachments.length === 0) return "ignored";
+  if (attachments.length > 0) {
+    onAttachmentBlocked?.();
+    return "attachment-blocked";
+  }
   onAudioUnlock?.();
   if (message.startsWith("/") && images.length === 0 && onPromptWithStreamingBehavior) {
     clearInput();
@@ -400,8 +424,9 @@ export function canRestoreUserMessage(
   value: string,
   attachedImageCount: number,
   pendingImageCount: number,
+  localAttachmentCount = 0,
 ): boolean {
-  return !value.trim() && attachedImageCount === 0 && pendingImageCount === 0;
+  return !value.trim() && attachedImageCount === 0 && pendingImageCount === 0 && localAttachmentCount === 0;
 }
 
 export function getUserMessageText(message: UserMessage): string {
@@ -471,6 +496,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const modelSubmenu = modelMenu.submenu;
   const modelFilter = modelMenu.filter;
   const [attachmentPickerError, setAttachmentPickerError] = useState<string | null>(null);
+  const [localAttachments, setLocalAttachments] = useState<ComposerAttachmentDescriptor[]>(
+    () => draftKey ? getDraft(draftKey)?.attachments ?? [] : [],
+  );
   const [commandActionError, setCommandActionError] = useState<string | null>(null);
   const [commandActionPending, setCommandActionPending] = useState(false);
   const [pendingAddCommand, setPendingAddCommand] = useState<ComposerSuggestion | null>(null);
@@ -501,7 +529,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     if (contextUsage) setSessionCommandStatus(null);
   }, [contextUsage]);
   const trimmedValue = value.trimStart();
-  const bashMode = attachedImages.length === 0 && trimmedValue.startsWith("!");
+  const bashMode = attachedImages.length === 0 && localAttachments.length === 0 && trimmedValue.startsWith("!");
   const bashExcluded = bashMode && trimmedValue.startsWith("!!");
   const [slashMenuOpen, setSlashMenuOpen] = useState(false);
   const [slashActiveIndex, setSlashActiveIndex] = useState(0);
@@ -557,10 +585,13 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const draftKeyRef = useRef(draftKey);
   const valueRef = useRef(value);
   const attachedImagesRef = useRef(attachedImages);
+  const localAttachmentsRef = useRef(localAttachments);
+  const beforeQueuedEditRef = useRef<ChatDraft | null>(null);
   const pendingImageCountRef = useRef(0);
   const editingQueuedMessageRef = useRef<QueuedMessageDraft | null>(null);
   valueRef.current = value;
   attachedImagesRef.current = attachedImages;
+  localAttachmentsRef.current = localAttachments;
   editingQueuedMessageRef.current = editingQueuedMessage;
 
   useEffect(() => {
@@ -597,7 +628,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
 
   useEffect(() => () => {
     const edit = editingQueuedMessageRef.current;
-    if (edit) void onCancelQueuedMessageEdit?.(edit.editToken);
+    if (edit) {
+      const previous = beforeQueuedEditRef.current;
+      if (previous && draftKeyRef.current) setDraft(draftKeyRef.current, previous);
+      void onCancelQueuedMessageEdit?.(edit.editToken);
+    }
   }, [draftKey, onCancelQueuedMessageEdit]);
 
   const processImageFiles = useCallback(async (files: File[]) => {
@@ -664,7 +699,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     replaceMessage(message: UserMessage) {
       const ta = textareaRef.current;
       const current = ta ? ta.value : value;
-      if (!canRestoreUserMessage(current, attachedImagesRef.current.length, pendingImageCountRef.current)) return;
+      if (!canRestoreUserMessage(current, attachedImagesRef.current.length, pendingImageCountRef.current, localAttachmentsRef.current.length)) return;
 
       const restoredText = getUserMessageText(message);
       const restoredImages = draftImagesToAttachedImages(getUserMessageDraftImages(message));
@@ -708,6 +743,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       const currentDraft = {
         value: valueRef.current,
         images: attachedImagesRef.current.map(imageToDraftImage),
+        attachments: localAttachmentsRef.current,
       };
       const moved = rekeyStoredDraft(previousKey, nextKey, currentDraft) ?? { value: "", images: [] };
       const unchanged = moved.value === currentDraft.value
@@ -715,14 +751,22 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         && moved.images.every((image, index) => (
           image.data === currentDraft.images[index]?.data
           && image.mimeType === currentDraft.images[index]?.mimeType
+        ))
+        && (moved.attachments?.length ?? 0) === currentDraft.attachments.length
+        && (moved.attachments ?? []).every((attachment, index) => (
+          attachment.selection.signature === currentDraft.attachments[index]?.selection.signature
+          && attachment.readError === currentDraft.attachments[index]?.readError
         ));
       draftKeyRef.current = nextKey;
       if (unchanged) return;
 
       const movedImages = draftImagesToAttachedImages(moved.images);
+      const movedAttachments = moved.attachments ?? [];
       valueRef.current = moved.value;
       attachedImagesRef.current = movedImages;
+      localAttachmentsRef.current = movedAttachments;
       setValue(moved.value);
+      setLocalAttachments(movedAttachments);
       setAttachedImages((current) => {
         current.forEach(revokeImagePreview);
         return movedImages;
@@ -730,8 +774,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       setAtQuery(null);
       setHistoryMenuOpen(false);
     },
-    restoreSubmission(text: string, images?: ChatDraftImage[], targetDraftKey?: string) {
-      if (!text.trim() && !images?.length) return;
+    restoreSubmission(text: string, images?: ChatDraftImage[], targetDraftKey?: string, attachments?: ComposerAttachmentDescriptor[], attachmentError?: string) {
+      if (!text.trim() && !images?.length && !attachments?.length) return;
 
       // clearInput is queued before the submission handler runs. Compose with
       // that queued state so a fast rejection cannot observe stale DOM text and
@@ -749,6 +793,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         targetsCurrentComposer
           ? attachedImagesRef.current.map(imageToDraftImage)
           : (storedDraft?.images ?? []),
+        attachmentError && attachments?.length ? markComposerAttachmentError(attachments, attachmentError) : attachments,
+        targetsCurrentComposer ? localAttachmentsRef.current : storedDraft?.attachments,
       );
       // The first optimistic message switches ChatWindow out of its empty-state
       // layout and remounts this component. Persist synchronously so recovery is
@@ -764,10 +810,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             ...attachedImagesRef.current,
           ].slice(0, COMPOSER_MAX_ATTACHED_IMAGES)
         : attachedImagesRef.current;
+      const restoredAttachments = restoredDraft.attachments ?? [];
       // Session promotion can rekey this composer before React flushes the
       // functional updates below, so update the imperative snapshot first.
       valueRef.current = restoredDraft.value;
       attachedImagesRef.current = restoredImages;
+      localAttachmentsRef.current = restoredAttachments;
       setValue((current) => {
         const restored = mergeRestoredSubmissionText(text, current);
         valueRef.current = restored;
@@ -775,6 +823,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       });
       setAtQuery(null);
       setHistoryMenuOpen(false);
+      setLocalAttachments(restoredAttachments);
       if (images?.length) {
         setAttachedImages((current) => {
           const available = Math.max(0, COMPOSER_MAX_ATTACHED_IMAGES - current.length);
@@ -845,17 +894,42 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     if (draftKey) clearDraft(draftKey);
     if (draftKeyRef.current && draftKeyRef.current !== draftKey) clearDraft(draftKeyRef.current);
     clearImages();
+    localAttachmentsRef.current = [];
+    setLocalAttachments([]);
+    setAttachmentPickerError(null);
     setTextareaHeight("auto");
   }, [clearImages, draftKey]);
+
+  const restoreBeforeQueuedEdit = useCallback(() => {
+    const previous = beforeQueuedEditRef.current;
+    beforeQueuedEditRef.current = null;
+    if (!previous) return;
+    const images = draftImagesToAttachedImages(previous.images);
+    const attachments = previous.attachments ?? [];
+    valueRef.current = previous.value;
+    attachedImagesRef.current = images;
+    localAttachmentsRef.current = attachments;
+    setValue(previous.value);
+    setAttachedImages(images);
+    setLocalAttachments(attachments);
+    if (draftKeyRef.current) setDraft(draftKeyRef.current, previous);
+  }, []);
 
   const editQueuedMessage = useCallback(async (id: string) => {
     if (editingQueuedMessageRef.current) return;
     const draft = await onEditQueuedMessage?.(id);
     if (!draft) return;
+    beforeQueuedEditRef.current = {
+      value: valueRef.current,
+      images: attachedImagesRef.current.map(imageToDraftImage),
+      attachments: localAttachmentsRef.current,
+    };
     const restoredImages = draftImagesToAttachedImages(draft.images);
     valueRef.current = draft.text;
     attachedImagesRef.current = restoredImages;
+    localAttachmentsRef.current = [];
     setValue(draft.text);
+    setLocalAttachments([]);
     setAttachedImages((current) => {
       current.forEach(revokeImagePreview);
       return restoredImages;
@@ -871,10 +945,15 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     await onCancelQueuedMessageEdit?.(editingQueuedMessage.editToken);
     setEditingQueuedMessage(null);
     clearInput();
-  }, [clearInput, editingQueuedMessage, onCancelQueuedMessageEdit]);
+    restoreBeforeQueuedEdit();
+  }, [clearInput, editingQueuedMessage, onCancelQueuedMessageEdit, restoreBeforeQueuedEdit]);
 
   const completeQueuedMessageEdit = useCallback(async () => {
     if (!editingQueuedMessage || !onCompleteQueuedMessageEdit) return false;
+    if (localAttachments.length > 0) {
+      setAttachmentPickerError(t("composer.localAttachmentDuringResponse"));
+      return false;
+    }
     const message = value.trim();
     if (!message && attachedImages.length === 0) return false;
     await onCompleteQueuedMessageEdit(
@@ -884,8 +963,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     );
     setEditingQueuedMessage(null);
     clearInput();
+    restoreBeforeQueuedEdit();
     return true;
-  }, [attachedImages, clearInput, editingQueuedMessage, onCompleteQueuedMessageEdit, value]);
+  }, [attachedImages, clearInput, editingQueuedMessage, localAttachments, onCompleteQueuedMessageEdit, restoreBeforeQueuedEdit, t, value]);
 
   const deleteQueuedMessage = useCallback(async (id: string) => {
     const undoToken = await onDeleteQueuedMessage?.(id);
@@ -905,8 +985,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     setDraft(draftKey, {
       value,
       images: attachedImages.map(imageToDraftImage),
+      attachments: localAttachments,
     });
-  }, [attachedImages, draftKey, value]);
+  }, [attachedImages, draftKey, localAttachments, value]);
 
   useEffect(() => {
     const previousDraftKey = draftKeyRef.current;
@@ -916,6 +997,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       setDraft(previousDraftKey, {
         value: valueRef.current,
         images: attachedImagesRef.current.map(imageToDraftImage),
+        attachments: localAttachmentsRef.current,
       });
     }
 
@@ -923,9 +1005,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     draftKeyRef.current = draftKey;
     const nextValue = draft?.value ?? "";
     const nextImages = draftImagesToAttachedImages(draft?.images);
+    const nextAttachments = draft?.attachments ?? [];
     valueRef.current = nextValue;
     attachedImagesRef.current = nextImages;
+    localAttachmentsRef.current = nextAttachments;
     setValue(nextValue);
+    setLocalAttachments(nextAttachments);
     setAtQuery(null);
     setHistoryMenuOpen(false);
     setAttachedImages((prev) => {
@@ -958,6 +1043,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       await dispatchIdleSubmission({
         value,
         images: attachedImages,
+        attachments: localAttachments,
         isStreaming,
         onBuiltinCommand,
         onBuiltinAction: (action) => {
@@ -971,12 +1057,13 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         },
         onAudioUnlock,
         clearInput,
+        onAttachmentBlocked: setAttachmentPickerError,
         onSend,
       });
     } finally {
       setBuiltinCommandPending(false);
     }
-  }, [builtinCommandPending, value, attachedImages, isStreaming, onBuiltinCommand, onSend, clearInput, onAudioUnlock, contextUsage, t]);
+  }, [builtinCommandPending, value, attachedImages, localAttachments, isStreaming, onBuiltinCommand, onSend, clearInput, onAudioUnlock, contextUsage, t]);
 
   const requestIdleSubmission = useCallback(() => {
     // The command already running is the one the human asked for; a second
@@ -1024,7 +1111,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   );
   const reviewEnabled = reviewGate?.enabled === true;
   /** R18's other condition: nothing in the composer but this command. */
-  const composerHoldsOnlyCommand = attachedImages.length === 0 && value.trimStart().startsWith("/");
+  const composerHoldsOnlyCommand = attachedImages.length === 0 && localAttachments.length === 0 && value.trimStart().startsWith("/");
   const reviewSubmenuOpen = reviewEnabled && /^\/review\b/.test(value.trimStart());
   const reviewBranchLoaderRef = useRef(onListReviewBranches);
   useEffect(() => {
@@ -1111,7 +1198,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     [slashSections],
   );
   const hasInputText = Boolean(value.trim());
-  const canQueueStreamingMessage = hasInputText || attachedImages.length > 0;
+  const canQueueStreamingMessage = hasInputText || attachedImages.length > 0 || localAttachments.length > 0;
 
   // ── @ file autocomplete ──────────────────────────────────────────────────
   // Recomputed from the text before the caret on every change/caret move.
@@ -1285,14 +1372,16 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     dispatchStreamingSubmission({
       value,
       images: attachedImages,
+      attachments: localAttachments,
       mode,
       onPromptWithStreamingBehavior,
       onSteer,
       onFollowUp,
       onAudioUnlock,
       clearInput,
+      onAttachmentBlocked: () => setAttachmentPickerError(t("composer.localAttachmentDuringResponse")),
     });
-  }, [value, attachedImages, onPromptWithStreamingBehavior, onSteer, onFollowUp, clearInput, onAudioUnlock]);
+  }, [value, attachedImages, localAttachments, onPromptWithStreamingBehavior, onSteer, onFollowUp, clearInput, onAudioUnlock, t]);
 
   const getNextSlashIndex = useCallback((direction: "up" | "down") => {
     const lastIndex = displayedSlashCommands.length - 1;
@@ -1777,6 +1866,41 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       onHeightChange={(scrollHeight) => setTextareaHeight(getComposerTextareaHeight(scrollHeight))}
     />
   );
+  const localAttachmentRows = localAttachments.length > 0 ? (
+    <div className={styles.localAttachmentList} role="list" aria-label={t("composer.localAttachments")}>
+      {localAttachments.map((attachment) => (
+        <div key={attachment.id} className={styles.localAttachmentRow} role="listitem" data-state={attachment.readError ? "error" : "ready"}>
+          <span className={styles.localAttachmentKind} aria-hidden="true">{attachment.kind === "folder" ? "▣" : "▤"}</span>
+          <span className={styles.localAttachmentDetails}>
+            <span className={styles.localAttachmentName}>{attachment.name}</span>
+            <span className={styles.localAttachmentMeta}>
+              {t(attachment.kind === "folder" ? "composer.localFolder" : "composer.localFile")}
+              <span aria-hidden="true"> · </span>{attachment.pathSummary}
+              <span aria-hidden="true"> · </span>
+              <span role={attachment.readError ? "alert" : undefined}>
+                {attachment.readError === "inaccessible"
+                  ? t("composer.localAttachmentInaccessible")
+                  : attachment.readError ?? t("composer.localAttachmentReady")}
+              </span>
+            </span>
+          </span>
+          <button
+            type="button"
+            className={styles.localAttachmentRemove}
+            aria-label={t("composer.removeLocalAttachment", { name: attachment.name })}
+            onClick={() => {
+              const next = removeComposerAttachment(localAttachmentsRef.current, attachment.id);
+              localAttachmentsRef.current = next;
+              setLocalAttachments(next);
+              setAttachmentPickerError(null);
+            }}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+      ))}
+    </div>
+  ) : null;
   const primaryActions = null;
   const statusLine = bashMode ? (
           <div className={styles.bashStatus} data-excluded={bashExcluded ? "true" : "false"}>
@@ -2039,7 +2163,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   );
   const toolbarStart = (
     <>
-            {attachmentPickerError && <span role="alert">{attachmentPickerError}</span>}
             {commandActionError && <span role="alert">{commandActionError}</span>}
             <ComposerAddMenu
               loading={Boolean(slashCommandsLoading || composerResourcesLoading)}
@@ -2070,25 +2193,23 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 return command?.subcommands?.length ? buildSlashSubcommandSections(command, "") : [];
               }}
               onBrowseFiles={cwd ? () => {
-                const editor = textareaRef.current;
-                if (!editor) return;
-                const picker = getAttachmentPicker();
+                const picker = getSecureAttachmentPicker();
                 if (picker) {
                   setAttachmentPickerError(null);
-                  void picker().then(paths => {
-                    if (textareaRef.current !== editor) return;
-                    for (const path of paths) {
-                      const at = editor.selectionStart;
-                      if (at > 0 && !/\s/.test(editor.value[at - 1])) editor.replaceRange(at, at, " ");
-                      editor.replaceRangeWithMention(editor.selectionStart, editor.selectionEnd, {
-                        kind: "file", label: path.split(/[\\/]/).at(-1) || path,
-                        raw: path.includes(" ") ? `@"${path}"` : `@${path}`, icon: "file",
-                      }, true);
+                  void picker().then(selections => {
+                    if (localAttachmentsRef.current.length + selections.length > 32) {
+                      setAttachmentPickerError(t("composer.localAttachmentLimit", { count: 32 }));
+                      return;
                     }
-                    requestAnimationFrame(() => editor.focus());
+                    const next = addComposerAttachments(localAttachmentsRef.current, selections);
+                    localAttachmentsRef.current = next;
+                    setLocalAttachments(next);
+                    requestAnimationFrame(() => textareaRef.current?.focus());
                   }).catch(() => setAttachmentPickerError(t("composer.attachmentPickerError")));
                   return;
                 }
+                const editor = textareaRef.current;
+                if (!editor) return;
                 const start = editor.selectionStart;
                 const prefix = start > 0 && !/\s/.test(editor.value[start - 1]) ? " @" : "@";
                 editor.replaceRange(start, editor.selectionEnd, prefix);
@@ -2219,7 +2340,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         <Tooltip content={t("chat.send")}>
             <button
             type="submit"
-            disabled={builtinCommandPending || (!value.trim() && !attachedImages.length)}
+            disabled={builtinCommandPending || (!value.trim() && !attachedImages.length && !localAttachments.length)}
             aria-label={t("chat.send")}
             className={styles.sendAction}
           >
@@ -2307,7 +2428,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       } : null}
       successStatus={compactResultText}
       compactError={compactError}
+      attachmentError={attachmentPickerError}
       attachments={attachedImages}
+      localAttachments={localAttachmentRows}
       onRemoveAttachment={removeImage}
       inputOverlay={inputOverlay}
       editor={editor}
