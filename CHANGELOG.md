@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The new-Session Composer can select a Reeve project and keeps unavailable cloud and remote locations visible with reasons.
 - The Composer now shows OMP dictation states, including transcription cancellation, retry, and recording access.
 - A session live API now exposes OMP realtime voice state and lifecycle control.
 - Composer settings now control plain-text editing, attachment presentation, and the computed top inset.

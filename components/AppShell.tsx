@@ -2288,6 +2288,7 @@ export function AppShell() {
               homeProjectless={newSessionKind === "chat" || isManagedChatCwd(effectiveNewSessionCwd)}
               homeProjectPath={selectedSession?.cwd ?? effectiveNewSessionCwd}
               onSelectWorktree={(path) => beginNewSession(path, "project")}
+              onRegisterProjectCommand={() => {}}
               onHomeProjectSelected={(path) => handleNewSession(`home-${Date.now()}`, path)}
               onHomeProjectlessSelected={() => void handleNewProjectlessSession()}
             />
