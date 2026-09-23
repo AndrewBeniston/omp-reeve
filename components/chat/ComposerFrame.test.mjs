@@ -79,39 +79,6 @@ test("owns the composer surface, editor, attachments, toolbar, and status semant
   assert.ok(html.indexOf('class="toolbarRight"') < html.indexOf("Send"));
 });
 
-<<<<<<< HEAD
-test("applies Composer display preferences without replacing the editor", () => {
-  const html = renderToStaticMarkup(
-    React.createElement(ComposerFrame, {
-      onSubmit() {},
-      fileInputRef: React.createRef(),
-      onFileInputChange() {},
-      attachments: [{ previewUrl: "blob:one" }],
-      localAttachments: React.createElement("div", { "data-local-attachments": true }),
-      onRemoveAttachment() {},
-      editor: React.createElement("div", { "data-composer-editor": true }),
-      textareaHeight: "44px",
-      mode: "idle",
-      primaryActions: null,
-      toolbarStart: React.createElement("button", { type: "button" }, "Attach"),
-      toolbarCenter: null,
-      toolbarModelArea: null,
-      toolbarEnd: React.createElement("button", { type: "submit" }, "Send"),
-      dictateLabel: "Dictate",
-      toolbarEndRef: React.createRef(),
-      isMobile: false,
-      plainTextMode: true,
-      attachmentLayout: "icon",
-      topInsetPx: 24,
-    }),
-  );
-
-  assert.match(html, /data-plain-text-mode="true"/);
-  assert.match(html, /data-attachment-layout="icon"/);
-  assert.match(html, /data-top-inset="24"/);
-  assert.match(html, /data-composer-editor="true"/);
-  assert.match(html, /data-local-attachments="true"/);
-=======
 test("names the footer and selects the Session or Home overflow behavior", () => {
   const props = {
     onSubmit() {},
@@ -145,7 +112,6 @@ test("wraps the Session footer and lets the Home footer scroll with edge fades",
   assert.match(css, /\.toolbar\[data-footer-mode="session"\]\s*\{[^}]*flex-wrap:\s*wrap;/);
   assert.match(css, /\.toolbar\[data-footer-mode="home"\]\s*\{[^}]*overflow-x:\s*auto;[^}]*scrollbar-width:\s*none;/);
   assert.match(css, /\.toolbar\[data-footer-mode="home"\]\s*\{[^}]*mask-image:\s*linear-gradient/);
->>>>>>> codex/session-composer-543
 });
 
 test("places the queued messages before the Composer surface", async () => {
@@ -346,4 +312,37 @@ test("uses the measured gaps for the two desktop footer groups", async () => {
   assert.match(dictateControl[0], /height:\s*var\(--composer-control-size\);/);
   assert.match(dictateControl[0], /border-radius:\s*var\(--radius-round\);/);
   assert.match(dictateControl[0], /background:\s*transparent;/);
+});
+
+test("applies Composer display preferences without replacing the editor", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ComposerFrame, {
+      onSubmit() {},
+      fileInputRef: React.createRef(),
+      onFileInputChange() {},
+      attachments: [{ previewUrl: "blob:one" }],
+      localAttachments: React.createElement("div", { "data-local-attachments": true }),
+      onRemoveAttachment() {},
+      editor: React.createElement("div", { "data-composer-editor": true }),
+      textareaHeight: "44px",
+      mode: "idle",
+      primaryActions: null,
+      toolbarStart: React.createElement("button", { type: "button" }, "Attach"),
+      toolbarCenter: null,
+      toolbarModelArea: null,
+      toolbarEnd: React.createElement("button", { type: "submit" }, "Send"),
+      dictateLabel: "Dictate",
+      toolbarEndRef: React.createRef(),
+      isMobile: false,
+      plainTextMode: true,
+      attachmentLayout: "icon",
+      topInsetPx: 24,
+    }),
+  );
+
+  assert.match(html, /data-plain-text-mode="true"/);
+  assert.match(html, /data-attachment-layout="icon"/);
+  assert.match(html, /data-top-inset="24"/);
+  assert.match(html, /data-composer-editor="true"/);
+  assert.match(html, /data-local-attachments="true"/);
 });

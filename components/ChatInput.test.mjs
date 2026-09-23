@@ -1060,7 +1060,7 @@ test("renders the complete semantic composer contract", async () => {
   assert.match(tokensCss, /--composer-control-size:\s*28px;/);
   assert.match(tokensCss, /--composer-send-size:\s*var\(--composer-control-size\);/);
   assert.match(editorCss, /\.editor\[data-empty="true"\]::before\s*\{[^}]*color:\s*var\(--ui-text-dim\);[^}]*opacity:\s*0\.5;/);
-  assert.match(css, /\.toolbar\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\) auto;[^}]*column-gap:\s*5px;[^}]*padding-inline:\s*var\(--composer-footer-inset\);/);
+  assert.match(css, /\.toolbar\s*\{[^}]*display:\s*flex;[^}]*column-gap:\s*5px;[^}]*padding-inline:\s*var\(--composer-footer-inset\);/);
   // Codex: the footer centre sits 22px above the frame bottom. 8px inset plus half the 28px send circle.
   assert.match(css, /\.toolbar\s*\{[^}]*min-height:\s*var\(--composer-send-size\);[^}]*margin-top:\s*auto;[^}]*margin-bottom:\s*var\(--composer-footer-inset\);/);
   assert.match(css, /\.attachmentControl\s*\{[^}]*width:\s*var\(--composer-control-size\);[^}]*height:\s*var\(--composer-control-size\);[^}]*background:\s*transparent;/);
