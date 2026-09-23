@@ -3,11 +3,13 @@ import { roleCandidatePool } from "@oh-my-pi/pi-coding-agent/config/model-roles"
 import type { ModelRegistry, Settings } from "@oh-my-pi/pi-coding-agent";
 import {
   downloadSttModel,
+  encodePcm16Wav,
   isSttModelCached,
   resolveSttModelSpec,
   shutdownSttClient,
   STTController,
 } from "@oh-my-pi/pi-coding-agent/stt";
+import { AudioCapture } from "@oh-my-pi/pi-natives";
 import { getOmpRuntime, getSettingsForCwd } from "./omp-runtime";
 
 export type SpeechState = "idle" | "starting" | "recording" | "finishing" | "transcribing" | "cancelled" | "failed";
@@ -19,6 +21,8 @@ export type SpeechEvent =
   | { type: "result"; text: string; submit: boolean }
   | { type: "error"; code: SpeechErrorCode; message: string }
   | { type: "closed" };
+
+export type SpeechRecording = { mimeType: "audio/wav"; bytes: Uint8Array } | null;
 
 interface SpeechEditor {
   insertText(text: string): void;
@@ -53,6 +57,7 @@ export interface SpeechServices {
     editor: SpeechEditor;
     onStateChange(state: "idle" | "recording" | "transcribing"): void;
     onWarning(message: string): void;
+    onAudio(samples: Float32Array): void;
   }): SpeechController;
   stopWorker(): Promise<void>;
 }
@@ -71,13 +76,15 @@ const ompSpeechServices: SpeechServices = {
   },
   isCached: isSttModelCached,
   download: (modelKey, onProgress, signal) => downloadSttModel(modelKey, onProgress, { signal }),
-  createController({ sessionId, context, editor, onStateChange, onWarning }) {
+  createController({ sessionId, context, editor, onStateChange, onWarning, onAudio }) {
     if (!context.settings || !context.registry) throw new Error("Speech settings are unavailable");
-    const controller = new STTController({
-      settings: context.settings,
-      registry: context.registry,
-      getSessionId: () => sessionId,
-    });
+    const controller = new STTController(
+      onAudioCapture => new AudioCapture(16_000, (error, samples) => {
+        onAudioCapture(error, samples);
+        if (!error && samples.length > 0) onAudio(samples);
+      }),
+      { settings: context.settings, registry: context.registry, getSessionId: () => sessionId },
+    );
     return {
       get state() { return controller.state; },
       toggle: () => controller.toggle(editor, {
@@ -101,6 +108,7 @@ export class SpeechBridge {
   private closed = false;
   private failed = false;
   private generation = 0;
+  private recordingSamples: Float32Array[] = [];
   private pendingAbort: AbortController | undefined;
   private workerStop: Promise<void> | undefined;
 
@@ -111,6 +119,10 @@ export class SpeechBridge {
   ) {}
 
   get snapshot(): SpeechState { return this.state; }
+  get recording(): SpeechRecording {
+    if (this.recordingSamples.length === 0) return null;
+    return { mimeType: "audio/wav", bytes: encodePcm16Wav(this.recordingSamples) };
+  }
   get occupiesSpeechInput(): boolean {
     return this.closed || Boolean(this.workerStop)
       || ["starting", "recording", "finishing", "transcribing"].includes(this.state);
@@ -126,6 +138,8 @@ export class SpeechBridge {
   private emit(event: SpeechEvent): void {
     for (const listener of this.listeners) listener(event);
   }
+
+  private resetRecording(): void { this.recordingSamples = []; }
 
   private setState(state: SpeechState): void {
     this.state = state;
@@ -156,6 +170,7 @@ export class SpeechBridge {
     this.volatileText = "";
     this.submitRequested = false;
     this.failed = false;
+    this.resetRecording();
     this.setState("starting");
     let startingController: SpeechController | undefined;
     try {
@@ -192,6 +207,7 @@ export class SpeechBridge {
             : this.state === "transcribing" || this.state === "finishing" ? "transcription" : "capture";
           this.fail(code, message);
         },
+        onAudio: samples => { if (generation === this.generation && samples.length > 0) this.recordingSamples.push(samples.slice()); },
       });
       this.controller = startingController;
       await startingController.toggle();
@@ -239,6 +255,7 @@ export class SpeechBridge {
     const controller = this.controller;
     controller?.dispose();
     this.controller = undefined;
+    this.resetRecording();
     this.setState("cancelled");
     if (abort || controller) {
       const workerStop = this.services.stopWorker();

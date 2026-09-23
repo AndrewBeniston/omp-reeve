@@ -315,6 +315,17 @@ function registerExternalLinkHandler() {
   }));
 }
 
+function registerMicrophoneSettingsHandler() {
+  ipcMain.handle("omp-desktop:open-microphone-settings", event => {
+    if (!event.senderFrame || !desktopUrl || !isTrustedRendererUrl(event.senderFrame.url, desktopUrl)) return false;
+    const url = process.platform === "darwin"
+      ? "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
+      : process.platform === "win32" ? "ms-settings:privacy-microphone" : null;
+    if (!url) return false;
+    return shell.openExternal(url).then(() => true);
+  });
+}
+
 function registerDirectoryPickerHandler() {
   ipcMain.handle("omp-desktop:select-directory", async (event) => {
     if (!event.senderFrame || !desktopUrl || !isTrustedRendererUrl(event.senderFrame.url, desktopUrl)) {
@@ -890,6 +901,7 @@ if (!hasSingleInstanceLock) {
   app.whenReady()
     .then(async () => {
       registerExternalLinkHandler();
+      registerMicrophoneSettingsHandler();
       registerDirectoryPickerHandler();
       registerAttachmentPickerHandler();
       registerProjectMenuHandler();

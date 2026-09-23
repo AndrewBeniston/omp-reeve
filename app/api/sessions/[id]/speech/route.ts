@@ -31,7 +31,14 @@ export async function GET(request: Request, { params }: RouteContext): Promise<R
     const session = await speechSession((await params).id);
     if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
     const state = getSpeechBridge(session.id)?.snapshot ?? "idle";
-    if (!new URL(request.url).searchParams.has("events")) {
+    const url = new URL(request.url);
+    if (url.searchParams.has("recording")) {
+      const recording = getSpeechBridge(session.id)?.recording;
+      if (!recording) return new Response(null, { status: 404 });
+      const body = Uint8Array.from(recording.bytes).buffer;
+      return new Response(new Blob([body], { type: recording.mimeType }), { headers: { "Content-Type": recording.mimeType, "Content-Disposition": "inline; filename=reeve-dictation.wav" } });
+    }
+    if (!url.searchParams.has("events")) {
       return NextResponse.json({ sessionId: session.id, state, ...(await getSpeechAvailability(session.cwd)) });
     }
 

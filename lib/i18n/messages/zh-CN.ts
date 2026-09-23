@@ -77,6 +77,7 @@ export const zhCNLocale: LocalePlugin = {
     "chat.dictationTranscribeError": "无法转录音频",
     "chat.dictationUnsupported": "此设备无法使用听写",
     "chat.dictationPermissionDenied": "麦克风权限被拒绝",
+    "chat.dictationOpenMicrophoneSettings": "打开麦克风设置",
     "settings.review.automatic": "自动代码审查",
     "chat.commandRunning": "正在执行该命令…",
     "settings.review.automaticDescription": "在你选择的操作发生时，让 Reeve 自行开始审查。默认关闭。",

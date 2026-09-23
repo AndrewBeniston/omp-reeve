@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Dictation failures now show the matching notice, a failed recording opens in a new tab, and microphone denial offers the system settings action.
 - The Composer now shows OMP dictation states, including transcription cancellation, retry, and recording access.
 - A session live API now exposes OMP realtime voice state and lifecycle control.
 - Composer settings now control plain-text editing, attachment presentation, and the computed top inset.

@@ -20,6 +20,7 @@ const labels = {
   transcribeError: "Unable to transcribe audio",
   unsupported: "Dictation is not available on this device",
   permissionDenied: "Microphone permission denied",
+  openMicrophoneSettings: "Open microphone settings",
 };
 
 test("maps bridge states to the shipped control actions", () => {
@@ -50,4 +51,31 @@ test("does not render dictation without bridge availability", () => {
     state: "idle", available: false, labels, onAction() {}, onViewRecording() {},
   }));
   assert.equal(html, "");
+});
+
+test("offers the system microphone settings action after permission denial", () => {
+  const previous = globalThis.ompDesktop;
+  globalThis.ompDesktop = { openMicrophoneSettings() {} };
+  try {
+    const html = renderToStaticMarkup(React.createElement(DictationControl, {
+      state: "failed",
+      error: { kind: "permission", message: labels.permissionDenied },
+      labels,
+      onAction() {},
+      onViewRecording() {},
+      onOpenMicrophoneSettings() {},
+    }));
+    assert.match(html, /role="status"/);
+    assert.match(html, /Open microphone settings/);
+  } finally { globalThis.ompDesktop = previous; }
+});
+
+test("shows start and transcription failures as toasts", () => {
+  for (const [kind, message] of [["start", labels.startError], ["transcription", labels.transcribeError]]) {
+    const html = renderToStaticMarkup(React.createElement(DictationControl, {
+      state: "failed", error: { kind, message }, labels, onAction() {}, onViewRecording() {},
+    }));
+    assert.match(html, /role="status"/);
+    assert.match(html, new RegExp(message));
+  }
 });
