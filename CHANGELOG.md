@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The Session transcript now has a four-mode follow model for phase-aware scrolling.
 - Markdown tables now have controls to copy their rows and open a larger table preview.
 - Long user messages show two lines with a Show more control. Empty messages show "(No content)". The copy control confirms successful copies.
 
