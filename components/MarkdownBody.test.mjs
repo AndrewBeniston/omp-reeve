@@ -448,6 +448,69 @@ test("renders an accessible inline audio player with keyboard controls", async (
   }
 });
 
+test("offers safe inline audio path and save actions", async () => {
+  const view = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MarkdownBody, { enableMedia: true }, "<audio src=\"https://example.com/field-recording.mp3\"></audio>")));
+  const copied = [];
+  const previousClipboard = navigator.clipboard;
+  navigator.clipboard = { writeText: async (text) => { copied.push(text); } };
+  try {
+    const actions = view.container.querySelector("button[aria-label='More options for field-recording.mp3']");
+    assert.ok(actions);
+    await click(actions);
+    assert.equal(view.container.textContent.includes("Copy path"), true);
+    assert.equal(view.container.textContent.includes("Save a copy…"), true);
+    await click([...view.container.querySelectorAll("[role='menuitem']")].find((item) => item.textContent === "Copy path"));
+    assert.deepEqual(copied, ["https://example.com/field-recording.mp3"]);
+  } finally {
+    navigator.clipboard = previousClipboard;
+    await view.unmount();
+  }
+});
+
+test("does not expose a local audio path in the browser and reports save failure", async () => {
+  const view = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MarkdownBody, { enableMedia: true }, "<audio src=\"/home/me/private/recording.mp3\"></audio>")));
+  const previousFetch = globalThis.fetch;
+  const previousCreate = URL.createObjectURL;
+  const previousRevoke = URL.revokeObjectURL;
+  globalThis.fetch = async () => { throw new Error("network failed"); };
+  URL.createObjectURL = previousCreate;
+  URL.revokeObjectURL = previousRevoke;
+  try {
+    const actions = view.container.querySelector("button[aria-label='More options for recording.mp3']");
+    assert.ok(actions);
+    await click(actions);
+    await click([...view.container.querySelectorAll("[role='menuitem']")].find((item) => item.textContent === "Save a copy…"));
+    assert.equal(view.container.textContent.includes("Couldn't save audio"), true);
+    assert.equal(view.container.textContent.includes("/home/me/private"), false);
+  } finally {
+    globalThis.fetch = previousFetch;
+    await view.unmount();
+  }
+});
+
+test("uses the desktop save surface and ignores desktop cancellation", async () => {
+  const view = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MarkdownBody, { enableMedia: true }, "<audio src=\"https://example.com/clip.mp3\"></audio>")));
+  const previousBridge = globalThis.ompDesktop;
+  const previousFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(2) });
+  globalThis.ompDesktop = { saveAudioCopy: async (...args) => { calls.push(args); return false; } };
+  try {
+    const actions = view.container.querySelector("button[aria-label='More options for clip.mp3']");
+    await click(actions);
+    await click([...view.container.querySelectorAll("[role='menuitem']")].find((item) => item.textContent === "Save a copy…"));
+    assert.equal(calls[0][0], "clip.mp3");
+    assert.equal(view.container.textContent.includes("Couldn't save audio"), false);
+  } finally {
+    globalThis.ompDesktop = previousBridge;
+    globalThis.fetch = previousFetch;
+    await view.unmount();
+  }
+});
+
 test("labels inline audio failure and keeps raw audio out of file previews", async () => {
   const view = await mount(React.createElement(I18nProvider, null,
     React.createElement(MarkdownBody, { enableMedia: true }, "<audio src=\"https://example.com/missing.mp3\"></audio>")));

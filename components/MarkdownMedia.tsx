@@ -2,6 +2,7 @@
 
 import { useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { useI18n } from "@/hooks/useI18n";
+import { copyTextOrFail } from "@/lib/clipboard";
 import styles from "./MarkdownMedia.module.css";
 
 type MarkdownImageProps = {
@@ -24,6 +25,10 @@ type MarkdownAudioProps = {
   audioProps?: Omit<ComponentProps<"audio">, "src" | "children" | "onError" | "aria-label">;
 };
 
+type AudioSaveBridge = {
+  saveAudioCopy?: (filename: string, bytes: ArrayBuffer) => Promise<boolean>;
+};
+
 function formatTime(seconds: number): string {
   const roundedSeconds = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
   const minutes = Math.floor(roundedSeconds / 60);
@@ -42,6 +47,20 @@ function audioFilename(src: string | undefined): string {
 function audioFormat(filename: string): string | undefined {
   const extension = filename.split(".").pop();
   return extension && extension !== filename ? extension.toUpperCase() : undefined;
+}
+
+function userFacingAudioPath(src: string | undefined, filename: string): string {
+  if (!src) return filename;
+  try {
+    const url = new URL(src, "https://example.invalid");
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : filename;
+  } catch {
+    return filename;
+  }
+}
+
+function isDownloadCancellation(error: unknown): boolean {
+  return error instanceof DOMException && (error.name === "AbortError" || error.name === "NotAllowedError");
 }
 
 export function MarkdownMedia({ src, alt, imageProps }: MarkdownImageProps) {
@@ -127,12 +146,49 @@ export function MarkdownAudioMedia({ src, alt, children, audioProps }: MarkdownA
   const [playing, setPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const filename = audioFilename(src);
   const altText = alt?.trim() ? alt : undefined;
   const format = audioFormat(filename);
   const fileType = format
     ? t("markdown.audio.formattedFileType", { format })
     : t("markdown.audio.fileType");
+
+  const copyPath = async () => {
+    setActionsOpen(false);
+    await copyTextOrFail(userFacingAudioPath(src, filename));
+  };
+
+  const saveCopy = async () => {
+    setActionsOpen(false);
+    setSaveError(false);
+    if (!src) {
+      setSaveError(true);
+      return;
+    }
+    const bridge = (globalThis as unknown as { ompDesktop?: AudioSaveBridge }).ompDesktop;
+    try {
+      if (bridge?.saveAudioCopy) {
+        const response = await fetch(src);
+        if (!response.ok) throw new Error("Audio fetch failed");
+        const saved = await bridge.saveAudioCopy(filename, await response.arrayBuffer());
+        if (!saved) return;
+        return;
+      }
+      const response = await fetch(src);
+      if (!response.ok) throw new Error("Audio fetch failed");
+      const objectUrl = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      if (isDownloadCancellation(error)) return;
+      setSaveError(true);
+    }
+  };
 
   if (state === "failed") {
     return (
@@ -201,7 +257,25 @@ export function MarkdownAudioMedia({ src, alt, children, audioProps }: MarkdownA
           </span>
           <span className={styles.audioFileType}>{fileType}</span>
         </span>
+        <span className={styles.audioActions}>
+          <button
+            type="button"
+            className={styles.audioActionsButton}
+            aria-label={t("markdown.audio.actions", { filename })}
+            aria-expanded={actionsOpen}
+            onClick={() => setActionsOpen((open) => !open)}
+          >
+            <span aria-hidden="true">⋯</span>
+          </button>
+          {actionsOpen && (
+            <span className={styles.audioMenu} role="menu">
+              <button type="button" role="menuitem" onClick={() => void copyPath()}>{t("markdown.audio.copyPath")}</button>
+              <button type="button" role="menuitem" onClick={() => void saveCopy()}>{t("markdown.audio.saveCopy")}</button>
+            </span>
+          )}
+        </span>
         {state === "loading" && <span className={styles.audioLoading}>{t("markdown.audio.loading")}</span>}
+        {saveError && <span className={styles.audioSaveError} role="alert">{t("markdown.audio.saveFailed")}</span>}
       </span>
     </span>
   );
