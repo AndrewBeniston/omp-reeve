@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- A session speech API now streams OMP dictation states, model download progress, transcripts, and typed errors.
 - The desktop picker selects multiple files and folders together on macOS. Windows and Linux offer separate file and folder selection.
 - The Composer sends local files and folders with queued, steered, and follow-up messages during an active response.
 - The model list now starts with Default, marks the selected model and effort, and guides model picks into effort selection.

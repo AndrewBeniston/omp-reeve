@@ -15,6 +15,7 @@ import { sessionPathKey } from "@/lib/session-path";
 import { setSessionArchived } from "@/lib/session-archive";
 import { setSessionPinned } from "@/lib/session-pins";
 import { getRpcSession } from "@/lib/rpc-manager";
+import { closeSpeechSession } from "@/lib/speech-bridge";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 import { projectTreeForResponse } from "@/lib/project-tree";
 import { computeSessionTotalActiveMs } from "@/lib/session-timing";
@@ -179,6 +180,7 @@ export async function DELETE(
     } catch { /* skip if dir unreadable */ }
 
     await getRpcSession(id)?.shutdown();
+    await closeSpeechSession(readSessionHeader(filePath)?.id ?? id);
     unlinkSync(filePath);
     invalidateSessionPathCache(id);
     invalidateSessionListCache();
