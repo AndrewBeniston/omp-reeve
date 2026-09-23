@@ -1258,8 +1258,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       // A slow response can straddle a run boundary (previous run finished
       // and the user already started the next one while this request was in
       // flight) — everything in it is stale, drop it.
-      if (promptRunIdRef.current !== runId) return;
-      void goalState.refresh();
+      if (promptRunIdRef.current !== runId || sessionIdRef.current !== sid) return;
+      void goalState.refresh(sid);
       const state = data.state;
       // Mirror compaction state unconditionally: a missed compaction_end
       // would otherwise leave the "Stop compaction" UI stuck. No state
