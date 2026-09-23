@@ -204,7 +204,7 @@ test("renders only the consolidated desktop toolbar controls", () => {
   assert.doesNotMatch(html, /menuitemradio/);
 });
 
-test("renders the desktop footer groups in Codex order with Dictate hidden", () => {
+test("renders the desktop footer groups in Codex order without unavailable Dictate", () => {
   const common = {
     model: { provider: "openai", modelId: "gpt-5.4" },
     modelList: [{ provider: "openai", id: "gpt-5.4", name: "GPT-5.4" }],
@@ -227,30 +227,24 @@ test("renders the desktop footer groups in Codex order with Dictate hidden", () 
     'aria-label="Restricted mode"',
     'aria-label="Context donut: 10%"',
     'aria-label="Model settings"',
-    'aria-label="Dictate"',
     'aria-label="Send"',
   ];
   for (let index = 1; index < expectedOrder.length; index += 1) {
     assert.ok(untrustedHtml.indexOf(expectedOrder[index - 1]) < untrustedHtml.indexOf(expectedOrder[index]));
   }
 
-  const dictate = buttonFor(untrustedHtml, "Dictate");
-  assert.match(dictate, /hidden=""/);
-  assert.equal(
-    expectedOrder.filter((attribute) => !openingTagFor(untrustedHtml, attribute).includes('hidden=""')).length,
-    5,
-  );
+  assert.doesNotMatch(untrustedHtml, /aria-label="Dictate"/);
 
   assert.doesNotMatch(trustedHtml, /aria-label="Restricted mode"/);
   assert.match(trustedHtml, /aria-label="Full access"/);
   assert.ok(trustedHtml.indexOf('aria-label="Add"') < trustedHtml.indexOf('aria-label="Full access"'));
   assert.ok(trustedHtml.indexOf('aria-label="Full access"') < trustedHtml.indexOf('aria-label="Context donut: 10%"'));
   assert.ok(trustedHtml.indexOf('aria-label="Context donut: 10%"') < trustedHtml.indexOf('aria-label="Model settings"'));
-  assert.ok(trustedHtml.indexOf('aria-label="Model settings"') < trustedHtml.indexOf('aria-label="Dictate"'));
-  assert.ok(trustedHtml.indexOf('aria-label="Dictate"') < trustedHtml.indexOf('aria-label="Send"'));
+  assert.ok(trustedHtml.indexOf('aria-label="Model settings"') < trustedHtml.indexOf('aria-label="Send"'));
+  assert.doesNotMatch(trustedHtml, /aria-label="Dictate"/);
 });
 
-test("groups desktop model controls separately from Dictate and Send", () => {
+test("groups desktop model controls separately from Send when Dictate is unavailable", () => {
   const html = renderChatInput({
     model: { provider: "openai", modelId: "gpt-5.4" },
     modelList: [{ provider: "openai", id: "gpt-5.4", name: "GPT-5.4" }],
@@ -259,7 +253,8 @@ test("groups desktop model controls separately from Dictate and Send", () => {
   });
 
   assert.match(html, /class="toolbarModelArea"[^>]*>[\s\S]*aria-label="Context donut: 10%"[\s\S]*aria-label="Model settings"/);
-  assert.match(html, /class="toolbarTrailing"[^>]*>[\s\S]*aria-label="Dictate"[\s\S]*aria-label="Send"/);
+  assert.match(html, /class="toolbarTrailing"[^>]*>[\s\S]*aria-label="Send"/);
+  assert.doesNotMatch(html, /aria-label="Dictate"/);
 });
 
 test("provides Dictate labels in both message catalogs", async () => {
@@ -1075,9 +1070,13 @@ test("renders the complete semantic composer contract", async () => {
   assert.match(css, /min-width:\s*var\(--ui-control-touch\)/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
   assert.match(css, /\.contextDonut\s*\{[^}]*height:\s*var\(--composer-control-size\);/);
-  // The right group spans the centre and end columns, so its model area can flex before the trailing cluster.
-  assert.match(css, /\.toolbarLeft\s*\{[^}]*grid-column:\s*1;/);
-  assert.match(css, /\.toolbarRight\s*\{[^}]*grid-column:\s*2 \/ -1;[^}]*justify-content:\s*flex-end;/);
+  // The flex footer keeps the start group before the model area, then the trailing controls at the end.
+  assert.match(html, /class="toolbarLeft"[^>]*>[\s\S]*class="toolbarRight"[^>]*>[\s\S]*class="toolbarModelArea"[^>]*>[\s\S]*class="toolbarTrailing"/);
+  assert.match(css, /\.toolbarModelArea\s*\{[^}]*flex:\s*1;[^}]*min-width:\s*0;/);
+  assert.match(css, /\.toolbarTrailing\s*\{[^}]*flex-shrink:\s*0;/);
+  assert.match(css, /\.toolbar\[data-footer-mode="session"\]\s*\{[^}]*flex-wrap:\s*wrap;/);
+  assert.match(css, /\.toolbar\[data-footer-mode="home"\]\s*\{[^}]*overflow-x:\s*auto;[^}]*scrollbar-width:\s*none;/);
+  assert.match(css, /\.toolbar\[data-footer-mode="home"\]::-webkit-scrollbar\s*\{[^}]*display:\s*none;/);
   // Codex context donut: 12px, 2px stroke, track at 0.16 opacity, arc rotated -90deg, 120ms ease-out.
   assert.match(css, /\.contextRingTrack\s*\{[^}]*opacity:\s*0\.16;/);
   assert.match(css, /\.contextRingArc\s*\{[^}]*transition:\s*stroke-dashoffset 120ms ease-out, opacity 120ms ease-out;/);

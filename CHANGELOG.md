@@ -13,6 +13,7 @@ the What's New dialog adds a second page that invites support.
 
 - The Composer now shows OMP dictation states, including transcription cancellation, retry, and recording access.
 - A session live API now exposes OMP realtime voice state and lifecycle control.
+- The Session Composer footer keeps its controls ordered while the model area shrinks before the trailing controls.
 - Composer settings now control plain-text editing, attachment presentation, and the computed top inset.
 - The Composer utility bar now has a translated accessible name, wraps in Sessions, and scrolls with edge fades on the home page.
 - The Composer now supports reference keyboard commands and a configurable Send shortcut.
