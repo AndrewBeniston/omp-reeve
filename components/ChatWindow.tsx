@@ -47,6 +47,7 @@ import {
   type TranscriptNavigationItem,
 } from "./chat/TranscriptNavigationRail";
 import { prefersReducedMotion, resolveScrollBehavior } from "./chat/transcript-follow";
+import { useTranscriptHeightRestoration } from "./chat/useTranscriptHeightRestoration";
 import styles from "./chat/chat-window.module.css";
 
 const QUESTION_DEBUG_REQUEST: QuestionRequest = {
@@ -301,6 +302,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
   const [turnStatusDebug, setTurnStatusDebug] = useState(false);
   const [questionDebug, setQuestionDebug] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const transcriptContentRef = useRef<HTMLDivElement>(null);
   const prevScrollDistanceRef = useRef<number | null>(null);
   const transcriptNavigationItems = useMemo(
     () => buildTranscriptNavigationItems(messages, entryIds),
@@ -459,6 +461,12 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
   }, [messages]);
 
   const isEmptyNew = isNew && messages.length === 0 && !streamState.isStreaming && !sessionBusy;
+  useTranscriptHeightRestoration(
+    scrollContainerRef,
+    transcriptContentRef,
+    session?.id ?? newDraftKey ?? newSessionCwd,
+    !loading && !error && !isEmptyNew,
+  );
   const displayedExtensionDialog = questionDebug ? QUESTION_DEBUG_REQUEST : extensionDialog;
   const messageCwd = session?.cwd ?? newSessionCwd ?? undefined;
   const summarySources = useMemo(
@@ -659,7 +667,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
         </div>
         <div ref={scrollContainerRef} className={`chat-session-scroll ${styles.transcriptScroll}`}>
           <div className={styles.transcriptGutter}>
-            <div className={styles.transcriptMeasure} data-transcript-navigation-content>
+            <div ref={transcriptContentRef} className={styles.transcriptMeasure} data-transcript-navigation-content>
               <ExtensionWidgets widgets={aboveEditorWidgets} />
 
             {(() => {
@@ -775,7 +783,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                     </ProcessDetailsGroup>
                   );
                   rendered.push(
-                    <div key={`process-group-${userIdx}-${finalAssistantIdx}`}>
+                    <div key={`process-group-${userIdx}-${finalAssistantIdx}`} data-transcript-resizable-item>
                       {processGroup}
                     </div>,
                   );

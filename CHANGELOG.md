@@ -12,9 +12,9 @@ the What's New dialog adds a second page that invites support.
 ### Added
 
 - File citations now show a file chip with its type and location, and open the file panel.
-
 - Markdown tables now have controls to copy their rows and open a larger table preview.
 - Long user messages show two lines with a Show more control. Empty messages show "(No content)". The copy control confirms successful copies.
+- The transcript keeps the reader's position when an existing Turn changes height.
 
 ## [0.8.0] - 2026-09-23
 
