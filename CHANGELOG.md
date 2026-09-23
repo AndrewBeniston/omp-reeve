@@ -11,6 +11,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The Goal pill can change or clear the token budget without replacing the Goal.
+
 - The Goal pill can pause, resume, and clear a Goal. Clearing active work asks first.
   An interruption keeps queued messages.
 

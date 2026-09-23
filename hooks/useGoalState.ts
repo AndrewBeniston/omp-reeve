@@ -19,7 +19,7 @@ export interface GoalUpdateEvent {
   state?: GoalModeState;
 }
 
-type GoalAction = "pause" | "resume" | "drop";
+export type GoalAction = "pause" | "resume" | "drop" | "budget";
 
 const INITIAL_STATE: GoalClientState = {
   status: "loading",
@@ -87,7 +87,7 @@ export function useGoalState(sessionId: string | null) {
       : current);
   }, []);
 
-  const runAction = useCallback(async (action: GoalAction, interrupt = false): Promise<boolean> => {
+  const runAction = useCallback(async (action: GoalAction, interrupt = false, budget?: number | null): Promise<boolean> => {
     if (!sessionId || sessionRef.current !== sessionId || pendingActionRef.current) return false;
     const actionId = ++actionIdRef.current;
     pendingActionRef.current = action;
@@ -100,9 +100,10 @@ export function useGoalState(sessionId: string | null) {
           goalReason: action === "drop" ? "internal" : "interrupted",
         });
       }
-      const result = await sendAgentCommand<GoalCommandResult>(sessionId, {
-        type: "goal", op: action === "pause" && interrupt ? "get" : action,
-      });
+      const command = action === "budget"
+        ? { type: "goal", op: "set_budget", tokenBudget: budget }
+        : { type: "goal", op: action === "pause" && interrupt ? "get" : action };
+      const result = await sendAgentCommand<GoalCommandResult>(sessionId, command);
       if (sessionRef.current !== sessionId) return false;
       readIdRef.current += 1;
       eventRevisionRef.current += 1;
@@ -148,5 +149,6 @@ export function useGoalState(sessionId: string | null) {
     pause: (interrupt = false) => runAction("pause", interrupt),
     resume: () => runAction("resume"),
     clear: (interrupt = false) => runAction("drop", interrupt),
+    setBudget: (budget: number | null) => runAction("budget", false, budget),
   };
 }

@@ -257,27 +257,71 @@ test("objective mutation names the missing OMP capability without replacing the 
   }
 });
 
-test("raising a reached budget reactivates the same OMP Goal", { timeout: 60_000 }, async () => {
+test("OMP counts input, output, and cache-write deltas but excludes cache-read deltas", { timeout: 60_000 }, async () => {
   const cwd = await mkdtemp(join(root, "project-"));
   const { session, realSessionId } = await startRpcSession("new", "", cwd);
   try {
     const created = await request(realSessionId, {
       type: "goal", op: "create", objective: "Stay within budget", tokenBudget: 100,
     });
-    session.inner.goalRuntime.onTurnStart("budget-test", { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+    session.inner.goalRuntime.onTurnStart("budget-test", { input: 100, output: 200, cacheRead: 1_000, cacheWrite: 300 });
     await session.inner.goalRuntime.flushUsage("suppressed", {
-      input: 70, output: 30, cacheRead: 200, cacheWrite: 10,
+      input: 130, output: 200, cacheRead: 2_000, cacheWrite: 300,
+    });
+    assert.equal((await request(realSessionId, { type: "goal", op: "get" })).body.data.goal.tokensUsed, 30);
+    await session.inner.goalRuntime.flushUsage("suppressed", {
+      input: 130, output: 240, cacheRead: 12_000, cacheWrite: 300,
+    });
+    assert.equal((await request(realSessionId, { type: "goal", op: "get" })).body.data.goal.tokensUsed, 70);
+    await session.inner.goalRuntime.flushUsage("suppressed", {
+      input: 130, output: 240, cacheRead: 20_000, cacheWrite: 350,
     });
     const limited = await request(realSessionId, { type: "goal", op: "get" });
     assert.equal(limited.body.data.goal.status, "budget-limited");
-    assert.equal(limited.body.data.goal.tokensUsed, 110);
+    assert.equal(limited.body.data.goal.tokensUsed, 120);
+    assert.equal(session.inner.goalRuntime.buildContinuationPrompt(), undefined);
+    await session.inner.goalRuntime.flushUsage("suppressed", {
+      input: 130, output: 240, cacheRead: 50_000, cacheWrite: 350,
+    });
+    assert.equal((await request(realSessionId, { type: "goal", op: "get" })).body.data.goal.tokensUsed, 120);
 
     const raised = await request(realSessionId, { type: "goal", op: "set_budget", tokenBudget: 150 });
     assert.equal(raised.status, 200);
     assert.equal(raised.body.data.goal.status, "active");
     assert.equal(raised.body.data.goal.id, created.body.data.goal.id);
-    assert.equal(raised.body.data.goal.tokensUsed, 110);
+    assert.equal(raised.body.data.goal.tokensUsed, 120);
     assert.equal(raised.body.data.goal.tokenBudget, 150);
+    assert.ok(session.inner.goalRuntime.buildContinuationPrompt());
+
+    const reduced = await request(realSessionId, { type: "goal", op: "set_budget", tokenBudget: 110 });
+    assert.equal(reduced.body.data.goal.status, "budget-limited");
+    assert.equal(reduced.body.data.goal.tokensUsed, 120);
+    assert.equal(session.inner.goalRuntime.buildContinuationPrompt(), undefined);
+
+    const cleared = await request(realSessionId, { type: "goal", op: "set_budget", tokenBudget: null });
+    assert.equal(cleared.body.data.goal.status, "active");
+    assert.equal(cleared.body.data.goal.tokenBudget, undefined);
+    assert.equal(cleared.body.data.goal.tokensUsed, 120);
+  } finally {
+    session.destroy();
+  }
+});
+
+test("a paused Goal accepts a changed or cleared budget without resuming", { timeout: 60_000 }, async () => {
+  const cwd = await mkdtemp(join(root, "project-"));
+  const { session, realSessionId } = await startRpcSession("new", "", cwd);
+  try {
+    await request(realSessionId, { type: "goal", op: "create", objective: "Pause first", tokenBudget: 100 });
+    const paused = await request(realSessionId, { type: "goal", op: "pause" });
+    assert.equal(paused.body.data.goal.status, "paused");
+    const changed = await request(realSessionId, { type: "goal", op: "set_budget", tokenBudget: 500 });
+    assert.equal(changed.status, 200);
+    assert.equal(changed.body.data.goal.status, "paused");
+    assert.equal(changed.body.data.goal.tokenBudget, 500);
+    const cleared = await request(realSessionId, { type: "goal", op: "set_budget", tokenBudget: null });
+    assert.equal(cleared.status, 200);
+    assert.equal(cleared.body.data.goal.status, "paused");
+    assert.equal(cleared.body.data.goal.tokenBudget, undefined);
   } finally {
     session.destroy();
   }

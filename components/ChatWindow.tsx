@@ -907,6 +907,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
           onClear={() => goalState.clear(sessionBusy)}
           onPause={() => goalState.pause(sessionBusy)}
           onResume={goalState.resume}
+          onEditBudget={goalState.setBudget}
         />
         {chatInputElement}
         <ExtensionStatusBar statuses={extensionStatuses} />

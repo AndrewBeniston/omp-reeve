@@ -82,6 +82,46 @@ test("resume keeps the Goal identity and usage and does not drain queued message
   }
 });
 
+test("budget changes send OMP the exact limit or Off and retain confirmed usage", async () => {
+  const originalFetch = globalThis.fetch;
+  const activeGoal = goal("active");
+  const limitedGoal = { ...goal("budget-limited", 1_300), tokenBudget: 500, tokensUsed: 700 };
+  const raisedGoal = { ...goal("active", 1_400), tokenBudget: 1_000, tokensUsed: 700 };
+  const unboundedGoal = { ...goal("active", 1_500), tokenBudget: undefined, tokensUsed: 700 };
+  const commands = [];
+  let client;
+  globalThis.fetch = async (_url, init) => {
+    const command = JSON.parse(init.body);
+    commands.push(command);
+    if (command.op === "set_budget") {
+      const next = command.tokenBudget === 500 ? limitedGoal : command.tokenBudget === 1_000 ? raisedGoal : unboundedGoal;
+      return response(next, { enabled: true, mode: "active", goal: next });
+    }
+    return response(activeGoal, { enabled: true, mode: "active", goal: activeGoal });
+  };
+  function Harness() { client = useGoalState("session-one"); return h("div"); }
+  const view = await mount(h(Harness));
+  try {
+    await React.act(async () => { assert.equal(await client.setBudget(500), true); });
+    assert.equal(client.goal.status, "budget-limited");
+    assert.equal(client.goal.tokensUsed, 700);
+    await React.act(async () => { assert.equal(await client.setBudget(1_000), true); });
+    assert.equal(client.goal.status, "active");
+    await React.act(async () => { assert.equal(await client.setBudget(null), true); });
+    assert.equal(client.goal.tokenBudget, undefined);
+    assert.equal(client.goal.tokensUsed, 700);
+    assert.deepEqual(commands, [
+      { type: "goal", op: "get" },
+      { type: "goal", op: "set_budget", tokenBudget: 500 },
+      { type: "goal", op: "set_budget", tokenBudget: 1_000 },
+      { type: "goal", op: "set_budget", tokenBudget: null },
+    ]);
+  } finally {
+    await view.unmount();
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("a failed Goal action keeps the confirmed Goal and reports an action error", async () => {
   const originalFetch = globalThis.fetch;
   const activeGoal = goal("active");
