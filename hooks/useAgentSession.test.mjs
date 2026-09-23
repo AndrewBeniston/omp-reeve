@@ -86,6 +86,15 @@ test("keeps live file mention rows on the following user message", () => {
   assert.match(messageEndSource, /pendingFileMentionsRef\.current = \[\]/);
 });
 
+test("marks delivered pasted-text mentions as uploaded attachments", () => {
+  const attachmentSource = source.slice(
+    source.indexOf("function userMessageAttachmentsFromFileMention"),
+    source.indexOf("function readCompactResult"),
+  );
+
+  assert.match(attachmentSource, /const uploaded = file\.path\.startsWith\("browser-upload:"\) \|\| file\.path\.endsWith\("\/Pasted text\.txt"\)/);
+});
+
 test("publishes generated Session titles through the active Session path", () => {
   const titleSource = source.slice(
     source.indexOf('case "session_name_changed"'),
