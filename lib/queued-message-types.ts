@@ -1,4 +1,5 @@
 export type QueuedMessageKind = "steer" | "followUp";
+export type QueuedMessageStatus = "queued" | "failed";
 
 export interface QueuedMessageItem {
   id: string;
@@ -6,6 +7,8 @@ export interface QueuedMessageItem {
   text: string;
   imageCount: number;
   imagePreview?: string;
+  status?: QueuedMessageStatus;
+  errorSummary?: string;
 }
 
 export interface QueuedMessageSnapshot {
