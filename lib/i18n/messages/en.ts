@@ -11,6 +11,7 @@ export const enLocale: LocalePlugin = {
     "common.skills": "Skills",
     "common.plugins": "Plugins",
     "common.settings": "Settings",
+    "live.unknownAction": "Unknown live action",
     "settings.backToApp": "Back to app",
     "update.downloadingTitle": "Downloading Reeve {version}",
     "update.readyTitle": "Reeve {version} is ready to install",
