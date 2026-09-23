@@ -833,6 +833,7 @@
 
 .modelMenuStack {
   position: relative;
+  transition: max-height 0.32s var(--ease-enter);
 }
 
 .modelMenuRow {
@@ -878,6 +879,11 @@
   height: 1px;
   margin: var(--space-1) 0;
   background: var(--ui-border-subtle);
+}
+
+.modelMenuFooter {
+  border-top: 1px solid var(--ui-border-subtle);
+  padding: 8px;
 }
 
 .modelSubmenu {
@@ -1109,5 +1115,9 @@
   .spinner {
     animation-duration: 0.001ms !important;
     transition-duration: 0.001ms !important;
+  }
+
+  .modelMenuStack {
+    transition: none !important;
   }
 }

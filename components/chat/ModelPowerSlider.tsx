@@ -20,6 +20,7 @@ interface Props {
   onSelectEffort: (level: ThinkingStep) => void;
   explicitModelOverride?: boolean;
   onResetToDefault?: () => void;
+  stageTransition?: "enter" | "leave" | null;
 }
 
 export function ModelPowerSlider({
@@ -36,6 +37,7 @@ export function ModelPowerSlider({
   onSelectEffort,
   explicitModelOverride = false,
   onResetToDefault,
+  stageTransition = null,
 }: Props) {
   const { t } = useI18n();
   const instructionsId = useId();
@@ -86,8 +88,8 @@ export function ModelPowerSlider({
   };
 
   return (
-    <div data-model-power-view className={styles.view}>
-      <div className={styles.controlRow}>
+    <div data-model-power-view data-stage-transition={stageTransition ?? undefined} className={styles.view}>
+      <div data-stage-panel="top" data-stage-transition={stageTransition ?? undefined} className={styles.controlRow}>
         <MenuItem
           ref={modelTriggerRef}
           data-model-menu-row="model"
@@ -107,7 +109,7 @@ export function ModelPowerSlider({
         </MenuItem>
       </div>
       {steps.length > 0 ? (
-        <div data-slider-row className={styles.sliderRow}>
+        <div data-slider-row data-stage-panel="slider" data-stage-transition={stageTransition ?? undefined} className={styles.sliderRow}>
           <div className={styles.sliderHeader}>
             {(explicitModelOverride || isTopStep) && (
               <div className={styles.sliderStart} data-slider-start>
