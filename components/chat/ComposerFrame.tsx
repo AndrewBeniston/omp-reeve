@@ -190,6 +190,18 @@ export function ComposerFrame({
     && attachments.length === 0
     && !localAttachments
     && !statusLine;
+  const hasLargeContent = Boolean(
+    modelError
+    || modelScopeWarnings?.length
+    || queue
+    || retryStatus
+    || successStatus
+    || compactError
+    || attachmentError
+    || attachments.length > 0
+    || localAttachments
+    || statusLine,
+  );
   const dictateControl = (
     <button
       type="button"
@@ -223,62 +235,66 @@ export function ComposerFrame({
           <QueuedMessageList {...queue} />
         </div>
       )}
-      <div className={styles.composer} data-compact={useSingleRow ? "true" : undefined}>
-      <div className={styles.composerContent}>
-        <ModelErrorBanner error={modelError} />
-        <ModelScopeWarningBanner warnings={modelScopeWarnings} />
-        {retryStatus && <RetryStatus status={retryStatus} />}
-        {successStatus && <SuccessStatus>{successStatus}</SuccessStatus>}
-        {compactError && <div role="alert" data-state="error" className={`${styles.statusBanner} ${styles.compactError}`}>{compactError}</div>}
-        {attachmentError && <div role="alert" data-state="error" className={`${styles.statusBanner} ${styles.compactError}`}>{attachmentError}</div>}
-        {localAttachments}
-        {attachments.length > 0 && (
-          <div className={styles.imagePreviews} role="list" aria-label="Image attachments">
-            {attachments.map((attachment, index) => (
-              <div key={index} className={styles.imagePreview} role="listitem">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={attachment.previewUrl} alt="" className={styles.previewImage} />
-                <button type="button" onClick={() => onRemoveAttachment(index)} className={styles.removeImage} aria-label={`Remove image ${index + 1}`}>
-                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-                    <line x1="1" y1="1" x2="7" y2="7" />
-                    <line x1="7" y1="1" x2="1" y2="7" />
-                  </svg>
-                </button>
-              </div>
-            ))}
+      <div
+        className={styles.composer}
+        data-compact={useSingleRow ? "true" : undefined}
+        data-frame-variant={useSingleRow || !hasLargeContent ? undefined : "large"}
+      >
+        <div className={styles.composerContent}>
+          <ModelErrorBanner error={modelError} />
+          <ModelScopeWarningBanner warnings={modelScopeWarnings} />
+          {retryStatus && <RetryStatus status={retryStatus} />}
+          {successStatus && <SuccessStatus>{successStatus}</SuccessStatus>}
+          {compactError && <div role="alert" data-state="error" className={`${styles.statusBanner} ${styles.compactError}`}>{compactError}</div>}
+          {attachmentError && <div role="alert" data-state="error" className={`${styles.statusBanner} ${styles.compactError}`}>{attachmentError}</div>}
+          {localAttachments}
+          {attachments.length > 0 && (
+            <div className={styles.imagePreviews} role="list" aria-label="Image attachments">
+              {attachments.map((attachment, index) => (
+                <div key={index} className={styles.imagePreview} role="listitem">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={attachment.previewUrl} alt="" className={styles.previewImage} />
+                  <button type="button" onClick={() => onRemoveAttachment(index)} className={styles.removeImage} aria-label={`Remove image ${index + 1}`}>
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                      <line x1="1" y1="1" x2="7" y2="7" />
+                      <line x1="7" y1="1" x2="1" y2="7" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className={styles.inputArea}>
+            {inputOverlay}
+            <div className={styles.composerFrame} data-mode={mode}>
+              <DynamicStyleVars className={styles.textareaGeometry} variables={{ "--ui-composer-height": textareaHeight }}>
+                {editor}
+              </DynamicStyleVars>
+              {primaryActions}
+            </div>
           </div>
-        )}
-        <div className={styles.inputArea}>
-          {inputOverlay}
-          <div className={styles.composerFrame} data-mode={mode}>
-            <DynamicStyleVars className={styles.textareaGeometry} variables={{ "--ui-composer-height": textareaHeight }}>
-              {editor}
-            </DynamicStyleVars>
-            {primaryActions}
+          {statusLine}
+          {isMobile && toolbarCenter && <div className={styles.mobileContext}>{toolbarCenter}</div>}
+          <div className={styles.toolbar} data-mobile={isMobile ? "true" : "false"} role="group" aria-label="Composer controls">
+            <div className={styles.toolbarLeft} data-mobile={isMobile ? "true" : "false"}>{toolbarStart}</div>
+            <div ref={toolbarEndRef} className={styles.toolbarRight} data-mobile={isMobile ? "true" : "false"}>
+              {isMobile ? toolbarEnd : (
+                <>
+                  <div className={styles.toolbarModelArea}>
+                    {!isMobile && toolbarCenter}
+                    {toolbarModelArea}
+                  </div>
+                  <div className={styles.toolbarTrailing}>
+                    {dictationAvailable
+                      ? <Tooltip content={dictateLabel}>{dictateControl}</Tooltip>
+                      : dictateControl}
+                    {toolbarEnd}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
-        {statusLine}
-        {isMobile && toolbarCenter && <div className={styles.mobileContext}>{toolbarCenter}</div>}
-        <div className={styles.toolbar} data-mobile={isMobile ? "true" : "false"} role="group" aria-label="Composer controls">
-          <div className={styles.toolbarLeft} data-mobile={isMobile ? "true" : "false"}>{toolbarStart}</div>
-          <div ref={toolbarEndRef} className={styles.toolbarRight} data-mobile={isMobile ? "true" : "false"}>
-            {isMobile ? toolbarEnd : (
-              <>
-                <div className={styles.toolbarModelArea}>
-                  {!isMobile && toolbarCenter}
-                  {toolbarModelArea}
-                </div>
-                <div className={styles.toolbarTrailing}>
-                  {dictationAvailable
-                    ? <Tooltip content={dictateLabel}>{dictateControl}</Tooltip>
-                    : dictateControl}
-                  {toolbarEnd}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
       </div>
     </form>
   );

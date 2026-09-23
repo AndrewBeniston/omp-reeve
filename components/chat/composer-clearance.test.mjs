@@ -83,9 +83,9 @@ test("the composer surface reads as the brightest of the three shell surfaces an
   assert.match(composerRule[1], /box-shadow:\s*var\(--shadow-composer\);/);
 });
 
-test("the empty Composer frame keeps the measured 98px minimum", () => {
-  assert.match(tokensCss, /--composer-frame-min-height:\s*98px;/);
-  assert.match(composerCss, /\.composerContent\s*\{[^}]*padding:\s*14px var\(--space-3\) 0;/);
+test("the empty Composer frame keeps the reference 44px minimum", () => {
+  assert.match(tokensCss, /--composer-frame-min-height:\s*44px;/);
+  assert.match(composerCss, /\.composerContent\s*\{[^}]*padding:\s*14px 12px 0;/);
   assert.match(composerCss, /\.textareaGeometry\s*\{[^}]*transform:\s*translateY\(var\(--composer-text-nudge\)\);/);
   assert.doesNotMatch(composerCss, /padding:\s*calc\(14px \+ var\(--composer-text-nudge\)\)/);
 });

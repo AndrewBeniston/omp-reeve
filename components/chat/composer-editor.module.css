@@ -5,7 +5,6 @@
   min-width: 0;
   width: 100%;
   height: var(--ui-composer-height, auto);
-  min-height: 44px;
   max-height: var(--composer-max-height);
   margin-bottom: var(--composer-editor-gap);
   box-sizing: border-box;
@@ -25,10 +24,11 @@
   color: var(--ui-text);
   font-family: var(--font-sans);
   font-size: var(--text-ui);
-  line-height: var(--leading-ui);
+  line-height: 20px;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   caret-color: var(--ui-text);
+  padding: 15px 18px 16px;
 }
 
 .editor p {

@@ -130,8 +130,11 @@
   --radius-project-row: 15px;
   --radius-control: 12.5px;
   --radius-card: 16px;
-  --radius-composer: 24px;
-  --radius-composer-squircle: 30px;
+  --radius-3xl: 20px;
+  --radius-composer: 22px;
+  --radius-composer-large: 28px;
+  --radius-composer-compact: 10px;
+  --radius-composer-squircle: var(--radius-3xl);
   --radius-round: 9999px;
   --corner-row: superellipse(1.5);
   --corner-round: round;
@@ -145,7 +148,7 @@
   --ease-enter: cubic-bezier(0.19, 1, 0.22, 1);
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
 
-  --composer-frame-min-height: 98px;
+  --composer-frame-min-height: 44px;
   --composer-request-height: 44px;
   --composer-footer-inset: 8px;
   /* Codex nudges the editor down with translate-y-0.5, which is 2px. */
