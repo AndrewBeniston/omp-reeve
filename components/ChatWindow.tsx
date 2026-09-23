@@ -34,6 +34,7 @@ import { ApprovalNudge } from "./chat/ApprovalNudge";
 import { QuestionRequestPanel, type QuestionRequest } from "./chat/QuestionRequestPanel";
 import { EmptyChatHome } from "./chat/EmptyChatHome";
 import { NewMessagesControl } from "./chat/NewMessagesControl";
+import { LatestTurnPreview } from "./chat/LatestTurnPreview";
 import { ComposerTurnStatus } from "./chat/ComposerTurnStatus";
 import { ActiveTurnResponseSpacer } from "./chat/ActiveTurnResponseSpacer";
 import { buildTranscriptRows, finalAnswerPosition, presentationAssistantPosition, type TranscriptMessageRow } from "./chat/transcript-rows";
@@ -412,6 +413,13 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     return blocks;
   }, [messages, activeStreamingMessage, turnStatusDebug]);
   const followPhase = followPhaseFromRows(transcriptRows);
+  const latestTurn = useMemo(() => {
+    for (let index = transcriptRows.length - 1; index >= 0; index -= 1) {
+      const row = transcriptRows[index];
+      if (row.kind === "turn") return row;
+    }
+    return null;
+  }, [transcriptRows]);
   const isEmptyNew = isNew && messages.length === 0 && !streamState.isStreaming && !sessionBusy;
   const transcriptFollow = useTranscriptFollow({
     scrollContainerRef,
@@ -852,6 +860,11 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
       </div>
 
       <div ref={footerRef} className={styles.composerDock}>
+        <LatestTurnPreview
+          turn={latestTurn}
+          visible={transcriptFollow.button.visible}
+          onSelect={transcriptFollow.goToNewest}
+        />
         <NewMessagesControl
           mode={transcriptFollow.mode}
           button={transcriptFollow.button}
