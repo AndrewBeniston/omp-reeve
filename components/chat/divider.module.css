@@ -1,0 +1,26 @@
+.divider { margin-block: var(--space-2) var(--space-3); }
+.trigger {
+  display: grid;
+  grid-template-columns: minmax(0, auto) var(--space-2) minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  min-height: 32px;
+  border: 0;
+  border-bottom: 1px solid var(--ui-divider);
+  border-radius: 0;
+  padding: var(--space-1) 0;
+  background: transparent;
+  color: var(--ui-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+}
+.trigger:focus-visible { outline: var(--ui-focus-ring); outline-offset: var(--ui-focus-offset); }
+.label { overflow: hidden; color: var(--ui-text); text-overflow: ellipsis; white-space: nowrap; }
+.chevron { width: 16px; height: 16px; transition: transform var(--duration-fast) var(--ease-standard); }
+.chevron[data-expanded="true"] { transform: rotate(90deg); }
+.denied { justify-self: end; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.content { margin-top: var(--space-2); }
+@media (pointer: coarse) { .trigger { min-height: var(--ui-control-touch); } }
+@media (prefers-reduced-motion: reduce) { .chevron { transition: none; } }
