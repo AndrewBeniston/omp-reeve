@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The Composer now supports reference keyboard commands and a configurable Send shortcut.
 - Full Access now asks for confirmation before enabling and shows a dismissible warning while it is active.
 - The model menu now transitions between model and effort stages with the reference timings and reduced-motion support.
 

@@ -1,4 +1,5 @@
 import { REVIEW_SETTINGS_FIELDS, type ReviewSettingPath } from "./review-settings-store";
+import { COMPOSER_ENTER_BEHAVIOR_SETTING_PATH } from "./composer-keyboard-commands";
 
 export type SettingsValue = boolean | string | number | string[] | Record<string, number> | null;
 
@@ -81,6 +82,24 @@ const COMPLETION_SOUND_FIELD = {
   configured: false,
 } as const satisfies SettingsField;
 
+const COMPOSER_ENTER_BEHAVIOR_FIELD = {
+  path: COMPOSER_ENTER_BEHAVIOR_SETTING_PATH,
+  owner: "browser",
+  tab: "interaction",
+  group: "Composer",
+  label: "settings.interaction.sendShortcut",
+  description: "settings.interaction.sendShortcutDescription",
+  type: "select",
+  value: null,
+  defaultValue: "enter",
+  configured: false,
+  options: [
+    { value: "enter", label: "Enter", description: "Enter sends. Shift and Enter insert a line." },
+    { value: "cmdIfMultiline", label: "Enter or Command", description: "Enter sends one line. Command and Enter send multiline input." },
+    { value: "cmdAlways", label: "Command", description: "Command and Enter send every message." },
+  ],
+} as const satisfies SettingsField;
+
 /**
  * The settings Reeve owns itself.
  *
@@ -90,10 +109,11 @@ const COMPLETION_SOUND_FIELD = {
  */
 export const WEB_SETTINGS_FIELDS: readonly SettingsField[] = [
   COMPLETION_SOUND_FIELD,
+  COMPOSER_ENTER_BEHAVIOR_FIELD,
   ...REVIEW_SETTINGS_FIELDS,
 ];
 
-export type BrowserSettingPath = typeof COMPLETION_SOUND_SETTING_PATH | ReviewSettingPath;
+export type BrowserSettingPath = typeof COMPLETION_SOUND_SETTING_PATH | typeof COMPOSER_ENTER_BEHAVIOR_SETTING_PATH | ReviewSettingPath;
 
 export type McpTransport = "stdio" | "http" | "sse";
 

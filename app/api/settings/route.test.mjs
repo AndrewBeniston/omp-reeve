@@ -9,6 +9,7 @@ import { createJiti } from "jiti";
 const jiti = createJiti(import.meta.url, { tsconfigPaths: true });
 const { PATCH } = await jiti.import("./route.ts");
 const { COMPLETION_SOUND_SETTING_PATH, WEB_SETTINGS_FIELDS } = await jiti.import("../../../lib/settings-api.ts");
+const { COMPOSER_ENTER_BEHAVIOR_SETTING_PATH } = await jiti.import("../../../lib/composer-keyboard-commands.ts");
 
 test("the settings API exposes completion sound in Interaction Notifications without an OMP schema collision", async () => {
   const field = WEB_SETTINGS_FIELDS.find((item) => item.path === COMPLETION_SOUND_SETTING_PATH);
@@ -22,6 +23,15 @@ test("the settings API exposes completion sound in Interaction Notifications wit
   assert.equal(COMPLETION_SOUND_SETTING_PATH, "web.omp-sound-enabled");
   assert.equal(COMPLETION_SOUND_SETTING_PATH in SETTINGS_SCHEMA, false);
   assert.match(routeSource, /fields\.push\(\.\.\.WEB_SETTINGS_FIELDS/);
+});
+
+test("the settings API exposes the three send shortcut behaviors as a browser preference", () => {
+  const field = WEB_SETTINGS_FIELDS.find((item) => item.path === COMPOSER_ENTER_BEHAVIOR_SETTING_PATH);
+  assert.ok(field);
+  assert.equal(field.owner, "browser");
+  assert.equal(field.type, "select");
+  assert.equal(field.defaultValue, "enter");
+  assert.deepEqual(field.options?.map((option) => option.value), ["enter", "cmdIfMultiline", "cmdAlways"]);
 });
 
 test("PATCH rejects a browser-owned settings field", async (t) => {
