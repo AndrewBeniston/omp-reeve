@@ -40,6 +40,7 @@ import { QuestionRequestPanel, type QuestionRequest } from "./chat/QuestionReque
 import { EmptyChatHome } from "./chat/EmptyChatHome";
 import { NewMessagesControl } from "./chat/NewMessagesControl";
 import { ComposerTurnStatus } from "./chat/ComposerTurnStatus";
+import { GoalPill } from "./chat/GoalPill";
 import { ActiveTurnResponseSpacer } from "./chat/ActiveTurnResponseSpacer";
 import {
   TranscriptNavigationRail,
@@ -261,6 +262,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
     retryInfo, contextUsage, forkingEntryId,
     isCompacting, compactError, compactResult, displayModel: displayModelValue, modelSwitching, sessionStats,
     slashCommands, slashCommandsLoading, queuedMessages, subagents,
+    goalState,
     notices, extensionDialog, extensionCustomUi, extensionStatuses, extensionWidgets, respondToExtensionUi, sendExtensionCustomInput,
     approvalNudgeOpen, approvalDialogId, handleApprovalNudgeAccept, handleApprovalNudgeDismiss,
     isAutoModelSelection,
@@ -887,6 +889,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
             toolResults={toolResultsMap}
           />
         )}
+        <GoalPill goal={goalState.goal} />
         {chatInputElement}
         <ExtensionStatusBar statuses={extensionStatuses} />
       </div>
