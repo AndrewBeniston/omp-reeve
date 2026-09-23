@@ -393,7 +393,7 @@ function isFileMentionMessage(message: unknown): message is FileMentionMessage {
 
 function userMessageAttachmentsFromFileMention(message: FileMentionMessage): UserMessageAttachment[] {
   return message.files.map((file) => {
-    const uploaded = file.path.startsWith("browser-upload:");
+    const uploaded = file.path.startsWith("browser-upload:") || file.path.endsWith("/Pasted text.txt");
     const source = uploaded ? file.path.slice(file.path.indexOf("/") + 1) : file.path;
     const name = source.split(/[/\\]/).filter(Boolean).at(-1) || source;
     return {
