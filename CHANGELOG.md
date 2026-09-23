@@ -13,6 +13,8 @@ the What's New dialog adds a second page that invites support.
 
 - The Session API now reads and changes OMP Goals, including token budgets.
   A saved active Goal opens paused after a cold Session restart.
+- The Session client now restores Goal state and reconciles missed Goal updates.
+  A failed initial read offers a retry action.
 
 ## [0.8.0] - 2026-09-23
 
