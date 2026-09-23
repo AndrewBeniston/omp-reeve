@@ -24,9 +24,9 @@ export function UserMessageEditor({
     textareaRef.current?.setSelectionRange(initialText.length, initialText.length);
   }, [initialText]);
 
-  const submit = () => {
+  const submit = (value = text) => {
     if (pending) return;
-    void onSubmit(text).catch(() => {});
+    void onSubmit(value).catch(() => {});
   };
 
   return (
@@ -41,7 +41,7 @@ export function UserMessageEditor({
             onCancel();
           } else if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
-            submit();
+            submit(event.currentTarget.value);
           }
         }}
         placeholder={t("codex.userMessage.editPlaceholder")}
@@ -53,7 +53,7 @@ export function UserMessageEditor({
         <button type="button" onClick={onCancel} disabled={pending}>
           {t("codex.userMessage.cancelEditMessage")}
         </button>
-        <button type="button" onClick={submit} disabled={pending} aria-busy={pending || undefined}>
+        <button type="button" onClick={() => submit()} disabled={pending} aria-busy={pending || undefined}>
           {t("codex.userMessage.sendEditedMessage")}
         </button>
       </div>
