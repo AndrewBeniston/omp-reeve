@@ -44,8 +44,10 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { getSecureAttachmentPicker } from "@/lib/desktop-attachments";
 import {
   addComposerAttachments,
+  addBrowserUpload,
   markComposerAttachmentError,
   removeComposerAttachment,
+  uploadBrowserFile,
   type ComposerAttachmentDescriptor,
 } from "@/lib/composer-attachment-state";
 import { useI18n } from "@/hooks/useI18n";
@@ -161,6 +163,7 @@ interface Props {
   onBuiltinCommand?: (message: string) => Promise<BuiltinSlashCommandResult>;
   onAudioUnlock?: () => void;
   draftKey?: string;
+  onEnsureSession?: () => Promise<string | null>;
   imageInputId?: string;
   /** Session working directory — enables the @ file autocomplete menu */
   cwd?: string | null;
@@ -189,6 +192,7 @@ export interface ChatInputHandle {
   replaceMessage: (message: UserMessage) => void;
   prependText: (text: string) => void;
   addImages: (files: File[]) => void;
+  addFiles: (files: File[]) => void;
   rekeyDraft: (previousKey: string, nextKey: string) => void;
   restoreSubmission: (text: string, images?: ChatDraftImage[], targetDraftKey?: string, attachments?: ComposerAttachmentDescriptor[], attachmentError?: string) => void;
 }
@@ -471,6 +475,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   onAudioUnlock,
   onPromptWithStreamingBehavior,
   draftKey,
+  onEnsureSession,
   cwd,
   contextUsage,
   sessionStats,
@@ -491,6 +496,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const modelSubmenu = modelMenu.submenu;
   const modelFilter = modelMenu.filter;
   const [attachmentPickerError, setAttachmentPickerError] = useState<string | null>(null);
+  const [browserUploadsPending, setBrowserUploadsPending] = useState(0);
   const [localAttachments, setLocalAttachments] = useState<ComposerAttachmentDescriptor[]>(
     () => draftKey ? getDraft(draftKey)?.attachments ?? [] : [],
   );
@@ -570,6 +576,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const controlsMenuRef = useRef<HTMLDivElement>(null);
   const historyMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const browserFileInputRef = useRef<HTMLInputElement>(null);
+  const browserUploadsPendingRef = useRef(0);
   const isComposingRef = useRef(false);
   const lastCompositionEndAtRef = useRef(0);
   const slashCommandsRequestedRef = useRef(false);
@@ -665,6 +673,43 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     }
   }, []);
 
+  const processBrowserFiles = useCallback(async (files: File[]) => {
+    if (files.length === 0) return;
+    if (localAttachmentsRef.current.length + browserUploadsPendingRef.current + files.length > 32) {
+      setAttachmentPickerError(t("composer.localAttachmentLimit", { count: 32 }));
+      return;
+    }
+    browserUploadsPendingRef.current += files.length;
+    setBrowserUploadsPending(browserUploadsPendingRef.current);
+    setAttachmentPickerError(null);
+    try {
+      const sessionId = await onEnsureSession?.();
+      if (!sessionId) throw new Error(t("composer.browserUploadNoSession"));
+      for (const file of files) {
+        try {
+          const upload = await uploadBrowserFile(sessionId, file);
+          const next = addBrowserUpload(
+            localAttachmentsRef.current,
+            sessionId,
+            upload,
+            t("composer.browserUploadNotSendable"),
+          );
+          localAttachmentsRef.current = next;
+          setLocalAttachments(next);
+        } catch (error) {
+          setAttachmentPickerError(error instanceof Error ? error.message : t("composer.browserUploadFailed"));
+        } finally {
+          browserUploadsPendingRef.current--;
+          setBrowserUploadsPending(browserUploadsPendingRef.current);
+        }
+      }
+    } catch (error) {
+      setAttachmentPickerError(error instanceof Error ? error.message : t("composer.browserUploadFailed"));
+      browserUploadsPendingRef.current -= files.length;
+      setBrowserUploadsPending(browserUploadsPendingRef.current);
+    }
+  }, [onEnsureSession, t]);
+
   useImperativeHandle(ref, () => ({
     /**
      * Send text composed elsewhere through the composer's own send, so a
@@ -748,7 +793,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         ))
         && (moved.attachments?.length ?? 0) === currentDraft.attachments.length
         && (moved.attachments ?? []).every((attachment, index) => (
-          attachment.selection.signature === currentDraft.attachments[index]?.selection.signature
+          attachment.selection?.signature === currentDraft.attachments[index]?.selection?.signature
+          && attachment.upload?.id === currentDraft.attachments[index]?.upload?.id
           && attachment.readError === currentDraft.attachments[index]?.readError
         ));
       draftKeyRef.current = nextKey;
@@ -859,6 +905,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     },
     addImages(files: File[]) {
       processImageFiles(files);
+    },
+    addFiles(files: File[]) {
+      const images = files.filter(file => file.type.startsWith("image/"));
+      if (images.length) processImageFiles(images);
+      const otherFiles = files.filter(file => !file.type.startsWith("image/"));
+      if (otherFiles.length && !getSecureAttachmentPicker()) void processBrowserFiles(otherFiles);
     },
   }));
 
@@ -1031,6 +1083,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   }, []);
 
   const handleSend = useCallback(async () => {
+    if (browserUploadsPendingRef.current > 0) {
+      setAttachmentPickerError(t("composer.browserUploading"));
+      return;
+    }
     if (builtinCommandPending) return;
     setBuiltinCommandPending(true);
     try {
@@ -1363,6 +1419,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   }, []);
 
   const sendQueued = useCallback((mode: "steer" | "followUp") => {
+    if (browserUploadsPendingRef.current > 0) {
+      setAttachmentPickerError(t("composer.browserUploading"));
+      return;
+    }
     dispatchStreamingSubmission({
       value,
       images: attachedImages,
@@ -1375,7 +1435,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       clearInput,
       onAttachmentBlocked: setAttachmentPickerError,
     });
-  }, [value, attachedImages, localAttachments, onPromptWithStreamingBehavior, onSteer, onFollowUp, clearInput, onAudioUnlock]);
+  }, [value, attachedImages, localAttachments, onPromptWithStreamingBehavior, onSteer, onFollowUp, clearInput, onAudioUnlock, t]);
 
   const getNextSlashIndex = useCallback((direction: "up" | "down") => {
     const lastIndex = displayedSlashCommands.length - 1;
@@ -1854,16 +1914,21 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       onHeightChange={(scrollHeight) => setTextareaHeight(getComposerTextareaHeight(scrollHeight))}
     />
   );
-  const localAttachmentRows = localAttachments.length > 0 ? (
+  const localAttachmentRows = localAttachments.length > 0 || browserUploadsPending > 0 ? (
     <div className={styles.localAttachmentList} role="list" aria-label={t("composer.localAttachments")}>
+      {browserUploadsPending > 0 && (
+        <div className={styles.localAttachmentRow} role="status" data-state="uploading">
+          {t("composer.browserUploading")}
+        </div>
+      )}
       {localAttachments.map((attachment) => (
         <div key={attachment.id} className={styles.localAttachmentRow} role="listitem" data-state={attachment.readError ? "error" : "ready"}>
           <span className={styles.localAttachmentKind} aria-hidden="true">{attachment.kind === "folder" ? "▣" : "▤"}</span>
           <span className={styles.localAttachmentDetails}>
             <span className={styles.localAttachmentName}>{attachment.name}</span>
             <span className={styles.localAttachmentMeta}>
-              {t(attachment.kind === "folder" ? "composer.localFolder" : "composer.localFile")}
-              <span aria-hidden="true"> · </span>{attachment.pathSummary}
+              {t(attachment.upload ? "composer.browserFile" : attachment.kind === "folder" ? "composer.localFolder" : "composer.localFile")}
+              {attachment.pathSummary && <><span aria-hidden="true"> · </span>{attachment.pathSummary}</>}
               <span aria-hidden="true"> · </span>
               <span role={attachment.readError ? "alert" : undefined}>
                 {attachment.readError === "inaccessible"
@@ -2168,13 +2233,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                   }).catch(() => setAttachmentPickerError(t("composer.attachmentPickerError")));
                   return;
                 }
-                const editor = textareaRef.current;
-                if (!editor) return;
-                const start = editor.selectionStart;
-                const prefix = start > 0 && !/\s/.test(editor.value[start - 1]) ? " @" : "@";
-                editor.replaceRange(start, editor.selectionEnd, prefix);
-                requestAnimationFrame(() => editor.focus());
-                updateAtQuery(editor.value, start + prefix.length);
+                browserFileInputRef.current?.click();
               } : undefined}
               onSelect={(item) => {
                 const editor = textareaRef.current;
@@ -2314,6 +2373,16 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
 
   return (
     <>
+      <input
+        ref={browserFileInputRef}
+        type="file"
+        multiple
+        hidden
+        onChange={(event) => {
+          void processBrowserFiles(Array.from(event.target.files ?? []));
+          event.target.value = "";
+        }}
+      />
       <ComposerFrame
       requestPending={requestPending}
       onSubmit={(event) => {
