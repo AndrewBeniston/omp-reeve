@@ -178,6 +178,7 @@ interface Props {
   cwd?: string | null;
   onSelectWorktree?: (path: string) => void;
   onRegisterWorktreeCommand?: (open: () => void) => void;
+  footerMode?: "home" | "session";
   contextUsage?: ContextUsage | null;
   sessionStats?: SessionStatsInfo | null;
   projectTrust?: ProjectTrustStatus | null;
@@ -496,6 +497,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   cwd,
   onSelectWorktree,
   onRegisterWorktreeCommand,
+  footerMode = "session",
   contextUsage,
   sessionStats,
   projectTrust,
@@ -2756,6 +2758,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       )}
       toolbarEnd={toolbarEnd}
       dictateLabel={t("chat.dictate")}
+      utilityBarLabel={t("composer.utilityBar")}
+      footerMode={footerMode}
       toolbarEndRef={controlsMenuRef}
       isMobile={isMobile}
       />

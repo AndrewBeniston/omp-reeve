@@ -56,6 +56,7 @@ export const enLocale: LocalePlugin = {
     "settings.interaction.sendShortcut.cmdIfMultiline": "Enter or Command",
     "settings.interaction.sendShortcut.cmdAlways": "Command",
     "chat.dictationUnavailable": "Dictation is unavailable for this session.",
+    "composer.utilityBar": "Composer utility bar",
     "settings.review.automatic": "Automatic code review",
     "chat.commandRunning": "Running that command…",
     "settings.review.automaticDescription": "Let Reeve start a review itself when you do the thing you chose below. Off until you turn it on.",

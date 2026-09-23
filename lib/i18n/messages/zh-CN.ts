@@ -56,6 +56,7 @@ export const zhCNLocale: LocalePlugin = {
     "settings.interaction.sendShortcut.cmdIfMultiline": "Enter 或 Command",
     "settings.interaction.sendShortcut.cmdAlways": "Command",
     "chat.dictationUnavailable": "此会话无法使用听写。",
+    "composer.utilityBar": "作曲器工具栏",
     "settings.review.automatic": "自动代码审查",
     "chat.commandRunning": "正在执行该命令…",
     "settings.review.automaticDescription": "在你选择的操作发生时，让 Reeve 自行开始审查。默认关闭。",

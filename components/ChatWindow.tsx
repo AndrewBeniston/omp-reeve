@@ -556,6 +556,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
       onEnsureSession={ensureNewSession}
       cwd={session?.cwd ?? newSessionCwd}
       onSelectWorktree={onSelectWorktree}
+      footerMode={isEmptyNew ? "home" : "session"}
     />
   );
 
