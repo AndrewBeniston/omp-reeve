@@ -567,6 +567,8 @@ export const zhCNLocale: LocalePlugin = {
     "transcript.modelChanged": "模型已从 {fromModel} 切换为 {toModel}。",
     "transcript.modelChangedWarningLine1": "在对话中切换模型会降低性能。",
     "transcript.modelChangedWarningLine2": "上下文可能会自动压缩。",
+    "transcript.turnRenderError.title": "此轮次无法显示",
+    "transcript.turnRenderError.retry": "重试",
     "transcript.contextManuallyCompacting": "正在压缩上下文",
     "transcript.contextManuallyCompacted": "上下文已压缩",
     "transcript.contextAutomaticallyCompacting": "上下文正在自动压缩",
