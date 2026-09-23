@@ -11,6 +11,7 @@ interface Props {
   currentStepId?: string;
   effortLabel: string;
   modelName: string | null;
+  effortStage?: boolean;
   modelTriggerRef: RefObject<HTMLButtonElement | null>;
   modelMenuOpen: boolean;
   canSelectModel: boolean;
@@ -24,6 +25,7 @@ export function ModelPowerSlider({
   currentStepId,
   effortLabel,
   modelName,
+  effortStage = false,
   modelTriggerRef,
   modelMenuOpen,
   canSelectModel,
@@ -67,8 +69,8 @@ export function ModelPowerSlider({
           className={styles.modelToggle}
           surface="plain"
         >
-          <span>{t("chat.selectModel")}</span>
-          {modelName && <span className={styles.modelName}>{modelName}</span>}
+          <span data-model-effort-placeholder={effortStage ? "true" : undefined}>{t(effortStage ? "chat.selectEffort" : "chat.selectModel")}</span>
+          {!effortStage && modelName && <span className={styles.modelName}>{modelName}</span>}
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="m6.5 5 3 3-3 3" />
           </svg>
@@ -77,6 +79,7 @@ export function ModelPowerSlider({
       {steps.length > 0 ? (
         <div className={styles.sliderRow}>
           <div className={styles.effortLabel}>{steps[visibleIndex]?.sliderLabel ?? effortLabel}</div>
+          {effortStage && modelName && <div className={styles.effortModelName} data-model-effort-name>{modelName}</div>}
           <div
             className={styles.track}
             aria-label={t("chat.effort")}

@@ -59,6 +59,7 @@ import { ComposerAutocomplete } from "./chat/ComposerAutocomplete";
 import { ComposerAddMenu } from "./chat/ComposerAddMenu";
 import { CommandArgumentsDialog } from "./chat/CommandArgumentsDialog";
 import { ComposerEditor, type ComposerEditorHandle } from "./chat/ComposerEditor";
+import { ModelList } from "./chat/ModelList";
 import { ModelPowerSlider } from "./chat/ModelPowerSlider";
 import { PausedQueueSubmitDialog } from "./chat/PausedQueueSubmitDialog";
 import { ApprovalModeSelector } from "./chat/ApprovalModeSelector";
@@ -365,14 +366,6 @@ export function dispatchStreamingSubmission({
 }
 
 const THINKING_LEVELS = ["auto", ...THINKING_STEP_ORDER] as const;
-
-function ModelSelectionMark() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.selectionMark} aria-hidden="true">
-      <polyline points="1.5 5 4 7.5 8.5 2.5" />
-    </svg>
-  );
-}
 
 function SubmenuSelectionCheck() {
   return (
@@ -1652,15 +1645,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     filter: modelFilter,
   }, t);
   const modelOptions = selector.models;
+  const defaultRow = selector.defaultRow;
   const showModelFilter = modelOptions.length > MODEL_FILTER_THRESHOLD;
 
   useEffect(() => {
     if (modelDropdownOpen && modelSubmenu === "model" && showModelFilter) modelFilterRef.current?.focus();
   }, [modelDropdownOpen, modelSubmenu, showModelFilter]);
-
-  const modelsByProvider = selector.modelsByProvider;
-  const roleRows = selector.roleRows;
-  const activeRole = selector.activeRole;
 
   const displayModelName = model
     ? (modelOptions.find((o) => o.modelId === model.modelId && o.provider === model.provider)?.name ?? model.modelId)
@@ -1975,7 +1965,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                   {modelDropdownOpen && modelDropdownRect && (() => {
                     const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
                     const bottom = viewportHeight - modelDropdownRect.top + 6;
-                    const maxHeight = Math.max(120, Math.min(modelDropdownRect.top - 8, viewportHeight * 0.6));
+                    const availableHeight = modelDropdownRect.top - 8;
+                    const maxHeight = modelSubmenu === "model"
+                      ? Math.max(12, availableHeight)
+                      : Math.max(120, Math.min(availableHeight, viewportHeight * 0.6));
                     return (
                       <ComposerFloatingGeometry
                         left={modelDropdownRect.left}
@@ -1997,6 +1990,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                             currentStepId={selector.currentStep?.id}
                             effortLabel={currentEffortLabel}
                             modelName={currentName}
+                            effortStage={modelSubmenu === "effort"}
                             modelTriggerRef={modelRowRef}
                             modelMenuOpen={modelSubmenu === "model"}
                             canSelectModel={Boolean(onModelChange)}
@@ -2047,47 +2041,24 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
 
                         {modelSubmenu === "model" && (
                           <Menu open label={t("chat.model")} onClose={() => dispatchModelMenu({ type: "submenu", value: null })} triggerRef={modelRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuModel}`} data-model-submenu="model">
-                            {showModelFilter && (
-                              <div className={styles.modelFilterWrap}>
-                                <input ref={modelFilterRef} value={modelFilter} onChange={(e) => dispatchModelMenu({ type: "filter", value: e.target.value })} placeholder={t("chat.filterModels")} aria-label={t("chat.filterModels")} autoFocus autoComplete="off" spellCheck={false} className={styles.modelFilter} data-mobile={isMobile ? "true" : "false"} />
-                              </div>
-                            )}
-                            <div className={styles.modelMenuScroller}>
-                              {roleRows.length > 0 && !modelFilter.trim() && onRoleModelChange && (
-                                <div>
-                                  <div className={styles.modelGroupLabel}>{t("chat.modelRoles")}</div>
-                                  {roleRows.map((role) => {
-                                    const isActive = activeRole?.role === role.role;
-                                    const resolvedName = role.resolved?.name ?? role.resolved?.modelId ?? "";
-                                    return (
-                                      <MenuItem key={role.role} onClick={() => { closeModelMenu(); onRoleModelChange(role.role); }} title={role.selector ?? resolvedName} className={styles.selectableControl} data-selected={isActive ? "true" : "false"} data-active={isActive ? "true" : "false"} role="menuitemradio" checked={isActive} surface="plain">
-                                        {isActive ? <ModelSelectionMark /> : <span className={styles.selectionSpacer} />}
-                                        <span className={styles.roleTag} data-active={isActive ? "true" : "false"}>{role.tag ?? role.role.toUpperCase()}</span>
-                                        <span className={styles.roleName}>{role.name}</span>
-                                        <span className={styles.roleResolved}>{resolvedName}{role.resolved?.thinkingLevel ? ` · ${role.resolved.thinkingLevel}` : ""}</span>
-                                      </MenuItem>
-                                    );
-                                  })}
-                                  <div className={`${styles.modelGroupLabel} ${styles.modelGroupDivider}`}>{t("chat.allModels")}</div>
-                                </div>
-                              )}
-                              {modelsByProvider.length === 0 ? (
-                                <div className={styles.noModels}>{modelFilter.trim() ? t("chat.noMatchingModels") : t("chat.noAvailableModels")}</div>
-                              ) : modelsByProvider.map((group, groupIndex) => (
-                                <div key={group.provider} data-model-provider={group.provider}>
-                                  {(modelsByProvider.length > 1 || group.label !== group.provider) && <div className={styles.modelGroupLabel} data-divided={groupIndex > 0 ? "true" : "false"}>{group.label}</div>}
-                                  {group.options.map((option) => {
-                                    const isActive = option.modelId === model?.modelId && option.provider === model?.provider;
-                                    return (
-                                      <MenuItem key={`${option.provider}:${option.modelId}`} onClick={() => { closeModelMenu(); if (!isActive || isAutoModelSelection) onModelChange(option.provider, option.modelId); }} className={styles.selectableControl} data-selected={isActive ? "true" : "false"} role="menuitemradio" checked={isActive} surface="plain">
-                                        {isActive ? <ModelSelectionMark /> : <span className={styles.selectionSpacer} />}
-                                        {option.name}
-                                      </MenuItem>
-                                    );
-                                  })}
-                                </div>
-                              ))}
-                            </div>
+                            <ModelList
+                              selector={selector}
+                              filter={modelFilter}
+                              showFilter={showModelFilter}
+                              filterRef={modelFilterRef}
+                              isMobile={isMobile}
+                              isAutoModelSelection={isAutoModelSelection}
+                              onFilterChange={(value) => dispatchModelMenu({ type: "filter", value })}
+                              onDefault={defaultRow ? () => {
+                                dispatchModelMenu({ type: "submenu", value: "effort" });
+                                if (onRoleModelChange) onRoleModelChange("default");
+                                else onModelChange(defaultRow.model.provider, defaultRow.model.modelId);
+                              } : undefined}
+                              onModel={(provider, modelId, selected) => {
+                                dispatchModelMenu({ type: "submenu", value: "effort" });
+                                if (!selected) onModelChange(provider, modelId);
+                              }}
+                            />
                           </Menu>
                         )}
 

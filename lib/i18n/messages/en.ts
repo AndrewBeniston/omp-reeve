@@ -371,6 +371,7 @@ export const enLocale: LocalePlugin = {
     "chat.modelSettings": "Model settings",
     "chat.model": "Model",
     "chat.selectModel": "Select model",
+    "chat.selectEffort": "Select effort",
     "chat.openaiApiRoute": "OpenAI API",
     "chat.chatgptSubscriptionRoute": "ChatGPT subscription",
     "chat.effort": "Effort",
