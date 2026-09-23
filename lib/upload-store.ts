@@ -11,6 +11,8 @@ export const MAX_UPLOAD_SESSION_BYTES = 500 * 1024 * 1024;
 export const MAX_UPLOAD_GLOBAL_BYTES = 2 * 1024 * 1024 * 1024;
 /** An upload without a saved Session reference expires after one day without a retry. */
 export const UPLOAD_ABANDONED_TTL_MS = 24 * 60 * 60 * 1000;
+/** An upload claim without a persisted Session message expires under the same one-day policy. */
+export const UPLOAD_CLAIM_TTL_MS = UPLOAD_ABANDONED_TTL_MS;
 
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UPLOAD_ID = /^up_[0-9a-f]{32}$/;
@@ -31,6 +33,7 @@ interface StoredUpload extends BrowserUpload {
   createdAt?: number;
   lastAttemptAt?: number;
   savedAt?: number;
+  claimedAt?: number;
 }
 
 export interface UploadInput {
@@ -101,7 +104,7 @@ function isStoredUpload(value: unknown): value is StoredUpload {
     && typeof item.name === "string" && item.name.length > 0
     && typeof item.size === "number" && Number.isSafeInteger(item.size) && item.size >= 0
     && typeof item.mediaType === "string" && MEDIA_TYPE.test(item.mediaType)
-    && [item.createdAt, item.lastAttemptAt, item.savedAt]
+    && [item.createdAt, item.lastAttemptAt, item.savedAt, item.claimedAt]
       .every(timestamp => timestamp === undefined || (Number.isSafeInteger(timestamp) && timestamp >= 0))
     && item.state === "ready";
 }
@@ -136,6 +139,50 @@ async function readRecord(filePath: string): Promise<StoredUpload | null> {
   return parsed;
 }
 
+async function findSessionFile(sessionId: string, root?: string): Promise<string | null> {
+  const agentDir = getAgentDir();
+  const searchDirs = [
+    join(agentDir, "sessions"),
+    agentDir,
+    ...(root ? [join(root, ".."), root] : []),
+  ];
+  for (const base of searchDirs) {
+    try {
+      const entries = await readdir(base, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile()) {
+          if (entry.name.endsWith(`_${sessionId}.jsonl`)) return join(base, entry.name);
+          if (entry.name === "session.jsonl") {
+            const firstLine = (await readFile(join(base, entry.name), "utf8")).split("\n")[0];
+            try {
+              const parsed = JSON.parse(firstLine);
+              if (parsed?.id === sessionId) return join(base, entry.name);
+            } catch {}
+          }
+        } else if (entry.isDirectory()) {
+          try {
+            const subfiles = await readdir(join(base, entry.name));
+            const match = subfiles.find(f => f.endsWith(`_${sessionId}.jsonl`));
+            if (match) return join(base, entry.name, match);
+          } catch {}
+        }
+      }
+    } catch {}
+  }
+  return null;
+}
+
+async function checkPersistedMessage(sessionId: string, uploadId: string, root?: string): Promise<boolean> {
+  const filePath = await findSessionFile(sessionId, root);
+  if (!filePath) return false;
+  try {
+    const content = await readFile(filePath, "utf8");
+    return content.includes(`browser-upload:${uploadId}/`);
+  } catch {
+    return false;
+  }
+}
+
 interface Inventory {
   recordsBySession: Map<string, StoredUpload[]>;
   bytesBySession: Map<string, number>;
@@ -147,6 +194,7 @@ async function recoverAndInventory(root: string, options: {
   now?: number;
   retry?: { sessionId: string; key: string };
   sessionExists?: (sessionId: string) => Promise<boolean>;
+  hasPersistedMessage?: (sessionId: string, uploadId: string) => Promise<boolean> | boolean;
 } = {}): Promise<Inventory> {
   const now = options.now ?? Date.now();
   const inventory: Inventory = {
@@ -186,9 +234,19 @@ async function recoverAndInventory(root: string, options: {
       blobNames.delete(blobName);
       const lastAttemptAt = record.lastAttemptAt ?? record.createdAt ?? (await stat(filePath)).mtimeMs;
       const retrying = options.retry?.sessionId === sessionId && options.retry.key === record.key;
-      if (!record.savedAt && !retrying && now - lastAttemptAt >= UPLOAD_ABANDONED_TTL_MS) {
+      const claimTimestamp = record.claimedAt ?? record.savedAt;
+      if (!claimTimestamp && !retrying && now - lastAttemptAt >= UPLOAD_ABANDONED_TTL_MS) {
         await Promise.all([rm(filePath, { force: true }), rm(join(sessionDirectory, blobName), { force: true })]);
         continue;
+      }
+      if (claimTimestamp && !retrying && now - claimTimestamp >= UPLOAD_CLAIM_TTL_MS) {
+        const hasPersisted = options.hasPersistedMessage
+          ? await options.hasPersistedMessage(sessionId, record.id)
+          : await checkPersistedMessage(sessionId, record.id, root);
+        if (!hasPersisted) {
+          await Promise.all([rm(filePath, { force: true }), rm(join(sessionDirectory, blobName), { force: true })]);
+          continue;
+        }
       }
       records.push(record);
       sessionBytes += record.size;
@@ -309,7 +367,7 @@ export async function releaseBrowserUpload({ sessionId, id, root = browserUpload
     const directory = join(root, sessionId);
     const recordPath = join(directory, `${id}.json`);
     const record = await readRecord(recordPath);
-    if (!record || record.sessionId !== sessionId || record.id !== id || record.savedAt) return false;
+    if (!record || record.sessionId !== sessionId || record.id !== id || record.savedAt || record.claimedAt) return false;
     await rm(recordPath, { force: true });
     await rm(join(directory, `${id}.blob`), { force: true });
     return true;
@@ -334,8 +392,12 @@ export async function retainBrowserUploads({ sessionId, ids, root = browserUploa
     });
     const savedAt = Date.now();
     for (const record of selected) {
-      if (!record.savedAt) {
-        await writeRecord(join(root, sessionId, `${record.id}.json`), { ...record, savedAt });
+      if (!record.savedAt || !record.claimedAt) {
+        await writeRecord(join(root, sessionId, `${record.id}.json`), {
+          ...record,
+          savedAt: record.savedAt ?? savedAt,
+          claimedAt: record.claimedAt ?? record.savedAt ?? savedAt,
+        });
       }
     }
     return selected.map(record => ({ upload: publicUpload(record), filePath: join(root, sessionId, `${record.id}.blob`) }));
@@ -375,13 +437,14 @@ export async function deleteSessionBrowserUploads({ sessionId, root = browserUpl
 }
 
 /** Repair interrupted writes and remove abandoned uploads during server startup or later maintenance. */
-export async function collectBrowserUploads({ root = browserUploadRoot(), now = Date.now(), sessionExists }: {
+export async function collectBrowserUploads({ root = browserUploadRoot(), now = Date.now(), sessionExists, hasPersistedMessage }: {
   root?: string;
   now?: number;
   sessionExists?: (sessionId: string) => Promise<boolean>;
+  hasPersistedMessage?: (sessionId: string, uploadId: string) => Promise<boolean> | boolean;
 } = {}): Promise<void> {
   await withLockedRoot(root, async () => {
-    await recoverAndInventory(root, { now, sessionExists });
+    await recoverAndInventory(root, { now, sessionExists, hasPersistedMessage });
   });
 }
 
