@@ -9,6 +9,8 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+- Session history can load earlier pages and keep the cursor after a read failure.
+
 ## [0.8.0] - 2026-09-23
 
 ### Added
