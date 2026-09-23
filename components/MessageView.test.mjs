@@ -159,7 +159,7 @@ test("renders partial assistant content before the provider error", () => {
   assert.match(html, /Error: Connection closed/);
 });
 
-test("renders shell blocks as themed terminal content", () => {
+test("renders completed command activity with terminal output", () => {
   const html = renderToStaticMarkup(
     React.createElement(
       I18nProvider,
@@ -187,10 +187,9 @@ test("renders shell blocks as themed terminal content", () => {
     ),
   );
 
+  assert.match(html, /data-activity-kind="command" data-activity-state="completed"/);
   assert.match(html, /class="shell-output-preview"/);
   assert.match(html, /git<\/span>/);
-  assert.match(html, /--short/);
-  assert.match(html, /Output/);
   assert.match(html, /components\/MessageView\.tsx/);
 });
 
@@ -207,16 +206,23 @@ test("routes bash execution messages through BashExecutionActivity", () => {
   assert.match(html, /clean/);
 });
 
-test("uses i/title in the standard header for grep, read, write, glob, and eval blocks", () => {
+test("shows classified activity actions and details", () => {
   const cases = [
-    ["read", "i", "Verifico bridge startSessionReplay e campionamento", { i: "Verifico bridge startSessionReplay e campionamento", path: "lib/main.dart" }, "lib/main.dart"],
-    ["grep", "i", "Individuo avvio e stop del session replay", { i: "Individuo avvio e stop del session replay", path: "lib/main.dart" }, "lib/main.dart"],
-    ["write", "i", "Individuo simbolo Main dell'app Flutter", { i: "Individuo simbolo Main dell'app Flutter", path: "lib/main.dart" }, "lib/main.dart"],
-    ["glob", "i", "Individuo componenti TypeScript", { i: "Individuo componenti TypeScript", path: "components/**/*.tsx" }, "components/**/*.tsx"],
-    ["eval", "title", "Valuto il risultato del parser", { title: "Valuto il risultato del parser", code: "return 42" }, "return 42"],
+    ["read", "Reading", "lib/main.dart", "read"],
+    ["grep", "Searching", "session replay", "search"],
+    ["write", "Editing files", undefined, "edit"],
+    ["glob", "Listing files", "components/**/*.tsx", "list"],
+    ["eval", "Running tool", "eval", "unknown"],
   ];
 
-  for (const [toolName, property, preview, input, fallback] of cases) {
+  for (const [toolName, action, detail, kind] of cases) {
+    const input = toolName === "grep"
+      ? { query: "session replay" }
+      : toolName === "glob"
+        ? { path: "components/**/*.tsx" }
+        : toolName === "eval"
+          ? { code: "return 42" }
+          : { path: "lib/main.dart" };
     const html = renderMessage({
       role: "assistant",
       provider: "openai",
@@ -229,25 +235,22 @@ test("uses i/title in the standard header for grep, read, write, glob, and eval 
       }],
     });
 
-    const renderedPreview = preview.replaceAll("'", "&#x27;");
-    const previewPosition = html.indexOf(renderedPreview);
-    const toolPosition = html.indexOf(`>${toolName}</span>`);
-    assert.ok(previewPosition > toolPosition, `expected ${property} from ${toolName} in the standard header`);
-    assert.doesNotMatch(html, /class="tool-intent-preview"/);
-    assert.ok(!html.includes(fallback), `expected ${toolName} fallback to stay out of the header`);
+    assert.match(html, new RegExp(`data-activity-kind="${kind}" data-activity-state="running"`));
+    assert.ok(html.includes(action), `expected ${action} for ${toolName}`);
+    if (detail) assert.ok(html.includes(detail), `expected ${detail} for ${toolName}`);
   }
 });
 
 test("shows an operation icon beside every standard tool label", () => {
   const cases = [
     ["read", "read"],
-    ["write", "write"],
-    ["glob", "glob"],
-    ["grep", "grep"],
+    ["write", "edit"],
+    ["glob", "list"],
+    ["grep", "search"],
     ["edit", "edit"],
-    ["eval", "eval"],
-    ["functions.task", "task"],
-    ["unknown_tool", "generic"],
+    ["eval", "unknown"],
+    ["functions.task", "sub-agent"],
+    ["unknown_tool", "unknown"],
   ];
 
   for (const [toolName, iconKind] of cases) {
@@ -263,9 +266,9 @@ test("shows an operation icon beside every standard tool label", () => {
       }],
     });
 
-    const iconPosition = html.indexOf(`data-tool-icon="${iconKind}"`);
+    const iconPosition = html.indexOf(`data-activity-icon="${iconKind}"`);
     const iconEnd = html.indexOf(">", iconPosition);
-    const toolPosition = html.indexOf(`>${toolName}</span>`);
+    const toolPosition = html.indexOf("data-activity-slot=\"action\"");
     assert.ok(iconPosition >= 0, `expected ${iconKind} icon for ${toolName}`);
     assert.doesNotMatch(html.slice(iconPosition, iconEnd), /style=/);
     assert.ok(iconPosition < toolPosition, `expected ${iconKind} icon before ${toolName}`);
@@ -388,7 +391,7 @@ test("collapses active reasoning when a later tool appears", () => {
   assert.match(html, /aria-expanded="false"/);
   assert.match(html, /inert=""/);
   assert.match(html, /Inspect the source/);
-  assert.match(html, /data-tool-state="running"/);
+  assert.match(html, /data-activity-state="running"/);
 });
 
 test("renders finished reasoning with disclosure semantics", () => {
@@ -458,7 +461,7 @@ test("keeps tool activity status accessible without color", () => {
     }],
   });
 
-  assert.match(html, /data-tool-state="running"/);
+  assert.match(html, /data-activity-state="running"/);
   assert.match(html, /aria-label="[^"]*read[^"]*"/i);
 });
 
@@ -468,7 +471,7 @@ test("delegates transcript framing, thinking, and tools to canonical modules", a
   assert.match(source, /from "\.\/chat\/MessageTurn"/);
   assert.match(source, /from "\.\/chat\/ThinkingDisclosure"/);
   assert.match(source, /BashExecutionActivity.*from "\.\/chat\/BashExecutionActivity"/);
-  assert.match(source, /ToolActivity.*from "\.\/chat\/ToolActivity"/);
+  assert.match(source, /ActivityRow.*from "\.\/chat\/ActivityRow"/);
   assert.match(source, /<MessageTurn[\s\S]*?role="compaction"/);
   assert.match(source, /<MessageTurn[\s\S]*?role="custom"/);
   assert.doesNotMatch(source, /function ThinkingBlock/);

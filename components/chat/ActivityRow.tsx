@@ -3,6 +3,8 @@
 import { CircleStop, FilePenLine, FolderSearch, Globe2, List, Search, Terminal, Users, Wrench } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
 import { activityRowContent, type ActivityRowContent, type ActivityRowState } from "./transcript-rows";
+import { getResultText } from "./tool-presentation";
+import { TerminalOutput } from "./TerminalOutput";
 import type { ToolCallContent, ToolResultMessage } from "@/lib/types";
 import styles from "./activity-row.module.css";
 
@@ -29,7 +31,7 @@ function rowText(content: ActivityRowContent, toolName: string, t: (key: string,
         : { action: t("transcript.activity.search.files") };
     case "list":
       return detail
-        ? { action: t("transcript.activity.list"), detail: t("transcript.activity.list.detail", { folder: detail }) }
+        ? { action: t("transcript.activity.list.generic"), detail: t("transcript.activity.list.detail", { folder: detail }) }
         : { action: t("transcript.activity.list.generic") };
     case "edit":
       return { action: t("transcript.activity.edit") };
@@ -69,11 +71,19 @@ export function ActivityRow({ block, result, interrupted = false }: { block: Too
   const { t } = useI18n();
   const content = activityRowContent(block, result, interrupted);
   const text = rowText(content, block.toolName, t);
+  const resultText = getResultText(result);
+  const isError = result?.isError ?? false;
+  const isTerminalCommand = content.classification.kind === "command";
   return (
-    <div className={styles.row} data-activity-kind={content.classification.kind} data-activity-state={content.state}>
-      <span className={styles.icon} data-activity-icon={content.state === "interrupted" ? "stopped" : content.classification.kind}><ActivityIcon content={content} toolName={block.toolName} /></span>
-      <span className={styles.action} data-activity-slot="action">{text.action}</span>
-      {text.detail ? <span className={styles.detail} data-activity-slot="detail" title={text.detail}>{text.detail}</span> : null}
+    <div aria-label={`${block.toolName}, ${text.action}, ${t(`transcript.activity.state.${content.state}`)}`}>
+      <div className={styles.row} data-activity-kind={content.classification.kind} data-activity-state={content.state}>
+        <span className={styles.icon} data-activity-icon={content.state === "interrupted" ? "stopped" : content.classification.kind}><ActivityIcon content={content} toolName={block.toolName} /></span>
+        <span className={styles.action} data-activity-slot="action">{text.action}</span>
+        {text.detail ? <span className={styles.detail} data-activity-slot="detail" title={text.detail}>{text.detail}</span> : null}
+      </div>
+      {isTerminalCommand ? (
+        <TerminalOutput command={text.detail ?? ""} output={resultText ?? ""} pending={!result} isError={isError} />
+      ) : null}
     </div>
   );
 }

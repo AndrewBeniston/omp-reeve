@@ -24,6 +24,7 @@ the What's New dialog adds a second page that invites support.
 - Show the live compaction note in the transcript during manual or automatic compaction and errors.
 - Keep the transcript usable when one Turn fails to render, with a retry action for that Turn.
 - Render tool calls as classified Activity rows with separate action and detail text.
+- Keep terminal output and accessible status text in classified Activity rows.
 
 ## [0.8.0] - 2026-09-23
 
