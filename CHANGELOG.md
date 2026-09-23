@@ -17,6 +17,7 @@ the What's New dialog adds a second page that invites support.
 - Render saved and live Session messages from the Turn list while keeping their current transcript rows.
 - Show a transcript note when the default model changes, with warnings about performance and compaction.
 - Opening an archived Session shows a restore card. A successful restore opens the Session.
+- Render the compaction transcript note in four states with shimmer, error details, and preserved card content.
 
 ## [0.8.0] - 2026-09-23
 
