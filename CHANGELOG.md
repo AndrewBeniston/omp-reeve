@@ -9,6 +9,11 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+### Added
+
+- Agent commands can send desktop-selected file and folder paths to OMP without
+  quoting them in prompt text. Missing or unreadable selections block the send.
+
 ## [0.8.0] - 2026-09-23
 
 ### Added

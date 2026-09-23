@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { resolveSessionPath } from "@/lib/session-reader";
 import { startRpcSession, getRpcSession } from "@/lib/rpc-manager";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
+import { AttachmentPathError } from "@/lib/attachment-paths";
 
 // POST /api/agent/[id] - Send a command to an existing session
 export async function POST(
@@ -52,7 +53,7 @@ export async function POST(
       ...(commandType === "prompt" && !promptAccepted
         ? { code: "prompt_rejected", accepted: false }
         : {}),
-    }, { status: 500 });
+    }, { status: error instanceof AttachmentPathError ? error.status : 500 });
   }
 }
 

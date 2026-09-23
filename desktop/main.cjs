@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { closeSync, openSync, writeSync } = require("node:fs");
-const { randomUUID } = require("node:crypto");
+const { createHmac, randomUUID } = require("node:crypto");
 const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
@@ -64,6 +64,7 @@ function desktopTitleBarOverlay() {
 let mainWindow;
 let serverProcess;
 let desktopUrl;
+let attachmentSigningToken = process.env.OMP_WEB_DESKTOP_TOKEN || null;
 let updateController = null;
 let shuttingDown = false;
 let terminalRegistry = null;
@@ -331,9 +332,12 @@ function registerDirectoryPickerHandler() {
 }
 
 function registerAttachmentPickerHandler() {
-  ipcMain.handle("omp-desktop:select-attachments", async (event) => {
+  ipcMain.handle("omp-desktop:select-attachments", async (event, options) => {
     if (!event.senderFrame || !desktopUrl || !isTrustedRendererUrl(event.senderFrame.url, desktopUrl)) {
       throw new Error("The attachment-picker request did not come from the application.");
+    }
+    if (options?.secure === true && !attachmentSigningToken) {
+      throw new Error("Secure attachments require the desktop server.");
     }
     const window = BrowserWindow.fromWebContents(event.sender);
     if (!window) throw new Error("The attachment-picker request has no application window.");
@@ -344,7 +348,16 @@ function registerAttachmentPickerHandler() {
         ? ["openFile", "openDirectory", "multiSelections"]
         : ["openFile", "multiSelections"],
     });
-    return result.canceled ? [] : result.filePaths;
+    if (result.canceled) return [];
+    if (options?.secure !== true) return result.filePaths;
+    const issuedAt = Date.now();
+    return result.filePaths.map((selectedPath) => ({
+      path: selectedPath,
+      issuedAt,
+      signature: createHmac("sha256", attachmentSigningToken)
+        .update(JSON.stringify(["reeve-attachment-v1", selectedPath, issuedAt]))
+        .digest("hex"),
+    }));
   });
 }
 
@@ -860,6 +873,7 @@ if (!hasSingleInstanceLock) {
       desktopUrl = process.env.OMP_WEB_DESKTOP_DEV_URL || DEFAULT_DEV_URL;
       if (app.isPackaged) {
         const launchToken = randomUUID();
+        attachmentSigningToken = launchToken;
         desktopUrl = `http://127.0.0.1:${DESKTOP_PORT}`;
         startBundledServer(DESKTOP_PORT, launchToken);
         await waitForHttpResponse(`${desktopUrl}/api/desktop-health`, launchToken);
