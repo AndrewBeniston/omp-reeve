@@ -5,6 +5,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { copyText, copyTextOrFail } from "@/lib/clipboard";
 import { Tooltip } from "@/components/ui/Tooltip";
 import styles from "./message-view.module.css";
+import { UserMessageEditor } from "./UserMessageEditor";
 
 export type MessageTurnRole = "user" | "assistant" | "custom" | "compaction";
 
@@ -16,7 +17,7 @@ interface MessageTurnProps {
   footer?: ReactNode;
   timestamp?: string | null;
   copyContent?: string;
-  onRetry?: () => void;
+  onEdit?: (text: string) => Promise<void>;
   onBranch?: () => void;
   branchPending?: boolean;
   streaming?: boolean;
@@ -24,6 +25,8 @@ interface MessageTurnProps {
   cardExpanded?: boolean;
   navigationId?: string;
   userText?: ReactNode;
+  userEditText?: string;
+  onEditFailure?: (error: unknown) => void;
 }
 
 const USER_MESSAGE_LINES = 2;
@@ -124,7 +127,7 @@ export function MessageTurn({
   footer,
   timestamp,
   copyContent,
-  onRetry,
+  onEdit,
   onBranch,
   branchPending = false,
   streaming = false,
@@ -132,10 +135,16 @@ export function MessageTurn({
   cardExpanded,
   navigationId,
   userText,
+  userEditText,
+  onEditFailure,
 }: MessageTurnProps) {
   const { t } = useI18n();
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editPending, setEditPending] = useState(false);
+  const [restoreEditFocus, setRestoreEditFocus] = useState(false);
+  const editButtonRef = useRef<HTMLButtonElement>(null);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const markCopied = () => {
@@ -156,6 +165,12 @@ export function MessageTurn({
     if (copyContent === undefined) return;
     void copyTextOrFail(copyContent).then(markCopied).catch(() => {});
   };
+
+  useEffect(() => {
+    if (!restoreEditFocus) return;
+    setRestoreEditFocus(false);
+    editButtonRef.current?.focus();
+  }, [restoreEditFocus]);
 
   if (role === "custom" || role === "compaction") {
     const hasActions = copyContent !== undefined || footer !== undefined;
@@ -195,6 +210,22 @@ export function MessageTurn({
   }
 
   if (role === "user") {
+    const finishEditing = () => {
+      setEditing(false);
+      setEditPending(false);
+      setRestoreEditFocus(true);
+    };
+    const submitEdit = async (text: string) => {
+      setEditPending(true);
+      try {
+        await onEdit!(text);
+        finishEditing();
+      } catch (error) {
+        onEditFailure?.(error);
+        finishEditing();
+        throw error;
+      }
+    };
     return (
       <div
         className={styles.userTurn}
@@ -204,7 +235,19 @@ export function MessageTurn({
         onMouseLeave={() => setHovered(false)}
       >
         <div className={styles.userMessageRow}>
-          <UserMessageBody text={userText}>{children}</UserMessageBody>
+          {editing ? (
+            <>
+              <UserMessageEditor
+                initialText={userEditText ?? ""}
+                pending={editPending}
+                onSubmit={submitEdit}
+                onCancel={finishEditing}
+              />
+              {children}
+            </>
+          ) : (
+            <UserMessageBody text={userText}>{children}</UserMessageBody>
+          )}
         </div>
         <div className={styles.messageFooter}>
           {copyContent !== undefined && (
@@ -223,14 +266,15 @@ export function MessageTurn({
               </Tooltip>
             </div>
           )}
-          {(onRetry || onBranch) && (
+          {(onEdit || onBranch) && (
             <div className={styles.messageActions} data-visible={hovered || branchPending}>
-              {onRetry && (
-                <Tooltip content={t("i18n.editFromHereTitle")}>
+              {onEdit && (
+                <Tooltip content={t("codex.userMessage.editAriaLabel")}>
                   <button
+                    ref={editButtonRef}
                     type="button"
-                    onClick={onRetry}
-                    aria-label={t("i18n.editFromHere")}
+                    onClick={() => setEditing(true)}
+                    aria-label={t("codex.userMessage.editAriaLabel")}
                     className={styles.messageAction}
                     data-message-action="edit"
                     data-state="idle"

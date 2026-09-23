@@ -236,10 +236,6 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     onAgentEnd?.();
   }, [onAgentEnd]);
 
-  // 稳定化 onEditContent 引用，配合 React.memo 防止历史消息重渲染
-  const handleEditContent = useCallback((message: UserMessage) => {
-    chatInputRef?.current?.replaceMessage(message);
-  }, [chatInputRef]);
   const {
     loading, error, activeLeafId, messages, entryIds, streamState,
     agentRunning, bashRunning, pendingBash, modelNames, modelList, modelError, modelScopeWarnings, modelThinkingLevels, modelThinkingLevelMaps, modelRoles, toolPreset, approvalMode, approvalModeChanging, approvalModeError, thinkingLevel, fastModeEnabled, fastModeAvailable,
@@ -253,7 +249,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     isNew,
     activeTurnHeld,
     sessionIdRef,
-    handleSend, handleAbort, handleFork, handleNavigate, handleModelChange, handleRoleModelChange,
+    handleSend, handleAbort, handleFork, handleNavigate, handleModelChange, handleRoleModelChange, addNotice,
     handleCompact, handleSteer, handleFollowUp, handlePromptWithStreamingBehavior, handleAbortCompaction,
     handleDeleteQueuedMessage, handleUndoDeletedQueuedMessage,
     handleEditQueuedMessage, handleCancelQueuedMessageEdit, handleCompleteQueuedMessageEdit,
@@ -269,6 +265,19 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const footerRef = useRef<HTMLDivElement | null>(null);
   const sessionBusy = agentRunning || bashRunning;
+  const handleEditSubmit = useCallback(async (message: UserMessage, text: string, previousEntryId: string) => {
+    await handleNavigate(previousEntryId);
+    const images = typeof message.content === "string" ? undefined : message.content.flatMap((block) => {
+      if (block.type !== "image" || block.source.type !== "base64" || !block.source.data) return [];
+      return [{
+        data: block.source.data,
+        mimeType: block.source.media_type ?? "image/png",
+        previewUrl: `data:${block.source.media_type ?? "image/png"};base64,${block.source.data}`,
+      }];
+    });
+    const sent = await handleSend(text, images);
+    if (!sent) throw new Error("Failed to edit message");
+  }, [handleNavigate, handleSend]);
   const showActiveTurnResponseSpacer = agentRunning || streamState.isStreaming;
 
   useEffect(() => {
@@ -702,7 +711,8 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                     forking={forkingEntryId === item.entryId}
                     onNavigate={sessionBusy ? undefined : handleNavigate}
                     prevAssistantEntryId={sessionBusy ? undefined : prevAssistantEntryId}
-                    onEditContent={handleEditContent}
+                    onEditSubmit={sessionBusy ? undefined : handleEditSubmit}
+                    onEditFailure={() => addNotice({ type: "error", message: t("localConversation.editLastMessageFailed") })}
                     showTimestamp={showTimestamp}
                     prevTimestamp={idx > 0 ? (messages[idx - 1] as AgentMessage & { timestamp?: number }).timestamp : undefined}
                     sessionId={session?.id ?? sessionIdRef.current ?? undefined}
