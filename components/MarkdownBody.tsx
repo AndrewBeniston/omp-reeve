@@ -21,6 +21,7 @@ import {
 } from "@/lib/streaming-markdown";
 import { MermaidBlock, CodeBlock } from "./MermaidBlock";
 import { MarkdownTable } from "./MarkdownTable";
+import { FileCitationChip, isFileCitationHref } from "./FileCitationChip";
 
 interface MarkdownBodyProps {
   children: string;
@@ -148,7 +149,10 @@ export function MarkdownBody({ children, className, isStreaming, cwd, onOpenFile
     a({ href, children, ...props }) {
       // `node` is react-markdown metadata, not a DOM attribute.
       delete props.node;
-      const filePath = onOpenFile ? resolveLocalFileHref(href, cwd) : null;
+      const filePath = resolveLocalFileHref(href, cwd);
+      if (isFileCitationHref(href, props.title) && (filePath || props.title?.startsWith("citation"))) {
+        return <FileCitationChip href={href ?? ""} filePath={filePath} title={props.title} onOpenFile={onOpenFile} />;
+      }
       const openFile = onOpenFile;
       if (!filePath || !openFile) {
         return (

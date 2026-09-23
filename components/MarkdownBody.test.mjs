@@ -78,6 +78,72 @@ test("keeps local file markdown links in the app", () => {
   assert.doesNotMatch(html, /target=|rel=|\snode=/);
 });
 
+test("renders a code citation with a line and no private path in the markup", () => {
+  const html = renderMarkdown("[source](/home/me/project/src/main.ts#L12)");
+
+  assert.match(html, /<button[^>]*aria-label="main\.ts line 12"[^>]*>/);
+  assert.match(html, /main\.ts/);
+  assert.match(html, /Code/);
+  assert.match(html, /\(line 12\)/);
+  assert.doesNotMatch(html, /\/home\/me\/project|href=|title="\/home/);
+});
+
+test("renders citation types and locations from local links", () => {
+  const examples = [
+    ["[source](./src/main.ts#L12-L18)", "main.ts lines 12-18", "Code", "(lines 12-18)"],
+    ["[report](./report.pdf#page=7)", "report.pdf page 7", "Document", "(page 7)"],
+    ["[diagram](./diagram.png \"citation\")", "diagram.png", "Image", ""],
+    ["[deck](./deck.pptx#slide=4)", "deck.pptx slide 4", "Presentation", "(slide 4)"],
+    ["[chart](./deck.pptx#slide=4&object=Growth%20chart)", "deck.pptx slide 4, Growth chart", "Presentation", "(slide 4, Growth chart)"],
+    ["[cell](./data.xlsx#sheet=Summary&object=Revenue)", "data.xlsx Summary, Revenue", "Spreadsheet", "(Summary, Revenue)"],
+    ["[archive](./archive.zip \"citation\")", "archive.zip", "File", ""],
+  ];
+
+  for (const [markdown, ariaLabel, typeLabel, locationLabel] of examples) {
+    const html = renderMarkdown(markdown);
+    assert.match(html, /<button/);
+    assert.ok(html.includes(`aria-label="${ariaLabel}"`), html);
+    assert.ok(html.includes(`>${typeLabel}</span>`), html);
+    if (locationLabel) assert.ok(html.includes(`>${locationLabel}</span>`), html);
+  }
+});
+
+test("uses an explicit type for an extensionless citation", () => {
+  const html = renderMarkdown("[file](./Dockerfile#L3 \"citation:code\")");
+
+  assert.match(html, /aria-label="Dockerfile, Code line 3"/);
+  assert.match(html, />Code<\/span>/);
+  assert.match(renderMarkdown("[file](./LICENSE \"citation:document\")"), /aria-label="LICENSE, Document"/);
+});
+
+test("opens a citation in the existing file surface", async () => {
+  const paths = [];
+  const view = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MarkdownBody, { cwd: "/home/me/project", onOpenFile: (path) => paths.push(path) },
+      "[source](./src/main.ts#L12)")));
+  try {
+    const citation = view.container.querySelector("button[aria-label='main.ts line 12']");
+    assert.ok(citation);
+    await click(citation);
+    assert.deepEqual(paths, ["/home/me/project/src/main.ts"]);
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("names an unavailable citation without rendering its private path", () => {
+  const html = renderMarkdown("[missing](/home/me/project/missing.pdf \"citation\")", { onOpenFile: undefined });
+
+  assert.match(html, /role="note"/);
+  assert.match(html, /missing\.pdf/);
+  assert.match(html, /Unavailable/);
+  assert.doesNotMatch(html, /<button|\/home\/me\/project|href=/);
+
+  const outside = renderMarkdown("[outside](../../private/secret.ts \"citation\")");
+  assert.match(outside, /role="note"/);
+  assert.doesNotMatch(outside, /<button|\.\.\/\.\.\/private/);
+});
+
 test("keeps single-tilde CJK numeric ranges literal instead of striking them", () => {
   const html = renderMarkdown("5~7U 保证金 × 100~200倍杠杆");
 
