@@ -1,0 +1,15 @@
+.surface { position: relative; }
+.actions { display: flex; align-items: center; gap: 3px; min-height: 26px; opacity: 0; pointer-events: none; transition: opacity var(--duration-fast) var(--ease-standard); }
+.actions[data-visible="true"] { opacity: 1; pointer-events: auto; }
+.action { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 4px; border: 0; border-radius: 10px; background: transparent; color: var(--ui-text-dim); cursor: pointer; }
+.action:hover:not(:disabled) { background: var(--ui-hover); color: var(--ui-text); }
+.action:focus-visible { outline: var(--ui-focus-ring); outline-offset: var(--ui-focus-offset); }
+.action[data-state="copied"] { color: var(--ui-accent); }
+.action:disabled { cursor: not-allowed; opacity: var(--ui-disabled-opacity); }
+.slot { display: none; }
+.spinner { display: none; width: 12px; height: 12px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: assistantActionSpin 700ms linear infinite; }
+.spinner[data-visible="true"] { display: block; }
+.action[data-state="running"] > svg { display: none; }
+@keyframes assistantActionSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+@media (pointer: coarse) { .action { min-height: var(--ui-control-touch); } }
