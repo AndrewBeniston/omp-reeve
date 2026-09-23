@@ -18,6 +18,8 @@ interface Props {
   canChangeEffort: boolean;
   onOpenModels: () => void;
   onSelectEffort: (level: ThinkingStep) => void;
+  explicitModelOverride?: boolean;
+  onResetToDefault?: () => void;
 }
 
 export function ModelPowerSlider({
@@ -32,6 +34,8 @@ export function ModelPowerSlider({
   canChangeEffort,
   onOpenModels,
   onSelectEffort,
+  explicitModelOverride = false,
+  onResetToDefault,
 }: Props) {
   const { t } = useI18n();
   const instructionsId = useId();
@@ -41,6 +45,7 @@ export function ModelPowerSlider({
   const activePointer = useRef<number | null>(null);
   const previewIndex = steps.findIndex((step) => step.id === previewStepId);
   const visibleIndex = previewIndex >= 0 ? previewIndex : currentIndex;
+  const isTopStep = visibleIndex >= 0 && steps[visibleIndex]?.thinkingLevel === "max";
 
   useEffect(() => {
     setPreviewStepId(null);
@@ -59,7 +64,8 @@ export function ModelPowerSlider({
     setPreviewStepId(step.id);
     const value = `${modelName ?? step.model.modelId} ${step.sliderLabel}`;
     const status = t("chat.powerKeyboardValue", { value, position: nextIndex + 1, total: steps.length });
-    setAnnouncement(nextIndex === steps.length - 1 ? `${status} ${t("chat.ultraUsageWarning")}` : status);
+    const isStepMax = step.thinkingLevel === "max";
+    setAnnouncement(isStepMax ? `${status} ${t("chat.ultraUsageWarning")}` : status);
     onSelectEffort(step.thinkingLevel);
   };
 
@@ -101,9 +107,44 @@ export function ModelPowerSlider({
         </MenuItem>
       </div>
       {steps.length > 0 ? (
-        <div className={styles.sliderRow}>
-          <div className={styles.effortLabel}>{steps[visibleIndex]?.sliderLabel ?? effortLabel}</div>
-          {effortStage && modelName && <div className={styles.effortModelName} data-model-effort-name>{modelName}</div>}
+        <div data-slider-row className={styles.sliderRow}>
+          <div className={styles.sliderHeader}>
+            {(explicitModelOverride || isTopStep) && (
+              <div className={styles.sliderStart} data-slider-start>
+                {explicitModelOverride && (
+                  <button
+                    type="button"
+                    data-reset-control
+                    className={`${styles.resetControl} ${isTopStep ? styles.resetControlHidden : ""}`}
+                    aria-label={t("chat.resetToDefault")}
+                    title={t("chat.resetToDefault")}
+                    tabIndex={isTopStep ? -1 : 0}
+                    aria-hidden={isTopStep ? "true" : undefined}
+                    disabled={isTopStep}
+                    hidden={isTopStep}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      onResetToDefault?.();
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M2.5 2.5v4h4" />
+                      <path d="M2.7 6.5A6 6 0 1 1 2 8" />
+                    </svg>
+                  </button>
+                )}
+                {isTopStep && (
+                  <span className={styles.usageWarning} data-usage-warning aria-hidden="true">
+                    <span className={styles.usageWarningText}>
+                      {t("chat.ultraUsageWarning")}
+                    </span>
+                  </span>
+                )}
+              </div>
+            )}
+            <div className={styles.effortLabel}>{steps[visibleIndex]?.sliderLabel ?? effortLabel}</div>
+            {effortStage && modelName && <div className={styles.effortModelName} data-model-effort-name>{modelName}</div>}
+          </div>
           <div
             className={styles.track}
             aria-label={t("chat.effort")}

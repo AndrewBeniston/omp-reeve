@@ -49,7 +49,7 @@ import type {
 import { applyCollaborationSnapshot, isCollaborationSnapshot } from "@/lib/collaboration-message";
 import type { ModelRoleAssignment } from "@/lib/api-types";
 import type { QueuedMessageDraft, QueuedMessageItem, QueuedMessageSnapshot } from "@/lib/queued-message-types";
-import { selectedAttachmentPaths, type ComposerAttachmentDescriptor } from "@/lib/composer-attachment-state";
+import { selectedAttachmentPaths, selectedBrowserUploadIds, type ComposerAttachmentDescriptor } from "@/lib/composer-attachment-state";
 import {
   nextPinnedStateForScrollEvent,
   prefersReducedMotion,
@@ -1690,6 +1690,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
         if (sid) {
           sentSessionId = sid;
+          const uploadIds = attachments?.length ? selectedBrowserUploadIds(attachments, sid) : [];
           if (selectedModel) {
             setPendingModel(selectedModel);
             if (existingSid) {
@@ -1703,11 +1704,13 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
             message,
             ...(piImages?.length ? { images: piImages } : {}),
             ...(selectedPaths?.length ? { attachments: selectedPaths } : {}),
+            ...(uploadIds.length ? { uploads: uploadIds } : {}),
           });
           promoteNewSession(1, message);
         }
       } else if (session) {
         sentSessionId = session.id;
+        const uploadIds = attachments?.length ? selectedBrowserUploadIds(attachments, session.id) : [];
         await ensureEventsConnected(session.id);
         promptRequestStarted = true;
         await sendAgentCommand(session.id, {
@@ -1715,6 +1718,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           message,
           ...(piImages?.length ? { images: piImages } : {}),
           ...(selectedPaths?.length ? { attachments: selectedPaths } : {}),
+          ...(uploadIds.length ? { uploads: uploadIds } : {}),
         });
       }
       if (isSlashCommandPrompt && sentSessionId) {
@@ -1753,7 +1757,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         recovery.images,
         recovery.targetDraftKey,
         recovery.attachments,
-        attachments?.length && e instanceof Error && /attachment/i.test(e.message) ? e.message : undefined,
+        attachments?.length && e instanceof Error && /attachment|upload/i.test(e.message) ? e.message : undefined,
       );
       optimisticUserMessageKeyRef.current = null;
       setAgentRunning(false);
@@ -2203,7 +2207,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       images,
       sessionIdRef.current ?? undefined,
       attachments,
-      attachments?.length && /attachment/i.test(reason) ? reason : undefined,
+      attachments?.length && /attachment|upload/i.test(reason) ? reason : undefined,
     );
   }, [addNotice, chatInputRef]);
 
@@ -2213,11 +2217,13 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     const piImages = images?.map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
     const selectedPaths = attachments?.length ? selectedAttachmentPaths(attachments) : undefined;
     try {
+      const uploadIds = attachments?.length ? selectedBrowserUploadIds(attachments, sid) : [];
       const result = await sendAgentCommand<QueuedMessageSnapshot>(sid, {
         type: "steer",
         message,
         ...(piImages?.length ? { images: piImages } : {}),
         ...(selectedPaths?.length ? { attachments: selectedPaths } : {}),
+        ...(uploadIds.length ? { uploads: uploadIds } : {}),
       });
       applyQueueSnapshot(result);
     } catch (e) {
@@ -2237,12 +2243,14 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     const piImages = images?.map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
     const selectedPaths = attachments?.length ? selectedAttachmentPaths(attachments) : undefined;
     try {
+      const uploadIds = attachments?.length ? selectedBrowserUploadIds(attachments, sid) : [];
       const result = await sendAgentCommand<QueuedMessageSnapshot>(sid, {
         type: "prompt",
         message,
         streamingBehavior: behavior,
         ...(piImages?.length ? { images: piImages } : {}),
         ...(selectedPaths?.length ? { attachments: selectedPaths } : {}),
+        ...(uploadIds.length ? { uploads: uploadIds } : {}),
       });
       applyQueueSnapshot(result);
     } catch (e) {
@@ -2257,11 +2265,13 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     const piImages = images?.map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
     const selectedPaths = attachments?.length ? selectedAttachmentPaths(attachments) : undefined;
     try {
+      const uploadIds = attachments?.length ? selectedBrowserUploadIds(attachments, sid) : [];
       const result = await sendAgentCommand<QueuedMessageSnapshot>(sid, {
         type: "follow_up",
         message,
         ...(piImages?.length ? { images: piImages } : {}),
         ...(selectedPaths?.length ? { attachments: selectedPaths } : {}),
+        ...(uploadIds.length ? { uploads: uploadIds } : {}),
       });
       applyQueueSnapshot(result);
     } catch (e) {

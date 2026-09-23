@@ -3,6 +3,7 @@ import { resolveSessionPath } from "@/lib/session-reader";
 import { startRpcSession, getRpcSession } from "@/lib/rpc-manager";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 import { AttachmentPathError } from "@/lib/attachment-paths";
+import { UploadError } from "@/lib/upload-store";
 
 // POST /api/agent/[id] - Send a command to an existing session
 export async function POST(
@@ -53,7 +54,7 @@ export async function POST(
       ...(commandType === "prompt" && !promptAccepted
         ? { code: "prompt_rejected", accepted: false }
         : {}),
-    }, { status: error instanceof AttachmentPathError ? error.status : 500 });
+    }, { status: error instanceof AttachmentPathError || error instanceof UploadError ? error.status : 500 });
   }
 }
 

@@ -1,12 +1,16 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, open, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, readdir, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import lockfile from "proper-lockfile";
 import { getAgentDir } from "@oh-my-pi/pi-coding-agent";
+import { generateFileMentionMessages } from "@oh-my-pi/pi-coding-agent/utils/file-mentions";
+import type { FileMentionMessage } from "@oh-my-pi/pi-coding-agent/session/messages";
 
 export const MAX_UPLOAD_FILE_BYTES = 100 * 1024 * 1024;
 export const MAX_UPLOAD_SESSION_BYTES = 500 * 1024 * 1024;
 export const MAX_UPLOAD_GLOBAL_BYTES = 2 * 1024 * 1024 * 1024;
+/** An upload without a saved Session reference expires after one day without a retry. */
+export const UPLOAD_ABANDONED_TTL_MS = 24 * 60 * 60 * 1000;
 
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UPLOAD_ID = /^up_[0-9a-f]{32}$/;
@@ -24,6 +28,9 @@ export interface BrowserUpload {
 interface StoredUpload extends BrowserUpload {
   sessionId: string;
   key: string;
+  createdAt?: number;
+  lastAttemptAt?: number;
+  savedAt?: number;
 }
 
 export interface UploadInput {
@@ -94,7 +101,21 @@ function isStoredUpload(value: unknown): value is StoredUpload {
     && typeof item.name === "string" && item.name.length > 0
     && typeof item.size === "number" && Number.isSafeInteger(item.size) && item.size >= 0
     && typeof item.mediaType === "string" && MEDIA_TYPE.test(item.mediaType)
+    && [item.createdAt, item.lastAttemptAt, item.savedAt]
+      .every(timestamp => timestamp === undefined || (Number.isSafeInteger(timestamp) && timestamp >= 0))
     && item.state === "ready";
+}
+
+async function writeRecord(filePath: string, record: StoredUpload): Promise<void> {
+  const temporaryPath = `${filePath}.tmp`;
+  const file = await open(temporaryPath, "wx", 0o600);
+  try {
+    await file.writeFile(JSON.stringify(record));
+    await file.sync();
+  } finally {
+    await file.close();
+  }
+  await rename(temporaryPath, filePath);
 }
 
 async function readRecord(filePath: string): Promise<StoredUpload | null> {
@@ -122,7 +143,12 @@ interface Inventory {
 }
 
 /** The lock excludes active writers, so every partial file found here survived a failed upload or process exit. */
-async function recoverAndInventory(root: string): Promise<Inventory> {
+async function recoverAndInventory(root: string, options: {
+  now?: number;
+  retry?: { sessionId: string; key: string };
+  sessionExists?: (sessionId: string) => Promise<boolean>;
+} = {}): Promise<Inventory> {
+  const now = options.now ?? Date.now();
   const inventory: Inventory = {
     recordsBySession: new Map(), bytesBySession: new Map(), globalBytes: 0,
   };
@@ -130,6 +156,10 @@ async function recoverAndInventory(root: string): Promise<Inventory> {
     if (!directory.isDirectory() || !SESSION_ID.test(directory.name)) continue;
     const sessionId = directory.name;
     const sessionDirectory = join(root, sessionId);
+    if (options.sessionExists && !await options.sessionExists(sessionId)) {
+      await rm(sessionDirectory, { recursive: true, force: true });
+      continue;
+    }
     const entries = await readdir(sessionDirectory, { withFileTypes: true });
     const blobNames = new Set(entries.filter(entry => entry.isFile() && entry.name.endsWith(".blob")).map(entry => entry.name));
     const records: StoredUpload[] = [];
@@ -154,6 +184,12 @@ async function recoverAndInventory(root: string): Promise<Inventory> {
       const blob = await stat(join(sessionDirectory, blobName));
       if (blob.size !== record.size) throw new UploadError("Upload record is damaged", 500);
       blobNames.delete(blobName);
+      const lastAttemptAt = record.lastAttemptAt ?? record.createdAt ?? (await stat(filePath)).mtimeMs;
+      const retrying = options.retry?.sessionId === sessionId && options.retry.key === record.key;
+      if (!record.savedAt && !retrying && now - lastAttemptAt >= UPLOAD_ABANDONED_TTL_MS) {
+        await Promise.all([rm(filePath, { force: true }), rm(join(sessionDirectory, blobName), { force: true })]);
+        continue;
+      }
       records.push(record);
       sessionBytes += record.size;
     }
@@ -163,6 +199,20 @@ async function recoverAndInventory(root: string): Promise<Inventory> {
     inventory.globalBytes += sessionBytes;
   }
   return inventory;
+}
+
+async function withLockedRoot<T>(root: string, action: () => Promise<T>): Promise<T> {
+  await mkdir(root, { recursive: true, mode: 0o700 });
+  const release = await lockfile.lock(root, {
+    stale: 10_000,
+    update: 3_000,
+    retries: { retries: 50, minTimeout: 200, maxTimeout: 200 },
+  });
+  try {
+    return await action();
+  } finally {
+    await release();
+  }
 }
 
 async function writeBody(body: ReadableStream<Uint8Array>, filePath: string, expectedSize: number): Promise<void> {
@@ -194,20 +244,20 @@ async function writeBody(body: ReadableStream<Uint8Array>, filePath: string, exp
 export async function storeBrowserUpload(input: UploadInput): Promise<BrowserUpload> {
   validateInput(input);
   const root = input.root ?? browserUploadRoot();
-  await mkdir(root, { recursive: true, mode: 0o700 });
-  const release = await lockfile.lock(root, {
-    stale: 10_000,
-    update: 3_000,
-    retries: { retries: 50, minTimeout: 200, maxTimeout: 200 },
-  });
-  try {
-    const inventory = await recoverAndInventory(root);
+  return withLockedRoot(root, async () => {
+    const inventory = await recoverAndInventory(root, {
+      retry: { sessionId: input.sessionId, key: input.key },
+    });
     const records = inventory.recordsBySession.get(input.sessionId) ?? [];
     const existing = records.find(record => record.key === input.key);
     if (existing) {
       if (existing.name !== input.name || existing.size !== input.size || existing.mediaType !== input.mediaType) {
         throw new UploadError("Idempotency key belongs to another file", 409);
       }
+      await writeRecord(join(root, input.sessionId, `${existing.id}.json`), {
+        ...existing,
+        lastAttemptAt: Date.now(),
+      });
       return publicUpload(existing);
     }
     if ((inventory.bytesBySession.get(input.sessionId) ?? 0) + input.size > MAX_UPLOAD_SESSION_BYTES) {
@@ -230,12 +280,13 @@ export async function storeBrowserUpload(input: UploadInput): Promise<BrowserUpl
     try {
       await writeBody(input.body, partialPath, input.size);
       await rename(partialPath, blobPath);
+      const now = Date.now();
       const record: StoredUpload = {
         id, sessionId: input.sessionId, key: input.key,
         name: input.name, size: input.size, mediaType: input.mediaType, state: "ready",
+        createdAt: now, lastAttemptAt: now,
       };
-      await writeFile(temporaryRecordPath, JSON.stringify(record), { mode: 0o600, flag: "wx" });
-      await rename(temporaryRecordPath, recordPath);
+      await writeRecord(recordPath, record);
       return publicUpload(record);
     } catch (error) {
       await Promise.all([
@@ -245,9 +296,93 @@ export async function storeBrowserUpload(input: UploadInput): Promise<BrowserUpl
       ]);
       throw error;
     }
-  } finally {
-    await release();
+  });
+}
+
+/** Release one draft upload. A saved Session reference prevents deletion. */
+export async function releaseBrowserUpload({ sessionId, id, root = browserUploadRoot() }: {
+  sessionId: string; id: string; root?: string;
+}): Promise<boolean> {
+  validateSessionId(sessionId);
+  validateUploadId(id);
+  return withLockedRoot(root, async () => {
+    const directory = join(root, sessionId);
+    const recordPath = join(directory, `${id}.json`);
+    const record = await readRecord(recordPath);
+    if (!record || record.sessionId !== sessionId || record.id !== id || record.savedAt) return false;
+    await rm(recordPath, { force: true });
+    await rm(join(directory, `${id}.blob`), { force: true });
+    return true;
+  });
+}
+
+/** Claim uploads before a user message enters OMP, under the same lock as deletion and collection. */
+export async function retainBrowserUploads({ sessionId, ids, root = browserUploadRoot() }: {
+  sessionId: string; ids: string[]; root?: string;
+}): Promise<Array<{ upload: BrowserUpload; filePath: string }>> {
+  validateSessionId(sessionId);
+  if (!Array.isArray(ids) || ids.length > 32) throw new UploadError("Too many uploads", 400);
+  if (ids.some(id => typeof id !== "string")) throw new UploadError("Invalid upload id", 400);
+  ids.forEach(validateUploadId);
+  return withLockedRoot(root, async () => {
+    const inventory = await recoverAndInventory(root);
+    const records = inventory.recordsBySession.get(sessionId) ?? [];
+    const selected = ids.map(id => {
+      const record = records.find(item => item.id === id);
+      if (!record) throw new UploadError("Upload not found", 404);
+      return record;
+    });
+    const savedAt = Date.now();
+    for (const record of selected) {
+      if (!record.savedAt) {
+        await writeRecord(join(root, sessionId, `${record.id}.json`), { ...record, savedAt });
+      }
+    }
+    return selected.map(record => ({ upload: publicUpload(record), filePath: join(root, sessionId, `${record.id}.blob`) }));
+  });
+}
+
+/** Convert saved browser uploads to the file context OMP accepts with a user message. */
+export async function prepareBrowserUploadMessages({ sessionId, ids, cwd, root }: {
+  sessionId: string; ids: unknown; cwd: string; root?: string;
+}): Promise<FileMentionMessage[]> {
+  if (ids === undefined) return [];
+  if (!Array.isArray(ids)) throw new UploadError("Uploads must be a list", 400);
+  const selected = await retainBrowserUploads({ sessionId, ids, root });
+  const messages: FileMentionMessage[] = [];
+  for (const { upload, filePath } of selected) {
+    const prepared = await generateFileMentionMessages([filePath], cwd);
+    const mention = prepared.find((message): message is FileMentionMessage => message.role === "fileMention");
+    if (!mention || mention.files.length !== 1) throw new UploadError("Upload cannot be read", 400);
+    messages.push({
+      ...mention,
+      files: mention.files.map(file => ({
+        ...file,
+        path: `browser-upload:${upload.id}/${upload.name}`,
+        content: `Uploaded file: ${upload.name} (${upload.mediaType})\n${file.content}`,
+      })),
+    });
   }
+  return messages;
+}
+
+/** Delete a Session's uploads after the Session file has been removed. */
+export async function deleteSessionBrowserUploads({ sessionId, root = browserUploadRoot() }: {
+  sessionId: string; root?: string;
+}): Promise<void> {
+  validateSessionId(sessionId);
+  await withLockedRoot(root, () => rm(join(root, sessionId), { recursive: true, force: true }));
+}
+
+/** Repair interrupted writes and remove abandoned uploads during server startup or later maintenance. */
+export async function collectBrowserUploads({ root = browserUploadRoot(), now = Date.now(), sessionExists }: {
+  root?: string;
+  now?: number;
+  sessionExists?: (sessionId: string) => Promise<boolean>;
+} = {}): Promise<void> {
+  await withLockedRoot(root, async () => {
+    await recoverAndInventory(root, { now, sessionExists });
+  });
 }
 
 /** Resolve an opaque id only inside its Session. The server may use filePath; responses must use upload alone. */

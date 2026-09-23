@@ -396,6 +396,7 @@ export const zhCNLocale: LocalePlugin = {
     "chat.effortExtended": "扩展",
     "chat.modelDefault": "默认",
     "chat.modelDefaultDescription": "推荐的模型组合",
+    "chat.resetToDefault": "恢复默认",
     "chat.ultraUsageWarning": "更快消耗使用额度",
     "chat.powerKeyboardLabel": "强度",
     "chat.powerKeyboardInstructions": "使用左右方向键调整强度",
