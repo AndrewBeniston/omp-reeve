@@ -65,12 +65,17 @@
 .dragHandle,
 .iconAction,
 .steerAction,
+.retryAction,
 .resumeAction {
   border: 0;
   background: transparent;
   color: var(--ui-text-muted);
   font: inherit;
   cursor: pointer;
+}
+
+.row[data-failed="true"] {
+  background: color-mix(in srgb, var(--ui-danger) 7%, transparent);
 }
 
 .dragHandle {
@@ -131,6 +136,7 @@
 }
 
 .steerAction,
+.retryAction,
 .resumeAction {
   display: inline-flex;
   min-height: 28px;
@@ -140,6 +146,10 @@
   border-radius: 8px;
   font-size: 13px;
   line-height: 18px;
+}
+
+.retryAction {
+  color: var(--ui-danger);
 }
 
 .iconAction {
@@ -152,6 +162,7 @@
 }
 
 .steerAction:hover,
+.retryAction:hover,
 .resumeAction:hover,
 .iconAction:hover {
   color: var(--ui-text);
@@ -160,10 +171,26 @@
 
 .dragHandle:focus-visible,
 .steerAction:focus-visible,
+.retryAction:focus-visible,
 .resumeAction:focus-visible,
 .iconAction:focus-visible {
   outline: var(--ui-focus-ring);
   outline-offset: var(--ui-focus-offset);
+}
+
+.failedMessage {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--ui-danger) 55%, transparent);
+  text-underline-offset: 3px;
+}
+
+.tooltipText {
+  display: grid;
+  gap: 3px;
+}
+
+.tooltipRemedy {
+  opacity: 0.72;
 }
 
 .menuWrap {
@@ -211,7 +238,8 @@
     font-size: 13px;
   }
 
-  .steerAction {
+  .steerAction,
+  .retryAction {
     width: 28px;
     overflow: hidden;
     white-space: nowrap;

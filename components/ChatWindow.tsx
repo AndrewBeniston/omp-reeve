@@ -256,7 +256,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     handleCompact, handleSteer, handleFollowUp, handlePromptWithStreamingBehavior, handleAbortCompaction,
     handleDeleteQueuedMessage, handleUndoDeletedQueuedMessage,
     handleEditQueuedMessage, handleCancelQueuedMessageEdit, handleCompleteQueuedMessageEdit,
-    handleReorderQueuedMessages, handleSendQueuedMessageNow, handleResumeQueuedMessages, handleResolvePausedQueueSubmission,
+    handleReorderQueuedMessages, handleRetryQueuedMessage, handleSendQueuedMessageNow, handleResumeQueuedMessages, handleResolvePausedQueueSubmission,
     releaseActiveTurnHold,
     handleBuiltinSlashCommand,
     handleToolPresetChange, handleApprovalModeChange, handleThinkingLevelChange, handleCycleThinkingLevel, handleFastModeChange, loadSlashCommands,
@@ -514,6 +514,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
       onCancelQueuedMessageEdit={handleCancelQueuedMessageEdit}
       onCompleteQueuedMessageEdit={handleCompleteQueuedMessageEdit}
       onReorderQueuedMessages={handleReorderQueuedMessages}
+      onRetryQueuedMessage={handleRetryQueuedMessage}
       onSendQueuedMessageNow={handleSendQueuedMessageNow}
       onResumeQueuedMessages={handleResumeQueuedMessages}
       onResolvePausedQueueSubmission={handleResolvePausedQueueSubmission}

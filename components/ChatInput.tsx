@@ -144,6 +144,7 @@ interface Props {
   onCancelQueuedMessageEdit?: (editToken: string) => Promise<void>;
   onCompleteQueuedMessageEdit?: (editToken: string, message: string, images?: AttachedImage[]) => Promise<void>;
   onReorderQueuedMessages?: (ids: string[]) => Promise<void>;
+  onRetryQueuedMessage?: (id: string) => Promise<void>;
   onSendQueuedMessageNow?: (id: string) => Promise<void>;
   onResumeQueuedMessages?: () => Promise<void>;
   onResolvePausedQueueSubmission?: (clearQueue: boolean) => Promise<void>;
@@ -477,7 +478,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   retryInfo, queuedMessages, inputHistory = [], subagents = EMPTY_SUBAGENTS,
   onDeleteQueuedMessage, onUndoDeletedQueuedMessage, onEditQueuedMessage,
   onCancelQueuedMessageEdit, onCompleteQueuedMessageEdit, onReorderQueuedMessages,
-  onSendQueuedMessageNow, onResumeQueuedMessages, onResolvePausedQueueSubmission,
+  onRetryQueuedMessage, onSendQueuedMessageNow, onResumeQueuedMessages, onResolvePausedQueueSubmission,
   slashCommands, slashCommandsLoading, onLoadSlashCommands,
   onBuiltinCommand,
   onAudioUnlock,
@@ -2314,6 +2315,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             });
           } else void onReorderQueuedMessages?.(ids);
         },
+        onRetry: (id) => {
+          if (debugQueuedMessages) setDebugQueuedMessages((current) => current ? { ...current, items: current.items.filter((item) => item.id !== id) } : current);
+          else void onRetryQueuedMessage?.(id);
+        },
         onSendNow: (id) => {
           if (debugQueuedMessages) setDebugQueuedMessages((current) => current ? { ...current, items: current.items.filter((item) => item.id !== id) } : current);
           else void onSendQueuedMessageNow?.(id);
@@ -2336,6 +2341,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           queueOn: t("chat.queueOn"),
           reorder: t("chat.queueReorder"),
           image: t("chat.queueImage"),
+          retry: t("chat.queueRetry"),
+          retryTooltip: t("chat.queueRetryTooltip"),
+          retryTooltipRemedy: t("chat.queueRetryTooltipRemedy"),
+          pausedTooltip: t("chat.queuePausedTooltip"),
+          pausedTooltipRemedy: t("chat.queuePausedTooltipRemedy"),
         },
       } : null}
       retryStatus={retryInfo ? {
