@@ -43,6 +43,7 @@ import { EmptyChatHome } from "./chat/EmptyChatHome";
 import { NewMessagesControl } from "./chat/NewMessagesControl";
 import { ComposerTurnStatus } from "./chat/ComposerTurnStatus";
 import { ActiveTurnResponseSpacer } from "./chat/ActiveTurnResponseSpacer";
+import { TurnErrorBoundary } from "./chat/TurnErrorBoundary";
 import { buildTranscriptRows, finalAnswerPosition, presentationAssistantPosition, CompactionNote, type TranscriptMessageRow } from "./chat/transcript-rows";
 import { ArchivedSessionCard } from "./chat/ArchivedSessionCard";
 import {
@@ -833,6 +834,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                   );
                   return;
                 }
+                const turnRenderStart = row.kind === "turn" ? rendered.length : -1;
                 const live = (sessionBusy || streamState.isStreaming) && rowIndex === lastContentRowIndex;
                 // A steered user message or compaction remains visible inside
                 // its Turn, even when the surrounding process is collapsed.
@@ -841,6 +843,18 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                   if (index < row.items.length && !isGroupAnchor(row.items[index].message)) continue;
                   renderSection(row.items.slice(start, index), `${row.id}-${start}`, live && index === row.items.length, row.phase);
                   start = index;
+                }
+                if (turnRenderStart !== -1) {
+                  const turnContent = rendered.splice(turnRenderStart);
+                  rendered.push(
+                    <TurnErrorBoundary
+                      key={`turn-boundary-${row.id}`}
+                      title={t("transcript.turnRenderError.title")}
+                      retryLabel={t("transcript.turnRenderError.retry")}
+                    >
+                      {turnContent}
+                    </TurnErrorBoundary>,
+                  );
                 }
               });
               const { startIndex, hasMore } = getVisibleRenderWindow(rendered.length, visibleCount);

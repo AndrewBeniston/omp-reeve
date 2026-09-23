@@ -41,6 +41,8 @@ export const enLocale: LocalePlugin = {
     "transcript.archived.unarchiveError": "Could not unarchive this task",
     "transcript.archived.restoringDescription": "Restoring this chat and its workspace…",
     "transcript.archived.restoredDescription": "This chat has been restored",
+    "transcript.turnRenderError.title": "This turn couldn't render",
+    "transcript.turnRenderError.retry": "Try again",
     "sidebar.hide": "Hide sidebar",
     "sidebar.show": "Show sidebar",
     "theme.light": "Light mode (click for dark)",

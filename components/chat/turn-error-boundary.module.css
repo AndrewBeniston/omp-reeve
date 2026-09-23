@@ -1,0 +1,37 @@
+.fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-sm);
+  color: var(--ui-text);
+  font-family: var(--font-sans);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+}
+
+.retry {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-xs);
+  padding: var(--space-1) var(--space-2);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  cursor: pointer;
+  font: inherit;
+}
+
+.retry:hover {
+  background: var(--ui-hover);
+}
+
+.retry:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
