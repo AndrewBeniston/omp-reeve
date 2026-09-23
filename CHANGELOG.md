@@ -34,6 +34,7 @@ the What's New dialog adds a second page that invites support.
 - Render saved and live Session messages from the Turn list while keeping their current transcript rows.
 - The transcript marks persisted delegated messages with their source app.
 ### Fixed
+- Pressing Enter in the in-place user message editor now sends the edited text.
 - Copying a user message twice now keeps the Copied label until the second copy finishes.
 - The active Turn spacer uses a 500 ms spring and ignores height changes of 24 px or less.
   It resets in prework follow on the final answer and places a new Turn only within 300 px.
