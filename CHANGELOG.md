@@ -12,6 +12,8 @@ the What's New dialog adds a second page that invites support.
 ### Added
 
 - The power slider now supports Left and Right arrow keys and announces each keyboard selection.
+- The Composer shows a working or steer placeholder when a Session is busy.
+  The default message text stays unchanged pending the maintainer's wording.
 - A session speech API now streams OMP dictation states, model download progress, transcripts, and typed errors.
 - The Composer model chip shows the effort beside the model and animates effort changes unless reduced motion is enabled.
 - Browser-selected files now upload to private Session storage with opaque IDs, size limits, and retry protection.
