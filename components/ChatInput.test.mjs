@@ -556,6 +556,27 @@ test("keeps native file and folder selections as removable Composer descriptors"
   assert.deepEqual(removeComposerAttachment(attachments, attachments[0].id), [attachments[1]]);
 });
 
+test("keeps pasted text as a restorable attachment while its file is created", async () => {
+  const {
+    PASTED_TEXT_THRESHOLD,
+    addPastedTextAttachment,
+    pastedTextFromAttachment,
+  } = await attachmentState();
+  const text = "a".repeat(PASTED_TEXT_THRESHOLD + 1);
+  const [attachment] = addPastedTextAttachment([], text);
+
+  assert.equal(PASTED_TEXT_THRESHOLD, 5000);
+  assert.deepEqual(attachment, {
+    id: 1,
+    name: "Pasted text.txt",
+    kind: "file",
+    pathSummary: "",
+    readError: null,
+    pastedText: text,
+  });
+  assert.equal(pastedTextFromAttachment(attachment), text);
+});
+
 test("preserves local attachment descriptors in draft restore and Session promotion", async () => {
   const { addComposerAttachments } = await attachmentState();
   const [first, second] = addComposerAttachments([], [

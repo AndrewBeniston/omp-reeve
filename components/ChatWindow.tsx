@@ -404,12 +404,13 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
   useEffect(() => () => { onSubagentsChange?.([]); }, [onSubagentsChange]);
 
 
-  const onDrop = useCallback((files: File[]) => {
+  const onDrop = useCallback((files: File[], text?: string) => {
     if (sessionBusy) return;
-    chatInputRef?.current?.addFiles(files);
+    if (text) chatInputRef?.current?.addDroppedText(text);
+    else chatInputRef?.current?.addDroppedFiles(files);
   }, [sessionBusy, chatInputRef]);
 
-  const { isDragOver, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragDrop(onDrop, !getSecureAttachmentPicker());
+  const { isDragOver, dropKind, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragDrop(onDrop, true);
 
   // Stable Map identity: `messages` doesn't change during streaming updates
   // (the streaming message lives in streamState), so memoized MessageViews
@@ -584,7 +585,8 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
       onDrop={handleDrop}
     >
       {isDragOver && !sessionBusy && (
-        <div className={styles.dropZone}>
+        <div className={styles.dropZone} role="status">
+          <span className={styles.dropLabel}>{t(dropKind === "chat" ? "composer.dropOverlayReferenceChat" : "composer.dropOverlayAttach")}</span>
           <div className={styles.dropRipples}>
             {[0, 1, 2].map((index) => (
               <div

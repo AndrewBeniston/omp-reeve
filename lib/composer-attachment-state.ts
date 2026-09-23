@@ -13,7 +13,10 @@ export interface ComposerAttachmentDescriptor {
   kind: "file" | "folder";
   pathSummary: string;
   readError: string | null;
+  pastedText?: string;
 }
+
+export const PASTED_TEXT_THRESHOLD = 5000;
 
 export interface BrowserUpload {
   id: string;
@@ -109,6 +112,41 @@ export function removeComposerAttachment(
   id: number,
 ): ComposerAttachmentDescriptor[] {
   return current.filter((attachment) => attachment.id !== id);
+}
+
+export function addPastedTextAttachment(
+  current: ComposerAttachmentDescriptor[],
+  text: string,
+): ComposerAttachmentDescriptor[] {
+  const id = current.reduce((max, attachment) => Math.max(max, attachment.id), 0) + 1;
+  return [...current, {
+    id,
+    name: "Pasted text.txt",
+    kind: "file",
+    pathSummary: "",
+    readError: null,
+    pastedText: text,
+  }];
+}
+
+export function pastedTextFromAttachment(attachment: ComposerAttachmentDescriptor): string | null {
+  return attachment.pastedText ?? null;
+}
+
+export function replacePastedTextAttachment(
+  current: ComposerAttachmentDescriptor[],
+  id: number,
+  upload: BrowserUpload & { sessionId: string },
+): ComposerAttachmentDescriptor[] {
+  return current.map((attachment) => attachment.id === id ? {
+    id,
+    upload: { ...upload },
+    name: upload.name,
+    kind: "file",
+    pathSummary: "",
+    readError: null,
+    pastedText: attachment.pastedText,
+  } : attachment);
 }
 
 export function selectedAttachmentPaths(attachments: ComposerAttachmentDescriptor[]): SelectedAttachmentPath[] {
