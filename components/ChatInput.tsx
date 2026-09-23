@@ -2164,7 +2164,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                         className={styles.modelMenuStack}
                         data-mobile={isMobile ? "true" : "false"}
                         data-stage={modelStage ?? undefined}
-                        style={Number.isFinite(maxHeight) ? { maxHeight } : undefined}
                       >
                         <Menu
                           open
