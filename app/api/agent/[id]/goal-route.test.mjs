@@ -147,7 +147,10 @@ test("replacement, budget mutation, and completion keep OMP as the source", { ti
     assert.equal(completed.body.data.goal.status, "complete");
     assert.equal(completed.body.data.goal.id, replacement.body.data.goal.id);
     assert.equal(completed.body.data.state.enabled, false);
-    assert.equal(session.inner.sessionManager.buildSessionContext().modeData.goal.status, "complete");
+    assert.equal(session.inner.sessionManager.buildSessionContext().mode, "none");
+    assert.equal(session.inner.sessionManager.getEntries().filter((entry) => (
+      entry.type === "custom" && entry.customType === "goal-completed"
+    )).length, 1);
     const again = await request(realSessionId, { type: "goal", op: "complete" });
     assert.equal(again.status, 409);
     assert.equal(again.body.code, "goal_invalid_transition");

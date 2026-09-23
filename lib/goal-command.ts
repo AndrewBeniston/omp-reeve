@@ -89,7 +89,11 @@ export async function restoreGoalFromSession(session: AgentSessionLike): Promise
   await session.goalRuntime.onThreadResumed({ preserveActiveGoal: false });
 }
 
-export async function runGoalCommand(session: AgentSessionLike, command: Record<string, unknown>): Promise<GoalCommandResult> {
+export async function runGoalCommand(
+  session: AgentSessionLike,
+  command: Record<string, unknown>,
+  beforeActivation?: () => Promise<void>,
+): Promise<GoalCommandResult> {
   requireGoalCapability(session);
   readPersistedGoal(session);
   if (command.op !== "get" && session.settings.get("goal.enabled") !== true) {
@@ -103,6 +107,7 @@ export async function runGoalCommand(session: AgentSessionLike, command: Record<
     if (current && current.goal.status !== "complete" && current.goal.status !== "dropped") {
       throw new GoalApiError("goal_invalid_transition", "This Session already has a Goal.", 409);
     }
+    await beforeActivation?.();
     await session.goalRuntime.createGoal(input);
     // A new Session with only a mode entry has no file until OMP forces one.
     await session.sessionManager.ensureOnDisk();
@@ -151,6 +156,7 @@ export async function runGoalCommand(session: AgentSessionLike, command: Record<
     if (current.goal.tokenBudget !== undefined && current.goal.tokensUsed >= current.goal.tokenBudget) {
       throw new GoalApiError("goal_invalid_transition", "Increase or clear the Goal budget before resuming.", 409);
     }
+    await beforeActivation?.();
     await session.goalRuntime.resumeGoal();
   } else if (command.op === "drop") {
     requireGoalCapability(session, "dropGoal");

@@ -51,7 +51,8 @@ import { CollaborationAdapter } from "./collaboration-adapter";
 import type { ApprovalMode } from "./approval-mode";
 import type { SlashCommandInfo } from "./omp-types";
 import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from "./omp-types";
-import { GoalApiError, restoreGoalFromSession, runGoalCommand } from "./goal-command";
+import { GoalApiError, restoreGoalFromSession } from "./goal-command";
+import { GoalToolCoordination } from "./goal-tool-coordination";
 import type {
   ExtensionAskDialogResult,
   ExtensionUiRequest,
@@ -216,7 +217,7 @@ function withExtensionTools(session: AgentSessionLike, toolNames: string[]): str
 
   const extensionToolNames = session
     .getAllToolNames()
-    .filter((name) => CODING_TOOL_NAMES[name] !== true);
+    .filter((name) => CODING_TOOL_NAMES[name] !== true && name !== "goal");
 
   return [...new Set([...toolNames, ...extensionToolNames])];
 }
@@ -334,6 +335,7 @@ export class AgentSessionWrapper {
   private extensionWidgets = new Map<string, ExtensionWidgetItem>();
   private promptRunning = false;
   private goalCommandTail: Promise<void> = Promise.resolve();
+  private readonly goalTools: GoalToolCoordination;
   // Set while the handoff RPC is in flight so state polls and the running-set
   // stay honest during the long oneshot generation + session transition.
   private handoffRunning = false;
@@ -377,6 +379,7 @@ export class AgentSessionWrapper {
     eventSessionIds: readonly string[] = [],
   ) {
     this.openedSessionId = inner.sessionId;
+    this.goalTools = new GoalToolCoordination(inner);
     this.sessionEventChannels = [...new Set(eventSessionIds)].map(acquireSessionEventChannel);
     this.queuedMessageEditor = new QueuedMessageEditor(this.inner.agent as QueueAgent);
     this.collaboration = new CollaborationAdapter({
@@ -577,6 +580,7 @@ export class AgentSessionWrapper {
       });
     }) ?? null;
     this.unsubscribe = this.inner.subscribe((event: AgentEvent) => {
+      this.goalTools.observe(event);
       if (event.type === "agent_end") {
         invalidateSessionListCache();
       }
@@ -679,6 +683,10 @@ export class AgentSessionWrapper {
 
   async waitUntilReady(): Promise<void> {
     await this.waitForExtensionsBound();
+  }
+
+  async reconcileGoalState(): Promise<void> {
+    await this.goalTools.settle();
   }
 
   private ensureExtensionsBound(options: ExtensionBindingOptions = {}): Promise<void> {
@@ -1038,7 +1046,7 @@ export class AgentSessionWrapper {
 
     switch (type) {
       case "goal": {
-        const result = this.goalCommandTail.then(() => runGoalCommand(this.inner, command));
+        const result = this.goalCommandTail.then(() => this.goalTools.run(command));
         this.goalCommandTail = result.then(() => undefined, () => undefined);
         return result;
       }
@@ -1456,8 +1464,10 @@ export class AgentSessionWrapper {
 
       case "set_tools": {
         const toolNames = command.toolNames as string[];
+        const selection = this.goalCommandTail.then(() => this.goalTools.selectTools(withExtensionTools(this.inner, toolNames)));
+        this.goalCommandTail = selection.then(() => undefined, () => undefined);
+        await selection;
         this.setForceEmptySystemPrompt(toolNames.length === 0);
-        await this.inner.setActiveToolsByName(withExtensionTools(this.inner, toolNames));
         this.applyForcedEmptySystemPrompt();
         return null;
       }
@@ -1468,6 +1478,7 @@ export class AgentSessionWrapper {
         this.extensionWidgets.clear();
         await this.inner.reload();
         await this.inner.refreshSkills?.();
+        await this.goalTools.settle();
         this.applyForcedEmptySystemPrompt();
         invalidateModelsCache();
         return { success: true };
@@ -2340,6 +2351,7 @@ export async function startRpcSession(
         wrapper.setForceEmptySystemPrompt(true);
       }
       wrapper.start();
+      await wrapper.reconcileGoalState();
 
       const realSessionFile = inner.sessionFile as string | undefined;
       if (realSessionFile) cacheSessionPath(realSessionId, realSessionFile);
