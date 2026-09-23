@@ -11,6 +11,7 @@ import { MessageTurn } from "./chat/MessageTurn";
 import { ThinkingDisclosure } from "./chat/ThinkingDisclosure";
 import { BashExecutionActivity } from "./chat/BashExecutionActivity";
 import { ToolActivity } from "./chat/ToolActivity";
+import { CompactionNote } from "./chat/CompactionNote";
 import { CollaborationCard, isCollaborationSnapshot } from "./chat/CollaborationCard";
 import styles from "./chat/message-view.module.css";
 import type {
@@ -656,6 +657,7 @@ function CompactionMessageView({ message }: { message: CustomMessage }) {
   const summary = getMessageText(message.content);
   const parsedSummary = useMemo(() => parseCompactionSummary(summary), [summary]);
   const time = formatTime(message.timestamp);
+  const source = (message.details as { source?: string } | undefined)?.source ?? "automatic";
 
   return (
     <MessageTurn
@@ -663,6 +665,10 @@ function CompactionMessageView({ message }: { message: CustomMessage }) {
       timestamp={time}
       header={<span className={styles.messageCardType}>compaction</span>}
     >
+      <CompactionNote
+        completed={true}
+        source={source}
+      >
       <div className={styles.compactionBody}>
         <div className={styles.compactionTitle}>{t("i18n.conversationCompacted")}</div>
         <div className={styles.compactionDescription}>{t("i18n.compactionDescription")}</div>
@@ -673,6 +679,7 @@ function CompactionMessageView({ message }: { message: CustomMessage }) {
         )}
         <CompactionFileMetadata readFiles={parsedSummary.readFiles} modifiedFiles={parsedSummary.modifiedFiles} />
       </div>
+      </CompactionNote>
     </MessageTurn>
   );
 }

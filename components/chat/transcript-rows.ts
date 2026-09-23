@@ -151,3 +151,5 @@ export function buildTranscriptRows(
   }
   return rows;
 }
+
+export { CompactionNote } from "./CompactionNote";

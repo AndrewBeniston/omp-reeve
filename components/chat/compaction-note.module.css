@@ -1,0 +1,82 @@
+.note {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px) 0;
+  color: var(--ui-text);
+  font-family: var(--font-sans);
+}
+
+.labelRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 20px;
+  color: var(--ui-text-muted);
+}
+
+.icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  stroke-width: 1.8;
+  color: var(--ui-text-muted);
+}
+
+.label {
+  min-width: 0;
+  color: var(--ui-text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+}
+
+.shimmer {
+  --phase-shimmer-base: color-mix(in srgb, var(--ui-text) 60%, transparent);
+  min-width: 0;
+  overflow: hidden;
+  background-color: var(--phase-shimmer-base);
+  background-image: linear-gradient(90deg, transparent 0%, var(--ui-text) 50%, transparent 100%);
+  background-position: -100% 0;
+  background-repeat: no-repeat;
+  background-size: 50% 200%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: none;
+  animation: chatPhaseShimmer 2s steps(48, end) infinite;
+}
+
+@keyframes chatPhaseShimmer {
+  from { background-position: -100% 0; }
+  to { background-position: 250% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+    color: var(--ui-text-muted);
+    background: none;
+  }
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm, 4px);
+  background: color-mix(in srgb, var(--ui-error, #ef4444) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ui-error, #ef4444) 30%, transparent);
+  color: var(--ui-error, #ef4444);
+  font-size: var(--text-xs, 12px);
+  line-height: var(--leading-xs, 16px);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: var(--space-2, 8px);
+}
