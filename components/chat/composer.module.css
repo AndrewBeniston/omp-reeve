@@ -663,6 +663,12 @@
   color: var(--ui-text);
 }
 
+.modelRoute {
+  flex-shrink: 0;
+  color: var(--ui-text-dim);
+  font-size: var(--text-xs);
+}
+
 .reasoningLevel {
   color: var(--ui-text-dim);
   text-transform: capitalize;

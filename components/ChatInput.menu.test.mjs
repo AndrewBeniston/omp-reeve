@@ -56,6 +56,69 @@ const modelProps = {
   onModelChange() {},
 };
 
+test("the model control preserves the route when providers share a model name", async () => {
+  const picked = [];
+  const modelList = [
+    { provider: "openai", id: "gpt-example", name: "GPT Example" },
+    { provider: "openai-codex", id: "gpt-example", name: "GPT Example" },
+    { provider: "openai", id: "gpt-example-pro", name: "GPT Example Pro" },
+  ];
+  const props = {
+    model: { provider: "openai-codex", modelId: "gpt-example" },
+    modelList,
+    onModelChange: (provider, modelId) => picked.push({ provider, modelId }),
+  };
+  const view = await mountComposer(props);
+  const trigger = triggerFor(view.container, "Model settings");
+  assert.match(textOf(trigger), /GPT Example.*ChatGPT subscription/);
+
+  await click(trigger);
+  await settle();
+  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await settle();
+  const menu = view.container.querySelector("[data-model-submenu='model']");
+  assert.match(textOf(menu), /OpenAI API/);
+  assert.match(textOf(menu), /ChatGPT subscription/);
+  const apiGroup = Array.from(menu.querySelectorAll("[data-model-provider]"))
+    .find((group) => group.getAttribute("data-model-provider") === "openai");
+  const subscriptionGroup = Array.from(menu.querySelectorAll("[data-model-provider]"))
+    .find((group) => group.getAttribute("data-model-provider") === "openai-codex");
+  assert.deepEqual(itemsOf(subscriptionGroup).map(textOf), ["GPT Example"]);
+  assert.equal(itemsOf(subscriptionGroup)[0].getAttribute("aria-checked"), "true");
+
+  await click(itemsOf(apiGroup)[0]);
+  await settle();
+  assert.deepEqual(picked, [{ provider: "openai", modelId: "gpt-example" }]);
+
+  await view.render(h(I18nProvider, null, h(ChatInput, { onSend() {}, onAbort() {}, isStreaming: false,
+    ...props, model: { provider: "openai", modelId: "gpt-example" },
+  })));
+  await settle();
+  assert.match(textOf(triggerFor(view.container, "Model settings")), /GPT Example.*OpenAI API/);
+  await view.unmount();
+});
+
+test("the model control preserves provider-qualified names when the model list is absent", async () => {
+  const picked = [];
+  const view = await mountComposer({
+    model: { provider: "openai-codex", modelId: "gpt-example" },
+    modelNames: {
+      "openai:gpt-example": "GPT Example",
+      "openai-codex:gpt-example": "GPT Example",
+    },
+    onModelChange: (provider, modelId) => picked.push({ provider, modelId }),
+  });
+  await click(triggerFor(view.container, "Model settings"));
+  await settle();
+  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await settle();
+  const apiGroup = view.container.querySelector("[data-model-provider='openai']");
+  assert.ok(apiGroup);
+  await click(itemsOf(apiGroup)[0]);
+  assert.deepEqual(picked, [{ provider: "openai", modelId: "gpt-example" }]);
+  await view.unmount();
+});
+
 test("the Add menu collects command arguments separately from the existing draft", async () => {
   const ref = React.createRef();
   const sent = [];
@@ -248,7 +311,7 @@ test("the Codex model menu opens supported effort levels and keeps its callback"
   assert.ok(submenu, "the Effort row opens its submenu");
   assert.equal(submenu.getAttribute("aria-label"), "Effort");
   const items = itemsOf(submenu);
-  assert.deepEqual(items.map(textOf), ["Light", "Medium", "High", "Extra High", "UltraConsumes usage limits faster"]);
+  assert.deepEqual(items.map(textOf), ["Light", "Medium", "High", "Extra High", "MaxConsumes usage limits faster"]);
   const checked = items.filter((item) => item.getAttribute("aria-checked") === "true");
   assert.equal(checked.length, 1);
   assert.equal(textOf(checked[0]), "High");
