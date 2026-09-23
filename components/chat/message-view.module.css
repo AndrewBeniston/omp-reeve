@@ -36,6 +36,22 @@
   overflow-wrap: anywhere;
 }
 
+.userTextViewport { font-size: var(--text-base, 13px); line-height: var(--leading-transcript, 1.5); }
+.userTextViewport[data-collapsed="true"] { max-height: 2lh; overflow: hidden; }
+.userTextContent { display: flow-root; }
+.userMessageToggle {
+  display: block;
+  min-height: 26px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ui-text-dim);
+  cursor: pointer;
+  font: inherit;
+}
+.userMessageToggle:hover { color: var(--ui-text); }
+.userMessageToggle:focus-visible { outline: var(--ui-focus-ring); outline-offset: var(--ui-focus-offset); }
+
 .messageImages {
   display: flex;
   flex-wrap: wrap;

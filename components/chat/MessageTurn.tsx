@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/hooks/useI18n";
-import { copyText } from "@/lib/clipboard";
+import { copyText, copyTextOrFail } from "@/lib/clipboard";
 import { Tooltip } from "@/components/ui/Tooltip";
 import styles from "./message-view.module.css";
 
@@ -23,6 +23,84 @@ interface MessageTurnProps {
   cardHidden?: boolean;
   cardExpanded?: boolean;
   navigationId?: string;
+  userText?: ReactNode;
+}
+
+const USER_MESSAGE_LINES = 2;
+const USER_MESSAGE_FALLBACK_FONT_PX = 13;
+const USER_MESSAGE_HEIGHT_TOLERANCE_PX = 1;
+
+function UserMessageBody({ children, text }: { children: ReactNode; text?: ReactNode }) {
+  const { t } = useI18n();
+  const textId = useId();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [collapsible, setCollapsible] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const measure = useCallback(() => {
+    const element = contentRef.current;
+    if (!element) return;
+    const style = window.getComputedStyle(element);
+    const fontSize = Number.parseFloat(style.fontSize) || USER_MESSAGE_FALLBACK_FONT_PX;
+    const lineHeight = style.lineHeight.endsWith("px")
+      ? Number.parseFloat(style.lineHeight)
+      : fontSize * 1.5;
+    const height = lineHeight * USER_MESSAGE_LINES;
+    setCollapsible(element.getBoundingClientRect().height > height + USER_MESSAGE_HEIGHT_TOLERANCE_PX);
+  }, []);
+
+  useLayoutEffect(() => { measure(); }, [measure, text]);
+
+  useEffect(() => {
+    const element = contentRef.current;
+    if (!element || !window.ResizeObserver) return;
+    const observer = new window.ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [measure, text]);
+
+  useEffect(() => {
+    let active = true;
+    const fonts = document.fonts;
+    window.addEventListener("resize", measure);
+    window.visualViewport?.addEventListener("resize", measure);
+    fonts?.addEventListener("loadingdone", measure);
+    void fonts?.ready.then(() => { if (active) measure(); });
+    return () => {
+      active = false;
+      window.removeEventListener("resize", measure);
+      window.visualViewport?.removeEventListener("resize", measure);
+      fonts?.removeEventListener("loadingdone", measure);
+    };
+  }, [measure]);
+
+  return (
+    <div className={styles.userBubble} onLoadCapture={measure}>
+      {children}
+      {text !== undefined && (
+        <>
+          <div
+            id={textId}
+            className={styles.userTextViewport}
+            data-collapsed={collapsible && !expanded}
+          >
+            <div ref={contentRef} className={styles.userTextContent}>{text}</div>
+          </div>
+          {collapsible && (
+            <button
+              type="button"
+              className={styles.userMessageToggle}
+              aria-controls={textId}
+              aria-expanded={expanded}
+              onClick={() => setExpanded((current) => !current)}
+            >
+              {t(expanded ? "codex.userMessage.showLess" : "codex.userMessage.showMore")}
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 function CopyIcon({ copied }: { copied: boolean }) {
@@ -53,17 +131,25 @@ export function MessageTurn({
   cardHidden,
   cardExpanded,
   navigationId,
+  userText,
 }: MessageTurnProps) {
   const { t } = useI18n();
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const markCopied = () => {
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
   const copyMessage = () => {
     if (copyContent === undefined) return;
-    void copyText(copyContent).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
+    void copyText(copyContent).then(markCopied);
+  };
+
+  const copyUserMessage = () => {
+    if (copyContent === undefined) return;
+    void copyTextOrFail(copyContent).then(markCopied).catch(() => {});
   };
 
   if (role === "custom" || role === "compaction") {
@@ -113,16 +199,16 @@ export function MessageTurn({
         onMouseLeave={() => setHovered(false)}
       >
         <div className={styles.userMessageRow}>
-          <div className={styles.userBubble}>{children}</div>
+          <UserMessageBody text={userText}>{children}</UserMessageBody>
         </div>
         <div className={styles.messageFooter}>
           {copyContent !== undefined && (
             <div className={styles.messageActions} data-visible={hovered}>
-              <Tooltip content={copied ? t("i18n.copied") : t("i18n.copyMessage")}>
+              <Tooltip content={t(copied ? "codex.userMessage.copiedAriaLabel" : "codex.userMessage.copyAriaLabel")}>
                 <button
                   type="button"
-                  onClick={copyMessage}
-                  aria-label={t("i18n.copyMessage")}
+                  onClick={copyUserMessage}
+                  aria-label={t(copied ? "codex.userMessage.copiedAriaLabel" : "codex.userMessage.copyAriaLabel")}
                   className={styles.messageAction}
                   data-message-action="copy"
                   data-state={copied ? "copied" : "idle"}

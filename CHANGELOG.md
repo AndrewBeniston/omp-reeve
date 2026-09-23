@@ -9,6 +9,8 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+- Long user messages show two lines with a Show more control. Empty messages show "(No content)". The copy control confirms successful copies.
+
 ## [0.8.0] - 2026-09-23
 
 ### Added
