@@ -9,6 +9,10 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+### Fixed
+
+- The transcript keeps the reader's position when an existing Turn changes height.
+
 ## [0.8.0] - 2026-09-23
 
 ### Added
