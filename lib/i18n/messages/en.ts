@@ -859,6 +859,8 @@ export const enLocale: LocalePlugin = {
     "codex.userMessage.cancelEditMessage": "Cancel",
     "codex.userMessage.fileAttachmentKind": "File",
     "codex.userMessage.folderAttachmentKind": "Folder",
+    "composer.queuedMessage.pastedTextAttachment": "Pasted text",
+    "composer.queuedMessage.additionalPastedTextAttachments": "{preview} (+{remainingCount, plural, one {# more pasted text attachment} other {# more pasted text attachments}})",
     "codex.userMessage.openAttachment": "Open",
     "codex.userMessage.showAttachmentSource": "Show source",
     "codex.userMessage.hideAttachmentSource": "Hide source",

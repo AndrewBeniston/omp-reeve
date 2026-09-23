@@ -75,6 +75,23 @@ test("attaches saved file mentions to the following user message", () => {
   ]);
 });
 
+test("preserves pasted-text attachment descriptors when the session reloads", () => {
+  const loaded = buildSessionContext([
+    { type: "message", id: "paste-1", parentId: null, timestamp: "2026-01-01T00:00:00.000Z", message: { role: "fileMention", files: [
+      { path: "browser-upload:up_123/Pasted text.txt", content: "Uploaded file: Pasted text.txt\nfirst" },
+      { path: "browser-upload:up_456/Pasted text.txt", content: "Uploaded file: Pasted text.txt\nsecond" },
+    ] } },
+    { type: "message", id: "user-1", parentId: "paste-1", timestamp: "2026-01-01T00:00:01.000Z", message: { role: "user", content: "Review" } },
+  ]);
+
+  assert.deepEqual(loaded.messages[0].attachments, [
+    { name: "Pasted text.txt", kind: "file", available: true, uploaded: true, content: "Uploaded file: Pasted text.txt\nfirst" },
+    { name: "Pasted text.txt", kind: "file", available: true, uploaded: true, content: "Uploaded file: Pasted text.txt\nsecond" },
+  ]);
+  assert.match(renderMessage(loaded.messages[0]), /Pasted text\.txt \(\+1 more pasted text attachment\)/);
+  assert.doesNotMatch(renderMessage(loaded.messages[0]), /Uploaded file/);
+});
+
 test("opens a ready attachment and reveals saved uploaded content", async () => {
   const opened = [];
   const view = await mount(React.createElement(I18nProvider, null, React.createElement(UserMessageAttachmentRows, {

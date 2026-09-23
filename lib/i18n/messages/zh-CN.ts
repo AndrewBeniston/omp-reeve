@@ -859,6 +859,8 @@ export const zhCNLocale: LocalePlugin = {
     "codex.userMessage.cancelEditMessage": "取消",
     "codex.userMessage.fileAttachmentKind": "文件",
     "codex.userMessage.folderAttachmentKind": "文件夹",
+    "composer.queuedMessage.pastedTextAttachment": "粘贴的文本",
+    "composer.queuedMessage.additionalPastedTextAttachments": "{preview}（+{remainingCount, plural, one {# 个其他粘贴文本附件} other {# 个其他粘贴文本附件}}）",
     "codex.userMessage.openAttachment": "打开",
     "codex.userMessage.showAttachmentSource": "显示来源",
     "codex.userMessage.hideAttachmentSource": "隐藏来源",

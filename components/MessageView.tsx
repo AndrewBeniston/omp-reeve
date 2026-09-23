@@ -17,6 +17,7 @@ import { CollaborationCard, isCollaborationSnapshot } from "./chat/Collaboration
 import { AssistantResponseAnnouncer } from "./chat/AssistantResponseAnnouncer";
 import { AssistantMessageActions } from "./chat/AssistantMessageActions";
 import { UserMessageAttachmentRows } from "./chat/UserMessageAttachmentRows";
+import { PastedTextAttachmentRow } from "./chat/PastedTextAttachmentRow";
 import styles from "./chat/message-view.module.css";
 import type {
   AgentMessage,
@@ -417,7 +418,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
       onEditFailure={onEditFailure}
       onBranch={canFork ? () => setForkDialogOpen(true) : undefined}
     >
-      {message.attachments && <UserMessageAttachmentRows attachments={message.attachments} onOpenFile={onOpenFile} />}
+      {message.attachments && <><PastedTextAttachmentRow attachments={message.attachments} /><UserMessageAttachmentRows attachments={message.attachments} onOpenFile={onOpenFile} /></>}
       {imageBlocks.length > 0 && (
         <div className={styles.messageImages} data-has-text={Boolean(content)}>
           {imageBlocks.map((img, i) => {

@@ -1,0 +1,2 @@
+.row { display: flex; min-width: 0; align-items: center; margin-bottom: var(--space-2); border: 1px solid var(--ui-border); border-radius: var(--radius-sm); padding: 3px var(--space-1-5); background: var(--ui-surface); color: var(--ui-text); font-size: var(--text-sm); }
+.label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

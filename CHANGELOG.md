@@ -9,6 +9,8 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+- Show grouped pasted-text attachment rows on sent user messages.
+
 - Added copy-path and save-copy actions to inline audio players.
 
 ### Added
