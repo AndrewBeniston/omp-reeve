@@ -17,6 +17,7 @@ import type { AgentControlReply, AgentControlRequestEvent } from "@/lib/agent-co
 import { normalizeToolCalls } from "@/lib/normalize";
 import { stripAnsi } from "@/lib/ansi";
 import { isPromptRejectedError, sendAgentCommand } from "@/lib/agent-client";
+import { useGoalState, type GoalUpdateEvent } from "./useGoalState";
 import { getToolNamesForPreset, type ToolEntry } from "@/lib/tool-presets";
 import {
   approvalModeFromSettings,
@@ -507,6 +508,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const [extensionWidgets, setExtensionWidgets] = useState<ExtensionWidgetItem[]>([]);
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessages>({ items: [], paused: false });
   const [subagents, setSubagents] = useState<SubagentSnapshot[]>([]);
+  const [goalSessionId, setGoalSessionId] = useState<string | null>(session?.id ?? null);
+  const goalState = useGoalState(goalSessionId);
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const eventSourceSessionIdRef = useRef<string | null>(null);
@@ -772,6 +775,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       };
       const realId = result.sessionId;
       sessionIdRef.current = realId;
+      setGoalSessionId(realId);
       if (result.model && newSessionModelOverrideRef.current === selectedModel) {
         setPendingModel(result.model);
         if (!selectedModel) setNewSessionDefaultModel(result.model);
@@ -850,6 +854,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       const timeout = setTimeout(() => settle("timeout"), EVENT_STREAM_CONNECT_TIMEOUT_MS);
 
       es.onmessage = (e) => {
+        if (eventSourceRef.current !== es || sessionIdRef.current !== sid) return;
         try {
           const event = JSON.parse(e.data) as AgentEvent;
           if (event.type === "connected") settle("connected");
@@ -859,6 +864,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         }
       };
       es.onerror = () => {
+        if (eventSourceRef.current !== es || sessionIdRef.current !== sid) return;
+        goalState.markStale();
         if (es.readyState === EventSource.CLOSED) {
           // Fatal error (404/500/content-type mismatch): browser won't
           // auto-reconnect. Settle the Promise and manually reconnect for
@@ -889,7 +896,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     });
     eventConnectionAttemptRef.current = { source: es, promise, pending: true };
     return promise;
-  }, [closeEvents]);
+  }, [closeEvents, goalState.markStale]);
 
   const ensureEventsConnected = useCallback(async (sid: string) => {
     const current = eventSourceRef.current;
@@ -963,6 +970,16 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       },
     });
   }, []);
+  const goalRetryLabel = translate("workspace.retry");
+  useEffect(() => {
+    if (goalState.status !== "error" || !goalState.error) return;
+    addNotice({
+      message: goalState.error,
+      type: "error",
+      actionLabel: goalRetryLabel,
+      onAction: () => { void goalState.retry(); },
+    });
+  }, [addNotice, goalRetryLabel, goalState.error, goalState.retry, goalState.status]);
   const appendCommandOutput = useCallback((text: string) => {
     const content = stripAnsi(text).trim();
     const message: CustomMessage = {
@@ -1242,6 +1259,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       // and the user already started the next one while this request was in
       // flight) — everything in it is stale, drop it.
       if (promptRunIdRef.current !== runId) return;
+      void goalState.refresh();
       const state = data.state;
       // Mirror compaction state unconditionally: a missed compaction_end
       // would otherwise leave the "Stop compaction" UI stuck. No state
@@ -1262,7 +1280,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     } catch {
       // Network still down — the next poll / visibility / online tick retries.
     }
-  }, [finishPromptWithoutStream]);
+  }, [finishPromptWithoutStream, goalState.refresh]);
   const refreshContextUsage = useCallback(async (sid: string, runId = promptRunIdRef.current) => {
     const requestId = contextUsageRequestIdRef.current + 1;
     contextUsageRequestIdRef.current = requestId;
@@ -1321,11 +1339,35 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, [agentRunning, reconcileAgentState]);
 
   useEffect(() => {
+    if (!goalSessionId) return;
+    const refreshGoal = () => { void goalState.refresh(); };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshGoal();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", refreshGoal);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", refreshGoal);
+    };
+  }, [goalSessionId, goalState.refresh]);
+
+  useEffect(() => {
     agentRunningRef.current = agentRunning;
   }, [agentRunning]);
 
   const handleAgentEvent = useCallback((event: AgentEvent) => {
     switch (event.type) {
+      case "connected":
+        void goalState.refresh();
+        break;
+      case "goal_updated":
+        goalState.onEvent({
+          type: "goal_updated",
+          goal: (event.goal as GoalUpdateEvent["goal"] | undefined) ?? null,
+          state: event.state as GoalUpdateEvent["state"],
+        });
+        break;
       case "agent_start":
         cancelEventStreamGrace();
         sdkAgentActiveRef.current = true;
@@ -1633,7 +1675,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         }
         break;
     }
-  }, [addNotice, cancelEventStreamGrace, handleAgentControlRequest, handleExtensionUiRequest, loadSession, notifyPromptStage, onAgentEnd, onSessionNameChanged, refreshContextUsage, scheduleEventStreamClose, settleUiStage]);
+  }, [addNotice, cancelEventStreamGrace, goalState.onEvent, goalState.refresh, handleAgentControlRequest, handleExtensionUiRequest, loadSession, notifyPromptStage, onAgentEnd, onSessionNameChanged, refreshContextUsage, scheduleEventStreamClose, settleUiStage]);
   handleAgentEventRef.current = handleAgentEvent;
 
   const handleSend = useCallback(async (message: string, images?: AttachedImage[]) => {
@@ -2543,6 +2585,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   useEffect(() => {
     if (session) {
       sessionIdRef.current = session.id;
+      setGoalSessionId(session.id);
       loadSession(session.id, true, true).then((agentState) => {
         if (agentState?.running) {
           loadTools(session.id);
@@ -2732,6 +2775,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     retryInfo, contextUsage, systemPrompt, forkingEntryId,
     isCompacting, compactError, compactResult, currentModel, displayModel, modelSwitching, sessionStats,
     slashCommands, slashCommandsLoading, queuedMessages, subagents,
+    goalState,
     notices: noticeState.visible, extensionDialog, extensionCustomUi, extensionStatuses, extensionWidgets, respondToExtensionUi, sendExtensionCustomInput,
     approvalNudgeOpen, approvalDialogId, handleApprovalNudgeAccept, handleApprovalNudgeDismiss,
     isAutoModelSelection: isNew && newSessionModel === null,
