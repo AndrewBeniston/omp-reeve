@@ -45,10 +45,14 @@ import { selectComposerPlaceholder } from "./composer-placeholder";
 import { getSecureAttachmentPicker } from "@/lib/desktop-attachments";
 import {
   addComposerAttachments,
+  addPastedTextAttachment,
   addBrowserUpload,
   deleteBrowserUpload,
   markComposerAttachmentError,
   removeComposerAttachment,
+  pastedTextFromAttachment,
+  replacePastedTextAttachment,
+  PASTED_TEXT_THRESHOLD,
   uploadBrowserFile,
   type ComposerAttachmentDescriptor,
 } from "@/lib/composer-attachment-state";
@@ -196,6 +200,8 @@ export interface ChatInputHandle {
   prependText: (text: string) => void;
   addImages: (files: File[]) => void;
   addFiles: (files: File[]) => void;
+  addDroppedFiles: (files: File[]) => void;
+  addDroppedText: (text: string) => void;
   rekeyDraft: (previousKey: string, nextKey: string) => void;
   restoreSubmission: (text: string, images?: ChatDraftImage[], targetDraftKey?: string, attachments?: ComposerAttachmentDescriptor[], attachmentError?: string) => void;
 }
@@ -951,6 +957,16 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       if (images.length) processImageFiles(images);
       const otherFiles = files.filter(file => !file.type.startsWith("image/"));
       if (otherFiles.length && !getSecureAttachmentPicker()) void processBrowserFiles(otherFiles);
+    },
+    addDroppedFiles(files: File[]) {
+      const images = files.filter(file => file.type.startsWith("image/"));
+      const otherFiles = files.filter(file => !file.type.startsWith("image/"));
+      if (images.length) processImageFiles(images);
+      if (otherFiles.length) void processBrowserFiles(otherFiles);
+    },
+    addDroppedText(text: string) {
+      if (text.length > PASTED_TEXT_THRESHOLD) handlePasteText(text);
+      else textareaRef.current?.insertText(text);
     },
   }));
 
@@ -1736,6 +1752,42 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     return true;
   }, [processImageFiles]);
 
+  const handlePasteText = useCallback((text: string) => {
+    if (text.length <= PASTED_TEXT_THRESHOLD) return false;
+    const [pending] = addPastedTextAttachment(localAttachmentsRef.current, text);
+    const withPending = [...localAttachmentsRef.current, pending];
+    localAttachmentsRef.current = withPending;
+    setLocalAttachments(withPending);
+    browserUploadsPendingRef.current += 1;
+    setBrowserUploadsPending(browserUploadsPendingRef.current);
+    void (async () => {
+      try {
+        const sessionId = await onEnsureSession?.();
+        if (!sessionId) throw new Error(t("composer.browserUploadNoSession"));
+        const file = new File([text], "Pasted text.txt", { type: "text/plain" });
+        const upload = await uploadBrowserFile(sessionId, file);
+        const next = replacePastedTextAttachment(
+          localAttachmentsRef.current,
+          pending.id,
+          { ...upload, sessionId },
+        );
+        localAttachmentsRef.current = next;
+        setLocalAttachments(next);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : t("composer.browserUploadFailed");
+        const next = localAttachmentsRef.current.map((attachment) => attachment.id === pending.id
+          ? { ...attachment, readError: message }
+          : attachment);
+        localAttachmentsRef.current = next;
+        setLocalAttachments(next);
+      } finally {
+        browserUploadsPendingRef.current -= 1;
+        setBrowserUploadsPending(browserUploadsPendingRef.current);
+      }
+    })();
+    return true;
+  }, [onEnsureSession, t]);
+
   useEffect(() => {
     if (slashQuery === null) {
       setSlashMenuOpen(false);
@@ -2021,6 +2073,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         updateAtQuery(nextValue, cursor);
       }}
       onPasteImages={handlePasteImages}
+      onPasteText={handlePasteText}
       onHeightChange={(scrollHeight) => setTextareaHeight(getComposerTextareaHeight(scrollHeight))}
     />
   );
@@ -2035,22 +2088,37 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         <div key={attachment.id} className={styles.localAttachmentRow} role="listitem" data-state={attachment.readError ? "error" : "ready"}>
           <span className={styles.localAttachmentKind} aria-hidden="true">{attachment.kind === "folder" ? "▣" : "▤"}</span>
           <span className={styles.localAttachmentDetails}>
-            <span className={styles.localAttachmentName}>{attachment.name}</span>
+            <span className={styles.localAttachmentName}>{attachment.pastedText ? t("composer.pastedTextAttachmentTitle") : attachment.name}</span>
             <span className={styles.localAttachmentMeta}>
               {t(attachment.upload ? "composer.browserFile" : attachment.kind === "folder" ? "composer.localFolder" : "composer.localFile")}
               {attachment.pathSummary && <><span aria-hidden="true"> · </span>{attachment.pathSummary}</>}
               <span aria-hidden="true"> · </span>
               <span role={attachment.readError ? "alert" : undefined}>
-                {attachment.readError === "inaccessible"
+                {attachment.pastedText && !attachment.upload && !attachment.readError
+                  ? t("composer.pastedTextAttachmentAdding")
+                  : attachment.readError === "inaccessible"
                   ? t("composer.localAttachmentInaccessible")
                   : attachment.readError ?? t("composer.localAttachmentReady")}
               </span>
             </span>
           </span>
+          {attachment.pastedText && <button type="button" className={styles.localAttachmentRestore} onClick={() => {
+            const text = pastedTextFromAttachment(attachment);
+            if (text === null) return;
+            textareaRef.current?.insertText(text);
+            const next = removeComposerAttachment(localAttachmentsRef.current, attachment.id);
+            localAttachmentsRef.current = next;
+            setLocalAttachments(next);
+            if (!draftKeyRef.current && attachment.upload) {
+              void deleteBrowserUpload(attachment.upload.sessionId, attachment.upload.id).catch(() => {});
+            }
+          }}>{t("composer.pastedTextAttachmentShowInTextField")}</button>}
           <button
             type="button"
             className={styles.localAttachmentRemove}
-            aria-label={t("composer.removeLocalAttachment", { name: attachment.name })}
+            aria-label={attachment.pastedText
+              ? t("composer.pastedTextAttachmentRemoveAriaLabel")
+              : t("composer.removeLocalAttachment", { name: attachment.name })}
             onClick={() => {
               const previous = localAttachmentsRef.current.find(item => item.id === attachment.id);
               const next = removeComposerAttachment(localAttachmentsRef.current, attachment.id);
