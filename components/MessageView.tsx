@@ -8,6 +8,7 @@ import { getAssistantErrorMessage, isEmptyThinkingBlock } from "@/lib/message-di
 import { TurnWrittenFiles } from "./TurnWrittenFiles";
 import type { WrittenFile } from "@/lib/turn-written-files";
 import { MessageTurn } from "./chat/MessageTurn";
+import { MessageOriginRow } from "./chat/MessageOriginRow";
 import { ThinkingDisclosure } from "./chat/ThinkingDisclosure";
 import { BashExecutionActivity } from "./chat/BashExecutionActivity";
 import { ToolActivity } from "./chat/ToolActivity";
@@ -726,6 +727,15 @@ function CustomMessageView({ message, cwd, onOpenFile }: { message: CustomMessag
     ? message.details
     : null;
 
+  if (message.customType === "live-delegation") {
+    const appName = getLiveDelegationAppName(message.details) ?? t("transcript.origin.unknownApp");
+    return (
+      <MessageOriginRow>
+        {t("transcript.origin.liveDelegation", { appName })}
+      </MessageOriginRow>
+    );
+  }
+
   if (collaboration) {
     return (
       <MessageTurn
@@ -796,6 +806,13 @@ function CustomMessageView({ message, cwd, onOpenFile }: { message: CustomMessag
       )}
     </MessageTurn>
   );
+}
+
+function getLiveDelegationAppName(details: unknown): string | undefined {
+  if (typeof details !== "object" || details === null || Array.isArray(details) || !("appName" in details)) return undefined;
+  const appName = details.appName;
+  if (typeof appName !== "string" || appName.trim() === "") return undefined;
+  return appName.trim();
 }
 
 function getMessageText(content: CustomMessage["content"] | UserMessage["content"]): string {

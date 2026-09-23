@@ -11,6 +11,8 @@ export const zhCNLocale: LocalePlugin = {
     "common.skills": "技能",
     "common.plugins": "插件",
     "common.settings": "设置",
+    "transcript.origin.liveDelegation": "由 {appName} 从另一个任务发送",
+    "transcript.origin.unknownApp": "另一个应用",
     "markdown.copyTable": "复制表格",
     "markdown.expandTable": "展开表格",
     "markdown.tablePreview": "表格预览",
