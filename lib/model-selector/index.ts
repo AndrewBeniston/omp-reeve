@@ -90,6 +90,10 @@ function modelKey(model: ModelRef): string {
   return `${model.provider}/${model.modelId}`;
 }
 
+function selectionId(model: ModelRef, effort: ReferenceEffort): string {
+  return `${modelKey(model)}:${effort}`;
+}
+
 function routeLabel(provider: string, label: (key: string) => string): string {
   if (provider === "openai") return label("chat.openaiApiRoute");
   if (provider === "openai-codex") return label("chat.chatgptSubscriptionRoute");
@@ -160,7 +164,7 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
       const effort = thinkingLevel === "off" ? "none" : thinkingLevel;
       const effortLabel = label(EFFORT_LABEL_KEYS[thinkingLevel]);
       selections.push({
-        id: `${modelKey(option)}:${effort}`,
+        id: selectionId(option, effort),
         model: { provider: option.provider, modelId: option.modelId },
         thinkingLevel,
         effort,
@@ -177,6 +181,26 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
     ? configuredLevel
     : pin ?? (currentModel && defaultModel && sameModel(currentModel, defaultModel) ? defaultRole?.resolved?.thinkingLevel : undefined);
   const currentStep = steps.find((step) => step.thinkingLevel === currentLevel);
+  const selectionIds = new Set(selections.map((selection) => selection.id));
+  const modelRowsByProvider = modelsByProvider.map((group) => ({
+    ...group,
+    options: group.options.map((option) => {
+      const matchingId = currentStep && selectionId(option, currentStep.effort);
+      const optionSelectionId = matchingId && selectionIds.has(matchingId) ? matchingId : undefined;
+      return {
+        ...option,
+        selectionId: optionSelectionId,
+        selected: Boolean(optionSelectionId && optionSelectionId === currentStep?.id),
+      };
+    }),
+  }));
+  const pinnedDefaultLevel = defaultRole?.resolved?.thinkingLevel;
+  const pinnedDefaultEffort = pinnedDefaultLevel === "off" ? "none"
+    : THINKING_STEP_ORDER.includes(pinnedDefaultLevel as ThinkingStep) ? pinnedDefaultLevel as ReferenceEffort
+    : undefined;
+  const defaultSelectionId = defaultModel && currentStep
+    ? selectionId(defaultModel, pinnedDefaultEffort ?? currentStep.effort)
+    : undefined;
   const roleRows = input.roles.filter((role) => !role.hidden && role.resolved);
   const activeRole = currentModel
     ? roleRows.find((role) => role.resolved && sameModel(role.resolved, currentModel))
@@ -186,6 +210,7 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
     models,
     filteredModels,
     modelsByProvider,
+    modelRowsByProvider,
     roleRows,
     activeRole,
     selections,
@@ -198,6 +223,7 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
       description: label("chat.modelDefaultDescription"),
       model: defaultModel,
     } : undefined,
+    defaultRowSelected: Boolean(!input.explicitModelOverride && defaultSelectionId && defaultSelectionId === currentStep?.id),
     reset: input.explicitModelOverride && defaultModel ? { model: defaultModel, role: "default" as const } : undefined,
   };
 }

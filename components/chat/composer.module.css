@@ -864,7 +864,7 @@
 }
 
 .modelSubmenuModel {
-  top: 0;
+  bottom: 0;
   width: 280px;
 }
 
@@ -917,44 +917,12 @@
   font-size: var(--text-xs);
 }
 
-.modelFilterWrap {
-  padding: var(--space-1-5);
-  border-bottom: 1px solid var(--ui-border-subtle);
-}
-
-.modelFilter {
-  width: 100%;
-  height: 28px;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-xs);
-  border: 1px solid var(--ui-border);
-  background: var(--ui-surface-inset);
-  color: var(--ui-text);
-  font-size: var(--text-xs);
-  outline: none;
-  box-sizing: border-box;
-}
-
-.modelFilter:focus {
-  border-color: var(--ui-accent);
-}
-
-.modelMenuScroller {
-  max-height: min(250px, var(--ui-scroll-offset, 250px));
-  overflow-y: auto;
-}
-
 .modelGroupLabel {
   padding: var(--space-1-5) var(--space-2) var(--space-0-5);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--ui-text-dim);
   text-transform: uppercase;
-}
-
-.modelGroupDivider {
-  border-top: 1px solid var(--ui-border-subtle);
-  margin-top: var(--space-1);
 }
 
 .selectableControl {
@@ -976,35 +944,6 @@
 
 .selectableControl[data-selected="false"]:hover {
   background: var(--ui-hover);
-}
-
-.selectionMark {
-  flex-shrink: 0;
-  color: var(--ui-accent);
-}
-
-.selectionSpacer {
-  width: 10px;
-  flex-shrink: 0;
-}
-
-.roleTag {
-  padding: 1px 4px;
-  border-radius: var(--radius-xs);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-semibold);
-  background: var(--ui-surface-inset);
-  color: var(--ui-text-muted);
-}
-
-.roleName {
-  font-weight: var(--font-weight-medium);
-}
-
-.roleResolved {
-  color: var(--ui-text-dim);
-  font-size: var(--text-2xs);
-  margin-left: auto;
 }
 
 .moreControls {
@@ -1121,6 +1060,11 @@
     right: 0;
     bottom: auto;
     width: 260px;
+  }
+
+  .modelMenuStack[data-mobile="true"] .modelSubmenuModel {
+    top: auto;
+    bottom: 0;
   }
 }
 

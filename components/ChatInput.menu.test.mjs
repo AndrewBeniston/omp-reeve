@@ -132,6 +132,12 @@ test("the model control preserves the route when providers share a model name", 
   const props = {
     model: { provider: "openai-codex", modelId: "gpt-example" },
     modelList,
+    thinkingLevel: "medium",
+    modelThinkingLevels: {
+      "openai:gpt-example": ["medium"],
+      "openai-codex:gpt-example": ["medium"],
+      "openai:gpt-example-pro": ["high"],
+    },
     onModelChange: (provider, modelId) => picked.push({ provider, modelId }),
   };
   const view = await mountComposer(props);
@@ -161,6 +167,67 @@ test("the model control preserves the route when providers share a model name", 
   })));
   await settle();
   assert.match(textOf(triggerFor(view.container, "Model settings")), /GPT Example.*OpenAI API/);
+  await view.unmount();
+});
+
+test("the model list starts with Default and selects OMP's default role", async () => {
+  const roles = [];
+  const view = await mountComposer({
+    model: { provider: "openai", modelId: "gpt-example" },
+    modelList: [
+      { provider: "openai", id: "gpt-example", name: "GPT Example" },
+      { provider: "anthropic", id: "claude-example", name: "Claude Example" },
+    ],
+    modelRoles: [{
+      role: "default", name: "Default", hidden: false,
+      resolved: { provider: "anthropic", modelId: "claude-example", thinkingLevel: "high" },
+    }],
+    onModelChange() {},
+    onRoleModelChange: (role) => roles.push(role),
+  });
+
+  await click(triggerFor(view.container, "Model settings"));
+  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await settle();
+  const menu = view.container.querySelector("[data-model-submenu='model']");
+  assert.ok(menu);
+  assert.equal(textOf(menu.querySelector("[data-model-list-heading]")), "Select model");
+  const first = itemsOf(menu)[0];
+  assert.match(textOf(first), /^DefaultRecommended set of models$/);
+  await click(first);
+  assert.deepEqual(roles, ["default"]);
+  await view.unmount();
+});
+
+test("the model list check follows provider, model id, and effort", async () => {
+  const props = {
+    model: { provider: "openai-codex", modelId: "gpt-example" },
+    modelList: [
+      { provider: "openai", id: "gpt-example", name: "GPT Example" },
+      { provider: "openai-codex", id: "gpt-example", name: "GPT Example" },
+    ],
+    modelThinkingLevels: {
+      "openai:gpt-example": ["medium", "high"],
+      "openai-codex:gpt-example": ["medium", "high"],
+    },
+    thinkingLevel: "high",
+    onModelChange() {},
+  };
+  const view = await mountComposer(props);
+  await click(triggerFor(view.container, "Model settings"));
+  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await settle();
+  const api = itemsOf(view.container.querySelector("[data-model-provider='openai']"))[0];
+  const subscription = itemsOf(view.container.querySelector("[data-model-provider='openai-codex']"))[0];
+  assert.equal(api.getAttribute("aria-checked"), "false");
+  assert.equal(subscription.getAttribute("aria-checked"), "true");
+  assert.equal(subscription.getAttribute("data-selection-id"), "openai-codex/gpt-example:high");
+
+  await view.render(h(I18nProvider, null, h(ChatInput, { onSend() {}, onAbort() {}, isStreaming: false,
+    ...props, thinkingLevel: "auto",
+  })));
+  await settle();
+  assert.equal(itemsOf(view.container.querySelector("[data-model-provider='openai-codex']"))[0].getAttribute("aria-checked"), "false");
   await view.unmount();
 });
 
@@ -388,9 +455,99 @@ test("a large model menu gives focus to its filter", async () => {
   await settle();
   await click(view.container.querySelector("[data-model-menu-row='model']"));
   await settle();
+  assert.equal(itemsOf(view.container.querySelector("[data-model-list-scroller]")).length, 9);
   const filter = view.container.querySelector("[aria-label='Filter models…']");
   assert.ok(filter);
   assert.equal(domDocument.activeElement, filter);
+  await typeInto(filter, "model 8");
+  await settle();
+  assert.deepEqual(itemsOf(view.container.querySelector("[data-model-submenu='model']")).map(textOf), ["Model 8"]);
+  await view.unmount();
+});
+
+test("the model list uses the available menu height before the 316 px list cap", async () => {
+  const previousHeight = window.innerHeight;
+  window.innerHeight = 600;
+  try {
+    const view = await mountComposer({ ...modelProps });
+    await click(triggerFor(view.container, "Model settings"));
+    const menu = view.container.querySelector("[role='menu'][aria-label='Model settings']");
+    const geometry = menu.parentNode.parentNode;
+    const styleChanges = [];
+    geometry.style.setProperty = (name, value) => styleChanges.push({ name, value });
+    await click(view.container.querySelector("[data-model-menu-row='model']"));
+    await settle();
+    const submenu = view.container.querySelector("[data-model-submenu='model']");
+    assert.ok(submenu);
+    assert.deepEqual(styleChanges.find((change) => change.name === "--ui-scroll-offset"), {
+      name: "--ui-scroll-offset", value: "492px",
+    });
+    await view.unmount();
+  } finally {
+    window.innerHeight = previousHeight;
+  }
+});
+
+test("choosing a model opens the effort stage with the model under its effort label", async () => {
+  const models = [];
+  const efforts = [];
+  const props = {
+    model: { provider: "openai", modelId: "gpt-old" },
+    modelList: [
+      { provider: "openai", id: "gpt-old", name: "GPT Old" },
+      { provider: "openai", id: "gpt-new", name: "GPT New" },
+    ],
+    modelThinkingLevels: { "openai:gpt-old": ["low", "high"], "openai:gpt-new": ["low", "high"] },
+    thinkingLevel: "low",
+    onModelChange: (provider, modelId) => models.push({ provider, modelId }),
+    onThinkingLevelChange: (level) => efforts.push(level),
+  };
+  const view = await mountComposer(props);
+  await click(triggerFor(view.container, "Model settings"));
+  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await settle();
+  const next = itemsOf(view.container.querySelector("[data-model-provider='openai']"))
+    .find((item) => textOf(item) === "GPT New");
+  await click(next);
+  assert.deepEqual(models, [{ provider: "openai", modelId: "gpt-new" }]);
+  await view.render(h(I18nProvider, null, h(ChatInput, { onSend() {}, onAbort() {}, isStreaming: false,
+    ...props, model: { provider: "openai", modelId: "gpt-new" },
+  })));
+  await settle();
+  const power = view.container.querySelector("[data-model-power-view]");
+  assert.ok(power);
+  assert.equal(textOf(power.querySelector("[data-model-effort-placeholder]")), "Select effort");
+  assert.equal(textOf(power.querySelector("[data-model-effort-name]")), "GPT New");
+
+  const track = power.querySelector("[data-power-track]");
+  track.getBoundingClientRect = () => ({ left: 100, width: 200 });
+  await React.act(async () => {
+    track.dispatchEvent(new DomEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, pointerId: 6, clientX: 280 }));
+    track.dispatchEvent(new DomEvent("pointerup", { bubbles: true, cancelable: true, button: 0, pointerId: 6, clientX: 280 }));
+  });
+  assert.deepEqual(efforts, ["high"]);
+  await view.unmount();
+});
+
+test("choosing the current model opens effort without repeating the model change", async () => {
+  const models = [];
+  const view = await mountComposer({
+    ...modelProps,
+    thinkingLevel: "high",
+    availableThinkingLevels: ["low", "high"],
+    onModelChange: (provider, modelId) => models.push({ provider, modelId }),
+    onThinkingLevelChange() {},
+  });
+  await click(triggerFor(view.container, "Model settings"));
+  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await settle();
+  const selected = itemsOf(view.container.querySelector("[data-model-provider='openai']"))[0];
+  assert.equal(selected.getAttribute("aria-checked"), "true");
+  await click(selected);
+  await settle();
+
+  assert.deepEqual(models, []);
+  assert.equal(textOf(view.container.querySelector("[data-model-effort-placeholder]")), "Select effort");
   await view.unmount();
 });
 

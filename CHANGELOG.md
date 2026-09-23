@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The model list now starts with Default, marks the selected model and effort, and guides model picks into effort selection.
 - The model menu now opens on a power slider with OMP's supported effort steps. Drag the thumb to choose an effort.
 
 ### Added

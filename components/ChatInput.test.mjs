@@ -1004,33 +1004,19 @@ test("uses one submit control and explicit button types for every other composer
 });
 
 test("composer model menu follows verified Codex geometry contracts", async () => {
-  const css = await readFile(new URL("./chat/composer.module.css", import.meta.url), "utf8");
+  const menuCss = await readFile(new URL("./chat/composer.module.css", import.meta.url), "utf8");
+  const powerCss = await readFile(new URL("./chat/ModelPowerSlider.module.css", import.meta.url), "utf8");
+  const listCss = await readFile(new URL("./chat/ModelList.module.css", import.meta.url), "utf8");
 
-  assert.match(
-    css,
-    /\.modelMenu\s*\{[^}]*width:\s*260px;[^}]*padding:\s*6px;[^}]*border-radius:\s*15px;[^}]*corner-shape:\s*superellipse\(1\.5\);/,
-  );
+  assert.match(powerCss, /\.view\s*\{[^}]*min-height:\s*36px;[^}]*padding-block:\s*4px;/);
+  assert.match(powerCss, /\.controlRow\s*\{[^}]*min-height:\s*36px;/);
+  assert.match(powerCss, /\.modelToggle\s*\{[^}]*min-height:\s*32px;[^}]*padding:\s*4px;[^}]*border-radius:\s*8px;/);
+  assert.match(powerCss, /\.effortModelName\s*\{[^}]*color:\s*var\(--ui-text-dim\);[^}]*font-size:\s*var\(--text-2xs\);[^}]*font-weight:\s*var\(--font-weight-regular\);/);
 
-  assert.match(
-    css,
-    /\.modelSubmenu\s*\{[^}]*padding:\s*6px;[^}]*border-radius:\s*15px;[^}]*corner-shape:\s*superellipse\(1\.5\);/,
-  );
-
-  assert.match(css, /\.modelSubmenuModel\s*\{[^}]*width:\s*280px;/);
-
-  assert.match(css, /\.modelSubmenuEffort\s*\{[^}]*min-width:\s*180px;/);
-
-  assert.match(css, /\.modelSubmenuSpeed\s*\{[^}]*width:\s*233px;/);
-
-  assert.match(
-    css,
-    /\.modelMenuRow\s*\{[^}]*min-height:\s*30px;[^}]*gap:\s*6px;[^}]*border-radius:\s*9px;[^}]*corner-shape:\s*superellipse\(1\.5\);[^}]*padding:\s*6px 8px;[^}]*font-size:\s*13px;[^}]*line-height:\s*18px;/,
-  );
-
-  assert.match(
-    css,
-    /\.submenuChoice\s*\{[^}]*min-height:\s*30px;[^}]*gap:\s*6px;[^}]*border-radius:\s*9px;[^}]*corner-shape:\s*superellipse\(1\.5\);[^}]*padding:\s*6px 8px;[^}]*font-size:\s*13px;[^}]*line-height:\s*18px;/,
-  );
+  assert.match(menuCss, /\.modelSubmenuModel\s*\{[^}]*bottom:\s*0;/);
+  assert.match(listCss, /\.list\s*\{[^}]*max-height:\s*min\(316px, calc\(var\(--ui-scroll-offset, 316px\) - 12px\)\);/);
+  assert.match(listCss, /\.scroller\s*\{[^}]*overflow-y:\s*auto;/);
+  assert.match(listCss, /\.label\s*\{[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/);
 });
 
 test("the Composer exposes a stable image input for the Summary panel", async () => {

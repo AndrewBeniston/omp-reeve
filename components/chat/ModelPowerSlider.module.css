@@ -52,6 +52,12 @@
   line-height: 18px;
 }
 
+.effortModelName {
+  color: var(--ui-text-dim);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-regular);
+}
+
 .track {
   position: relative;
   height: 32px;
