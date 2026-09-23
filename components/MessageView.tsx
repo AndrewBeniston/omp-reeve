@@ -18,6 +18,7 @@ import { AssistantResponseAnnouncer } from "./chat/AssistantResponseAnnouncer";
 import { AssistantMessageActions } from "./chat/AssistantMessageActions";
 import { UserMessageAttachmentRows } from "./chat/UserMessageAttachmentRows";
 import { hasUserMediaAttachments, UserMediaAttachments } from "./UserMediaAttachments";
+import { PastedTextAttachmentRow } from "./chat/PastedTextAttachmentRow";
 import styles from "./chat/message-view.module.css";
 import type {
   AgentMessage,
@@ -415,7 +416,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
       onEditFailure={onEditFailure}
       onBranch={canFork ? () => setForkDialogOpen(true) : undefined}
     >
-      {message.attachments && <UserMessageAttachmentRows attachments={message.attachments} onOpenFile={onOpenFile} />}
+      {message.attachments && <><PastedTextAttachmentRow attachments={message.attachments} /><UserMessageAttachmentRows attachments={message.attachments} onOpenFile={onOpenFile} /></>}
       {hasUserMediaAttachments(message.content) && <UserMediaAttachments content={message.content} />}
     </MessageTurn>
     {canFork && (

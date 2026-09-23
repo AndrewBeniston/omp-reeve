@@ -4,14 +4,17 @@ import { useState } from "react";
 import { getFileIcon, FolderIcon } from "../FileIcons";
 import { useI18n } from "@/hooks/useI18n";
 import type { UserMessageAttachment } from "@/lib/types";
+import { isPastedTextAttachment } from "./PastedTextAttachmentRow";
 import styles from "./user-message-attachments.module.css";
 
 export function UserMessageAttachmentRows({ attachments, onOpenFile }: {
   attachments: UserMessageAttachment[];
   onOpenFile?: (filePath: string) => void;
 }) {
+  const fileAttachments = attachments.filter((attachment) => !isPastedTextAttachment(attachment));
+  if (fileAttachments.length === 0) return null;
   return <div className={styles.rows} data-message-attachments>
-    {attachments.map((attachment, index) => <UserMessageAttachmentRow
+    {fileAttachments.map((attachment, index) => <UserMessageAttachmentRow
       attachment={attachment}
       key={`${attachment.name}-${index}`}
       onOpenFile={onOpenFile}
