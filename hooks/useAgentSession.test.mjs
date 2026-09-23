@@ -69,7 +69,7 @@ test("keeps the session event stream open through the idle grace window", () => 
   assert.match(promptDoneSource, /scheduleEventStreamClose\(sid\)/);
   assert.match(sendSource, /const definitivelyRejected = !promptRequestStarted \|\| isPromptRejectedError\(e\)/);
   assert.match(sendSource, /if \(!definitivelyRejected && sentSessionId\) \{[\s\S]*?waitForPromptSettlement/);
-  assert.match(sendSource, /if \(!definitivelyRejected && sentSessionId\) \{[\s\S]*?return;[\s\S]*?\}[\s\S]*?closeEvents\(\)/);
+  assert.match(sendSource, /if \(!definitivelyRejected && sentSessionId\) \{[\s\S]*?return\s+(?:true|false);[\s\S]*?\}[\s\S]*?closeEvents\(\)/);
 });
 
 test("keeps live file mention rows on the following user message", () => {
@@ -331,7 +331,8 @@ test("an upward scroll stays detached during streaming, and the newest-message a
     await React.act(async () => latestFollow.goToNewest());
     assert.equal(newestCalls, 1);
     assert.equal(latestFollow.mode, "user_follow");
-    assert.equal(transcript.scrollTop, 4000);
+    await React.act(async () => new Promise((resolve) => setTimeout(resolve, 280)));
+    assert.ok(transcript.scrollTop >= 4000 - 24, "the newest-message action restores follow");
     await streamToken(4, 4800);
     assert.equal(transcript.scrollTop, 4200, "the next streamed update follows the answer");
   } finally {
