@@ -4,7 +4,7 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createJiti } from "jiti";
-import { click, DomEvent, domDocument, domWindow, focused, mount, press } from "../test/dom-harness.mjs";
+import { click, DomEvent, domDocument, domWindow, focused, mount, press, typeInto } from "../test/dom-harness.mjs";
 
 const jiti = createJiti(import.meta.url, {
   jsx: { runtime: "automatic" },
@@ -409,6 +409,64 @@ test("uses supplied video alt text and leaves non-assistant videos disabled", as
   } finally {
     await view.unmount();
   }
+});
+
+test("renders an accessible inline audio player with keyboard controls", async () => {
+  const view = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MarkdownBody, { enableMedia: true }, "<audio src=\"https://example.com/field-recording.mp3\"></audio>")));
+  try {
+    const player = view.container.querySelector("[role='group']");
+    const audio = view.container.querySelector("audio");
+    const play = view.container.querySelector("button");
+    const timeline = view.container.querySelector("input");
+    assert.ok(player);
+    assert.ok(audio);
+    assert.ok(play);
+    assert.ok(timeline);
+    assert.equal(player.getAttribute("aria-label"), "Audio");
+    assert.equal(play.getAttribute("aria-label"), "Play field-recording.mp3");
+    assert.equal(timeline.getAttribute("aria-label"), "Seek in field-recording.mp3");
+    assert.equal(view.container.textContent.includes("MP3 audio"), true);
+    assert.equal(view.container.textContent.includes("Loading audio…"), true);
+
+    let paused = false;
+    audio.play = async () => { paused = false; };
+    audio.pause = () => { paused = true; };
+    Object.defineProperty(audio, "duration", { configurable: true, value: 125 });
+    await React.act(async () => { audio.dispatchEvent(new DomEvent("loadedmetadata")); });
+    assert.equal(view.container.textContent.includes("0:00 / 2:05"), true);
+
+    await click(play);
+    assert.equal(paused, false);
+    await React.act(async () => { audio.dispatchEvent(new DomEvent("play")); });
+    assert.equal(play.getAttribute("aria-label"), "Pause field-recording.mp3");
+
+    await typeInto(timeline, "30");
+    assert.equal(audio.currentTime, 30);
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("labels inline audio failure and keeps raw audio out of file previews", async () => {
+  const view = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MarkdownBody, { enableMedia: true }, "<audio src=\"https://example.com/missing.mp3\"></audio>")));
+  try {
+    const audio = view.container.querySelector("audio");
+    await React.act(async () => { audio.dispatchEvent(new DomEvent("error")); });
+    const fallback = view.container.querySelector("[role='img']");
+    assert.ok(fallback);
+    assert.equal(fallback.getAttribute("aria-label"), "Audio unavailable");
+    assert.equal(view.container.textContent.includes("Audio unavailable"), true);
+  } finally {
+    await view.unmount();
+  }
+
+  const preview = renderToStaticMarkup(React.createElement(ReactMarkdown, {
+    remarkPlugins: markdownRemarkPlugins,
+    rehypePlugins: markdownPreviewRehypePlugins,
+  }, "<audio src=\"https://example.com/clip.mp3\"></audio>"));
+  assert.doesNotMatch(preview, /<audio|<source/);
 });
 
 test("keeps raw videos out of file previews", () => {

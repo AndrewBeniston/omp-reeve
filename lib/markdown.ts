@@ -17,10 +17,11 @@ const markdownSanitizeSchema = {
 
 const markdownMessageSanitizeSchema = {
   ...markdownSanitizeSchema,
-  tagNames: [...(defaultSchema.tagNames ?? []), "video", "source"],
+  tagNames: [...(defaultSchema.tagNames ?? []), "video", "audio", "source"],
   attributes: {
     ...markdownSanitizeSchema.attributes,
     video: ["src", "controls", "playsInline", "poster", "preload", "width", "height", "alt", "title"],
+    audio: ["src", "controls", "preload", "alt", "title"],
     source: ["src", "type"],
   },
 };

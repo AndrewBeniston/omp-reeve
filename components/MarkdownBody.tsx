@@ -20,7 +20,7 @@ import {
   type StreamingMarkdownKeyState,
 } from "@/lib/streaming-markdown";
 import { MermaidBlock, CodeBlock } from "./MermaidBlock";
-import { MarkdownMedia, MarkdownVideoMedia } from "./MarkdownMedia";
+import { MarkdownAudioMedia, MarkdownMedia, MarkdownVideoMedia } from "./MarkdownMedia";
 import { MarkdownTable } from "./MarkdownTable";
 import { FileCitationChip, isFileCitationHref } from "./FileCitationChip";
 
@@ -204,6 +204,20 @@ export function MarkdownBody({ children, className, isStreaming, enableMedia, cw
         <MarkdownVideoMedia key={videoSrc} src={videoSrc} alt={alt} videoProps={props}>
           {children}
         </MarkdownVideoMedia>
+      );
+    },
+    audio({ src, children, ...props }) {
+      const audioSrc = typeof src === "string" ? src : undefined;
+      const alt = typeof (props as { alt?: unknown }).alt === "string"
+        ? (props as { alt: string }).alt
+        : undefined;
+      delete props.node;
+      delete (props as { alt?: string }).alt;
+      if (!enableMedia) return null;
+      return (
+        <MarkdownAudioMedia key={audioSrc} src={audioSrc} alt={alt} audioProps={props}>
+          {children}
+        </MarkdownAudioMedia>
       );
     },
     table({ children }) {
