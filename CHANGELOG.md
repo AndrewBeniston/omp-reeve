@@ -11,6 +11,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The Goal pill above the Composer shows OMP status, elapsed time, or token progress.
+
 - The Session API now reads and changes OMP Goals, including token budgets.
   A saved active Goal opens paused after a cold Session restart.
 ### Added
