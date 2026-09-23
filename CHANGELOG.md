@@ -12,6 +12,7 @@ the What's New dialog adds a second page that invites support.
 ### Added
 
 - A session live API now exposes OMP realtime voice state and lifecycle control.
+- Composer settings now control plain-text editing, attachment presentation, and the computed top inset.
 - The Composer now supports reference keyboard commands and a configurable Send shortcut.
 - The Composer frame now uses the reference geometry, including its responsive radii, shorter editor, and attachment inset.
 - Full Access now asks for confirmation before enabling and shows a dismissible warning while it is active.

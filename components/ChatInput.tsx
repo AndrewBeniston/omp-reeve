@@ -8,6 +8,14 @@ import type { QueuedMessageDraft } from "@/lib/queued-message-types";
 import type { ApprovalMode } from "@/lib/approval-mode";
 import { REVIEW_SLASH_COMMAND, REVIEW_SLASH_ENTRIES } from "@/lib/review-slash-entries";
 import { matchDefaultComposerCommand, nextThinkingLevel, readComposerEnterBehavior, runComposerCommand, shouldSendWithEnterBehavior, COMPOSER_ENTER_BEHAVIOR_STORAGE_KEY } from "@/lib/composer-keyboard-commands";
+import {
+  COMPOSER_ATTACHMENT_LAYOUT_STORAGE_KEY,
+  COMPOSER_PLAIN_TEXT_MODE_STORAGE_KEY,
+  COMPOSER_TOP_INSET_STORAGE_KEY,
+  readComposerAttachmentLayout,
+  readComposerPlainTextMode,
+  readComposerTopInsetPx,
+} from "@/lib/composer-display-preferences";
 
 /** Listed with its reason instead of an action when the Git gate fails. */
 const REVIEW_DISABLED_COMMANDS: ReadonlySet<string> = new Set([REVIEW_SLASH_COMMAND]);
@@ -211,6 +219,16 @@ export interface ChatInputHandle {
 }
 
 export const COMPOSER_IMAGE_INPUT_ID = "reeve-composer-image-input";
+
+export function readComposerDisplayPreferences(storage?: Pick<Storage, "getItem">) {
+  const store = storage ?? (typeof window === "undefined" ? null : window.localStorage);
+  const getItem = (key: string) => store?.getItem(key) ?? null;
+  return {
+    plainTextMode: readComposerPlainTextMode(getItem(COMPOSER_PLAIN_TEXT_MODE_STORAGE_KEY)),
+    attachmentLayout: readComposerAttachmentLayout(getItem(COMPOSER_ATTACHMENT_LAYOUT_STORAGE_KEY)),
+    topInsetPx: readComposerTopInsetPx(getItem(COMPOSER_TOP_INSET_STORAGE_KEY)),
+  };
+}
 
 const TOOL_PRESETS = ["off", "default", "full"] as const;
 const TOOL_PRESET_MAP: Record<"off" | "default" | "full", "none" | "default" | "full"> = { off: "none", default: "default", full: "full" };
@@ -561,6 +579,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   );
   const [commandActionError, setCommandActionError] = useState<string | null>(null);
   const [commandActionPending, setCommandActionPending] = useState(false);
+  const [composerDisplayPreferences, setComposerDisplayPreferences] = useState(() => readComposerDisplayPreferences());
   const [pendingAddCommand, setPendingAddCommand] = useState<ComposerSuggestion | null>(null);
   const [modelDropdownRect, setModelDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null);
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
@@ -662,6 +681,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     } catch {
       // Keep Queue as the default when browser storage is unavailable.
     }
+  }, []);
+
+  useEffect(() => {
+    const refreshDisplayPreferences = () => setComposerDisplayPreferences(readComposerDisplayPreferences());
+    window.addEventListener("reeve-composer-preferences-change", refreshDisplayPreferences);
+    return () => window.removeEventListener("reeve-composer-preferences-change", refreshDisplayPreferences);
   }, []);
 
   useEffect(() => {
@@ -2149,6 +2174,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       }}
       onPasteImages={handlePasteImages}
       onPasteText={handlePasteText}
+      plainTextMode={composerDisplayPreferences.plainTextMode}
       onHeightChange={(scrollHeight) => setTextareaHeight(getComposerTextareaHeight(scrollHeight))}
     />
   );
@@ -2758,7 +2784,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       dictateLabel={t("chat.dictate")}
       toolbarEndRef={controlsMenuRef}
       isMobile={isMobile}
-      />
+      plainTextMode={composerDisplayPreferences.plainTextMode}
+      attachmentLayout={composerDisplayPreferences.attachmentLayout}
+      topInsetPx={composerDisplayPreferences.topInsetPx}
+    />
       {pendingAddCommand && <CommandArgumentsDialog
         command={pendingAddCommand.raw} title={pendingAddCommand.mentionLabel ?? pendingAddCommand.label}
         description={pendingAddCommand.detail}
