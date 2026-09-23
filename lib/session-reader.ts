@@ -419,9 +419,21 @@ export function buildSessionContext(
   // targets stay aligned with what the transcript renders.
   const messages: AgentMessage[] = [];
   const entryIds: string[] = [];
+  let pendingGoalObjective: string | null = null;
   for (const entry of collectDisplayEntries(entries, byId, leafId)) {
+    if (entry.type === "custom" && entry.customType === "goal-message") {
+      const data = entry.data as { objective?: unknown } | undefined;
+      pendingGoalObjective = typeof data?.objective === "string" ? data.objective.trim() : null;
+      continue;
+    }
     const m = entryToUiMessage(entry, options);
     if (m) {
+      if (m.role === "user" && pendingGoalObjective !== null) {
+        const content = typeof m.content === "string" ? m.content : m.content
+          .filter((block) => block.type === "text").map((block) => block.text).join("\n");
+        m.sentAsGoal = content.trim() === pendingGoalObjective;
+        pendingGoalObjective = null;
+      }
       messages.push(m);
       entryIds.push(entry.id);
     }

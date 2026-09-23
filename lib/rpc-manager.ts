@@ -55,6 +55,8 @@ import { CollaborationAdapter } from "./collaboration-adapter";
 import type { ApprovalMode } from "./approval-mode";
 import type { SlashCommandInfo } from "./omp-types";
 import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from "./omp-types";
+import { GoalApiError, restoreGoalFromSession } from "./goal-command";
+import { GoalToolCoordination } from "./goal-tool-coordination";
 import type {
   ExtensionAskDialogResult,
   ExtensionUiRequest,
@@ -168,6 +170,7 @@ export interface RpcSessionStartOptions {
   toolNames?: string[];
   initialModel?: { provider: string; modelId: string };
   thinkingLevel?: ConfiguredThinkingLevel;
+  preserveActiveGoal?: boolean;
 }
 
 const CODING_TOOL_NAMES: Record<string, true> = Object.fromEntries(
@@ -219,7 +222,7 @@ function withExtensionTools(session: AgentSessionLike, toolNames: string[]): str
 
   const extensionToolNames = session
     .getAllToolNames()
-    .filter((name) => CODING_TOOL_NAMES[name] !== true);
+    .filter((name) => CODING_TOOL_NAMES[name] !== true && name !== "goal");
 
   return [...new Set([...toolNames, ...extensionToolNames])];
 }
@@ -336,6 +339,8 @@ export class AgentSessionWrapper {
   private extensionStatuses = new Map<string, string>();
   private extensionWidgets = new Map<string, ExtensionWidgetItem>();
   private promptRunning = false;
+  private goalCommandTail: Promise<void> = Promise.resolve();
+  private readonly goalTools: GoalToolCoordination;
   // Set while the handoff RPC is in flight so state polls and the running-set
   // stay honest during the long oneshot generation + session transition.
   private handoffRunning = false;
@@ -352,6 +357,8 @@ export class AgentSessionWrapper {
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private onDestroyCallback: (() => void) | null = null;
   private shutdownPromise: Promise<void> | null = null;
+  private disposalPromise: Promise<void> = Promise.resolve();
+  private disposalStarted = false;
   private readonly subagents: RpcSubagentRegistry;
   // The SDK registry removes terminal entries after emitting their lifecycle frame.
   // Keep a bounded per-session copy so state requests can still expose history.
@@ -380,6 +387,7 @@ export class AgentSessionWrapper {
     eventSessionIds: readonly string[] = [],
   ) {
     this.openedSessionId = inner.sessionId;
+    this.goalTools = new GoalToolCoordination(inner);
     this.sessionEventChannels = [...new Set(eventSessionIds)].map(acquireSessionEventChannel);
     this.queuedMessageEditor = new QueuedMessageEditor(this.inner.agent as QueueAgent);
     this.collaboration = new CollaborationAdapter({
@@ -580,6 +588,7 @@ export class AgentSessionWrapper {
       });
     }) ?? null;
     this.unsubscribe = this.inner.subscribe((event: AgentEvent) => {
+      this.goalTools.observe(event);
       if (event.type === "agent_end") {
         invalidateSessionListCache();
       }
@@ -682,6 +691,10 @@ export class AgentSessionWrapper {
 
   async waitUntilReady(): Promise<void> {
     await this.waitForExtensionsBound();
+  }
+
+  async reconcileGoalState(): Promise<void> {
+    await this.goalTools.settle();
   }
 
   private ensureExtensionsBound(options: ExtensionBindingOptions = {}): Promise<void> {
@@ -1060,18 +1073,28 @@ export class AgentSessionWrapper {
     }
 
     switch (type) {
+      case "goal": {
+        const result = this.goalCommandTail.then(() => this.goalTools.run(command));
+        this.goalCommandTail = result.then(() => undefined, () => undefined);
+        return result;
+      }
+
       case "prompt": {
         if (this.inner.isBashRunning) {
           throw new Error("Cannot send a prompt while a shell command is running");
         }
-        const attachmentMessages = [
-          ...await prepareAttachmentPathMessages(command.attachments, this.inner.sessionManager.getCwd()),
-          ...await prepareBrowserUploadMessages({
-            sessionId: this.inner.sessionId,
-            ids: command.uploads,
-            cwd: this.inner.sessionManager.getCwd(),
-          }),
-        ];
+        const hasAttachments = Array.isArray(command.attachments) && command.attachments.length > 0;
+        const hasUploads = Array.isArray(command.uploads) && command.uploads.length > 0;
+        const attachmentMessages = hasAttachments || hasUploads
+          ? [
+              ...await prepareAttachmentPathMessages(command.attachments, this.inner.sessionManager.getCwd()),
+              ...await prepareBrowserUploadMessages({
+                sessionId: this.inner.sessionId,
+                ids: command.uploads,
+                cwd: this.inner.sessionManager.getCwd(),
+              }),
+            ]
+          : [];
         // Fire and forget — events come via subscribe
         const promptImages = command.images as Array<{ type: "image"; data: string; mimeType: string }> | undefined;
         const streamingBehavior = command.streamingBehavior as "steer" | "followUp" | undefined;
@@ -1108,6 +1131,9 @@ export class AgentSessionWrapper {
           (this.inner.agent as unknown as { appendMessage: (value: FileMentionMessage) => void }).appendMessage(message);
           this.inner.sessionManager.appendMessage(message);
         }
+        if (command.sentAsGoal === true && this.inner.getGoalModeState()?.goal) {
+          this.inner.sessionManager.appendCustomEntry("goal-message", { objective: command.message });
+        }
         this.inner.prompt(command.message as string, {
           ...(promptImages?.length ? { images: promptImages } : {}),
           ...(streamingBehavior ? { streamingBehavior } : {}),
@@ -1137,7 +1163,10 @@ export class AgentSessionWrapper {
       case "abort":
         void this.noteTurn({ type: "abort_requested" });
         this.queuedMessageEditor.parkAllAsFollowUp();
-        await this.withFinalRunningNotification(() => this.inner.abort({ reason: "Interrupted by user" }));
+        await this.withFinalRunningNotification(() => this.inner.abort({
+          reason: "Interrupted by user",
+          goalReason: command.goalReason === "internal" ? "internal" : "interrupted",
+        }));
         this.queuePaused = this.queueSnapshot().items.length > 0;
         this.emitQueueUpdate();
         return null;
@@ -1145,6 +1174,7 @@ export class AgentSessionWrapper {
       case "get_state": {
         const model = this.inner.model;
         const contextUsage = this.inner.getContextUsage();
+        const goalState = this.inner.getGoalModeState?.() ?? null;
         return {
           sessionId: this.inner.sessionId,
           sessionFile: this.inner.sessionFile ?? "",
@@ -1163,6 +1193,8 @@ export class AgentSessionWrapper {
           contextUsage: contextUsage
             ? { percent: contextUsage.percent, contextWindow: contextUsage.contextWindow, tokens: contextUsage.tokens }
             : null,
+          goal: goalState?.goal ?? null,
+          goalState,
           systemPrompt: [this.inner.agent.state?.systemPrompt ?? ""].flat().join("\n"),
           thinkingLevel: this.inner.configuredThinkingLevel() ?? this.inner.agent.state?.thinkingLevel ?? "off",
           ...fastModeState(this.inner, model),
@@ -1224,6 +1256,7 @@ export class AgentSessionWrapper {
         if (this.inner.isBashRunning) {
           throw new Error("Cannot fork while a shell command is running");
         }
+        await this.goalCommandTail;
         const sessionManager = this.inner.sessionManager;
         const entryId = resolveForkEntryId(
           sessionManager.getBranch() as ForkBranchEntry[],
@@ -1254,10 +1287,27 @@ export class AgentSessionWrapper {
           newSessionFile = forkedPath;
         }
 
-        const newSessionId = (await SessionManager.open(newSessionFile, sessionDir)).getSessionId();
+        const childManager = await SessionManager.open(newSessionFile, sessionDir);
+        const newSessionId = childManager.getSessionId();
+        const childBranch = childManager.getBranch();
+        let childMode: string | undefined;
+        for (let index = childBranch.length - 1; index >= 0; index -= 1) {
+          const entry = childBranch[index];
+          if (entry.type !== "mode_change") continue;
+          childMode = entry.mode;
+          break;
+        }
         cacheSessionPath(newSessionId, newSessionFile);
         invalidateSessionListCache();
         await this.shutdownAfterCommittedFork(newSessionId);
+        if (childMode === "goal" || childMode === "goal_paused") {
+          try {
+            await startRpcSession(newSessionId, newSessionFile, undefined, { preserveActiveGoal: true });
+          } catch (error) {
+            // The child is durable. Return its id so the browser can recover it.
+            console.error("[reeve] forked Session could not start:", error);
+          }
+        }
         return { cancelled: false, newSessionId };
       }
 
@@ -1512,8 +1562,10 @@ export class AgentSessionWrapper {
 
       case "set_tools": {
         const toolNames = command.toolNames as string[];
+        const selection = this.goalCommandTail.then(() => this.goalTools.selectTools(withExtensionTools(this.inner, toolNames)));
+        this.goalCommandTail = selection.then(() => undefined, () => undefined);
+        await selection;
         this.setForceEmptySystemPrompt(toolNames.length === 0);
-        await this.inner.setActiveToolsByName(withExtensionTools(this.inner, toolNames));
         this.applyForcedEmptySystemPrompt();
         return null;
       }
@@ -1524,6 +1576,7 @@ export class AgentSessionWrapper {
         this.extensionWidgets.clear();
         await this.inner.reload();
         await this.inner.refreshSkills?.();
+        await this.goalTools.settle();
         this.applyForcedEmptySystemPrompt();
         invalidateModelsCache();
         return { success: true };
@@ -1590,6 +1643,7 @@ export class AgentSessionWrapper {
 
   destroy(): void {
     if (!this._alive) return;
+    this.beginSessionDisposal();
     this._alive = false;
     void closeSpeechSession(this.openedSessionId).catch((error) => console.error("[reeve] speech cleanup failed:", error));
     forgetTurnLifecycle(this.openedSessionId);
@@ -1618,7 +1672,10 @@ export class AgentSessionWrapper {
     this.pendingControlReplies.clear();
     this.pendingControlRequests.clear();
     try {
-      void this.inner.dispose?.();
+      this.disposalPromise = Promise.resolve(this.inner.dispose?.());
+      void this.disposalPromise.catch((error) => {
+        console.error("[reeve] Session disposal failed:", error);
+      });
     } finally {
       try {
         this.onDestroyCallback?.();
@@ -1630,7 +1687,8 @@ export class AgentSessionWrapper {
 
   async shutdown(): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
-    if (!this._alive) return;
+    if (!this._alive) return this.disposalPromise;
+    this.beginSessionDisposal();
 
     this.shutdownPromise = (async () => {
       try {
@@ -1646,9 +1704,16 @@ export class AgentSessionWrapper {
         await this.inner.extensionRunner?.emit?.({ type: "session_shutdown", reason: "quit" });
       } finally {
         this.destroy();
+        await this.disposalPromise;
       }
     })();
     return this.shutdownPromise;
+  }
+
+  private beginSessionDisposal(): void {
+    if (this.disposalStarted) return;
+    this.disposalStarted = true;
+    this.inner.beginDispose?.();
   }
 
   private resolveExtensionUiResponse(response: ExtensionUiResponse): void {
@@ -2239,7 +2304,7 @@ export async function startRpcSession(
   cwd: string | undefined,
   options: RpcSessionStartOptions = {},
 ): Promise<{ session: AgentSessionWrapper; realSessionId: string }> {
-  const { toolNames, initialModel, thinkingLevel } = options;
+  const { toolNames, initialModel, thinkingLevel, preserveActiveGoal } = options;
   const registry = getRegistry();
   const locks = getLocks();
 
@@ -2370,6 +2435,13 @@ export async function startRpcSession(
 
       const session = inner as unknown as AgentSessionLike;
 
+      try {
+        await restoreGoalFromSession(session, { preserveActiveGoal });
+      } catch (error) {
+        if (!(error instanceof GoalApiError)) throw error;
+        // Preserve ordinary chat even if this Session has an invalid Goal entry.
+      }
+
       // If specific tool names were requested (non-empty), set the active tools to the
       // requested builtin coding tools PLUS all extension/package tools, so installed
       // extensions stay usable in Reeve just like in the `omp` CLI.
@@ -2390,6 +2462,7 @@ export async function startRpcSession(
         wrapper.setForceEmptySystemPrompt(true);
       }
       wrapper.start();
+      await wrapper.reconcileGoalState();
 
       const realSessionFile = inner.sessionFile as string | undefined;
       if (realSessionFile) cacheSessionPath(realSessionId, realSessionFile);

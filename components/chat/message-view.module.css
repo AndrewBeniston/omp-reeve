@@ -481,3 +481,10 @@
   50% { filter: blur(1px); }
   100% { filter: blur(0); transform: translateY(0); }
 }
+
+.goalMessageStatus {
+  display: block;
+  margin-top: 6px;
+  color: var(--ui-text-dim);
+  font-size: var(--text-xs);
+}

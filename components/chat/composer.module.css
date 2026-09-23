@@ -777,6 +777,11 @@
 }
 
 .menuTrigger {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.menuTrigger {
   display: flex;
   min-width: 0;
   max-width: calc(64 * var(--space-1));
@@ -1157,6 +1162,10 @@
 }
 
 @media (max-width: 640px) {
+  .menuTrigger {
+    max-width: 100%;
+  }
+
   .composer {
     border-radius: var(--radius-composer-compact);
     --composer-attachment-radius: max(calc(var(--radius-composer-compact) - 8px), 0px);

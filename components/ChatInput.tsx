@@ -74,6 +74,7 @@ import {
   ComposerFrame,
 } from "./chat/ComposerFrame";
 import { ComposerAutocomplete } from "./chat/ComposerAutocomplete";
+import { GoalEntryButton } from "./chat/GoalEntryButton";
 import { ComposerAddMenu } from "./chat/ComposerAddMenu";
 import { CommandArgumentsDialog } from "./chat/CommandArgumentsDialog";
 import { ComposerEditor, type ComposerEditorHandle } from "./chat/ComposerEditor";
@@ -187,6 +188,7 @@ interface Props {
   onLoadSlashCommands?: () => Promise<SlashCommandInfo[]> | SlashCommandInfo[];
   onBuiltinCommand?: (message: string) => Promise<BuiltinSlashCommandResult>;
   onAudioUnlock?: () => void;
+  onOpenGoal?: (objective: string, images?: AttachedImage[]) => void;
   draftKey?: string;
   onEnsureSession?: () => Promise<string | null>;
   imageInputId?: string;
@@ -519,6 +521,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   slashCommands, slashCommandsLoading, onLoadSlashCommands,
   onBuiltinCommand,
   onAudioUnlock,
+  onOpenGoal,
   onPromptWithStreamingBehavior,
   draftKey,
   onEnsureSession,
@@ -1275,6 +1278,13 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       return;
     }
     if (builtinCommandPending) return;
+    const goalCommand = /^\/goal(?:\s+([\s\S]*))?$/i.exec(value.trim());
+    if (goalCommand && onOpenGoal) {
+      if (pendingImageCountRef.current > 0) return;
+      onOpenGoal(goalCommand[1]?.trim() ?? "", attachedImages);
+      clearInput();
+      return;
+    }
     setBuiltinCommandPending(true);
     try {
       await dispatchIdleSubmission({
@@ -1300,7 +1310,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     } finally {
       setBuiltinCommandPending(false);
     }
-  }, [builtinCommandPending, value, attachedImages, localAttachments, isStreaming, onBuiltinCommand, onSend, clearInput, onAudioUnlock, contextUsage, t]);
+  }, [builtinCommandPending, value, attachedImages, localAttachments, isStreaming, onBuiltinCommand, onOpenGoal, onSend, clearInput, onAudioUnlock, contextUsage, t]);
 
   const requestIdleSubmission = useCallback(() => {
     // The command already running is the one the human asked for; a second
@@ -1457,8 +1467,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       source: "builtin" as const,
       ...(reviewEnabled ? { subcommands: reviewSubcommands } : {}),
     }] : []),
-    ...(slashCommands ?? []),
-  ], [composerHoldsOnlyCommand, isStreaming, modelOptions, reviewEnabled, reviewGate?.reason, reviewSubcommands, slashCommands, t]);
+    ...(onOpenGoal && !isStreaming ? [{ name: "goal", description: t("composer.goalSlashCommand.setDescription"), icon: "prompt", source: "builtin" as const }] : []),
+    ...(slashCommands ?? []).filter((command) => !(onOpenGoal && command.name === "goal")),
+  ], [composerHoldsOnlyCommand, isStreaming, onOpenGoal, reviewEnabled, reviewGate?.reason, reviewSubcommands, slashCommands, t]);
   const slashContext = useMemo(
     () => extractSlashQuery(value, availableSlashCommands),
     [availableSlashCommands, value],
@@ -1679,6 +1690,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
 
   const applySlashCommand = useCallback((suggestion: ComposerSuggestion) => {
     if (suggestion.disabled) return;
+    if (suggestion.raw === "/goal" && onOpenGoal) {
+      onOpenGoal("", attachedImages);
+      clearInput();
+      setSlashMenuOpen(false);
+      return;
+    }
     if (selectSelectorCommand(suggestion, true)) return;
     const editor = textareaRef.current;
     if (!editor) return;
@@ -1688,7 +1705,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     }, true);
     setSlashMenuOpen(false);
     setSlashActiveIndex(0);
-  }, [selectSelectorCommand]);
+  }, [attachedImages, clearInput, onOpenGoal, selectSelectorCommand]);
 
   const sendQueued = useCallback((mode: "steer" | "followUp") => {
     if (browserUploadsPendingRef.current > 0) {
@@ -2594,6 +2611,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               else onSelectWorktree(path);
             }} />}
             {commandActionError && <span role="alert">{commandActionError}</span>}
+            {onOpenGoal && <GoalEntryButton onOpen={() => onOpenGoal("")} disabled={isStreaming} />}
             <ComposerAddMenu
               loading={Boolean(slashCommandsLoading || composerResourcesLoading)}
               onOpen={() => {
@@ -2663,6 +2681,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                     }
                   }).catch(cause => setCommandActionError(cause instanceof Error ? cause.message : String(cause)))
                     .finally(() => setCommandActionPending(false));
+                  return;
+                }
+                if (item.kind === "command" && item.raw === "/goal" && onOpenGoal) {
+                  onOpenGoal("", attachedImages);
                   return;
                 }
                 if (item.kind === "command") {

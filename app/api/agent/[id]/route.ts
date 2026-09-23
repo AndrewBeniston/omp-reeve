@@ -4,6 +4,7 @@ import { startRpcSession, getRpcSession } from "@/lib/rpc-manager";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 import { AttachmentPathError } from "@/lib/attachment-paths";
 import { UploadError } from "@/lib/upload-store";
+import { GoalApiError } from "@/lib/goal-command";
 
 // POST /api/agent/[id] - Send a command to an existing session
 export async function POST(
@@ -49,6 +50,9 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
+    if (error instanceof GoalApiError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    }
     return NextResponse.json({
       error: error instanceof Error ? error.message : String(error),
       ...(commandType === "prompt" && !promptAccepted

@@ -150,8 +150,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
-    // Read only the bounded header before deleting.
-    const parentSessionPath = readSessionHeader(filePath)?.parentSession;
+    // Stop this Session before changing any Session file.
+    const header = readSessionHeader(filePath);
+    await getRpcSession(header?.id ?? id)?.shutdown();
+    const parentSessionPath = header?.parentSession;
 
     // Re-attach all direct children to this session's parent (cascade re-parent)
     // Scan sibling files in the same directory

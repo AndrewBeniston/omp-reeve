@@ -47,6 +47,20 @@ the What's New dialog adds a second page that invites support.
 - The model selector now calls OMP's max effort Max and keeps model and effort choices in one state model.
 - Agent commands can send desktop-selected file and folder paths to OMP without
   quoting them in prompt text. Missing or unreadable selections block the send.
+- The Composer can send its image attachments with the Turn that creates a Goal.
+- A Fork continues from its saved Goal snapshot. Session deletion stops that Session before changing files.
+- The Goal pill can change or clear the token budget without replacing the Goal.
+- The Goal pill can pause, resume, and clear a Goal. Clearing active work asks first.
+  An interruption keeps queued messages.
+- The Composer can set a Goal with an optional hard token budget. It confirms replacement and marks the creating message.
+- The Goal pill above the Composer shows OMP status, elapsed time, or token progress.
+- The Session API now reads and changes OMP Goals, including token budgets.
+  A saved active Goal opens paused after a cold Session restart.
+- Goal mode gives the agent its Goal tool. Pausing, clearing, or completing a
+  Goal restores your previous tools. A Session with tools disabled cannot start a Goal.
+- The Session client now restores Goal state and reconciles missed Goal updates.
+  A failed initial read offers a retry action.
+- The Session wrapper lifecycle regression test now includes the Goal state read used by wrapped sessions.
 
 ## [0.8.0] - 2026-09-23
 
