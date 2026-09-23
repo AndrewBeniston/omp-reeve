@@ -23,6 +23,30 @@ test("a saved Session renders one row per message in Turn order", () => {
   assert.equal(turns[0].settled, true);
 });
 
+test("a related Session origin note is the first transcript row", () => {
+  const rows = buildTranscriptRows(
+    [{ role: "user", content: "Question" }],
+    ["u1"],
+    null,
+    false,
+    [],
+    null,
+    { kind: "continued", relatedSessionId: "source-session" },
+  );
+
+  assert.deepEqual(rows[0], {
+    kind: "session-origin",
+    kindOfOrigin: "continued",
+    relatedSessionId: "source-session",
+  });
+});
+
+test("a Session without a relationship has no origin note", () => {
+  const rows = buildTranscriptRows([{ role: "user", content: "Question" }], ["u1"], null, false);
+
+  assert.equal(rows.some((row) => row.kind === "session-origin"), false);
+});
+
 test("model-change notes appear before the next Turn and after the final Turn", () => {
   const messages = [
     { role: "user", content: "First question" },

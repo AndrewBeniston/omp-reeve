@@ -27,6 +27,7 @@ the What's New dialog adds a second page that invites support.
 - Render tool calls as classified Activity rows with separate action and detail text.
 - Show provider retry progress beside the interrupted response.
 - Keep terminal output and accessible status text in classified Activity rows.
+- Render the Session origin note at the start of related transcripts and link back to the source Session.
 
 ## [0.8.0] - 2026-09-23
 

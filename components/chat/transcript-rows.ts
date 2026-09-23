@@ -68,8 +68,14 @@ export interface LiveCompactionState {
   error?: string | null;
 }
 
+export interface SessionOrigin {
+  kind: "continued" | "parent";
+  relatedSessionId: string;
+}
+
 export type TranscriptRow =
   | { kind: "archived"; sessionId: string }
+  | { kind: "session-origin"; kindOfOrigin: "continued" | "parent"; relatedSessionId: string }
   | { kind: "turn"; id: string; phase: TurnPhase; settled: boolean; items: TranscriptMessageRow[] }
   | {
       kind: "compaction";
@@ -113,6 +119,7 @@ export function buildTranscriptRows(
   running: boolean,
   modelChanges: readonly ModelChangeNote[] = [],
   compaction?: LiveCompactionState | null,
+  sessionOrigin?: SessionOrigin | null,
 ): TranscriptRow[] {
   const sourceMessages = streamingMessage ? [...messages, streamingMessage] : [...messages];
   const records: TranscriptRecord<AgentMessage>[] = [];
@@ -168,6 +175,13 @@ export function buildTranscriptRows(
     streaming: index === messages.length,
   });
   const rows: TranscriptRow[] = [];
+  if (sessionOrigin) {
+    rows.push({
+      kind: "session-origin",
+      kindOfOrigin: sessionOrigin.kind,
+      relatedSessionId: sessionOrigin.relatedSessionId,
+    });
+  }
   const changesAtPosition = new Map<number, ModelChangeNote[]>();
   for (const change of modelChanges) {
     const position = Math.max(0, Math.min(change.position, sourceMessages.length));
