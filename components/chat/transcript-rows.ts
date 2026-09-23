@@ -1,6 +1,8 @@
 import type { AgentMessage, ModelChangeNote } from "@/lib/types";
 import { getAssistantErrorMessage, getDisplayableAssistantBlocks } from "@/lib/message-display";
 import { foldTurns, type TranscriptRecord, type TurnPhase, type TurnTextPhase } from "@/lib/transcript/turn-folder";
+import { classifyActivityTool, type ActivityClassification } from "@/lib/transcript/activity-classifier";
+import type { ToolCallContent, ToolResultMessage } from "@/lib/types";
 
 export interface TranscriptMessageRow {
   message: AgentMessage;
@@ -8,6 +10,56 @@ export interface TranscriptMessageRow {
   entryId?: string;
   textPhases?: (TurnTextPhase | undefined)[];
   streaming: boolean;
+}
+
+export type ActivityRowState = "running" | "completed" | "interrupted";
+
+export interface ActivityRowContent {
+  classification: ActivityClassification;
+  state: ActivityRowState;
+  detail?: string;
+}
+
+export interface ActivityStrings {
+  command: { running: string; completed: string; interrupted: string };
+  read: string;
+  search: { generic: string; query: string };
+  list: string;
+  edit: string;
+  webSearch: { generic: string; query: string };
+  subAgent: { running: string; completed: string };
+  connector: { running: string; completed: string };
+  applicationControl: { desktop: string; terminal: string };
+  unknown: { running: string; completed: string };
+}
+
+function inputText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function toolResultState(result: ToolResultMessage | undefined): ActivityRowState {
+  const status = typeof result?.details === "object" && result.details !== null
+    ? (result.details as { status?: unknown }).status
+    : undefined;
+  if (status === "aborted" || status === "interrupted") return "interrupted";
+  return result ? "completed" : "running";
+}
+
+/** Build the shared Activity row content for a tool call. */
+export function activityRowContent(
+  block: ToolCallContent,
+  result?: ToolResultMessage,
+  interrupted = false,
+): ActivityRowContent {
+  const state: ActivityRowState = interrupted ? "interrupted" : toolResultState(result);
+  const classification = classifyActivityTool(block.toolName, block.input, { interrupted: state === "interrupted" });
+  let detail: string | undefined;
+  if (classification.kind === "command") detail = classification.command;
+  if (classification.kind === "read") detail = inputText(block.input.path ?? block.input.file_path ?? block.input.target);
+  if (classification.kind === "search") detail = inputText(block.input.query ?? block.input.pattern);
+  if (classification.kind === "list") detail = inputText(block.input.path ?? block.input.folder);
+  if (classification.kind === "web-search") detail = inputText(block.input.query);
+  return { classification, state, detail };
 }
 
 export interface LiveCompactionState {
