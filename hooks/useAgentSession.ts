@@ -1613,8 +1613,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
   const handleSend = useCallback(async (message: string, images?: AttachedImage[]) => {
     const trimmedMessage = message.trim();
-    if (!trimmedMessage && !images?.length) return;
-    if (agentRunningRef.current || bashRunningRef.current) return;
+    if (!trimmedMessage && !images?.length) return false;
+    if (agentRunningRef.current || bashRunningRef.current) return false;
     const isSlashCommandPrompt = !images?.length && trimmedMessage.startsWith("/");
 
     const isBashCommand = !images?.length && trimmedMessage.startsWith("!");
@@ -1623,7 +1623,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       const bashCmd = (isExcluded ? trimmedMessage.slice(2) : trimmedMessage.slice(1)).trim();
       if (!bashCmd) return;
       await executeBashRef.current?.(bashCmd, isExcluded);
-      return;
+      return true;
     }
 
     const promptRunId = promptRunIdRef.current + 1;
@@ -1695,7 +1695,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       // until server state confirms the run is idle.
       if (!definitivelyRejected && sentSessionId) {
         void waitForPromptSettlement(sentSessionId, promptRunId);
-        return;
+        return true;
       }
       rpcPromptPendingRef.current = false;
       agentRunningRef.current = false;
@@ -1724,7 +1724,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       setAgentRunning(false);
       setAgentPhase(null);
       dispatch({ type: "end" });
+      return false;
     }
+    return true;
   }, [isNew, newSessionCwd, newSessionModel, session, ensureNewSession, ensureEventsConnected, promoteNewSession, waitForPromptSettlement, addNotice, cancelEventStreamGrace, chatInputRef, closeEvents, holdActiveTurn]);
 
   const executeBash = useCallback(async (command: string, excludeFromContext: boolean) => {
@@ -1806,12 +1808,13 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, [onSessionForked]);
 
   const handleNavigate = useCallback(async (entryId: string) => {
-    if (bashRunningRef.current) return;
+    if (bashRunningRef.current) return false;
     const sid = sessionIdRef.current;
-    if (!sid) return;
-    sendAgentCommand(sid, { type: "navigate_tree", targetId: entryId }).catch(() => {});
+    if (!sid) return false;
+    await sendAgentCommand(sid, { type: "navigate_tree", targetId: entryId });
     setActiveLeafId(entryId);
     await loadContext(sid, entryId);
+    return true;
   }, [loadContext]);
 
   const handleLeafChange = useCallback(async (leafId: string | null) => {
@@ -2617,6 +2620,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     sessionIdRef, eventSourceRef,
     // Actions
     handleSend, handleAbort, handleFork, handleNavigate, handleModelChange, handleRoleModelChange,
+    addNotice,
     handleCompact, handleSteer, handleFollowUp, handlePromptWithStreamingBehavior, handleAbortCompaction,
     handleDeleteQueuedMessage, handleUndoDeletedQueuedMessage,
     handleEditQueuedMessage, handleCancelQueuedMessageEdit, handleCompleteQueuedMessageEdit,

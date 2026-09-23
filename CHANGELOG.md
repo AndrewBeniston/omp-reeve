@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- User messages can now be edited in place with Send and Cancel controls.
 - Inspected images now appear behind a counted disclosure and open in a keyboard accessible image dialog.
 - Failed queued messages now keep their place in the queue and offer a Retry control with recovery guidance.
 - Assistant responses now announce streaming start, progress, and completion to screen readers through a polite live region.

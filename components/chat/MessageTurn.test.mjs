@@ -259,7 +259,7 @@ test("owns user framing and copy, retry, and branch actions", () => {
   const html = renderTurn({
     role: "user",
     copyContent: "Message content",
-    onRetry() {},
+    onEdit: async () => {},
     onBranch() {},
     branchPending: true,
     timestamp: "10:24",
@@ -273,8 +273,97 @@ test("owns user framing and copy, retry, and branch actions", () => {
   assert.match(html, /disabled/);
   assert.match(html, /role="tooltip"/);
   assert.match(html, /aria-label="Copy message"/);
+  assert.match(html, /aria-label="Edit message"/);
   // The time is in the DOM but hidden until hover, like the actions.
   assert.match(html, /data-visible="false">10:24</);
+});
+
+test("edits a user message in place and sends once with the keyboard shortcut", async () => {
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  const sent = [];
+  let resolveSend;
+  await React.act(async () => {
+    root.render(React.createElement(I18nProvider, null, React.createElement(MessageTurn, {
+      role: "user",
+      userText: "Original text",
+      userEditText: "Original text",
+      copyContent: "Original text",
+      onEdit: (text) => new Promise((resolve) => { sent.push(text); resolveSend = resolve; }),
+    })));
+  });
+  const button = container.querySelector('[data-message-action="edit"]');
+  await React.act(async () => button.click());
+  const textarea = container.querySelector("textarea");
+  assert.equal(textarea.getAttribute("aria-label"), "Edit message");
+  assert.equal(textarea.getAttribute("placeholder"), "Edit message");
+  await React.act(async () => {
+    const valueSetter = Object.getOwnPropertyDescriptor(browser.HTMLTextAreaElement.prototype, "value").set;
+    valueSetter.call(textarea, "Changed text");
+    textarea.dispatchEvent(new browser.Event("input", { bubbles: true }));
+    textarea.dispatchEvent(new browser.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  });
+  assert.deepEqual(sent, ["Changed text"]);
+  assert.ok(container.querySelector("textarea"), "keeps the original editor while send is pending");
+  assert.ok(container.querySelector('button[aria-busy="true"]'));
+  assert.equal(container.querySelector('button[aria-busy="true"]').disabled, true);
+  await React.act(async () => resolveSend());
+  assert.equal(container.querySelector("textarea"), null);
+  await React.act(async () => root.unmount());
+  container.remove();
+});
+
+test("cancels editing with Escape and restores the original text", async () => {
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  await React.act(async () => {
+    root.render(React.createElement(I18nProvider, null, React.createElement(MessageTurn, {
+      role: "user",
+      userText: "Original text",
+      userEditText: "Original text",
+      onEdit: async () => {},
+    })));
+  });
+  await React.act(async () => container.querySelector('[data-message-action="edit"]').click());
+  await React.act(async () => container.querySelector("textarea").dispatchEvent(new browser.KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  assert.equal(container.querySelector("textarea"), null);
+  assert.match(container.textContent, /Original text/);
+  await React.act(async () => root.unmount());
+  container.remove();
+});
+
+test("keeps the original turn, shows failure, restores focus, and re-raises edit errors", async () => {
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  const failure = new Error("send failed");
+  let failures = 0;
+  await React.act(async () => {
+    root.render(React.createElement(I18nProvider, null, React.createElement(MessageTurn, {
+      role: "user",
+      userText: "Original text",
+      userEditText: "Original text",
+      onEdit: async () => { throw failure; },
+      onEditFailure: () => { failures += 1; },
+    })));
+  });
+  const editButton = container.querySelector('[data-message-action="edit"]');
+  await React.act(async () => editButton.click());
+  const textarea = container.querySelector("textarea");
+  await React.act(async () => {
+    const valueSetter = Object.getOwnPropertyDescriptor(browser.HTMLTextAreaElement.prototype, "value").set;
+    valueSetter.call(textarea, "Changed text");
+    textarea.dispatchEvent(new browser.Event("input", { bubbles: true }));
+    textarea.dispatchEvent(new browser.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  });
+  assert.equal(failures, 1);
+  assert.equal(container.querySelector("textarea"), null);
+  assert.match(container.textContent, /Original text/);
+  assert.equal(document.activeElement, editButton);
+  await React.act(async () => root.unmount());
+  container.remove();
 });
 
 test("owns assistant framing without showing copy during streaming", () => {
