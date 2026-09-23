@@ -20,6 +20,7 @@ import type { TurnClock, TurnPhase } from "@/lib/transcript/turn-folder";
 import { collectSessionSummarySources, type SummarySource } from "@/lib/session-summary";
 import { MessageView } from "./MessageView";
 import { ModelChangedNote } from "./chat/ModelChangedNote";
+import { FallbackRoutingNote } from "./chat/FallbackRoutingNote";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
 import { ExtensionStatusBar } from "./ExtensionStatusBar";
 import { useI18n } from "@/hooks/useI18n";
@@ -403,6 +404,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
           sessionData?.context.modelChanges ?? [],
           isCompacting || compactError ? { isCompacting, source: compactSource, error: compactError } : null,
           sessionOrigin,
+          sessionData?.context.fallbackRoutes ?? [],
         ),
     [
       messages,
@@ -415,6 +417,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
       compactSource,
       compactError,
       sessionOrigin?.relatedSessionId,
+      sessionData?.context.fallbackRoutes,
     ],
   );
   const activeTurnBlocks = useMemo(() => {
@@ -796,6 +799,12 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                       fromModel={row.note.fromModel}
                       toModel={row.note.toModel}
                     />,
+                  );
+                  return;
+                }
+                if (row.kind === "fallback-route") {
+                  rendered.push(
+                    <FallbackRoutingNote key={`fallback-route-${row.id}`} toModel={row.note.toModel} />,
                   );
                   return;
                 }

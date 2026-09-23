@@ -9,6 +9,7 @@ import type {
   ExtensionUiRequest,
   ExtensionWidgetItem,
   ModelChangeNote,
+  FallbackRouteNote,
   SessionInfo,
   SessionTreeNode,
   SubagentSnapshot,
@@ -68,6 +69,7 @@ export interface SessionData {
     messages: AgentMessage[];
     entryIds: string[];
     modelChanges: ModelChangeNote[];
+    fallbackRoutes: FallbackRouteNote[];
     thinkingLevel: string;
     model: { provider: string; modelId: string } | null;
     serviceTierByFamily?: Partial<Record<"openai" | "anthropic" | "google", string>>;
@@ -702,14 +704,14 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const d = await res.json() as {
-        context: { messages: AgentMessage[]; entryIds: string[]; modelChanges: ModelChangeNote[] };
+        context: { messages: AgentMessage[]; entryIds: string[]; modelChanges: ModelChangeNote[]; fallbackRoutes: FallbackRouteNote[] };
         contextUsage?: ContextUsage;
       };
       setMessages(d.context.messages);
       setEntryIds(d.context.entryIds ?? []);
       setData((current) => current ? {
         ...current,
-        context: { ...current.context, modelChanges: d.context.modelChanges ?? [] },
+        context: { ...current.context, modelChanges: d.context.modelChanges ?? [], fallbackRoutes: d.context.fallbackRoutes ?? [] },
       } : current);
       setContextUsage(d.contextUsage ?? null);
     } catch (e) {
