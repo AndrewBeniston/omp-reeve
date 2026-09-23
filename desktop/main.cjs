@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { closeSync, openSync, writeSync } = require("node:fs");
-const { randomUUID } = require("node:crypto");
+const { closeSync, constants: fsConstants, openSync, writeSync } = require("node:fs");
+const { access, open, opendir, stat } = require("node:fs/promises");
+const { createHmac, randomUUID } = require("node:crypto");
 const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
@@ -64,6 +65,7 @@ function desktopTitleBarOverlay() {
 let mainWindow;
 let serverProcess;
 let desktopUrl;
+let attachmentSigningToken = process.env.OMP_WEB_DESKTOP_TOKEN || null;
 let updateController = null;
 let shuttingDown = false;
 let terminalRegistry = null;
@@ -313,6 +315,17 @@ function registerExternalLinkHandler() {
   }));
 }
 
+function registerMicrophoneSettingsHandler() {
+  ipcMain.handle("omp-desktop:open-microphone-settings", event => {
+    if (!event.senderFrame || !desktopUrl || !isTrustedRendererUrl(event.senderFrame.url, desktopUrl)) return false;
+    const url = process.platform === "darwin"
+      ? "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone"
+      : process.platform === "win32" ? "ms-settings:privacy-microphone" : null;
+    if (!url) return false;
+    return shell.openExternal(url).then(() => true);
+  });
+}
+
 function registerDirectoryPickerHandler() {
   ipcMain.handle("omp-desktop:select-directory", async (event) => {
     if (!event.senderFrame || !desktopUrl || !isTrustedRendererUrl(event.senderFrame.url, desktopUrl)) {
@@ -331,20 +344,70 @@ function registerDirectoryPickerHandler() {
 }
 
 function registerAttachmentPickerHandler() {
-  ipcMain.handle("omp-desktop:select-attachments", async (event) => {
+  ipcMain.handle("omp-desktop:select-attachments", async (event, options) => {
     if (!event.senderFrame || !desktopUrl || !isTrustedRendererUrl(event.senderFrame.url, desktopUrl)) {
       throw new Error("The attachment-picker request did not come from the application.");
     }
+    if (options?.secure === true && !attachmentSigningToken) {
+      throw new Error("Secure attachments require the desktop server.");
+    }
     const window = BrowserWindow.fromWebContents(event.sender);
     if (!window) throw new Error("The attachment-picker request has no application window.");
+    let title = "Add files and folders";
+    let properties = ["openFile", "openDirectory", "multiSelections"];
+    if (process.platform !== "darwin") {
+      // Electron cannot combine file and folder selection on Windows or Linux.
+      const { response } = await dialog.showMessageBox(window, {
+        type: "question",
+        title: "Add files and folders",
+        message: "What would you like to add?",
+        buttons: ["Files", "Folders", "Cancel"],
+        defaultId: 0,
+        cancelId: 2,
+        noLink: true,
+      });
+      if (response === 2) return [];
+      title = response === 1 ? "Add folders" : "Add files";
+      properties = response === 1
+        ? ["openDirectory", "multiSelections"]
+        : ["openFile", "multiSelections"];
+    }
     const result = await dialog.showOpenDialog(window, {
-      title: process.platform === "darwin" ? "Add files and folders" : "Add files",
+      title,
       buttonLabel: "Add",
-      properties: process.platform === "darwin"
-        ? ["openFile", "openDirectory", "multiSelections"]
-        : ["openFile", "multiSelections"],
+      properties,
     });
-    return result.canceled ? [] : result.filePaths;
+    if (result.canceled) return [];
+    if (options?.secure !== true) return result.filePaths;
+    const issuedAt = Date.now();
+    return Promise.all(result.filePaths.map(async (selectedPath) => {
+      let kind = "file";
+      let readError = null;
+      try {
+        const info = await stat(selectedPath);
+        kind = info.isDirectory() ? "folder" : "file";
+        if (!info.isFile() && !info.isDirectory()) throw new Error("Unsupported item");
+        await access(selectedPath, fsConstants.R_OK);
+        if (info.isDirectory()) {
+          const directory = await opendir(selectedPath);
+          await directory.close();
+        } else {
+          const file = await open(selectedPath, "r");
+          await file.close();
+        }
+      } catch {
+        readError = "inaccessible";
+      }
+      return {
+        path: selectedPath,
+        issuedAt,
+        signature: createHmac("sha256", attachmentSigningToken)
+          .update(JSON.stringify(["reeve-attachment-v1", selectedPath, issuedAt]))
+          .digest("hex"),
+        kind,
+        readError,
+      };
+    }));
   });
 }
 
@@ -860,6 +923,7 @@ if (!hasSingleInstanceLock) {
   app.whenReady()
     .then(async () => {
       registerExternalLinkHandler();
+      registerMicrophoneSettingsHandler();
       registerDirectoryPickerHandler();
       registerAttachmentPickerHandler();
       registerAudioSaveHandler();
@@ -883,6 +947,7 @@ if (!hasSingleInstanceLock) {
       desktopUrl = process.env.OMP_WEB_DESKTOP_DEV_URL || DEFAULT_DEV_URL;
       if (app.isPackaged) {
         const launchToken = randomUUID();
+        attachmentSigningToken = launchToken;
         desktopUrl = `http://127.0.0.1:${DESKTOP_PORT}`;
         startBundledServer(DESKTOP_PORT, launchToken);
         await waitForHttpResponse(`${desktopUrl}/api/desktop-health`, launchToken);

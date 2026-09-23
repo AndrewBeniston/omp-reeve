@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld(
     openExternal(url) {
       return ipcRenderer.invoke("omp-desktop:open-external", url);
     },
+    openMicrophoneSettings() {
+      return ipcRenderer.invoke("omp-desktop:open-microphone-settings");
+    },
     selectDirectory() {
       return ipcRenderer.invoke("omp-desktop:select-directory");
     },
@@ -38,6 +41,9 @@ contextBridge.exposeInMainWorld(
     },
     saveAudioCopy(filename, bytes) {
       return ipcRenderer.invoke("omp-desktop:save-audio-copy", filename, bytes);
+    },
+    selectAttachmentsWithCapabilities() {
+      return ipcRenderer.invoke("omp-desktop:select-attachments", { secure: true });
     },
     showProjectMenu(state) {
       return ipcRenderer.invoke("omp-desktop:show-project-menu", state);

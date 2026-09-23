@@ -110,7 +110,7 @@ export function ComposerAddMenu({ sections, onSelect, onAttachImages, onBrowseFi
       <MenuItem surface="plain" className={styles.item} icon={<SlashCommandIcon name="image" />}
         onClick={() => select(onAttachImages)}>{labels.images}</MenuItem>
       </>}
-      {visibleSections.map(section => <div key={section.id}>
+      {visibleSections.map(section => <div key={`${section.id}:${section.title ?? ""}`}>
         {section.showTitle === false ? null : <div className={styles.heading}>{section.title ?? labels.groups[section.id]}</div>}
         {section.items.map(item => <MenuItem key={item.id} surface="plain" className={styles.item}
           aria-haspopup={childrenFor?.(item).length ? "menu" : undefined}

@@ -1,0 +1,12 @@
+.root { position: relative; min-width: 0; }
+.trigger { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 180px; height: var(--composer-control-size, 28px); padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: var(--ui-text-dim); font: inherit; font-size: var(--text-xs); cursor: pointer; }
+.trigger:hover, .trigger[aria-expanded="true"] { background: var(--ui-control-hover); color: var(--ui-text); }
+.label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu { position: absolute; z-index: 80; bottom: calc(100% + 6px); left: 0; width: min(300px, calc(100vw - 24px)); }
+.searchRow { padding: 6px; }
+.searchRow input { width: 100%; height: 32px; padding: 0 8px; border: 1px solid var(--ui-border); border-radius: 6px; background: var(--ui-input); color: var(--ui-text); font: inherit; }
+.state, .error { margin: 0; padding: 8px 10px; color: var(--ui-text-dim); font-size: var(--text-xs); }
+.error { color: var(--ui-danger); }
+.unavailableLabel { margin-right: 8px; font-weight: 600; }
+.reason { color: var(--ui-text-dim); font-size: var(--text-xs); }
+@media (max-width: 475px) { .trigger { max-width: 120px; } .label { max-width: 80px; } }

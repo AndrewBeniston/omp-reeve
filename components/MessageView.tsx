@@ -424,6 +424,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
     >
       {message.attachments && <><PastedTextAttachmentRow attachments={message.attachments} /><UserMessageAttachmentRows attachments={message.attachments} onOpenFile={onOpenFile} /></>}
       {hasUserMediaAttachments(message.content) && <UserMediaAttachments content={message.content} />}
+      {message.sentAsGoal && <span className={styles.goalMessageStatus}>{t("codex.userMessage.goal")}</span>}
     </MessageTurn>
     {canFork && (
       <ForkDialog

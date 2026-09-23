@@ -21,6 +21,7 @@ const {
   filterModelOptions,
   getAcceptedImageFiles,
   getComposerTextareaHeight,
+  hasUnsentComposerInput,
   getUserMessageText,
   getUserMessageDraftImages,
   resolveStreamingSubmissionMode,
@@ -30,6 +31,7 @@ const {
   shouldSubmitComposer,
 } = await jiti.import("./ChatInput.tsx");
 const { clearDraft, getDraft, mergeRestoredSubmissionDraft, mergeRestoredSubmissionText, rekeyDraft, setDraft } = await jiti.import("../lib/draft-store.ts");
+const attachmentState = () => jiti.import("../lib/composer-attachment-state.ts");
 const { I18nProvider } = await jiti.import("../hooks/useI18n.tsx");
 const englishMessages = await readFile(new URL("../lib/i18n/messages/en.ts", import.meta.url), "utf8");
 const chineseMessages = await readFile(new URL("../lib/i18n/messages/zh-CN.ts", import.meta.url), "utf8");
@@ -125,6 +127,34 @@ test("exposes model switching as a disabled collapsed running control", () => {
   assert.match(control, /disabled=""/);
 });
 
+test("the footer chip shows the model, effort, and chevron with a marked top step", async () => {
+  const model = { provider: "openai", modelId: "gpt-5.4" };
+  const props = {
+    onModelChange() {},
+    model,
+    modelList: [{ provider: model.provider, id: model.modelId, name: "GPT-5.4" }],
+    availableThinkingLevels: ["medium", "max"],
+  };
+  const normal = buttonFor(renderChatInput({ ...props, thinkingLevel: "medium" }), "Model settings");
+  const top = buttonFor(renderChatInput({ ...props, thinkingLevel: "max" }), "Model settings");
+  const topWithoutLevelMetadata = buttonFor(renderChatInput({ ...props, availableThinkingLevels: [], thinkingLevel: "max" }), "Model settings");
+  const effortOnly = buttonFor(renderChatInput({ ...props, model: null, thinkingLevel: "max" }), "Model settings");
+  const css = await readFile(new URL("./chat/composer.module.css", import.meta.url), "utf8");
+
+  assert.match(normal, /class="[^"]*modelName">GPT-5\.4<\/span>[\s\S]*class="[^"]*reasoningLevel"[^>]*><span class="reasoningCurrent">Medium/);
+  assert.match(normal, /class="modelChevron"/);
+  assert.match(top, /class="[^"]*reasoningLevel"[^>]*data-top-step="true"[^>]*><span class="reasoningCurrent">Max/);
+  assert.match(topWithoutLevelMetadata, /class="[^"]*reasoningLevel"[^>]*data-top-step="true"/);
+  assert.match(effortOnly, /class="[^"]*reasoningLevel"[^>]*data-model-prefix="false"/);
+  assert.doesNotMatch(effortOnly, /class="[^"]*modelName"/);
+  assert.match(css, /\.modelName\s*\{[^}]*font-size:\s*var\(--text-sm\);[^}]*font-weight:\s*var\(--font-weight-medium\);/);
+  assert.match(css, /\.reasoningLevel\s*\{[^}]*color:\s*var\(--ui-text-dim\);/);
+  assert.match(css, /\.reasoningLevel\[data-top-step="true"\]\s*\{[^}]*color:\s*var\(--ui-accent\);/);
+  assert.match(css, /\.reasoningLevel\[data-model-prefix="false"\]\s*\{[^}]*color:\s*var\(--ui-text\);/);
+  assert.match(css, /\.menuTrigger\s*\{[^}]*min-height:\s*36px;[^}]*padding:\s*var\(--space-1\) var\(--space-2\);/);
+  assert.match(css, /\.menuTrigger\s*\{[^}]*max-width:\s*calc\(64 \* var\(--space-1\)\);/);
+});
+
 test("uses a CSS hover seam for composer controls", () => {
   const html = renderChatInput({ contextUsage: { tokens: 10, contextWindow: 100, percent: 10 } });
 
@@ -156,7 +186,7 @@ test("renders only the consolidated desktop toolbar controls", () => {
 
   assert.match(attach, /<svg[^>]+width="20"[^>]+height="20"/);
   assert.match(model, /class="[^"]*modelName">GPT-5\.4<\/span>/);
-  assert.match(model, /class="reasoningLevel">Medium<\/span>/);
+  assert.match(model, /class="reasoningLevel"><span class="reasoningCurrent">Medium<\/span>/);
   assert.match(model, /class="modelChevron"/);
   assert.match(mode, /<svg[^>]+width="16"[^>]+height="16"/);
   assert.match(send, /type="submit"/);
@@ -175,7 +205,7 @@ test("renders only the consolidated desktop toolbar controls", () => {
   assert.doesNotMatch(html, /menuitemradio/);
 });
 
-test("renders the desktop footer groups in Codex order with Dictate hidden", () => {
+test("renders the desktop footer groups in Codex order without unavailable Dictate", () => {
   const common = {
     model: { provider: "openai", modelId: "gpt-5.4" },
     modelList: [{ provider: "openai", id: "gpt-5.4", name: "GPT-5.4" }],
@@ -198,30 +228,24 @@ test("renders the desktop footer groups in Codex order with Dictate hidden", () 
     'aria-label="Restricted mode"',
     'aria-label="Context donut: 10%"',
     'aria-label="Model settings"',
-    'aria-label="Dictate"',
     'aria-label="Send"',
   ];
   for (let index = 1; index < expectedOrder.length; index += 1) {
     assert.ok(untrustedHtml.indexOf(expectedOrder[index - 1]) < untrustedHtml.indexOf(expectedOrder[index]));
   }
 
-  const dictate = buttonFor(untrustedHtml, "Dictate");
-  assert.match(dictate, /hidden=""/);
-  assert.equal(
-    expectedOrder.filter((attribute) => !openingTagFor(untrustedHtml, attribute).includes('hidden=""')).length,
-    5,
-  );
+  assert.doesNotMatch(untrustedHtml, /aria-label="Dictate"/);
 
   assert.doesNotMatch(trustedHtml, /aria-label="Restricted mode"/);
   assert.match(trustedHtml, /aria-label="Full access"/);
   assert.ok(trustedHtml.indexOf('aria-label="Add"') < trustedHtml.indexOf('aria-label="Full access"'));
   assert.ok(trustedHtml.indexOf('aria-label="Full access"') < trustedHtml.indexOf('aria-label="Context donut: 10%"'));
   assert.ok(trustedHtml.indexOf('aria-label="Context donut: 10%"') < trustedHtml.indexOf('aria-label="Model settings"'));
-  assert.ok(trustedHtml.indexOf('aria-label="Model settings"') < trustedHtml.indexOf('aria-label="Dictate"'));
-  assert.ok(trustedHtml.indexOf('aria-label="Dictate"') < trustedHtml.indexOf('aria-label="Send"'));
+  assert.ok(trustedHtml.indexOf('aria-label="Model settings"') < trustedHtml.indexOf('aria-label="Send"'));
+  assert.doesNotMatch(trustedHtml, /aria-label="Dictate"/);
 });
 
-test("groups desktop model controls separately from Dictate and Send", () => {
+test("groups desktop model controls separately from Send when Dictate is unavailable", () => {
   const html = renderChatInput({
     model: { provider: "openai", modelId: "gpt-5.4" },
     modelList: [{ provider: "openai", id: "gpt-5.4", name: "GPT-5.4" }],
@@ -230,7 +254,8 @@ test("groups desktop model controls separately from Dictate and Send", () => {
   });
 
   assert.match(html, /class="toolbarModelArea"[^>]*>[\s\S]*aria-label="Context donut: 10%"[\s\S]*aria-label="Model settings"/);
-  assert.match(html, /class="toolbarTrailing"[^>]*>[\s\S]*aria-label="Dictate"[\s\S]*aria-label="Send"/);
+  assert.match(html, /class="toolbarTrailing"[^>]*>[\s\S]*aria-label="Send"/);
+  assert.doesNotMatch(html, /aria-label="Dictate"/);
 });
 
 test("provides Dictate labels in both message catalogs", async () => {
@@ -510,6 +535,133 @@ test("keeps a failed first submission recoverable across a composer remount", ()
   );
 });
 
+test("keeps native file and folder selections as removable Composer descriptors", async () => {
+  const { addComposerAttachments, removeComposerAttachment, selectedAttachmentPaths } = await attachmentState();
+  const file = { path: "/Projects/Client/notes.txt", issuedAt: 123, signature: "a".repeat(64), kind: "file" };
+  const folder = { path: "/Projects/Client/Assets", issuedAt: 123, signature: "b".repeat(64), kind: "folder" };
+  const attachments = addComposerAttachments([], [file, folder]);
+
+  assert.deepEqual(attachments.map(({ name, kind, pathSummary, readError }) => ({ name, kind, pathSummary, readError })), [
+    { name: "notes.txt", kind: "file", pathSummary: "…/Projects/Client", readError: null },
+    { name: "Assets", kind: "folder", pathSummary: "…/Projects/Client", readError: null },
+  ]);
+  assert.deepEqual(selectedAttachmentPaths(attachments), [
+    { path: file.path, issuedAt: file.issuedAt, signature: file.signature },
+    { path: folder.path, issuedAt: folder.issuedAt, signature: folder.signature },
+  ]);
+  assert.deepEqual(removeComposerAttachment(attachments, attachments[0].id), [attachments[1]]);
+});
+
+test("keeps pasted text as a restorable attachment while its file is created", async () => {
+  const {
+    PASTED_TEXT_THRESHOLD,
+    addPastedTextAttachment,
+    pastedTextFromAttachment,
+  } = await attachmentState();
+  const text = "a".repeat(PASTED_TEXT_THRESHOLD + 1);
+  const [attachment] = addPastedTextAttachment([], text);
+
+  assert.equal(PASTED_TEXT_THRESHOLD, 5000);
+  assert.deepEqual(attachment, {
+    id: 1,
+    name: "Pasted text.txt",
+    kind: "file",
+    pathSummary: "",
+    readError: null,
+    pastedText: text,
+  });
+  assert.equal(pastedTextFromAttachment(attachment), text);
+});
+
+test("preserves local attachment descriptors in draft restore and Session promotion", async () => {
+  const { addComposerAttachments } = await attachmentState();
+  const [first, second] = addComposerAttachments([], [
+    { path: "/Projects/Client/notes.txt", issuedAt: 123, signature: "a".repeat(64), kind: "file" },
+    { path: "/Projects/Client/Assets", issuedAt: 123, signature: "b".repeat(64), kind: "folder" },
+  ]);
+  const provisionalKey = "new:attachment-draft";
+  const sessionKey = "attachment-session";
+  clearDraft(provisionalKey);
+  clearDraft(sessionKey);
+  setDraft(provisionalKey, { value: "", images: [], attachments: [first] });
+
+  const read = getDraft(provisionalKey);
+  assert.deepEqual(read?.attachments, [first]);
+  read.attachments[0].selection.path = "/changed";
+  assert.equal(getDraft(provisionalKey)?.attachments?.[0].selection.path, first.selection.path);
+  assert.deepEqual(rekeyDraft(provisionalKey, sessionKey)?.attachments, [first]);
+  assert.deepEqual(mergeRestoredSubmissionDraft("failed", [], "current", [], [second], [first]).attachments, [second, first]);
+
+  clearDraft(sessionKey);
+});
+
+test("draft replacement and deletion release only uploads without another draft owner", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const deleted = [];
+  globalThis.fetch = async (url, options) => {
+    if (options.method === "DELETE") deleted.push(url);
+    return new Response(null, { status: 204 });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const sessionId = "b7b00000-0000-4000-8000-000000000001";
+  const upload = { id: `up_${"a".repeat(32)}`, sessionId, name: "notes.txt", size: 5, mediaType: "text/plain", state: "ready" };
+  const attachment = { id: 1, upload, name: upload.name, kind: "file", pathSummary: "", readError: null };
+  const first = "draft-upload-first";
+  const second = "draft-upload-second";
+  clearDraft(first);
+  clearDraft(second);
+  setDraft(first, { value: "", images: [], attachments: [attachment] });
+  setDraft(second, { value: "", images: [], attachments: [attachment] });
+  setDraft(first, { value: "replacement", images: [] });
+  await Promise.resolve();
+  assert.deepEqual(deleted, []);
+  clearDraft(second);
+  await Promise.resolve();
+  assert.deepEqual(deleted, [`/api/sessions/${sessionId}/uploads/${upload.id}`]);
+  clearDraft(first);
+});
+
+test("Session promotion and submission preserve the upload during draft transfer", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const deleted = [];
+  globalThis.fetch = async (url, options) => {
+    if (options.method === "DELETE") deleted.push(url);
+    return new Response(null, { status: 204 });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const sessionId = "b7b00000-0000-4000-8000-000000000001";
+  const upload = { id: `up_${"b".repeat(32)}`, sessionId, name: "notes.txt", size: 5, mediaType: "text/plain", state: "ready" };
+  const attachment = { id: 1, upload, name: upload.name, kind: "file", pathSummary: "", readError: null };
+  const provisional = "new:draft-upload-promotion";
+  clearDraft(provisional);
+  clearDraft(sessionId);
+  setDraft(provisional, { value: "send this", images: [], attachments: [attachment] });
+  rekeyDraft(provisional, sessionId);
+  assert.equal(getDraft(sessionId)?.attachments?.[0].upload.id, upload.id);
+  clearDraft(sessionId, { preserveUploads: true });
+  await Promise.resolve();
+  assert.deepEqual(deleted, []);
+});
+
+test("renders file and folder rows with names, locations, readiness, errors, and remove controls", async () => {
+  const { addComposerAttachments } = await attachmentState();
+  const key = "attachment-rows";
+  const attachments = addComposerAttachments([], [
+    { path: "/Projects/Client/notes.txt", issuedAt: 123, signature: "a".repeat(64), kind: "file" },
+    { path: "/Projects/Client/Assets", issuedAt: 123, signature: "b".repeat(64), kind: "folder", readError: "Assets cannot be read" },
+  ]);
+  setDraft(key, { value: "", images: [], attachments });
+  const html = renderChatInput({ draftKey: key });
+
+  assert.match(html, /aria-label="Local attachments"/);
+  assert.match(html, /notes\.txt[\s\S]*File[\s\S]*…\/Projects\/Client[\s\S]*Ready/);
+  assert.match(html, /Assets[\s\S]*Folder[\s\S]*Assets cannot be read/);
+  assert.match(html, /aria-label="Remove notes\.txt"/);
+  assert.match(html, /aria-label="Remove Assets"/);
+  assert.doesNotMatch(html, /@&quot;\/Projects/);
+  clearDraft(key);
+});
+
 test("preserves duplicate image attachments when restoring a submission", () => {
   const image = { data: "AQID", mimeType: "image/png" };
   const restored = mergeRestoredSubmissionDraft("", [image, image], "", [image]);
@@ -639,6 +791,86 @@ test("dispatches text and image payloads before clearing the idle composer", asy
 
   assert.equal(result, "sent");
   assert.deepEqual(calls, ["unlock", "clear", ["inspect this", [image]]]);
+});
+
+test("sends signed local selections as structured data and keeps unreadable rows in the Composer", async () => {
+  const { addComposerAttachments } = await attachmentState();
+  const [attachment] = addComposerAttachments([], [
+    { path: "/Projects/O'Brien/notes.txt", issuedAt: 123, signature: "a".repeat(64), kind: "file" },
+  ]);
+  const calls = [];
+  assert.equal(await dispatchIdleSubmission({
+    value: "",
+    images: [],
+    attachments: [attachment],
+    isStreaming: false,
+    clearInput: () => calls.push("clear"),
+    onSend: (message, images, attachments) => calls.push([message, images, attachments]),
+  }), "sent");
+  assert.deepEqual(calls, ["clear", ["", undefined, [attachment]]]);
+
+  calls.length = 0;
+  assert.equal(await dispatchIdleSubmission({
+    value: "Check this",
+    images: [],
+    attachments: [{ ...attachment, readError: "notes.txt cannot be read" }],
+    isStreaming: false,
+    clearInput: () => calls.push("clear"),
+    onAttachmentBlocked: (error) => calls.push(error),
+    onSend: () => calls.push("send"),
+  }), "attachment-blocked");
+  assert.deepEqual(calls, ["notes.txt cannot be read"]);
+});
+
+test("sending a browser upload preserves its draft bytes until OMP claims the upload", async () => {
+  const { addBrowserUpload } = await attachmentState();
+  const sessionId = "b7b00000-0000-4000-8000-000000000001";
+  const upload = { id: `up_${"c".repeat(32)}`, name: "notes.txt", size: 5, mediaType: "text/plain", state: "ready" };
+  const attachments = addBrowserUpload([], sessionId, upload);
+  const calls = [];
+  assert.equal(await dispatchIdleSubmission({
+    value: "Read this",
+    images: [],
+    attachments,
+    isStreaming: false,
+    clearInput: preserveUploads => calls.push(["clear", preserveUploads]),
+    onSend: (message, images, selected) => calls.push(["send", message, images, selected]),
+  }), "sent");
+  assert.deepEqual(calls, [["clear", true], ["send", "Read this", undefined, attachments]]);
+});
+
+test("sends local attachments with steer and follow-up messages", async () => {
+  const { addComposerAttachments } = await attachmentState();
+  const [attachment] = addComposerAttachments([], [
+    { path: "/Projects/notes.txt", issuedAt: 123, signature: "a".repeat(64), kind: "file" },
+  ]);
+  for (const mode of ["steer", "followUp"]) {
+    const calls = [];
+    assert.equal(dispatchStreamingSubmission({
+      value: "Review this",
+      images: [],
+      attachments: [attachment],
+      mode,
+      clearInput: () => calls.push("clear"),
+      onAttachmentBlocked: () => calls.push("blocked"),
+      onSteer: (text, images, attachments) => calls.push(["steer", text, images, attachments]),
+      onFollowUp: (text, images, attachments) => calls.push(["followUp", text, images, attachments]),
+    }), mode === "steer" ? "steered" : "followed-up");
+    assert.deepEqual(calls, ["clear", [mode, "Review this", undefined, [attachment]]]);
+  }
+});
+
+test("recovers signed selections after an OMP prompt rejection", async () => {
+  const { addComposerAttachments, markComposerAttachmentError, selectedAttachmentPaths } = await attachmentState();
+  const { getRejectedPromptRecovery } = await jiti.import("../hooks/useAgentSession.ts");
+  const [attachment] = addComposerAttachments([], [
+    { path: "/Projects/O'Brien/notes.txt", issuedAt: 123, signature: "a".repeat(64), kind: "file" },
+  ]);
+  const recovery = getRejectedPromptRecovery("Check this", undefined, undefined, "session-1", true, [attachment]);
+
+  assert.deepEqual(selectedAttachmentPaths(recovery.attachments), [attachment.selection]);
+  assert.equal(recovery.targetDraftKey, "session-1");
+  assert.equal(markComposerAttachmentError(recovery.attachments, "Attachment is inaccessible")[0].readError, "Attachment is inaccessible");
 });
 
 test("handles built-in commands without dispatching an empty prompt", async () => {
@@ -808,26 +1040,23 @@ test("renders the complete semantic composer contract", async () => {
   assert.match(css, /border-radius:\s*var\(--radius-composer\)/);
   assert.match(css, /box-shadow:\s*var\(--shadow-composer\)/);
   assert.match(css, /font-family:\s*var\(--font-sans\)/);
-  // Codex code: the empty attachments strip is 8px + 6px, so the text row starts 14px down.
-  // Codex: the frame keeps a 14px strip while the editor wrapper receives the 2px visual nudge.
-  assert.match(css, /\.composerContent\s*\{[^}]*padding:\s*14px var\(--space-3\) 0;/);
+  assert.match(css, /\.composerContent\s*\{[^}]*padding:\s*14px 12px 0;/);
   assert.match(css, /\.textareaGeometry\s*\{[^}]*transform:\s*translateY\(var\(--composer-text-nudge\)\);/);
   assert.match(tokensCss, /--composer-text-nudge:\s*2px;/);
-  // Codex code: text-base with leading-5, minHeight 2.75rem. 16px on a 20px line, 44px minimum.
-  assert.match(editorCss, /\.editor\s*\{[^}]*min-height:\s*44px;[^}]*max-height:\s*var\(--composer-max-height\);[^}]*font-size:\s*var\(--text-ui\);[^}]*line-height:\s*var\(--leading-ui\);/);
+  assert.match(editorCss, /\.editor\s*\{[^}]*min-height:\s*44px;[^}]*max-height:\s*var\(--composer-max-height\);[^}]*font-size:\s*var\(--text-ui\);[^}]*line-height:\s*20px;[^}]*padding:\s*15px 18px 16px;/);
   assert.match(tokensCss, /--composer-max-height:\s*25dvh;/);
   assert.match(tokensCss, /--leading-ui:\s*20px;/);
   // Codex Electron: --text-base is 14px at the theme root. Only the browser window raises it to 1rem.
   assert.match(tokensCss, /--text-ui:\s*14px;/);
-  // Codex code: every footer control uses size "composer": 28px tall, px-2, 14px text on an 18px line, pill radius.
+  // The model chip uses the compact reference height and padding.
   assert.match(css, /\.attachmentControl\s*\{[^}]*width:\s*var\(--composer-control-size\);[^}]*height:\s*var\(--composer-control-size\);/);
   assert.match(css, /\.contextDonut\s*\{[^}]*width:\s*var\(--composer-control-size\);[^}]*height:\s*var\(--composer-control-size\);/);
-  assert.match(css, /\.menuTrigger\s*\{[^}]*height:\s*var\(--composer-control-size\);[^}]*padding:\s*0 var\(--space-2\);[^}]*border-radius:\s*var\(--radius-round\);[^}]*font-size:\s*var\(--text-base\);[^}]*line-height:\s*18px;/);
+  assert.match(css, /\.menuTrigger\s*\{[^}]*min-height:\s*36px;[^}]*padding:\s*var\(--space-1\) var\(--space-2\);[^}]*border-radius:\s*var\(--radius-round\);[^}]*font-size:\s*var\(--text-base\);[^}]*line-height:\s*18px;/);
   assert.match(approvalCss, /\.trigger\s*\{[^}]*height:\s*var\(--composer-control-size\);/);
   assert.match(tokensCss, /--composer-control-size:\s*28px;/);
   assert.match(tokensCss, /--composer-send-size:\s*var\(--composer-control-size\);/);
   assert.match(editorCss, /\.editor\[data-empty="true"\]::before\s*\{[^}]*color:\s*var\(--ui-text-dim\);[^}]*opacity:\s*0\.5;/);
-  assert.match(css, /\.toolbar\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\) auto;[^}]*column-gap:\s*5px;[^}]*padding-inline:\s*var\(--composer-footer-inset\);/);
+  assert.match(css, /\.toolbar\s*\{[^}]*display:\s*flex;[^}]*column-gap:\s*5px;[^}]*padding-inline:\s*var\(--composer-footer-inset\);/);
   // Codex: the footer centre sits 22px above the frame bottom. 8px inset plus half the 28px send circle.
   assert.match(css, /\.toolbar\s*\{[^}]*min-height:\s*var\(--composer-send-size\);[^}]*margin-top:\s*auto;[^}]*margin-bottom:\s*var\(--composer-footer-inset\);/);
   assert.match(css, /\.attachmentControl\s*\{[^}]*width:\s*var\(--composer-control-size\);[^}]*height:\s*var\(--composer-control-size\);[^}]*background:\s*transparent;/);
@@ -842,9 +1071,13 @@ test("renders the complete semantic composer contract", async () => {
   assert.match(css, /min-width:\s*var\(--ui-control-touch\)/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
   assert.match(css, /\.contextDonut\s*\{[^}]*height:\s*var\(--composer-control-size\);/);
-  // The right group spans the centre and end columns, so its model area can flex before the trailing cluster.
-  assert.match(css, /\.toolbarLeft\s*\{[^}]*grid-column:\s*1;/);
-  assert.match(css, /\.toolbarRight\s*\{[^}]*grid-column:\s*2 \/ -1;[^}]*justify-content:\s*flex-end;/);
+  // The flex footer keeps the start group before the model area, then the trailing controls at the end.
+  assert.match(html, /class="toolbarLeft"[^>]*>[\s\S]*class="toolbarRight"[^>]*>[\s\S]*class="toolbarModelArea"[^>]*>[\s\S]*class="toolbarTrailing"/);
+  assert.match(css, /\.toolbarModelArea\s*\{[^}]*flex:\s*1;[^}]*min-width:\s*0;/);
+  assert.match(css, /\.toolbarTrailing\s*\{[^}]*flex-shrink:\s*0;/);
+  assert.match(css, /\.toolbar\[data-footer-mode="session"\]\s*\{[^}]*flex-wrap:\s*wrap;/);
+  assert.match(css, /\.toolbar\[data-footer-mode="home"\]\s*\{[^}]*overflow-x:\s*auto;[^}]*scrollbar-width:\s*none;/);
+  assert.match(css, /\.toolbar\[data-footer-mode="home"\]::-webkit-scrollbar\s*\{[^}]*display:\s*none;/);
   // Codex context donut: 12px, 2px stroke, track at 0.16 opacity, arc rotated -90deg, 120ms ease-out.
   assert.match(css, /\.contextRingTrack\s*\{[^}]*opacity:\s*0\.16;/);
   assert.match(css, /\.contextRingArc\s*\{[^}]*transition:\s*stroke-dashoffset 120ms ease-out, opacity 120ms ease-out;/);
@@ -882,33 +1115,19 @@ test("uses one submit control and explicit button types for every other composer
 });
 
 test("composer model menu follows verified Codex geometry contracts", async () => {
-  const css = await readFile(new URL("./chat/composer.module.css", import.meta.url), "utf8");
+  const menuCss = await readFile(new URL("./chat/composer.module.css", import.meta.url), "utf8");
+  const powerCss = await readFile(new URL("./chat/ModelPowerSlider.module.css", import.meta.url), "utf8");
+  const listCss = await readFile(new URL("./chat/ModelList.module.css", import.meta.url), "utf8");
 
-  assert.match(
-    css,
-    /\.modelMenu\s*\{[^}]*width:\s*260px;[^}]*padding:\s*6px;[^}]*border-radius:\s*15px;[^}]*corner-shape:\s*superellipse\(1\.5\);/,
-  );
+  assert.match(powerCss, /\.view\s*\{[^}]*min-height:\s*36px;[^}]*padding-block:\s*4px;/);
+  assert.match(powerCss, /\.controlRow\s*\{[^}]*min-height:\s*36px;/);
+  assert.match(powerCss, /\.modelToggle\s*\{[^}]*min-height:\s*32px;[^}]*padding:\s*4px;[^}]*border-radius:\s*8px;/);
+  assert.match(powerCss, /\.effortModelName\s*\{[^}]*color:\s*var\(--ui-text-dim\);[^}]*font-size:\s*var\(--text-2xs\);[^}]*font-weight:\s*var\(--font-weight-regular\);/);
 
-  assert.match(
-    css,
-    /\.modelSubmenu\s*\{[^}]*padding:\s*6px;[^}]*border-radius:\s*15px;[^}]*corner-shape:\s*superellipse\(1\.5\);/,
-  );
-
-  assert.match(css, /\.modelSubmenuModel\s*\{[^}]*width:\s*280px;/);
-
-  assert.match(css, /\.modelSubmenuEffort\s*\{[^}]*min-width:\s*180px;/);
-
-  assert.match(css, /\.modelSubmenuSpeed\s*\{[^}]*width:\s*233px;/);
-
-  assert.match(
-    css,
-    /\.modelMenuRow\s*\{[^}]*min-height:\s*30px;[^}]*gap:\s*6px;[^}]*border-radius:\s*9px;[^}]*corner-shape:\s*superellipse\(1\.5\);[^}]*padding:\s*6px 8px;[^}]*font-size:\s*13px;[^}]*line-height:\s*18px;/,
-  );
-
-  assert.match(
-    css,
-    /\.submenuChoice\s*\{[^}]*min-height:\s*30px;[^}]*gap:\s*6px;[^}]*border-radius:\s*9px;[^}]*corner-shape:\s*superellipse\(1\.5\);[^}]*padding:\s*6px 8px;[^}]*font-size:\s*13px;[^}]*line-height:\s*18px;/,
-  );
+  assert.match(menuCss, /\.modelSubmenuModel\s*\{[^}]*bottom:\s*0;/);
+  assert.match(listCss, /\.list\s*\{[^}]*max-height:\s*min\(316px, calc\(var\(--ui-scroll-offset, 316px\) - 12px\)\);/);
+  assert.match(listCss, /\.scroller\s*\{[^}]*overflow-y:\s*auto;/);
+  assert.match(listCss, /\.label\s*\{[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/);
 });
 
 test("the Composer exposes a stable image input for the Summary panel", async () => {
@@ -919,4 +1138,132 @@ test("the Composer exposes a stable image input for the Summary panel", async ()
   const html = renderChatInput({ imageInputId: "quick-chat-images" });
   assert.match(html, /id="quick-chat-images"/);
   assert.doesNotMatch(html, /id="reeve-composer-image-input"/);
+});
+
+test("the session Composer offers the worktree control while it loads", () => {
+  const html = renderChatInput({ cwd: "/repo", onSelectWorktree() {} });
+  assert.match(html, /aria-label="Switch branch"/);
+  assert.match(html, /Loading branch/);
+  assert.match(html, /Session worktree/);
+});
+
+test("workspace changes confirm only when the Composer has unsent input", () => {
+  assert.equal(hasUnsentComposerInput("", 0, 0), false);
+  assert.equal(hasUnsentComposerInput("draft", 0, 0), true);
+  assert.equal(hasUnsentComposerInput("   ", 1, 0), true);
+  assert.equal(hasUnsentComposerInput("   ", 0, 1), true);
+});
+
+test("Cancel keeps the draft when a worktree change needs confirmation", async (t) => {
+  const harness = await import("../test/dom-harness.mjs");
+  const previousFetch = globalThis.fetch;
+  const draftKey = "t546-worktree-confirmation";
+  let openWorktree;
+  let selected;
+  setDraft(draftKey, { value: "keep this draft", images: [] });
+  globalThis.fetch = async (url, options) => {
+    if (String(url).startsWith("/api/worktrees?") && options?.method === undefined) {
+      return { ok: true, status: 200, json: async () => ({
+        isGit: true,
+        isTopLevel: true,
+        worktrees: [
+          { path: "/repo", branch: "main", isMain: true, isDetached: false, isDirty: false },
+          { path: "/repo-worktrees/feature", branch: "feature", isMain: false, isDetached: false, isDirty: false },
+        ],
+      }) };
+    }
+    if (String(url) === "/api/worktrees" && options?.method === "POST") {
+      return { ok: true, status: 200, json: async () => ({ path: "/repo-worktrees/feature" }) };
+    }
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    clearDraft(draftKey);
+  });
+
+  const view = await harness.mount(React.createElement(I18nProvider, null, React.createElement(ChatInput, {
+    onSend() {},
+    onAbort() {},
+    isStreaming: false,
+    cwd: "/repo",
+    draftKey,
+    onRegisterWorktreeCommand(open) { openWorktree = open; },
+    onSelectWorktree(path) { selected = path; },
+  })));
+  await harness.settle();
+  openWorktree();
+  await harness.settle();
+  const item = Array.from(view.container.querySelectorAll("[role='menuitemradio']"))
+    .find((candidate) => harness.textOf(candidate) === "feature");
+  assert.ok(item);
+  await harness.click(item);
+  await harness.settle();
+
+  const dialog = document.querySelector("[role='dialog']");
+  assert.ok(dialog);
+  assert.match(harness.textOf(dialog), /Replace this worktree\?/);
+  assert.equal(selected, undefined);
+  await harness.click(Array.from(dialog.querySelectorAll("button")).find((button) => harness.textOf(button) === "Cancel"));
+  await harness.settle();
+  assert.equal(selected, undefined);
+  assert.equal(getDraft(draftKey)?.value, "keep this draft");
+  await view.unmount();
+});
+
+test("an effort change measures and animates the chip while reduced motion changes it at once", async () => {
+  const harness = await import("../test/dom-harness.mjs");
+  const prototype = Object.getPrototypeOf(harness.domDocument.createElement("span"));
+  const originalRect = prototype.getBoundingClientRect;
+  const originalAnimate = prototype.animate;
+  const animations = [];
+  let view;
+
+  prototype.getBoundingClientRect = function () {
+    return { width: this.textContent === "Medium" ? 52 : this.textContent === "Max" ? 27 : 100, top: 0, left: 0, height: 18 };
+  };
+  prototype.animate = function (keyframes, options) {
+    const record = { element: this, keyframes, options, finish: null, cancelled: false };
+    animations.push(record);
+    return {
+      addEventListener(type, handler) { if (type === "finish") record.finish = handler; },
+      removeEventListener() {},
+      cancel() { record.cancelled = true; },
+    };
+  };
+
+  const props = {
+    onSend() {}, onAbort() {}, onModelChange() {}, isStreaming: false,
+    model: { provider: "openai", modelId: "gpt-5.4" },
+    modelList: [{ provider: "openai", id: "gpt-5.4", name: "GPT-5.4" }],
+    availableThinkingLevels: ["medium", "max"],
+  };
+  const render = (level) => React.createElement(I18nProvider, null, React.createElement(ChatInput, { ...props, thinkingLevel: level }));
+
+  try {
+    harness.setReducedMotion(false);
+    view = await harness.mount(render("medium"));
+    await view.render(render("max"));
+    const width = animations.find(({ element }) => element.classList.contains("reasoningLevel"));
+    assert.ok(width, "the effort label width animates");
+    assert.deepEqual(width.keyframes, [{ width: "52px" }, { width: "27px" }]);
+    assert.match(width.options.easing, /^linear\(/);
+    assert.ok(animations.some(({ keyframes }) => keyframes.some((frame) => frame.filter === "blur(4px)")));
+
+    await React.act(async () => { width.finish(); });
+    assert.equal(view.container.querySelector(".reasoningOld"), null);
+
+    const count = animations.length;
+    harness.setReducedMotion(true);
+    await view.render(render("medium"));
+    assert.equal(animations.length, count);
+    assert.equal(view.container.querySelector(".reasoningOld"), null);
+  } finally {
+    if (view) await view.unmount();
+    harness.setReducedMotion(false);
+    if (originalRect) prototype.getBoundingClientRect = originalRect;
+    else delete prototype.getBoundingClientRect;
+    if (originalAnimate) prototype.animate = originalAnimate;
+    else delete prototype.animate;
+  }
 });

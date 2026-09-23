@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { beforeEach } from "node:test";
 import { readFile } from "node:fs/promises";
 import { createJiti } from "jiti";
 import { React, click, mount, settle, textOf } from "../../test/dom-harness.mjs";
@@ -8,6 +8,8 @@ const jiti = createJiti(import.meta.url, { jsx: { runtime: "automatic" }, tsconf
 const { ApprovalModeSelector } = await jiti.import("./ApprovalModeSelector.tsx");
 const { I18nProvider } = await jiti.import("../../hooks/useI18n.tsx");
 const h = React.createElement;
+
+beforeEach(() => localStorage.clear());
 
 async function renderSelector(props = {}) {
   return mount(h(I18nProvider, null, h(ApprovalModeSelector, {
@@ -82,5 +84,71 @@ test("disables mode changes while saving and reports a failure", async () => {
   const view = await renderSelector({ changing: true, error: "Approval mode could not be saved" });
   assert.equal(view.container.querySelector("button")?.hasAttribute("disabled"), true);
   assert.match(textOf(view.container.querySelector("[role='alert']")), /Approval mode could not be saved/);
+  await view.unmount();
+});
+
+test("confirms Full Access before changing the approval mode", async () => {
+  const selected = [];
+  const view = await renderSelector({ mode: "always-ask", onChange: (mode) => selected.push(mode) });
+  await click(view.container.querySelector("[aria-haspopup='menu']"));
+  await settle();
+  const fullAccess = view.container.querySelector("[role='menuitemradio'][data-approval-mode='yolo']");
+  await click(fullAccess);
+  await settle();
+
+  assert.deepEqual(selected, []);
+  const dialog = document.querySelector("[role='dialog']");
+  assert.match(textOf(dialog), /Turn on Full Access\?/);
+  assert.match(textOf(dialog), /Files and folders/);
+  assert.match(textOf(dialog), /Terminal commands/);
+  assert.match(textOf(dialog), /Internet and connected apps/);
+
+  await click(Array.from(dialog.querySelectorAll("button")).find((button) => textOf(button) === "Cancel"));
+  await settle();
+  assert.deepEqual(selected, []);
+  assert.equal(document.querySelector("[role='dialog']"), null);
+
+  await click(view.container.querySelector("[aria-haspopup='menu']"));
+  await settle();
+  await click(view.container.querySelector("[role='menuitemradio'][data-approval-mode='yolo']"));
+  await settle();
+  const confirmDialog = document.querySelector("[role='dialog']");
+  await click(Array.from(confirmDialog.querySelectorAll("button")).find((button) => textOf(button) === "Turn on Full Access"));
+  assert.deepEqual(selected, ["yolo"]);
+  await view.unmount();
+});
+
+test("keeps the Full Access warning until it is dismissed for thirty days", async () => {
+  const view = await renderSelector();
+  await settle();
+  const warning = view.container.querySelector("[role='status']");
+  assert.match(textOf(warning), /Full access is on/);
+  await click(Array.from(warning.querySelectorAll("button")).find((button) => textOf(button) === "Don't show again"));
+  await settle();
+  assert.equal(view.container.querySelector("[role='status']"), null);
+
+  const stored = localStorage.getItem("omp-full-access-warning-dismissed-until");
+  const days = (Date.parse(stored) - Date.now()) / 86_400_000;
+  assert.ok(days >= 29.9 && days <= 30.1);
+  await view.unmount();
+
+  const remounted = await renderSelector();
+  await settle();
+  assert.equal(remounted.container.querySelector("[role='status']"), null);
+  await remounted.unmount();
+});
+
+test("still confirms Full Access after its warning is dismissed", async () => {
+  const until = new Date();
+  until.setDate(until.getDate() + 30);
+  localStorage.setItem("omp-full-access-warning-dismissed-until", until.toISOString());
+  let selected = null;
+  const view = await renderSelector({ mode: "always-ask", onChange: (mode) => { selected = mode; } });
+  await click(view.container.querySelector("[aria-haspopup='menu']"));
+  await settle();
+  await click(view.container.querySelector("[role='menuitemradio'][data-approval-mode='yolo']"));
+  await settle();
+  assert.equal(selected, null);
+  assert.match(textOf(document.querySelector("[role='dialog']")), /Turn on Full Access\?/);
   await view.unmount();
 });

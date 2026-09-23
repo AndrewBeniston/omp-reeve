@@ -420,6 +420,7 @@ export function buildSessionContext(
   const messages: AgentMessage[] = [];
   const entryIds: string[] = [];
   let pendingAttachments: UserMessageAttachment[] = [];
+  let pendingGoalObjective: string | null = null;
   const modelChanges: ModelChangeNote[] = [];
   const fallbackRoutes: SessionContext["fallbackRoutes"] = [];
   let activeDefaultModel: string | undefined;
@@ -451,6 +452,10 @@ export function buildSessionContext(
     } else if (entry.type === "message" && isFileMentionMessage(entry.message)) {
       pendingAttachments.push(...userMessageAttachmentsFromFileMention(entry.message));
       continue;
+    } else if (entry.type === "custom" && entry.customType === "goal-message") {
+      const data = entry.data as { objective?: unknown } | undefined;
+      pendingGoalObjective = typeof data?.objective === "string" ? data.objective.trim() : null;
+      continue;
     } else if (entry.type === "message" && entry.message.role === "assistant" && !activeDefaultModel) {
       const assistant = entry.message as OmpAgentMessage & { provider?: string; model?: string };
       if (assistant.provider && assistant.model) activeDefaultModel = `${assistant.provider}/${assistant.model}`;
@@ -459,11 +464,16 @@ export function buildSessionContext(
     const m = entryToUiMessage(entry, options);
     if (m) {
       if (m.role === "user" && pendingAttachments.length > 0) {
-        messages.push({ ...m, attachments: [...(m.attachments ?? []), ...pendingAttachments] });
+        m.attachments = [...(m.attachments ?? []), ...pendingAttachments];
         pendingAttachments = [];
-      } else {
-        messages.push(m);
       }
+      if (m.role === "user" && pendingGoalObjective !== null) {
+        const content = typeof m.content === "string" ? m.content : m.content
+          .filter((block) => block.type === "text").map((block) => block.text).join("\n");
+        m.sentAsGoal = content.trim() === pendingGoalObjective;
+        pendingGoalObjective = null;
+      }
+      messages.push(m);
       entryIds.push(entry.id);
     }
   }

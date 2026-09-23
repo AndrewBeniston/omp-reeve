@@ -1,0 +1,12 @@
+.root { position: relative; min-width: 0; }
+.trigger { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 220px; height: var(--composer-control-size, 28px); padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: var(--ui-text-dim); font: inherit; font-size: var(--text-xs); cursor: pointer; }
+.trigger:hover:not(:disabled), .trigger[aria-expanded="true"] { background: var(--ui-control-hover); color: var(--ui-text); }
+.trigger:disabled { cursor: default; opacity: .65; }
+.label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dirty { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: var(--ui-warning); }
+.menu { position: absolute; z-index: 80; bottom: calc(100% + 6px); left: 0; min-width: 260px; max-width: min(420px, calc(100vw - 24px)); }
+.menuLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.createRow { display: grid; gap: 6px; padding: 6px; }
+.createRow input { min-width: 0; height: 32px; padding: 0 8px; border: 1px solid var(--ui-border); border-radius: 6px; background: var(--ui-input); color: var(--ui-text); font: inherit; }
+.error { margin: 0; padding: 6px 10px; color: var(--ui-danger); font-size: var(--text-xs); }
+@media (max-width: 475px) { .trigger { max-width: 128px; } .label { max-width: 86px; } }

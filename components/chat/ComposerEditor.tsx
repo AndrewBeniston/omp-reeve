@@ -14,6 +14,7 @@ import { EditorState, TextSelection } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { createRoot } from "react-dom/client";
 import type { ComposerMentionToken } from "@/lib/composer-mention-types";
+import { PASTED_TEXT_THRESHOLD } from "@/lib/composer-attachment-state";
 import { ComposerMentionIcon } from "./ComposerMentionIcon";
 import cssModule from "./composer-editor.module.css";
 
@@ -31,6 +32,7 @@ export interface ComposerEditorHandle {
   contains(node: Node): boolean;
   focus(): void;
   setSelectionRange(start: number, end: number): void;
+  insertText(text: string): void;
   replaceRange(start: number, end: number, text: string): void;
   replaceRangeWithMention(start: number, end: number, mention: ComposerMentionToken, trailingSpace?: boolean): void;
 }
@@ -46,7 +48,9 @@ interface ComposerEditorProps {
   onCompositionStart: () => void;
   onCompositionEnd: (value: string, cursor: number) => void;
   onPasteImages: (files: File[]) => boolean;
+  onPasteText: (text: string) => boolean;
   onHeightChange: (scrollHeight: number) => void;
+  plainTextMode?: boolean;
 }
 
 const composerSchema = new Schema({
@@ -286,13 +290,17 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
   onCompositionStart,
   onCompositionEnd,
   onPasteImages,
+  onPasteText,
   onHeightChange,
+  plainTextMode = false,
 }, ref) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const valueRef = useRef(value);
   const fallbackSelectionRef = useRef({ start: value.length, end: value.length });
   const mentionsRef = useRef(mentions);
+  const plainTextModeRef = useRef(plainTextMode);
+  const previousPlainTextModeRef = useRef(plainTextMode);
   const appliedMentionsKeyRef = useRef(mentionCatalogKey(mentions));
   const callbacksRef = useRef({
     onChange,
@@ -301,10 +309,12 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
     onCompositionStart,
     onCompositionEnd,
     onPasteImages,
+    onPasteText,
     onHeightChange,
   });
   valueRef.current = value;
   mentionsRef.current = mentions;
+  plainTextModeRef.current = plainTextMode;
   callbacksRef.current = {
     onChange,
     onSelectionChange,
@@ -312,6 +322,7 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
     onCompositionStart,
     onCompositionEnd,
     onPasteImages,
+    onPasteText,
     onHeightChange,
   };
 
@@ -334,7 +345,7 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
     }
     const state = EditorState.create({
       schema: composerSchema,
-      doc: parseComposerValue(valueRef.current, mentionsRef.current),
+      doc: parseComposerValue(valueRef.current, plainTextModeRef.current ? [] : mentionsRef.current),
       plugins: [
         history(),
         keymap({
@@ -380,6 +391,10 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
         }
         const text = event.clipboardData?.getData("text/plain") ?? "";
         if (!text) return false;
+        if (text.length > PASTED_TEXT_THRESHOLD && callbacksRef.current.onPasteText(text)) {
+          event.preventDefault();
+          return true;
+        }
         event.preventDefault();
         editorView.dispatch(editorView.state.tr.replaceSelection(new Slice(plainTextFragment(text), 0, 0)).scrollIntoView());
         return true;
@@ -417,10 +432,10 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
     if (!view) return;
     const current = serializeComposerDocument(view.state.doc);
     const nextMentionsKey = mentionCatalogKey(mentions);
-    if (current === value && appliedMentionsKeyRef.current === nextMentionsKey) return;
+    if (current === value && appliedMentionsKeyRef.current === nextMentionsKey && previousPlainTextModeRef.current === plainTextMode) return;
     const currentStart = composerTextOffset(view.state.doc, view.state.selection.from);
     const currentEnd = composerTextOffset(view.state.doc, view.state.selection.to);
-    const doc = parseComposerValue(value, mentions);
+    const doc = parseComposerValue(value, plainTextMode ? [] : mentions);
     const nextState = EditorState.create({
       schema: composerSchema,
       doc,
@@ -430,8 +445,9 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
     const to = composerDocumentPosition(doc, Math.min(currentEnd, value.length));
     view.updateState(nextState.apply(nextState.tr.setSelection(TextSelection.create(nextState.doc, from, to))));
     appliedMentionsKeyRef.current = nextMentionsKey;
+    previousPlainTextModeRef.current = plainTextMode;
     reportState(view, false);
-  }, [mentions, value]);
+  }, [mentions, plainTextMode, value]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -479,6 +495,28 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
       const to = composerDocumentPosition(view.state.doc, end);
       view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
     },
+    insertText(text) {
+      const view = viewRef.current;
+      const start = view
+        ? composerTextOffset(view.state.doc, view.state.selection.from)
+        : fallbackSelectionRef.current.start;
+      const end = view
+        ? composerTextOffset(view.state.doc, view.state.selection.to)
+        : fallbackSelectionRef.current.end;
+      if (!view) {
+        const nextValue = valueRef.current.slice(0, start) + text + valueRef.current.slice(end);
+        const cursor = start + text.length;
+        valueRef.current = nextValue;
+        fallbackSelectionRef.current = { start: cursor, end: cursor };
+        callbacksRef.current.onChange(nextValue);
+        callbacksRef.current.onSelectionChange(nextValue, cursor);
+        return;
+      }
+      const from = composerDocumentPosition(view.state.doc, start);
+      const to = composerDocumentPosition(view.state.doc, end);
+      view.dispatch(view.state.tr.replaceRange(from, to, new Slice(plainTextFragment(text), 0, 0)).scrollIntoView());
+      view.focus();
+    },
     replaceRange(start, end, text) {
       const view = viewRef.current;
       if (!view) {
@@ -496,8 +534,24 @@ export const ComposerEditor = forwardRef<ComposerEditorHandle, ComposerEditorPro
     },
     replaceRangeWithMention(start, end, mention, trailingSpace = true) {
       const view = viewRef.current;
+      const inserted = `${mention.raw}${trailingSpace ? " " : ""}`;
+      if (plainTextModeRef.current) {
+        if (!view) {
+          const nextValue = valueRef.current.slice(0, start) + inserted + valueRef.current.slice(end);
+          const cursor = start + inserted.length;
+          valueRef.current = nextValue;
+          fallbackSelectionRef.current = { start: cursor, end: cursor };
+          callbacksRef.current.onChange(nextValue);
+          callbacksRef.current.onSelectionChange(nextValue, cursor);
+          return;
+        }
+        const from = composerDocumentPosition(view.state.doc, start);
+        const to = composerDocumentPosition(view.state.doc, end);
+        view.dispatch(view.state.tr.replaceRange(from, to, new Slice(plainTextFragment(inserted), 0, 0)).scrollIntoView());
+        view.focus();
+        return;
+      }
       if (!view) {
-        const inserted = `${mention.raw}${trailingSpace ? " " : ""}`;
         const nextValue = valueRef.current.slice(0, start) + inserted + valueRef.current.slice(end);
         const cursor = start + inserted.length;
         valueRef.current = nextValue;

@@ -58,6 +58,24 @@ test("shows one Codex-style question at a time without selecting an answer", asy
   await view.unmount();
 });
 
+test("custom response has one clipped rounded field and a neutral focus state", async () => {
+  const view = await mountPanel();
+  const panel = view.container.querySelector("[data-question-request-panel='true']");
+  const field = panel.querySelector("input").parentElement;
+  const css = await readFile(new URL("./question-request-panel.module.css", import.meta.url), "utf8");
+
+  assert.equal(field.querySelectorAll("input").length, 1);
+  assert.equal(field.querySelectorAll("button").length, 0);
+  assert.match(css, /\.customField\s*\{[^}]*border-radius:\s*var\(--radius-control\);[^}]*overflow:\s*hidden;/s);
+  assert.match(css, /\.customField:focus-within\s*\{[^}]*border-color:\s*var\(--ui-text-muted\);/s);
+  assert.match(css, /\.panel\s*\{[^}]*--ui-focus-ring:\s*2px solid var\(--ui-text-muted\);/s);
+  assert.match(css, /\.minimizedPrompt\s*\{[^}]*--ui-focus-ring:\s*2px solid var\(--ui-text-muted\);/s);
+  assert.match(css, /\.panel\s*\{[^}]*border-radius:\s*var\(--radius-composer\);/s);
+  assert.doesNotMatch(css, /var\(--ui-accent\)|var\(--radius-3xl\)|var\(--radius-xl\)/);
+
+  await view.unmount();
+});
+
 test("keeps answers while moving through questions and submits the OMP response", async () => {
   const responses = [];
   const view = await mountPanel((receivedRequest, response) => responses.push([receivedRequest.id, response]));

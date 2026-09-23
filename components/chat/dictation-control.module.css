@@ -1,0 +1,6 @@
+.control { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--ui-composer-muted, currentColor); font: inherit; }
+.action, .secondary { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.action:disabled { cursor: default; opacity: .65; }
+.toast { position: fixed; right: 20px; bottom: 20px; z-index: 20; display: flex; align-items: center; gap: 10px; max-width: min(420px, calc(100vw - 40px)); padding: 10px 12px; border: 1px solid var(--ui-danger, currentColor); border-radius: 8px; background: var(--ui-bg, Canvas); color: var(--ui-danger, CanvasText); font-size: 12px; box-shadow: 0 8px 24px rgb(0 0 0 / 18%); }
+.status { font-size: 12px; }
+.action span:first-child { font-size: 9px; }

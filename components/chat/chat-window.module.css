@@ -145,6 +145,14 @@
   animation: chatDropZoneIn var(--duration-enter) var(--ease-standard) both;
 }
 
+.dropLabel {
+  position: absolute;
+  z-index: 1;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
 .dropRipples {
   position: absolute;
   inset: 0;

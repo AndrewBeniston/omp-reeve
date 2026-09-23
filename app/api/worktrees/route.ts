@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { existsSync } from "fs";
-import { addWorktree, listWorktrees, removeWorktree, resolveProject } from "@/lib/worktree";
+import { addWorktree, listWorktrees, removeWorktree, resolveProject, selectWorktree, WorktreeStatusError } from "@/lib/worktree";
 import { allowFileRoot, getAllowedFileRoots, isExistingFilePathAllowed, isFilePathAllowed } from "@/lib/file-access";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 
@@ -35,7 +35,8 @@ export async function GET(req: Request) {
       // For a removed-worktree cwd (session of a deleted worktree), fall back
       // to the inferred project root so the switcher still shows the project.
       worktrees = await listWorktrees(existsSync(cwd) ? cwd : project.projectRoot);
-    } catch {
+    } catch (error) {
+      if (error instanceof WorktreeStatusError) throw error;
       isGit = false;
     }
     // Every listed path is a git-verified worktree of this project; allow the
@@ -54,7 +55,7 @@ export async function GET(req: Request) {
   }
 }
 
-// POST /api/worktrees  body: { cwd, branch }  →  { path, branch }
+// POST /api/worktrees  body: { cwd, branch, startingState? } creates; { cwd, path } selects.
 export async function POST(req: Request) {
   if (!isApiRequestAllowed(req)) {
     return NextResponse.json({ error: "Untrusted API request" }, { status: 403 });
@@ -64,12 +65,21 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json() as { cwd?: string; branch?: string };
+    const body = await req.json() as { cwd?: string; branch?: string; startingState?: string; path?: string };
     if (!body.cwd || typeof body.cwd !== "string") {
       return NextResponse.json({ error: "cwd is required" }, { status: 400 });
     }
-    if (!body.branch || typeof body.branch !== "string") {
+    if (body.path !== undefined && (body.branch !== undefined || body.startingState !== undefined)) {
+      return NextResponse.json({ error: "Choose a path or branch" }, { status: 400 });
+    }
+    if (body.path !== undefined && (typeof body.path !== "string" || !body.path)) {
+      return NextResponse.json({ error: "path is required" }, { status: 400 });
+    }
+    if (body.path === undefined && (!body.branch || typeof body.branch !== "string")) {
       return NextResponse.json({ error: "branch is required" }, { status: 400 });
+    }
+    if (body.startingState !== undefined && typeof body.startingState !== "string") {
+      return NextResponse.json({ error: "startingState must be a string" }, { status: 400 });
     }
     const denied = await checkCwdAllowed(body.cwd);
     if (denied) return denied;
@@ -77,11 +87,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Directory does not exist: ${body.cwd}` }, { status: 400 });
     }
 
-    const result = await addWorktree(body.cwd, body.branch);
+    if (body.path !== undefined) {
+      const worktree = await selectWorktree(body.cwd, body.path);
+      allowFileRoot(worktree.path);
+      return NextResponse.json(worktree);
+    }
+
+    const result = await addWorktree(body.cwd, body.branch!, body.startingState);
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: message }, { status: error instanceof WorktreeStatusError ? 500 : 400 });
   }
 }
 

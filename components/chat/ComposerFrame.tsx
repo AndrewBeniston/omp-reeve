@@ -33,7 +33,9 @@ interface ComposerFrameProps {
   retryStatus?: ComposerRetryStatus | null;
   successStatus?: string | null;
   compactError?: string | null;
+  attachmentError?: string | null;
   attachments: ComposerAttachment[];
+  localAttachments?: ReactNode;
   onRemoveAttachment: (index: number) => void;
   inputOverlay?: ReactNode;
   editor: ReactNode;
@@ -46,9 +48,15 @@ interface ComposerFrameProps {
   toolbarModelArea: ReactNode;
   toolbarEnd: ReactNode;
   dictateLabel: string;
+  utilityBarLabel?: string;
+  footerMode?: "home" | "session";
   dictationAvailable?: boolean;
+  dictationControl?: ReactNode;
   toolbarEndRef: Ref<HTMLDivElement>;
   isMobile: boolean;
+  plainTextMode?: boolean;
+  attachmentLayout?: "card" | "icon";
+  topInsetPx?: number;
 }
 
 function ModelNoticeBanner({ tone, title, body }: { tone: "error" | "warning"; title: string; body: string }) {
@@ -158,7 +166,9 @@ export function ComposerFrame({
   retryStatus,
   successStatus,
   compactError,
+  attachmentError,
   attachments,
+  localAttachments,
   onRemoveAttachment,
   inputOverlay,
   editor,
@@ -171,9 +181,15 @@ export function ComposerFrame({
   toolbarModelArea,
   toolbarEnd,
   dictateLabel,
+  utilityBarLabel = "Composer utility bar",
+  footerMode = "session",
   dictationAvailable = false,
+  dictationControl,
   toolbarEndRef,
   isMobile,
+  plainTextMode = false,
+  attachmentLayout = "card",
+  topInsetPx = 0,
 }: ComposerFrameProps) {
   const useSingleRow = requestPending
     && !modelError
@@ -182,9 +198,23 @@ export function ComposerFrame({
     && !retryStatus
     && !successStatus
     && !compactError
+    && !attachmentError
     && attachments.length === 0
+    && !localAttachments
     && !statusLine;
-  const dictateControl = (
+  const hasLargeContent = Boolean(
+    modelError
+    || modelScopeWarnings?.length
+    || queue
+    || retryStatus
+    || successStatus
+    || compactError
+    || attachmentError
+    || attachments.length > 0
+    || localAttachments
+    || statusLine,
+  );
+  const fallbackDictateControl = (
     <button
       type="button"
       aria-label={dictateLabel}
@@ -217,60 +247,69 @@ export function ComposerFrame({
           <QueuedMessageList {...queue} />
         </div>
       )}
-      <div className={styles.composer} data-compact={useSingleRow ? "true" : undefined}>
-      <div className={styles.composerContent}>
-        <ModelErrorBanner error={modelError} />
-        <ModelScopeWarningBanner warnings={modelScopeWarnings} />
-        {retryStatus && <RetryStatus status={retryStatus} />}
-        {successStatus && <SuccessStatus>{successStatus}</SuccessStatus>}
-        {compactError && <div role="alert" data-state="error" className={`${styles.statusBanner} ${styles.compactError}`}>{compactError}</div>}
-        {attachments.length > 0 && (
-          <div className={styles.imagePreviews} role="list" aria-label="Image attachments">
-            {attachments.map((attachment, index) => (
-              <div key={index} className={styles.imagePreview} role="listitem">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={attachment.previewUrl} alt="" className={styles.previewImage} />
-                <button type="button" onClick={() => onRemoveAttachment(index)} className={styles.removeImage} aria-label={`Remove image ${index + 1}`}>
-                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-                    <line x1="1" y1="1" x2="7" y2="7" />
-                    <line x1="7" y1="1" x2="1" y2="7" />
-                  </svg>
-                </button>
-              </div>
-            ))}
+      <div
+        className={styles.composer}
+        data-compact={useSingleRow ? "true" : undefined}
+        data-plain-text-mode={plainTextMode ? "true" : undefined}
+        data-attachment-layout={attachmentLayout}
+        data-top-inset={topInsetPx}
+        data-frame-variant={useSingleRow || !hasLargeContent ? undefined : "large"}
+      >
+        <div className={styles.composerContent}>
+          <ModelErrorBanner error={modelError} />
+          <ModelScopeWarningBanner warnings={modelScopeWarnings} />
+          {retryStatus && <RetryStatus status={retryStatus} />}
+          {successStatus && <SuccessStatus>{successStatus}</SuccessStatus>}
+          {compactError && <div role="alert" data-state="error" className={`${styles.statusBanner} ${styles.compactError}`}>{compactError}</div>}
+          {attachmentError && <div role="alert" data-state="error" className={`${styles.statusBanner} ${styles.compactError}`}>{attachmentError}</div>}
+          {localAttachments}
+          {attachments.length > 0 && (
+            <div className={styles.imagePreviews} role="list" aria-label="Image attachments">
+              {attachments.map((attachment, index) => (
+                <div key={index} className={styles.imagePreview} role="listitem">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={attachment.previewUrl} alt="" className={styles.previewImage} />
+                  <button type="button" onClick={() => onRemoveAttachment(index)} className={styles.removeImage} aria-label={`Remove image ${index + 1}`}>
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                      <line x1="1" y1="1" x2="7" y2="7" />
+                      <line x1="7" y1="1" x2="1" y2="7" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className={styles.inputArea}>
+            {inputOverlay}
+            <div className={styles.composerFrame} data-mode={mode}>
+              <DynamicStyleVars className={styles.textareaGeometry} variables={{ "--ui-composer-height": textareaHeight }}>
+                {editor}
+              </DynamicStyleVars>
+              {primaryActions}
+            </div>
           </div>
-        )}
-        <div className={styles.inputArea}>
-          {inputOverlay}
-          <div className={styles.composerFrame} data-mode={mode}>
-            <DynamicStyleVars className={styles.textareaGeometry} variables={{ "--ui-composer-height": textareaHeight }}>
-              {editor}
-            </DynamicStyleVars>
-            {primaryActions}
+          {statusLine}
+          {isMobile && toolbarCenter && <div className={styles.mobileContext}>{toolbarCenter}</div>}
+          <div className={styles.toolbar} data-mobile={isMobile ? "true" : "false"} data-footer-mode={footerMode} role="group" aria-label={utilityBarLabel}>
+            <div className={styles.toolbarLeft} data-mobile={isMobile ? "true" : "false"}>{toolbarStart}</div>
+            <div ref={toolbarEndRef} className={styles.toolbarRight} data-mobile={isMobile ? "true" : "false"}>
+              {isMobile ? toolbarEnd : (
+                <>
+                  <div className={styles.toolbarModelArea}>
+                    {!isMobile && toolbarCenter}
+                    {toolbarModelArea}
+                  </div>
+                  <div className={styles.toolbarTrailing}>
+                    {dictationControl ?? (dictationAvailable
+                      ? <Tooltip content={dictateLabel}>{fallbackDictateControl}</Tooltip>
+                      : fallbackDictateControl)}
+                    {toolbarEnd}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
-        {statusLine}
-        {isMobile && toolbarCenter && <div className={styles.mobileContext}>{toolbarCenter}</div>}
-        <div className={styles.toolbar} data-mobile={isMobile ? "true" : "false"} role="group" aria-label="Composer controls">
-          <div className={styles.toolbarLeft} data-mobile={isMobile ? "true" : "false"}>{toolbarStart}</div>
-          <div ref={toolbarEndRef} className={styles.toolbarRight} data-mobile={isMobile ? "true" : "false"}>
-            {isMobile ? toolbarEnd : (
-              <>
-                <div className={styles.toolbarModelArea}>
-                  {!isMobile && toolbarCenter}
-                  {toolbarModelArea}
-                </div>
-                <div className={styles.toolbarTrailing}>
-                  {dictationAvailable
-                    ? <Tooltip content={dictateLabel}>{dictateControl}</Tooltip>
-                    : dictateControl}
-                  {toolbarEnd}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
       </div>
     </form>
   );

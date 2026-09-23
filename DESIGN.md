@@ -52,9 +52,9 @@ The verified values below come from the supplied JSON measurements and screensho
 | Header icon control | `24px × 24px`; Summary uses `28px × 28px` | current shipped bundle, re-extracted 2026-09-04 |
 | Transcript width | `760px` in a compact pane | `dom_inspection.json` |
 | Composer width | `790px` and `810px` | `dom_inspection.json` |
-| Composer height | `98px` empty frame | 7.5.1 shipped CSS and screenshot measurement |
-| Composer radius | `24px` | `--radius-3xl-base` in shipped CSS |
-| Composer input type | `16px / 24px` | 7.5.1 screenshot measurement |
+| Composer height | `44px` editor minimum | 7.5.1 reference geometry |
+| Composer radius | `22px` default, `28px` large, `10px` below `640px` | 7.5.1 reference geometry |
+| Composer input type | `20px` line height | 7.5.1 reference geometry |
 | Composer controls | `24px` ghost controls and `28px` Send or Stop | 7.5.1 screenshot measurement |
 
 The verified composer uses separate light and dark elevation recipes.
@@ -336,8 +336,10 @@ These tokens are Tier 2 constants.
 --radius-project-row: 15px;
 --radius-control: 12.5px;
 --radius-card: 16px;
---radius-composer: 24px;
---radius-composer-squircle: 30px;
+--radius-3xl: 20px;
+--radius-composer: 22px;
+--radius-composer-large: 28px;
+--radius-composer-compact: 10px;
 --radius-round: 9999px;
 --corner-row: superellipse(1.5);
 --corner-round: round;
@@ -350,7 +352,7 @@ These tokens are Tier 2 constants.
 --ease-enter: cubic-bezier(0.19, 1, 0.22, 1);
 --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
 
---composer-frame-min-height: 98px;
+--composer-frame-min-height: 44px;
 --composer-footer-inset: 8px;
 --composer-send-size: 28px;
 
@@ -411,9 +413,9 @@ The gutter is a property of the scroller, not a padding on the text. `--thread-c
 Note on the `810px` composer maximum below and in 7.5.1: Codex declares `--composer-adjacent-max-width` as `48rem + 2 * 24px - 2 * 13px`, which is `790px`, but the live composer never exceeds the `736px` thread content width because it sits in the thread column. Our `810px` is our own decision and stays.
 
 The composer maximum width is `810px`.
-The composer minimum resting height is `108px`.
-The composer uses a `24px` round fallback.
-Supporting browsers use a `30px` `superellipse(1.5)` corner.
+The Composer editor has a `44px` minimum height.
+The Composer uses a `22px` default radius and a `28px` large-frame radius.
+Frames below `640px` use a `10px` radius.
 
 The right panel keeps its current `42vw` initial rule.
 The right panel keeps its `360px` to `640px` initial clamp.
@@ -754,15 +756,15 @@ Measured on 2026-09-02 from the shipped Codex CSS (`_ComposerLayoutRoot_ut334`, 
 
 | Property | Value | Source |
 |---|---:|---|
-| Frame height, empty, one text row | `98px` | screenshot |
+| Frame height, empty, one text row | `44px` minimum | reference geometry |
 | Frame width | `100%` of the pane minus `24px` each side, maximum `810px` | screenshot and 2.2 |
-| Radius fallback | `24px` (`--radius-3xl-base: 1.5rem`) | CSS |
-| Radius with `corner-shape` | `30px`, from Codex's `1.25` Electron radius scale | CSS |
-| Corner shape | `superellipse(1.5)`, with the `24px` round radius as the unsupported-browser fallback | CSS |
+| Radius, default frame | `22px` | reference geometry |
+| Radius, large frame | `28px` | reference geometry |
+| Radius below `640px` | `10px` | reference geometry |
 | Fill | `--ui-composer` | 4.2 |
 | Edge | `inset 0 0 1px 0 rgba(255,255,255,0.2)`. No border. No outer ring in dark mode | CSS `--elevation-composer-dark` |
 | Light shadow | `0 0 0 1px rgba(0,0,0,0.04), 0 2px 8px 0 rgba(0,0,0,0.04), 0 4px 80px 8px rgba(0,0,0,0.024)` | CSS `--elevation-composer` |
-| Text row | `14px / 20px`, `12px` inset left, `14px` inset top. Superseded by the code table below | screenshot |
+| Text row | `20px` line height, `18px` inline padding, `15px` top padding, `16px` bottom padding | reference geometry |
 | Placeholder | tertiary text at `0.5` opacity, dark sample `#606060` | CSS `.placeholder:after` |
 | Footer row | CSS grid, columns `auto minmax(0,1fr) auto`, column gap `5px`, inline padding `8px`, bottom margin `8px` | CSS `_ComposerLayoutFooter` multiline |
 | Footer centre line | `22px` above the frame bottom. The `8px` inset plus half the `28px` send circle. An earlier draft said `26px`, which was an arithmetic slip | screenshot, icon centre at device row 253.5 against the frame bottom at 297 |
@@ -778,12 +780,12 @@ Read from the Codex source on 2026-09-02, which supersedes the screenshot rows a
 
 | Part | Codex code | Value |
 |---|---|---|
-| Empty attachments strip above the text | `_ComposerLayoutAttachments` default spacing: `padding: 8px 8px 6px`, plus the editor wrapper `translate-y-0.5` | 14px top inset plus a 2px nudge, token `--composer-text-nudge` |
+| Attachment strip | `8px` inset, with the frame radius reduced by `8px` and clamped at `0px` | reference geometry |
 | Text wrapper | `RX.Input`: `px-3 mb-1` | 12px sides, 4px below |
 | Editor | `text-base`, `[&_.ProseMirror]:leading-5`, `minHeight: 2.75rem`. `--text-base` is `14px` at the theme root in Electron. Only the browser window raises it to `1rem` | 14px on a 20px line, 44px minimum |
 | Footer | `_ComposerLayoutFooter` multiline default: `margin-bottom: 8px`, `padding-inline: 8px`, `column-gap: 5px` | as shown |
 | Footer control, size `composer` | `h-token-button-composer px-2 py-0 text-sm leading-[18px] rounded-full`, token `calc(--spacing * 7)` in Electron | 28px tall, 28px square when uniform, 8px side padding, 14px on 18px, pill |
-| Frame sum | 14 + 44 + 4 + 28 + 8 | 98px, which matches the measured frame |
+| Frame sum | 14 + 44 + 4 + 28 + 8 | The frame grows from a `44px` editor minimum. |
 
 Tokens: `--composer-control-size: 28px` for every footer control. `--composer-send-size` aliases it. `--leading-ui: 20px`.
 | Icon controls (attach, mic) | `16px` icon in a `28px` round hit box, ghost, no fill, icon in tertiary text. The earlier `24px` came from a screenshot and is superseded by the live DOM | live Codex DOM on 2026-09-02 |
@@ -1252,7 +1254,7 @@ Origin: Andrew compared the empty Codex composer with ours on 2026-09-02 and ask
 
 Acceptance criteria, all measured on a production build at `1440 × 900` in dark mode with the fixture data:
 
-1. The empty frame is `98px ± 1px` high and `24px` radius.
+1. The editor is at least `44px` high. The default frame radius is `22px`.
 2. The frame has no CSS border. Its computed `box-shadow` is the inset hairline in dark mode and the three-layer recipe in light mode.
 3. Superseded by 7.5.1. The placeholder renders at `14px` with a `12px` left inset and a `14px` top inset.
 4. The placeholder colour is the tertiary text at `0.5` opacity. No new literal. It derives from `--ui-text-dim` or `--ui-text-muted`.
@@ -1351,7 +1353,7 @@ The application used only `/tmp/omp-web-design-agent` fixture sessions.
 The final visible run reported its packaged Bun server ready in `55ms`.
 Computer Use inspected fixture session 03 in the packaged application.
 The in-app browser inspected the same packaged server at `http://127.0.0.1:30142`.
-Chromium reported `corner-shape` support and a `30px` `superellipse(1.5)` Composer.
+Chromium reported `corner-shape` support for the previous Composer build.
 The user bubble reported `max-height: none`, a `198px` client height, and a `198px` scroll height.
 The complete fixture message was visible without internal overflow.
 A password-protected launch reached the window while unauthenticated browser requests still returned `401`.

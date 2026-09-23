@@ -49,6 +49,7 @@ export type AssistantContentBlock = TextContent | ImageContent | ThinkingContent
 
 export interface UserMessage {
   role: "user";
+  sentAsGoal?: boolean;
   content: string | (TextContent | ImageContent)[];
   attachments?: UserMessageAttachment[];
   timestamp?: number;

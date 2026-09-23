@@ -26,6 +26,7 @@ import { ExtensionStatusBar } from "./ExtensionStatusBar";
 import { useI18n } from "@/hooks/useI18n";
 import { useAgentSession, type AgentPhase, type NoticeItem } from "@/hooks/useAgentSession";
 import { useDragDrop } from "@/hooks/useDragDrop";
+import { getSecureAttachmentPicker } from "@/lib/desktop-attachments";
 import type { ProjectTrustStatus } from "@/lib/api-types";
 import type { AgentControlReply, AgentControlRequestEvent } from "@/lib/agent-control/types";
 import type { ReviewSlashOutcome, ReviewSlashRequest } from "@/lib/review-slash-entries";
@@ -38,6 +39,8 @@ import { EmptyChatHome } from "./chat/EmptyChatHome";
 import { NewMessagesControl } from "./chat/NewMessagesControl";
 import { LatestTurnPreview } from "./chat/LatestTurnPreview";
 import { ComposerTurnStatus } from "./chat/ComposerTurnStatus";
+import { GoalPill } from "./chat/GoalPill";
+import { GoalSetDialog, type GoalAttachment } from "./chat/GoalSetDialog";
 import { ActiveTurnResponseSpacer } from "./chat/ActiveTurnResponseSpacer";
 import { SessionLoadingState } from "./chat/SessionLoadingState";
 import { TurnErrorBoundary } from "./chat/TurnErrorBoundary";
@@ -121,6 +124,8 @@ interface Props {
   homeProjectPath?: string | null;
   onHomeProjectSelected?: (path: string) => void;
   onHomeProjectlessSelected?: () => void;
+  onSelectWorktree?: (path: string) => void;
+  onRegisterProjectCommand?: (open: () => void) => void;
   /**
    * Compose and deliver a review the human asked for, bound to the Review
    * this Session owns. Absent when it owns none.
@@ -230,7 +235,7 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = fa
   );
 }
 
-export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFooterPosition = true, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onOpenSession = () => {}, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenSubagent, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onRequestReview, onListReviewBranches, reviewGate, historyLoadFailure }: Props) {
+export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFooterPosition = true, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onOpenSession = () => {}, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenSubagent, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onSelectWorktree, onRegisterProjectCommand, onRequestReview, onListReviewBranches, reviewGate, historyLoadFailure }: Props) {
   const { t } = useI18n();
 
   // Wrap onAgentEnd to play the completion sound. This is more reliable than
@@ -255,6 +260,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     retryInfo, contextUsage, forkingEntryId,
     isCompacting, compactError, compactResult, compactSource, displayModel: displayModelValue, modelSwitching, sessionStats,
     slashCommands, slashCommandsLoading, queuedMessages, subagents,
+    goalState, handleGoalSubmit,
     notices, extensionDialog, extensionCustomUi, extensionStatuses, extensionWidgets, respondToExtensionUi, sendExtensionCustomInput,
     approvalNudgeOpen, approvalDialogId, handleApprovalNudgeAccept, handleApprovalNudgeDismiss,
     isAutoModelSelection,
@@ -269,7 +275,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     handleReorderQueuedMessages, handleRetryQueuedMessage, handleSendQueuedMessageNow, handleResumeQueuedMessages, handleResolvePausedQueueSubmission,
     releaseActiveTurnHold,
     handleBuiltinSlashCommand,
-    handleToolPresetChange, handleApprovalModeChange, handleThinkingLevelChange, handleCycleThinkingLevel, handleFastModeChange, loadSlashCommands,
+    handleToolPresetChange, handleApprovalModeChange, handleThinkingLevelChange, handleCycleThinkingLevel, handleFastModeChange, loadSlashCommands, ensureNewSession,
   } = useAgentSession({
     session, newSessionCwd, onAgentEnd: wrappedOnAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSessionNameChanged,
     onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onRequestReview, translate: t,
@@ -307,6 +313,10 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     if (registerGlobalAbort) registerAbortHandler(sessionBusy ? handleAbort : null);
   }, [sessionBusy, handleAbort, registerGlobalAbort]);
 
+  const [goalEntryDraft, setGoalEntryDraft] = useState<{ objective: string; attachments: GoalAttachment[] } | null>(null);
+  const openGoalDialog = (objective: string, images: import("@/hooks/useAgentSession").AttachedImage[] = []) => {
+    setGoalEntryDraft({ objective, attachments: images });
+  };
   const [turnStatusDebug, setTurnStatusDebug] = useState(false);
   const [questionDebug, setQuestionDebug] = useState(false);
   const transcriptContentRef = useRef<HTMLDivElement>(null);
@@ -391,12 +401,13 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
   useEffect(() => () => { onSubagentsChange?.([]); }, [onSubagentsChange]);
 
 
-  const onDrop = useCallback((files: File[]) => {
+  const onDrop = useCallback((files: File[], text?: string) => {
     if (sessionBusy) return;
-    chatInputRef?.current?.addImages(files);
+    if (text) chatInputRef?.current?.addDroppedText(text);
+    else chatInputRef?.current?.addDroppedFiles(files);
   }, [sessionBusy, chatInputRef]);
 
-  const { isDragOver, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragDrop(onDrop);
+  const { isDragOver, dropKind, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragDrop(onDrop, true);
 
   // Stable Map identity: `messages` doesn't change during streaming updates
   // (the streaming message lives in streamState), so memoized MessageViews
@@ -536,6 +547,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
       ref={chatInputRef}
       requestPending={displayedExtensionDialog?.method === "ask"}
       onSend={handleSend}
+      onOpenGoal={openGoalDialog}
       onAbort={handleAbort}
       onSteer={agentRunning ? handleSteer : undefined}
       onFollowUp={agentRunning ? handleFollowUp : undefined}
@@ -543,6 +555,11 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
       isStreaming={sessionBusy}
       model={displayModelValue}
       isAutoModelSelection={isAutoModelSelection}
+      explicitModelOverride={isNew ? !isAutoModelSelection : Boolean(displayModelValue && modelRoles.some((role) => (
+        role.role === "default" && role.resolved && (
+          role.resolved.provider !== displayModelValue.provider || role.resolved.modelId !== displayModelValue.modelId
+        )
+      )))}
       modelNames={modelNames}
       modelList={modelList}
       modelError={modelError}
@@ -565,6 +582,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
       fastModeAvailable={fastModeAvailable}
       onFastModeChange={session || isNew ? handleFastModeChange : undefined}
       availableThinkingLevels={availableThinkingLevels}
+      modelThinkingLevels={modelThinkingLevels}
       thinkingLevelMap={currentThinkingLevelMap}
       retryInfo={retryInfo}
       queuedMessages={queuedMessages}
@@ -597,7 +615,12 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
       onBuiltinCommand={handleBuiltinSlashCommand}
       onAudioUnlock={unlockAudio}
       draftKey={session?.id ?? newDraftKey ?? (newSessionCwd ? `new:${newSessionCwd}` : undefined)}
+      onEnsureSession={ensureNewSession}
       cwd={session?.cwd ?? newSessionCwd}
+      onSelectWorktree={onSelectWorktree}
+      onSelectProject={onHomeProjectSelected}
+      onRegisterProjectCommand={onRegisterProjectCommand}
+      footerMode={isEmptyNew ? "home" : "session"}
     />
   );
 
@@ -620,8 +643,17 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {goalEntryDraft !== null && <GoalSetDialog
+        key={session?.id ?? newDraftKey ?? newSessionCwd ?? "new"}
+        initialObjective={goalEntryDraft.objective}
+        initialAttachments={goalEntryDraft.attachments}
+        existingGoal={goalState.goal}
+        onSubmit={handleGoalSubmit}
+        onClose={() => setGoalEntryDraft(null)}
+      />}
       {isDragOver && !sessionBusy && (
-        <div className={styles.dropZone}>
+        <div className={styles.dropZone} role="status">
+          <span className={styles.dropLabel}>{t(dropKind === "chat" ? "composer.dropOverlayReferenceChat" : "composer.dropOverlayAttach")}</span>
           <div className={styles.dropRipples}>
             {[0, 1, 2].map((index) => (
               <div
@@ -1039,6 +1071,16 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
           />
         )}
         <SessionLoadingState active={loading} />
+        <GoalPill
+          goal={goalState.goal}
+          isRunning={sessionBusy}
+          pendingAction={goalState.pendingAction}
+          actionError={goalState.actionError}
+          onClear={() => goalState.clear(sessionBusy)}
+          onPause={() => goalState.pause(sessionBusy)}
+          onResume={goalState.resume}
+          onEditBudget={goalState.setBudget}
+        />
         {chatInputElement}
         <ExtensionStatusBar statuses={extensionStatuses} />
         </div>

@@ -56,6 +56,244 @@ const modelProps = {
   onModelChange() {},
 };
 
+test("the model menu opens on the OMP power steps", async () => {
+  const view = await mountComposer({
+    ...modelProps,
+    thinkingLevel: "high",
+    availableThinkingLevels: ["max", "off", "high", "medium", "ultra"],
+    onThinkingLevelChange() {},
+  });
+
+  await click(triggerFor(view.container, "Model settings"));
+  await settle();
+
+  const menu = view.container.querySelector("[role='menu'][aria-label='Model settings']");
+  assert.ok(menu);
+  assert.equal(menu.querySelector("[data-model-menu-row='effort']"), null);
+  assert.equal(menu.querySelector("[aria-label='Select model']")?.getAttribute("aria-haspopup"), "menu");
+  const dots = menu.querySelectorAll("[data-power-dot]");
+  assert.deepEqual(dots.map((dot) => dot.getAttribute("data-effort")), ["none", "medium", "high", "max"]);
+  assert.deepEqual(dots.map((dot) => dot.getAttribute("data-filled")), ["true", "true", "false", "false"]);
+  assert.equal(menu.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "high");
+  await click(menu.querySelector("[aria-label='Select model']"));
+  await settle();
+  assert.ok(view.container.querySelector("[data-model-submenu='model']"));
+
+  await view.unmount();
+});
+
+test("the model menu exposes the stage transition panels", async () => {
+  const view = await mountComposer({
+    ...modelProps,
+    thinkingLevel: "medium",
+    availableThinkingLevels: ["off", "medium", "high"],
+    onThinkingLevelChange() {},
+  });
+
+  await click(triggerFor(view.container, "Model settings"));
+  await settle();
+  const slider = view.container.querySelector("[data-model-power-view]");
+  assert.equal(slider?.getAttribute("data-stage-transition"), "enter");
+  assert.equal(slider?.querySelector("[data-stage-panel='top']")?.getAttribute("data-stage-transition"), "enter");
+  assert.equal(slider?.querySelector("[data-stage-panel='slider']")?.getAttribute("data-stage-transition"), "enter");
+
+  await click(view.container.querySelector("[aria-label='Select model']"));
+  await settle();
+  const list = view.container.querySelector("[data-model-list]");
+  assert.equal(list?.getAttribute("data-stage-transition"), "enter");
+  await view.unmount();
+});
+
+test("the model menu stage CSS records the reference timings", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const [composer, slider, list] = await Promise.all([
+    readFile(new URL("./chat/composer.module.css", import.meta.url), "utf8"),
+    readFile(new URL("./chat/ModelPowerSlider.module.css", import.meta.url), "utf8"),
+    readFile(new URL("./chat/ModelList.module.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(composer, /transition:\s*max-height 0\.32s/);
+  assert.match(composer, /\.modelMenuFooter\s*\{[^}]*border-top:[^;]*;[^}]*padding:\s*8px;/s);
+  assert.match(slider, /animation-duration:\s*0\.32s, 0\.2s/);
+  assert.match(slider, /animation-delay:\s*56ms, 56ms/);
+  assert.match(slider, /data-stage-panel="slider"\]\[data-stage-transition="leave"\][\s\S]*?animation-delay:\s*16ms/);
+  assert.match(slider, /translate[XY]\(-?10px\)/);
+  assert.match(list, /stageListSlideEnter 0\.32s[^;]*40ms/);
+  assert.match(list, /stageListFadeEnter 0\.2s[^;]*40ms/);
+  assert.match(list, /translateX\(-?10px\)/);
+  assert.match(slider, /prefers-reduced-motion:[\s\S]*?animation:\s*none !important/);
+  assert.match(list, /prefers-reduced-motion:[\s\S]*?animation:\s*none !important/);
+});
+
+test("dragging the power thumb previews steps and selects one effort on release", async () => {
+  const picked = [];
+  const view = await mountComposer({
+    ...modelProps,
+    thinkingLevel: "low",
+    availableThinkingLevels: ["off", "low", "medium", "high", "max"],
+    onThinkingLevelChange: (level) => picked.push(level),
+  });
+
+  await click(triggerFor(view.container, "Model settings"));
+  await settle();
+  const track = view.container.querySelector("[data-power-track]");
+  assert.ok(track);
+  track.getBoundingClientRect = () => ({ left: 100, width: 200 });
+  const pointer = async (type, clientX) => React.act(async () => {
+    track.dispatchEvent(new DomEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      pointerId: 4,
+      clientX,
+    }));
+  });
+
+  await pointer("pointerdown", 150);
+  await pointer("pointermove", 260);
+  assert.equal(view.container.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "high");
+  await pointer("pointermove", 280);
+  assert.deepEqual(picked, []);
+  assert.equal(view.container.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "max");
+  assert.deepEqual(
+    view.container.querySelectorAll("[data-power-dot]").map((dot) => dot.getAttribute("data-filled")),
+    ["true", "true", "true", "true", "false"],
+  );
+  await pointer("pointerup", 280);
+  await pointer("pointerup", 280);
+  assert.deepEqual(picked, ["max"]);
+  await view.unmount();
+});
+
+test("the model control preserves the route when providers share a model name", async () => {
+  const picked = [];
+  const modelList = [
+    { provider: "openai", id: "gpt-example", name: "GPT Example" },
+    { provider: "openai-codex", id: "gpt-example", name: "GPT Example" },
+    { provider: "openai", id: "gpt-example-pro", name: "GPT Example Pro" },
+  ];
+  const props = {
+    model: { provider: "openai-codex", modelId: "gpt-example" },
+    modelList,
+    thinkingLevel: "medium",
+    modelThinkingLevels: {
+      "openai:gpt-example": ["medium"],
+      "openai-codex:gpt-example": ["medium"],
+      "openai:gpt-example-pro": ["high"],
+    },
+    onModelChange: (provider, modelId) => picked.push({ provider, modelId }),
+  };
+  const view = await mountComposer(props);
+  const trigger = triggerFor(view.container, "Model settings");
+  assert.match(textOf(trigger), /ChatGPT subscription.*GPT Example/);
+
+  await click(trigger);
+  await settle();
+  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await settle();
+  const menu = view.container.querySelector("[data-model-submenu='model']");
+  assert.match(textOf(menu), /OpenAI API/);
+  assert.match(textOf(menu), /ChatGPT subscription/);
+  const apiGroup = Array.from(menu.querySelectorAll("[data-model-provider]"))
+    .find((group) => group.getAttribute("data-model-provider") === "openai");
+  const subscriptionGroup = Array.from(menu.querySelectorAll("[data-model-provider]"))
+    .find((group) => group.getAttribute("data-model-provider") === "openai-codex");
+  assert.deepEqual(itemsOf(subscriptionGroup).map(textOf), ["GPT Example"]);
+  assert.equal(itemsOf(subscriptionGroup)[0].getAttribute("aria-checked"), "true");
+
+  await click(itemsOf(apiGroup)[0]);
+  await settle();
+  assert.deepEqual(picked, [{ provider: "openai", modelId: "gpt-example" }]);
+
+  await view.render(h(I18nProvider, null, h(ChatInput, { onSend() {}, onAbort() {}, isStreaming: false,
+    ...props, model: { provider: "openai", modelId: "gpt-example" },
+  })));
+  await settle();
+  assert.match(textOf(triggerFor(view.container, "Model settings")), /OpenAI API.*GPT Example/);
+  await view.unmount();
+});
+
+test("the model list starts with Default and selects OMP's default role", async () => {
+  const roles = [];
+  const view = await mountComposer({
+    model: { provider: "openai", modelId: "gpt-example" },
+    modelList: [
+      { provider: "openai", id: "gpt-example", name: "GPT Example" },
+      { provider: "anthropic", id: "claude-example", name: "Claude Example" },
+    ],
+    modelRoles: [{
+      role: "default", name: "Default", hidden: false,
+      resolved: { provider: "anthropic", modelId: "claude-example", thinkingLevel: "high" },
+    }],
+    onModelChange() {},
+    onRoleModelChange: (role) => roles.push(role),
+  });
+
+  await click(triggerFor(view.container, "Model settings"));
+  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await settle();
+  const menu = view.container.querySelector("[data-model-submenu='model']");
+  assert.ok(menu);
+  assert.equal(textOf(menu.querySelector("[data-model-list-heading]")), "Select model");
+  const first = itemsOf(menu)[0];
+  assert.match(textOf(first), /^DefaultRecommended set of models$/);
+  await click(first);
+  assert.deepEqual(roles, ["default"]);
+  await view.unmount();
+});
+
+test("the model list check follows provider, model id, and effort", async () => {
+  const props = {
+    model: { provider: "openai-codex", modelId: "gpt-example" },
+    modelList: [
+      { provider: "openai", id: "gpt-example", name: "GPT Example" },
+      { provider: "openai-codex", id: "gpt-example", name: "GPT Example" },
+    ],
+    modelThinkingLevels: {
+      "openai:gpt-example": ["medium", "high"],
+      "openai-codex:gpt-example": ["medium", "high"],
+    },
+    thinkingLevel: "high",
+    onModelChange() {},
+  };
+  const view = await mountComposer(props);
+  await click(triggerFor(view.container, "Model settings"));
+  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await settle();
+  const api = itemsOf(view.container.querySelector("[data-model-provider='openai']"))[0];
+  const subscription = itemsOf(view.container.querySelector("[data-model-provider='openai-codex']"))[0];
+  assert.equal(api.getAttribute("aria-checked"), "false");
+  assert.equal(subscription.getAttribute("aria-checked"), "true");
+  assert.equal(subscription.getAttribute("data-selection-id"), "openai-codex/gpt-example:high");
+
+  await view.render(h(I18nProvider, null, h(ChatInput, { onSend() {}, onAbort() {}, isStreaming: false,
+    ...props, thinkingLevel: "auto",
+  })));
+  await settle();
+  assert.equal(itemsOf(view.container.querySelector("[data-model-provider='openai-codex']"))[0].getAttribute("aria-checked"), "false");
+  await view.unmount();
+});
+
+test("the model control preserves provider-qualified names when the model list is absent", async () => {
+  const picked = [];
+  const view = await mountComposer({
+    model: { provider: "openai-codex", modelId: "gpt-example" },
+    modelNames: {
+      "openai:gpt-example": "GPT Example",
+      "openai-codex:gpt-example": "GPT Example",
+    },
+    onModelChange: (provider, modelId) => picked.push({ provider, modelId }),
+  });
+  await click(triggerFor(view.container, "Model settings"));
+  await settle();
+  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await settle();
+  const apiGroup = view.container.querySelector("[data-model-provider='openai']");
+  assert.ok(apiGroup);
+  await click(itemsOf(apiGroup)[0]);
+  assert.deepEqual(picked, [{ provider: "openai", modelId: "gpt-example" }]);
+  await view.unmount();
+});
+
 test("the Add menu collects command arguments separately from the existing draft", async () => {
   const ref = React.createRef();
   const sent = [];
@@ -158,31 +396,37 @@ test("Files and folders returns keyboard focus to the composer", async () => {
   } finally { await view?.unmount(); globalThis.fetch = originalFetch; }
 });
 
-test("native attachment selection inserts every chosen path without replacing the draft", async () => {
+test("native attachment selection adds every chosen path as a row and preserves the draft", async () => {
   const originalBridge = globalThis.ompDesktop;
   const originalFetch = globalThis.fetch;
-  globalThis.ompDesktop = { selectAttachments: async () => ["/tmp/notes.md", "/tmp/folder with space"] };
+  const selections = [
+    { path: "/tmp/notes.md", issuedAt: 123, signature: "a".repeat(64), kind: "file" },
+    { path: "/tmp/folder with space", issuedAt: 123, signature: "b".repeat(64), kind: "folder" },
+  ];
+  globalThis.ompDesktop = { selectAttachmentsWithCapabilities: async () => selections };
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ files: [], skills: [], packages: [] }) });
   const ref = React.createRef();
   const sent = [];
   let view;
   try {
-    view = await mountComposer({ ref, cwd: "/tmp", onSend: value => sent.push(value), onLoadSlashCommands: async () => [] });
+    view = await mountComposer({ ref, cwd: "/tmp", onSend: (value, images, attachments) => sent.push({ value, images, attachments }), onLoadSlashCommands: async () => [] });
     await React.act(async () => { ref.current.insertText("See these"); });
-    // insertText places the caret in a requestAnimationFrame, so until a frame
-    // has passed the caret is still at the start. Without this wait the menu
-    // reads position zero and the paths land in front of the draft, which is
-    // what made this flake in a full run but never on its own.
     await settle();
     await click(triggerFor(view.container, "Add"));
     await click(Array.from(view.container.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("Files and folders")));
     await click(Array.from(view.container.querySelectorAll("[role='menuitem']")).find(button => textOf(button) === "Files and folders"));
     await settle();
+    const rows = view.container.querySelector("[role='list'][aria-label='Local attachments']")?.querySelectorAll("[role='listitem']") ?? [];
+    assert.equal(rows.length, 2);
+    assert.match(textOf(rows[0]), /notes\.md.*File/);
+    assert.match(textOf(rows[1]), /folder with space.*Folder/);
     await React.act(async () => {
       view.container.querySelector("form").dispatchEvent(new DomEvent("submit", { bubbles: true, cancelable: true }));
     });
     assert.equal(sent.length, 1);
-    assert.match(sent[0], /See these @\/tmp\/notes\.md @"\/tmp\/folder with space"/);
+    assert.equal(sent[0].value, "See these");
+    assert.equal(sent[0].images, undefined);
+    assert.deepEqual(sent[0].attachments.map(({ selection }) => selection), selections.map(({ path, issuedAt, signature }) => ({ path, issuedAt, signature })));
   } finally {
     await view?.unmount(); globalThis.ompDesktop = originalBridge; globalThis.fetch = originalFetch;
   }
@@ -214,14 +458,13 @@ test("the Add menu opens command submenus before inserting a complete command", 
   await view.unmount();
 });
 
-test("the Codex model menu opens supported effort levels and keeps its callback", async () => {
-  const picked = [];
+test("the model menu shows supported power steps beside Speed and Advanced", async () => {
   const view = await mountComposer({
     ...modelProps,
     thinkingLevel: "high",
     availableThinkingLevels: ["low", "medium", "high", "xhigh", "max"],
     fastModeAvailable: true,
-    onThinkingLevelChange: (level) => picked.push(level),
+    onThinkingLevelChange() {},
   });
 
   const trigger = triggerFor(view.container, "Model settings");
@@ -233,33 +476,16 @@ test("the Codex model menu opens supported effort levels and keeps its callback"
   assert.ok(menu, "the model menu mounts");
   assert.equal(menu.getAttribute("aria-label"), "Model settings");
   assert.deepEqual(
-    ["model", "effort", "speed", "advanced"].map((row) => {
+    ["model", "speed", "advanced"].map((row) => {
       const item = menu.querySelector(`[data-model-menu-row='${row}']`);
       assert.ok(item, `the model menu contains the ${row} row`);
       return item.getAttribute("aria-haspopup");
     }),
-    ["menu", "menu", "menu", "menu"],
+    ["menu", "menu", "menu"],
   );
-
-  await click(menu.querySelector("[data-model-menu-row='effort']"));
-  await settle();
-
-  const submenu = view.container.querySelector("[data-model-submenu='effort']");
-  assert.ok(submenu, "the Effort row opens its submenu");
-  assert.equal(submenu.getAttribute("aria-label"), "Effort");
-  const items = itemsOf(submenu);
-  assert.deepEqual(items.map(textOf), ["Light", "Medium", "High", "Extra High", "UltraConsumes usage limits faster"]);
-  const checked = items.filter((item) => item.getAttribute("aria-checked") === "true");
-  assert.equal(checked.length, 1);
-  assert.equal(textOf(checked[0]), "High");
-
-  assert.equal(checked[0].getAttribute("data-selected"), "true");
-  await click(items[items.indexOf(checked[0]) + 1]);
-  await settle();
-
-  assert.deepEqual(picked, ["xhigh"]);
-  assert.equal(view.container.querySelector("[role='menu']"), null);
-  assert.equal(domDocument.activeElement, trigger);
+  assert.equal(menu.querySelector("[data-model-menu-row='effort']"), null);
+  assert.deepEqual(menu.querySelectorAll("[data-power-dot]").map((dot) => dot.getAttribute("data-effort")), ["low", "medium", "high", "xhigh", "max"]);
+  assert.equal(menu.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "high");
   await view.unmount();
 });
 
@@ -277,9 +503,99 @@ test("a large model menu gives focus to its filter", async () => {
   await settle();
   await click(view.container.querySelector("[data-model-menu-row='model']"));
   await settle();
+  assert.equal(itemsOf(view.container.querySelector("[data-model-list-scroller]")).length, 9);
   const filter = view.container.querySelector("[aria-label='Filter models…']");
   assert.ok(filter);
   assert.equal(domDocument.activeElement, filter);
+  await typeInto(filter, "model 8");
+  await settle();
+  assert.deepEqual(itemsOf(view.container.querySelector("[data-model-submenu='model']")).map(textOf), ["Model 8"]);
+  await view.unmount();
+});
+
+test("the model list uses the available menu height before the 316 px list cap", async () => {
+  const previousHeight = window.innerHeight;
+  window.innerHeight = 600;
+  try {
+    const view = await mountComposer({ ...modelProps });
+    await click(triggerFor(view.container, "Model settings"));
+    const menu = view.container.querySelector("[role='menu'][aria-label='Model settings']");
+    const geometry = menu.parentNode.parentNode;
+    const styleChanges = [];
+    geometry.style.setProperty = (name, value) => styleChanges.push({ name, value });
+    await click(view.container.querySelector("[data-model-menu-row='model']"));
+    await settle();
+    const submenu = view.container.querySelector("[data-model-submenu='model']");
+    assert.ok(submenu);
+    assert.deepEqual(styleChanges.find((change) => change.name === "--ui-scroll-offset"), {
+      name: "--ui-scroll-offset", value: "492px",
+    });
+    await view.unmount();
+  } finally {
+    window.innerHeight = previousHeight;
+  }
+});
+
+test("choosing a model opens the effort stage with the model under its effort label", async () => {
+  const models = [];
+  const efforts = [];
+  const props = {
+    model: { provider: "openai", modelId: "gpt-old" },
+    modelList: [
+      { provider: "openai", id: "gpt-old", name: "GPT Old" },
+      { provider: "openai", id: "gpt-new", name: "GPT New" },
+    ],
+    modelThinkingLevels: { "openai:gpt-old": ["low", "high"], "openai:gpt-new": ["low", "high"] },
+    thinkingLevel: "low",
+    onModelChange: (provider, modelId) => models.push({ provider, modelId }),
+    onThinkingLevelChange: (level) => efforts.push(level),
+  };
+  const view = await mountComposer(props);
+  await click(triggerFor(view.container, "Model settings"));
+  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await settle();
+  const next = itemsOf(view.container.querySelector("[data-model-provider='openai']"))
+    .find((item) => textOf(item) === "GPT New");
+  await click(next);
+  assert.deepEqual(models, [{ provider: "openai", modelId: "gpt-new" }]);
+  await view.render(h(I18nProvider, null, h(ChatInput, { onSend() {}, onAbort() {}, isStreaming: false,
+    ...props, model: { provider: "openai", modelId: "gpt-new" },
+  })));
+  await settle();
+  const power = view.container.querySelector("[data-model-power-view]");
+  assert.ok(power);
+  assert.equal(textOf(power.querySelector("[data-model-effort-placeholder]")), "Select effort");
+  assert.equal(textOf(power.querySelector("[data-model-effort-name]")), "GPT New");
+
+  const track = power.querySelector("[data-power-track]");
+  track.getBoundingClientRect = () => ({ left: 100, width: 200 });
+  await React.act(async () => {
+    track.dispatchEvent(new DomEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, pointerId: 6, clientX: 280 }));
+    track.dispatchEvent(new DomEvent("pointerup", { bubbles: true, cancelable: true, button: 0, pointerId: 6, clientX: 280 }));
+  });
+  assert.deepEqual(efforts, ["high"]);
+  await view.unmount();
+});
+
+test("choosing the current model opens effort without repeating the model change", async () => {
+  const models = [];
+  const view = await mountComposer({
+    ...modelProps,
+    thinkingLevel: "high",
+    availableThinkingLevels: ["low", "high"],
+    onModelChange: (provider, modelId) => models.push({ provider, modelId }),
+    onThinkingLevelChange() {},
+  });
+  await click(triggerFor(view.container, "Model settings"));
+  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await settle();
+  const selected = itemsOf(view.container.querySelector("[data-model-provider='openai']"))[0];
+  assert.equal(selected.getAttribute("aria-checked"), "true");
+  await click(selected);
+  await settle();
+
+  assert.deepEqual(models, []);
+  assert.equal(textOf(view.container.querySelector("[data-model-effort-placeholder]")), "Select effort");
   await view.unmount();
 });
 
@@ -334,13 +650,10 @@ test("an empty effort capability list reports that the model has no effort level
 
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  await click(view.container.querySelector("[data-model-menu-row='effort']"));
-  await settle();
-
-  const submenu = view.container.querySelector("[data-model-submenu='effort']");
-  assert.ok(submenu);
-  assert.equal(itemsOf(submenu).length, 0);
-  assert.equal(textOf(submenu).includes("This model does not support effort levels"), true);
+  const power = view.container.querySelector("[data-model-power-view]");
+  assert.ok(power);
+  assert.equal(power.querySelectorAll("[data-power-dot]").length, 0);
+  assert.equal(textOf(power).includes("This model does not support effort levels"), true);
   await view.unmount();
 });
 
@@ -354,16 +667,31 @@ test("missing effort capability data does not invent effort choices", async () =
 
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  await click(view.container.querySelector("[data-model-menu-row='effort']"));
-  await settle();
-
-  const submenu = view.container.querySelector("[data-model-submenu='effort']");
-  assert.ok(submenu);
-  assert.equal(itemsOf(submenu).length, 0);
+  const power = view.container.querySelector("[data-model-power-view]");
+  assert.ok(power);
+  assert.equal(power.querySelectorAll("[data-power-dot]").length, 0);
   await view.unmount();
 });
 
-test("the Effort submenu excludes a current level that the selected model does not report", async () => {
+test("an automatic effort stays labelled while the slider has no current thumb", async () => {
+  const view = await mountComposer({
+    ...modelProps,
+    thinkingLevel: "auto",
+    availableThinkingLevels: ["low", "medium"],
+    onThinkingLevelChange() {},
+  });
+
+  await click(triggerFor(view.container, "Model settings"));
+  await settle();
+  const power = view.container.querySelector("[data-model-power-view]");
+  assert.ok(power);
+  assert.equal(power.querySelectorAll("[data-power-dot]").length, 2);
+  assert.equal(power.querySelector("[data-power-thumb]"), null);
+  assert.match(textOf(power), /Auto/);
+  await view.unmount();
+});
+
+test("the power slider excludes a current level that the selected model does not report", async () => {
   const view = await mountComposer({
     ...modelProps,
     thinkingLevel: "max",
@@ -373,12 +701,10 @@ test("the Effort submenu excludes a current level that the selected model does n
 
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  await click(view.container.querySelector("[data-model-menu-row='effort']"));
-  await settle();
-
-  const submenu = view.container.querySelector("[data-model-submenu='effort']");
-  assert.ok(submenu);
-  assert.deepEqual(itemsOf(submenu).map(textOf), ["Light", "High"]);
+  const power = view.container.querySelector("[data-model-power-view]");
+  assert.ok(power);
+  assert.deepEqual(power.querySelectorAll("[data-power-dot]").map((dot) => dot.getAttribute("data-effort")), ["low", "high"]);
+  assert.equal(power.querySelector("[data-power-thumb]"), null);
   await view.unmount();
 });
 
@@ -393,17 +719,17 @@ test("Escape from a nested menu returns focus to its parent row", async () => {
 
   await click(trigger);
   await settle();
-  const effortRow = view.container.querySelector("[data-model-menu-row='effort']");
-  await click(effortRow);
+  const modelRow = view.container.querySelector("[data-model-menu-row='model']");
+  await click(modelRow);
   await settle();
-  const effortMenu = view.container.querySelector("[data-model-submenu='effort']");
-  const activeItem = itemsOf(effortMenu).find((item) => item.getAttribute("aria-checked") === "true");
+  const modelMenu = view.container.querySelector("[data-model-submenu='model']");
+  const activeItem = itemsOf(modelMenu).find((item) => item.getAttribute("aria-checked") === "true");
   await press(activeItem, "Escape");
   await settle();
 
   assert.ok(view.container.querySelector("[role='menu'][aria-label='Model settings']"));
-  assert.equal(view.container.querySelector("[data-model-submenu='effort']"), null);
-  assert.equal(domDocument.activeElement, effortRow);
+  assert.equal(view.container.querySelector("[data-model-submenu='model']"), null);
+  assert.equal(domDocument.activeElement, modelRow);
   await view.unmount();
 });
 

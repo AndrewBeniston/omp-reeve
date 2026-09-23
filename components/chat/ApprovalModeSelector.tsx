@@ -6,6 +6,7 @@ import { APPROVAL_MODES, type ApprovalMode } from "@/lib/approval-mode";
 import { openExternal } from "@/lib/open-external";
 import { Menu, MenuItem } from "../ui/Menu";
 import { Tooltip } from "../ui/Tooltip";
+import { FullAccessConfirmDialog } from "./FullAccessConfirmDialog";
 import styles from "./approval-mode-selector.module.css";
 
 const MODE_LABELS: Record<ApprovalMode, string> = {
@@ -37,8 +38,16 @@ export function ApprovalModeSelector({
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+  const [confirmFullAccess, setConfirmFullAccess] = useState(false);
+  const [warningDismissed, setWarningDismissed] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (mode !== "yolo") return;
+    const until = Date.parse(localStorage.getItem("omp-full-access-warning-dismissed-until") ?? "");
+    setWarningDismissed(Number.isFinite(until) && until > Date.now());
+  }, [mode]);
 
   useEffect(() => {
     if (!open) return;
@@ -114,7 +123,9 @@ export function ApprovalModeSelector({
             className={styles.option}
             onClick={() => {
               setOpen(false);
-              if (mode !== option) onChange(option);
+              if (mode === option) return;
+              if (option === "yolo") setConfirmFullAccess(true);
+              else onChange(option);
             }}
           >
             <span className={styles.optionText}>
@@ -126,6 +137,33 @@ export function ApprovalModeSelector({
         ))}
         {error ? <div role="alert" className={styles.error}>{error}</div> : null}
       </Menu>
+      {mode === "yolo" && !warningDismissed ? (
+        <div role="status" className={styles.warning}>
+          <span>{t("approvalMode.warningTitle")}</span>
+          <button
+            type="button"
+            className={styles.dismissWarning}
+            onClick={() => {
+              const until = new Date();
+              until.setDate(until.getDate() + 30);
+              localStorage.setItem("omp-full-access-warning-dismissed-until", until.toISOString());
+              setWarningDismissed(true);
+            }}
+          >
+            {t("approvalMode.dismissWarning")}
+          </button>
+        </div>
+      ) : null}
+      {confirmFullAccess ? (
+        <FullAccessConfirmDialog
+          busy={changing}
+          onCancel={() => setConfirmFullAccess(false)}
+          onConfirm={() => {
+            setConfirmFullAccess(false);
+            onChange("yolo");
+          }}
+        />
+      ) : null}
       {error && !open ? <div role="alert" className={styles.srError}>{error}</div> : null}
     </div>
   );

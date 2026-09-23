@@ -35,6 +35,19 @@ import type {
   SettingsValue,
 } from "@/lib/settings-api";
 import { COMPLETION_SOUND_SETTING_PATH } from "@/lib/settings-api";
+import { COMPOSER_ENTER_BEHAVIOR_SETTING_PATH, COMPOSER_ENTER_BEHAVIOR_STORAGE_KEY, readComposerEnterBehavior, writeComposerEnterBehavior, type ComposerEnterBehavior } from "@/lib/composer-keyboard-commands";
+import {
+  COMPOSER_ATTACHMENT_LAYOUT_SETTING_PATH,
+  COMPOSER_ATTACHMENT_LAYOUT_STORAGE_KEY,
+  COMPOSER_PLAIN_TEXT_MODE_SETTING_PATH,
+  COMPOSER_PLAIN_TEXT_MODE_STORAGE_KEY,
+  COMPOSER_TOP_INSET_SETTING_PATH,
+  COMPOSER_TOP_INSET_STORAGE_KEY,
+  readComposerAttachmentLayout,
+  readComposerPlainTextMode,
+  readComposerTopInsetPx,
+  type ComposerAttachmentLayout,
+} from "@/lib/composer-display-preferences";
 import { applyReviewSetting, readReviewSettings, REVIEW_CREDITS_PATH, REVIEW_SETTING_PATHS, writeReviewSettings } from "@/lib/review-settings-store";
 import { DEFAULT_REVIEW_SETTINGS, type ReviewSettings } from "@/lib/review-settings";
 import styles from "./SettingsConfig.module.css";
@@ -247,6 +260,16 @@ export function SettingsConfig({ cwd, sessionId, sidebarWidth = SIDEBAR_DEFAULT_
    */
   const [reviewPreferences, setReviewPreferences] = useState<Readonly<ReviewSettings>>(DEFAULT_REVIEW_SETTINGS);
   useEffect(() => { setReviewPreferences(readReviewSettings()); }, []);
+  const [composerEnterBehavior, setComposerEnterBehavior] = useState<ComposerEnterBehavior>("enter");
+  useEffect(() => { setComposerEnterBehavior(readComposerEnterBehavior(localStorage.getItem(COMPOSER_ENTER_BEHAVIOR_STORAGE_KEY))); }, []);
+  const [composerPlainTextMode, setComposerPlainTextMode] = useState(false);
+  const [composerAttachmentLayout, setComposerAttachmentLayout] = useState<ComposerAttachmentLayout>("card");
+  const [composerTopInsetPx, setComposerTopInsetPx] = useState(0);
+  useEffect(() => {
+    setComposerPlainTextMode(readComposerPlainTextMode(localStorage.getItem(COMPOSER_PLAIN_TEXT_MODE_STORAGE_KEY)));
+    setComposerAttachmentLayout(readComposerAttachmentLayout(localStorage.getItem(COMPOSER_ATTACHMENT_LAYOUT_STORAGE_KEY)));
+    setComposerTopInsetPx(readComposerTopInsetPx(localStorage.getItem(COMPOSER_TOP_INSET_STORAGE_KEY)));
+  }, []);
   const { preference, theme, toggleTheme } = useTheme();
   const { locale, setLocale, supportedLocales, t } = useI18n();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -270,6 +293,42 @@ export function SettingsConfig({ cwd, sessionId, sidebarWidth = SIDEBAR_DEFAULT_
           if (value !== soundEnabled) onSoundToggle();
         },
       },
+      [COMPOSER_ENTER_BEHAVIOR_SETTING_PATH]: {
+        read: () => composerEnterBehavior,
+        write: (value) => {
+          if (typeof value !== "string") return;
+          const behavior = readComposerEnterBehavior(value);
+          localStorage.setItem(COMPOSER_ENTER_BEHAVIOR_STORAGE_KEY, writeComposerEnterBehavior(behavior));
+          setComposerEnterBehavior(behavior);
+        },
+      },
+      [COMPOSER_PLAIN_TEXT_MODE_SETTING_PATH]: {
+        read: () => composerPlainTextMode,
+        write: (value) => {
+          const enabled = value === true;
+          localStorage.setItem(COMPOSER_PLAIN_TEXT_MODE_STORAGE_KEY, String(enabled));
+          setComposerPlainTextMode(enabled);
+          window.dispatchEvent(new Event("reeve-composer-preferences-change"));
+        },
+      },
+      [COMPOSER_ATTACHMENT_LAYOUT_SETTING_PATH]: {
+        read: () => composerAttachmentLayout,
+        write: (value) => {
+          const layout = readComposerAttachmentLayout(typeof value === "string" ? value : null);
+          localStorage.setItem(COMPOSER_ATTACHMENT_LAYOUT_STORAGE_KEY, layout);
+          setComposerAttachmentLayout(layout);
+          window.dispatchEvent(new Event("reeve-composer-preferences-change"));
+        },
+      },
+      [COMPOSER_TOP_INSET_SETTING_PATH]: {
+        read: () => composerTopInsetPx,
+        write: (value) => {
+          const inset = readComposerTopInsetPx(typeof value === "number" ? String(value) : typeof value === "string" ? value : null);
+          localStorage.setItem(COMPOSER_TOP_INSET_STORAGE_KEY, String(inset));
+          setComposerTopInsetPx(inset);
+          window.dispatchEvent(new Event("reeve-composer-preferences-change"));
+        },
+      },
       [REVIEW_SETTING_PATHS.automaticReview]: review("automaticReview"),
       [REVIEW_SETTING_PATHS.reviewTrigger]: review("reviewTrigger"),
       [REVIEW_SETTING_PATHS.exhaustiveReview]: review("exhaustiveReview"),
@@ -281,7 +340,7 @@ export function SettingsConfig({ cwd, sessionId, sidebarWidth = SIDEBAR_DEFAULT_
       // The credit row is read-only, so its write is never reached.
       [REVIEW_CREDITS_PATH]: { read: () => false, write: () => {} },
     };
-  }, [onSoundToggle, reviewPreferences, soundEnabled]);
+  }, [composerAttachmentLayout, composerEnterBehavior, composerPlainTextMode, composerTopInsetPx, onSoundToggle, reviewPreferences, soundEnabled]);
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -335,6 +394,7 @@ export function SettingsConfig({ cwd, sessionId, sidebarWidth = SIDEBAR_DEFAULT_
         ...field,
         label: t(field.label),
         description: t(field.description),
+        options: field.options?.map((option) => ({ ...option, label: option.label.startsWith("settings.") ? t(option.label) : option.label })),
         value: adapter.read(),
         configured: true,
       } : null;

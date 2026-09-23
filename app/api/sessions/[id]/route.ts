@@ -15,9 +15,12 @@ import { sessionPathKey } from "@/lib/session-path";
 import { setSessionArchived } from "@/lib/session-archive";
 import { setSessionPinned } from "@/lib/session-pins";
 import { getRpcSession } from "@/lib/rpc-manager";
+import { closeSpeechSession } from "@/lib/speech-bridge";
+import { closeLiveControllerSession } from "@/lib/live-controller-bridge";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 import { projectTreeForResponse } from "@/lib/project-tree";
 import { computeSessionTotalActiveMs } from "@/lib/session-timing";
+import { deleteSessionBrowserUploads } from "@/lib/upload-store";
 
 export async function GET(
   req: Request,
@@ -147,8 +150,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
-    // Read only the bounded header before deleting.
-    const parentSessionPath = readSessionHeader(filePath)?.parentSession;
+    // Stop this Session before changing any Session file.
+    const header = readSessionHeader(filePath);
+    await getRpcSession(header?.id ?? id)?.shutdown();
+    const parentSessionPath = header?.parentSession;
 
     // Re-attach all direct children to this session's parent (cascade re-parent)
     // Scan sibling files in the same directory
@@ -178,10 +183,16 @@ export async function DELETE(
       }
     } catch { /* skip if dir unreadable */ }
 
+    const sessionId = readSessionHeader(filePath)?.id ?? id;
     await getRpcSession(id)?.shutdown();
+    await closeSpeechSession(sessionId);
+    await closeLiveControllerSession(sessionId);
     unlinkSync(filePath);
     invalidateSessionPathCache(id);
     invalidateSessionListCache();
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)) {
+      await deleteSessionBrowserUploads({ sessionId });
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });

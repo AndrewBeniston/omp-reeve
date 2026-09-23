@@ -75,6 +75,56 @@ the What's New dialog adds a second page that invites support.
 - Show denied-action counts on Turn dividers when OMP supplies the count.
 - Document the OMP follow-up queue marker gap that prevents queued messages from
   staying in their interrupted Turn after reload.
+- The Composer starting-state control selects the base branch for a new worktree, and worktree changes confirm before replacing unsent input.
+- The new-Session Composer can select a Reeve project and keeps unavailable cloud and remote locations visible with reasons.
+- Dictation failures now show the matching notice, a failed recording opens in a new tab, and microphone denial offers the system settings action.
+- The Composer now shows OMP dictation states, including transcription cancellation, retry, and recording access.
+- A session live API now exposes OMP realtime voice state and lifecycle control.
+- The Session Composer footer keeps its controls ordered while the model area shrinks before the trailing controls.
+- Composer settings now control plain-text editing, attachment presentation, and the computed top inset.
+- The Composer utility bar now has a translated accessible name, wraps in Sessions, and scrolls with edge fades on the home page.
+- The Composer now supports reference keyboard commands and a configurable Send shortcut.
+- The Composer frame now uses the reference geometry, including its responsive radii, shorter editor, and attachment inset.
+- Full Access now asks for confirmation before enabling and shows a dismissible warning while it is active.
+- The Composer turns large text pastes and dropped text into restorable file attachments, and labels file and chat drop overlays.
+- The model menu now transitions between model and effort stages with the reference timings and reduced-motion support.
+- Browser upload claims without a persisted message now expire after one day.
+- The Composer warns after a model change in a Session, reports failed model settings, and offers Model and Reasoning slash commands.
+- The power slider adds a reset control for model overrides and shows a usage warning on the top step.
+- The power slider now supports Left and Right arrow keys and announces each keyboard selection.
+- The Composer shows a working or steer placeholder when a Session is busy.
+  The default message text stays unchanged pending the maintainer's wording.
+- Browser uploads now reach OMP, follow draft and Session ownership, and expire after one day without a retry.
+- The Composer returns keyboard focus after the browser file picker opens.
+- A session speech API now streams OMP dictation states, model download progress, transcripts, and typed errors.
+- The Composer model chip shows the effort beside the model and animates effort changes unless reduced motion is enabled.
+- Browser-selected files now upload to private Session storage with opaque IDs, size limits, and retry protection.
+- The desktop picker selects multiple files and folders together on macOS. Windows and Linux offer separate file and folder selection.
+- The Composer sends local files and folders with queued, steered, and follow-up messages during an active response.
+- The model list now starts with Default, marks the selected model and effort, and guides model picks into effort selection.
+- The model menu now opens on a power slider with OMP's supported effort steps. Drag the thumb to choose an effort.
+- The model menu labels OpenAI API and ChatGPT subscription routes separately and shows the selected route.
+- The Question window now uses rounded controls and neutral focus borders for its response field and actions.
+- The Composer shows removable local file and folder rows, keeps them in drafts, and reports unreadable paths before OMP receives a prompt.
+- Worktree selection now reports branches, detached HEAD, and uncommitted changes. Selecting a worktree leaves its branch unchanged.
+- The Composer footer can select or create a Session worktree without changing branches in place.
+- The model selector now calls OMP's max effort Max and keeps model and effort choices in one state model.
+- Agent commands can send desktop-selected file and folder paths to OMP without
+  quoting them in prompt text. Missing or unreadable selections block the send.
+- The Composer can send its image attachments with the Turn that creates a Goal.
+- A Fork continues from its saved Goal snapshot. Session deletion stops that Session before changing files.
+- The Goal pill can change or clear the token budget without replacing the Goal.
+- The Goal pill can pause, resume, and clear a Goal. Clearing active work asks first.
+  An interruption keeps queued messages.
+- The Composer can set a Goal with an optional hard token budget. It confirms replacement and marks the creating message.
+- The Goal pill above the Composer shows OMP status, elapsed time, or token progress.
+- The Session API now reads and changes OMP Goals, including token budgets.
+  A saved active Goal opens paused after a cold Session restart.
+- Goal mode gives the agent its Goal tool. Pausing, clearing, or completing a
+  Goal restores your previous tools. A Session with tools disabled cannot start a Goal.
+- The Session client now restores Goal state and reconciles missed Goal updates.
+  A failed initial read offers a retry action.
+- The Session wrapper lifecycle regression test now includes the Goal state read used by wrapped sessions.
 
 ## [0.8.0] - 2026-09-23
 

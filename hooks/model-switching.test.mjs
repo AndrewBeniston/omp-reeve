@@ -33,5 +33,6 @@ test("session reloads cannot clear an in-flight optimistic model", () => {
 test("a completed model switch reloads canonical session state and reports failures", () => {
   assert.match(switchSource, /modelSwitchPendingRef\.current = false;\s*await loadSession\(sid\)/);
   assert.match(switchSource, /setCurrentModelOverride\(previousOverride\)/);
-  assert.match(switchSource, /Failed to switch model:/);
+  assert.match(switchSource, /console\.error\("Failed to set model:", e\)/);
+  assert.match(switchSource, /addNotice\(\{ type: "error", message: translate\("composer\.modelSettings\.errorGeneric"\) \}\)/);
 });

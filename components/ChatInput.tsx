@@ -1,12 +1,21 @@
 "use client";
 
-import React, { useRef, useState, useCallback, useEffect, useLayoutEffect, useImperativeHandle, useMemo, forwardRef } from "react";
+import React, { useRef, useState, useReducer, useCallback, useEffect, useLayoutEffect, useImperativeHandle, useMemo, forwardRef } from "react";
 import type { BuiltinSlashCommandResult, CompactResultInfo, QueuedMessages } from "@/hooks/useAgentSession";
 import type { ModelRoleAssignment, PluginPackageInfo, PluginsResponse, ProjectTrustStatus, SkillInfo, SkillsResponse } from "@/lib/api-types";
 import type { ContextUsage, SessionStatsInfo, SlashCommandInfo } from "@/lib/omp-types";
 import type { QueuedMessageDraft } from "@/lib/queued-message-types";
 import type { ApprovalMode } from "@/lib/approval-mode";
 import { REVIEW_SLASH_COMMAND, REVIEW_SLASH_ENTRIES } from "@/lib/review-slash-entries";
+import { matchDefaultComposerCommand, nextThinkingLevel, readComposerEnterBehavior, runComposerCommand, shouldSendWithEnterBehavior, COMPOSER_ENTER_BEHAVIOR_STORAGE_KEY } from "@/lib/composer-keyboard-commands";
+import {
+  COMPOSER_ATTACHMENT_LAYOUT_STORAGE_KEY,
+  COMPOSER_PLAIN_TEXT_MODE_STORAGE_KEY,
+  COMPOSER_TOP_INSET_STORAGE_KEY,
+  readComposerAttachmentLayout,
+  readComposerPlainTextMode,
+  readComposerTopInsetPx,
+} from "@/lib/composer-display-preferences";
 
 /** Listed with its reason instead of an action when the Git gate fails. */
 const REVIEW_DISABLED_COMMANDS: ReadonlySet<string> = new Set([REVIEW_SLASH_COMMAND]);
@@ -18,6 +27,7 @@ import {
   mergeRestoredSubmissionText,
   rekeyDraft as rekeyStoredDraft,
   setDraft,
+  type ChatDraft,
   type ChatDraftImage,
 } from "@/lib/draft-store";
 import {
@@ -40,18 +50,42 @@ import {
   type ComposerSuggestion,
 } from "@/lib/composer-intelligence";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { getAttachmentPicker } from "@/lib/desktop-attachments";
+import { selectComposerPlaceholder } from "./composer-placeholder";
+import { getSecureAttachmentPicker } from "@/lib/desktop-attachments";
+import {
+  addComposerAttachments,
+  addPastedTextAttachment,
+  addBrowserUpload,
+  deleteBrowserUpload,
+  markComposerAttachmentError,
+  removeComposerAttachment,
+  pastedTextFromAttachment,
+  replacePastedTextAttachment,
+  PASTED_TEXT_THRESHOLD,
+  uploadBrowserFile,
+  type ComposerAttachmentDescriptor,
+} from "@/lib/composer-attachment-state";
 import { useI18n } from "@/hooks/useI18n";
 import { PRESET_DEFAULT, PRESET_FULL } from "@/lib/tool-presets";
+import { buildModelSelectorState, filterModelOptions, INITIAL_MODEL_MENU_STATE, reduceModelMenuState, THINKING_STEP_ORDER, thinkingLevelLabelKey } from "@/lib/model-selector";
+import { buildModelCommandSections, buildReasoningCommandSections, readRecentModelConfigurations, rememberModelConfiguration } from "@/lib/model-selector/commands";
 import {
   ComposerFloatingGeometry,
   ComposerFrame,
 } from "./chat/ComposerFrame";
 import { ComposerAutocomplete } from "./chat/ComposerAutocomplete";
+import { GoalEntryButton } from "./chat/GoalEntryButton";
 import { ComposerAddMenu } from "./chat/ComposerAddMenu";
 import { CommandArgumentsDialog } from "./chat/CommandArgumentsDialog";
 import { ComposerEditor, type ComposerEditorHandle } from "./chat/ComposerEditor";
+import { ModelList } from "./chat/ModelList";
+import { ModelPowerSlider } from "./chat/ModelPowerSlider";
+import { ComposerWorktreeControl, type ComposerWorktreeControlHandle } from "./chat/ComposerWorktreeControl";
+import { ComposerProjectControl, type ComposerProjectControlHandle } from "./chat/ComposerProjectControl";
 import { PausedQueueSubmitDialog } from "./chat/PausedQueueSubmitDialog";
+import { Dialog } from "./ui/Dialog";
+import { Button } from "./ui/Button";
+import { DictationControl, type DictationAction, type DictationError, type DictationState } from "./chat/DictationControl";
 import { ApprovalModeSelector } from "./chat/ApprovalModeSelector";
 import { SendArrowIcon, StopSquareIcon } from "./navigation/CodexIcons";
 import { Menu, MenuItem } from "./ui/Menu";
@@ -78,6 +112,10 @@ export function resolveStreamingSubmissionMode(queueingEnabled: boolean, useOppo
   return defaultMode === "followUp" ? "steer" : "followUp";
 }
 
+export function hasUnsentComposerInput(value: string, imageCount: number, localAttachmentCount: number): boolean {
+  return value.trim().length > 0 || imageCount > 0 || localAttachmentCount > 0;
+}
+
 export function shouldConfirmPausedQueueSubmission(queue: QueuedMessages | null | undefined, isStreaming: boolean): boolean {
   return !isStreaming && Boolean(queue?.paused && queue.items.length > 0);
 }
@@ -95,28 +133,23 @@ export async function dispatchPausedQueueSubmission({
   await onSend();
 }
 
-interface ModelOption {
-  provider: string;
-  modelId: string;
-  name: string;
-}
-
 interface Props {
   requestPending?: boolean;
-  onSend: (message: string, images?: AttachedImage[]) => void;
+  onSend: (message: string, images?: AttachedImage[], attachments?: ComposerAttachmentDescriptor[]) => void;
   onAbort: () => void;
-  onSteer?: (message: string, images?: AttachedImage[]) => void;
-  onFollowUp?: (message: string, images?: AttachedImage[]) => void;
-  onPromptWithStreamingBehavior?: (message: string, behavior: "steer" | "followUp", images?: AttachedImage[]) => void;
+  onSteer?: (message: string, images?: AttachedImage[], attachments?: ComposerAttachmentDescriptor[]) => void;
+  onFollowUp?: (message: string, images?: AttachedImage[], attachments?: ComposerAttachmentDescriptor[]) => void;
+  onPromptWithStreamingBehavior?: (message: string, behavior: "steer" | "followUp", images?: AttachedImage[], attachments?: ComposerAttachmentDescriptor[]) => void;
   isStreaming: boolean;
   model?: { provider: string; modelId: string } | null;
   isAutoModelSelection?: boolean;
+  explicitModelOverride?: boolean;
   modelNames?: Record<string, string>;
   modelList?: { id: string; name: string; provider: string }[];
   modelError?: string | null;
   /** Diagnostics from resolving `enabledModels`, e.g. a pattern that matched nothing. */
   modelScopeWarnings?: string[];
-  onModelChange?: (provider: string, modelId: string) => void;
+  onModelChange?: (provider: string, modelId: string) => void | boolean | Promise<void | boolean>;
   /** omp's model roles (default/smol/slow/plan/commit/…) with their assignments. */
   modelRoles?: ModelRoleAssignment[];
   onRoleModelChange?: (role: string) => void;
@@ -132,6 +165,7 @@ interface Props {
   onThinkingLevelChange?: (level: "auto" | "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max") => void;
   onCycleThinkingLevel?: () => void;
   availableThinkingLevels?: string[] | null;
+  modelThinkingLevels?: Record<string, string[]>;
   thinkingLevelMap?: Record<string, string | null> | null;
   fastModeEnabled?: boolean;
   fastModeAvailable?: boolean;
@@ -155,10 +189,17 @@ interface Props {
   onLoadSlashCommands?: () => Promise<SlashCommandInfo[]> | SlashCommandInfo[];
   onBuiltinCommand?: (message: string) => Promise<BuiltinSlashCommandResult>;
   onAudioUnlock?: () => void;
+  onOpenGoal?: (objective: string, images?: AttachedImage[]) => void;
   draftKey?: string;
+  onEnsureSession?: () => Promise<string | null>;
   imageInputId?: string;
   /** Session working directory — enables the @ file autocomplete menu */
   cwd?: string | null;
+  onSelectWorktree?: (path: string) => void;
+  onRegisterWorktreeCommand?: (open: () => void) => void;
+  onSelectProject?: (path: string) => void;
+  onRegisterProjectCommand?: (open: () => void) => void;
+  footerMode?: "home" | "session";
   contextUsage?: ContextUsage | null;
   sessionStats?: SessionStatsInfo | null;
   projectTrust?: ProjectTrustStatus | null;
@@ -184,11 +225,24 @@ export interface ChatInputHandle {
   replaceMessage: (message: UserMessage) => void;
   prependText: (text: string) => void;
   addImages: (files: File[]) => void;
+  addFiles: (files: File[]) => void;
+  addDroppedFiles: (files: File[]) => void;
+  addDroppedText: (text: string) => void;
   rekeyDraft: (previousKey: string, nextKey: string) => void;
-  restoreSubmission: (text: string, images?: ChatDraftImage[], targetDraftKey?: string) => void;
+  restoreSubmission: (text: string, images?: ChatDraftImage[], targetDraftKey?: string, attachments?: ComposerAttachmentDescriptor[], attachmentError?: string) => void;
 }
 
 export const COMPOSER_IMAGE_INPUT_ID = "reeve-composer-image-input";
+
+export function readComposerDisplayPreferences(storage?: Pick<Storage, "getItem">) {
+  const store = storage ?? (typeof window === "undefined" ? null : window.localStorage);
+  const getItem = (key: string) => store?.getItem(key) ?? null;
+  return {
+    plainTextMode: readComposerPlainTextMode(getItem(COMPOSER_PLAIN_TEXT_MODE_STORAGE_KEY)),
+    attachmentLayout: readComposerAttachmentLayout(getItem(COMPOSER_ATTACHMENT_LAYOUT_STORAGE_KEY)),
+    topInsetPx: readComposerTopInsetPx(getItem(COMPOSER_TOP_INSET_STORAGE_KEY)),
+  };
+}
 
 const TOOL_PRESETS = ["off", "default", "full"] as const;
 const TOOL_PRESET_MAP: Record<"off" | "default" | "full", "none" | "default" | "full"> = { off: "none", default: "default", full: "full" };
@@ -198,25 +252,8 @@ const COMPOSITION_END_ENTER_GRACE_MS = 100;
 const COMPOSER_MAX_ATTACHED_IMAGES = 5;
 const FOLLOW_UP_QUEUE_MODE_KEY = "reeve-follow-up-queue-mode";
 const MODEL_FILTER_THRESHOLD = 8;
-const MODEL_OPTION_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 const EMPTY_SUBAGENTS: SubagentSnapshot[] = [];
-
-function compareModelOptions(a: ModelOption, b: ModelOption): number {
-  return MODEL_OPTION_COLLATOR.compare(a.name || a.modelId, b.name || b.modelId)
-    || MODEL_OPTION_COLLATOR.compare(a.provider, b.provider)
-    || MODEL_OPTION_COLLATOR.compare(a.modelId, b.modelId);
-}
-
-export function filterModelOptions(options: ModelOption[], query: string): ModelOption[] {
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  if (!normalizedQuery) return options;
-
-  return options.filter((option) => (
-    `${option.name} ${option.modelId}`
-      .toLocaleLowerCase()
-      .includes(normalizedQuery)
-  ));
-}
+export { filterModelOptions };
 
 export function getComposerTextareaHeight(scrollHeight: number): string {
   return `${scrollHeight}px`;
@@ -280,28 +317,37 @@ export function shouldCycleComposerEffort({
 interface IdleSubmissionOptions {
   value: string;
   images: AttachedImage[];
+  attachments?: ComposerAttachmentDescriptor[];
   isStreaming: boolean;
   onBuiltinCommand?: (message: string) => Promise<BuiltinSlashCommandResult>;
   onBuiltinAction?: (action: "openSessionStats") => void;
   onAudioUnlock?: () => void;
-  clearInput: () => void;
+  clearInput: (preserveUploads?: boolean) => void;
+  onAttachmentBlocked?: (error: string) => void;
   onSend: Props["onSend"];
 }
 
 export async function dispatchIdleSubmission({
   value,
   images,
+  attachments = [],
   isStreaming,
   onBuiltinCommand,
   onBuiltinAction,
   onAudioUnlock,
   clearInput,
+  onAttachmentBlocked,
   onSend,
-}: IdleSubmissionOptions): Promise<"ignored" | "command" | "sent"> {
+}: IdleSubmissionOptions): Promise<"ignored" | "command" | "sent" | "attachment-blocked"> {
   const message = value.trim();
-  if ((!message && images.length === 0) || isStreaming) return "ignored";
+  if ((!message && images.length === 0 && attachments.length === 0) || isStreaming) return "ignored";
+  const readError = attachments.find((attachment) => attachment.readError)?.readError;
+  if (readError) {
+    onAttachmentBlocked?.(readError);
+    return "attachment-blocked";
+  }
   onAudioUnlock?.();
-  if (images.length === 0 && message.startsWith("/") && onBuiltinCommand) {
+  if (images.length === 0 && attachments.length === 0 && message.startsWith("/") && onBuiltinCommand) {
     const result = await onBuiltinCommand(message);
     if (result.handled) {
       if (result.action) onBuiltinAction?.(result.action);
@@ -312,74 +358,63 @@ export async function dispatchIdleSubmission({
       return "command";
     }
   }
-  clearInput();
-  onSend(message, images.length > 0 ? images : undefined);
+  clearInput(attachments.some(attachment => Boolean(attachment.upload)));
+  onSend(message, images.length > 0 ? images : undefined, attachments.length ? attachments : undefined);
   return "sent";
 }
 
 interface StreamingSubmissionOptions {
   value: string;
   images: AttachedImage[];
+  attachments?: ComposerAttachmentDescriptor[];
   mode: "steer" | "followUp";
   onPromptWithStreamingBehavior?: Props["onPromptWithStreamingBehavior"];
   onSteer?: Props["onSteer"];
   onFollowUp?: Props["onFollowUp"];
   onAudioUnlock?: () => void;
-  clearInput: () => void;
+  clearInput: (preserveUploads?: boolean) => void;
+  onAttachmentBlocked?: (error: string) => void;
 }
 
 export function dispatchStreamingSubmission({
   value,
   images,
+  attachments = [],
   mode,
   onPromptWithStreamingBehavior,
   onSteer,
   onFollowUp,
   onAudioUnlock,
   clearInput,
-}: StreamingSubmissionOptions): "ignored" | "steered" | "followed-up" {
+  onAttachmentBlocked,
+}: StreamingSubmissionOptions): "ignored" | "steered" | "followed-up" | "attachment-blocked" {
   const message = value.trim();
-  if (!message && images.length === 0) return "ignored";
+  if (!message && images.length === 0 && attachments.length === 0) return "ignored";
+  const readError = attachments.find((attachment) => attachment.readError)?.readError;
+  if (readError) {
+    onAttachmentBlocked?.(readError);
+    return "attachment-blocked";
+  }
   onAudioUnlock?.();
   if (message.startsWith("/") && images.length === 0 && onPromptWithStreamingBehavior) {
-    clearInput();
-    onPromptWithStreamingBehavior(message, mode);
+    clearInput(attachments.some(attachment => Boolean(attachment.upload)));
+    onPromptWithStreamingBehavior(message, mode, undefined, attachments.length ? attachments : undefined);
     return mode === "steer" ? "steered" : "followed-up";
   }
   if (mode === "steer" && onSteer) {
-    clearInput();
-    onSteer(message, images.length ? images : undefined);
+    clearInput(attachments.some(attachment => Boolean(attachment.upload)));
+    onSteer(message, images.length ? images : undefined, attachments.length ? attachments : undefined);
     return "steered";
   }
   if (mode === "followUp" && onFollowUp) {
-    clearInput();
-    onFollowUp(message, images.length ? images : undefined);
+    clearInput(attachments.some(attachment => Boolean(attachment.upload)));
+    onFollowUp(message, images.length ? images : undefined, attachments.length ? attachments : undefined);
     return "followed-up";
   }
   return "ignored";
 }
 
-const THINKING_LEVELS = ["auto", "off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
-const THINKING_LEVEL_LABEL_KEYS: Record<typeof THINKING_LEVELS[number], string> = {
-  auto: "chat.effortAuto",
-  off: "chat.effortNone",
-  minimal: "chat.effortMinimal",
-  low: "chat.effortLight",
-  medium: "chat.effortMedium",
-  high: "chat.effortHigh",
-  xhigh: "chat.effortExtraHigh",
-  max: "chat.effortUltra",
-};
-
-type ModelSubmenu = "model" | "effort" | "speed" | "advanced";
-
-function ModelSelectionMark() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.selectionMark} aria-hidden="true">
-      <polyline points="1.5 5 4 7.5 8.5 2.5" />
-    </svg>
-  );
-}
+const THINKING_LEVELS = ["auto", ...THINKING_STEP_ORDER] as const;
 
 function SubmenuSelectionCheck() {
   return (
@@ -409,7 +444,11 @@ const BUILTIN_SLASH_COMMANDS: LocalBuiltinSlashCommand[] = [
   { name: "name", descriptionKey: "chat.commandName", icon: "pencil", source: "builtin" },
   { name: "session", descriptionKey: "chat.commandSession", icon: "session", source: "builtin" },
   { name: "copy", descriptionKey: "chat.commandCopy", icon: "copy", source: "builtin" },
+  { name: "model", descriptionKey: "composer.modelSlashCommand.title", icon: "model", source: "builtin" },
+  { name: "reasoning", descriptionKey: "composer.reasoningSlashCommand.title", icon: "model", source: "builtin" },
 ];
+
+const RECENT_MODEL_CONFIGURATIONS_KEY = "reeve-recent-model-configurations";
 
 function imageToDraftImage(image: AttachedImage): ChatDraftImage {
   return { data: image.data, mimeType: image.mimeType };
@@ -433,8 +472,9 @@ export function canRestoreUserMessage(
   value: string,
   attachedImageCount: number,
   pendingImageCount: number,
+  localAttachmentCount = 0,
 ): boolean {
-  return !value.trim() && attachedImageCount === 0 && pendingImageCount === 0;
+  return !value.trim() && attachedImageCount === 0 && pendingImageCount === 0 && localAttachmentCount === 0;
 }
 
 export function getUserMessageText(message: UserMessage): string {
@@ -470,10 +510,10 @@ function revokeImagePreview(image: AttachedImage): void {
 export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   imageInputId = COMPOSER_IMAGE_INPUT_ID,
   requestPending = false,
-  onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, modelNames, modelList, modelError, modelScopeWarnings, onModelChange,
+  onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, explicitModelOverride, modelNames, modelList, modelError, modelScopeWarnings, onModelChange,
   modelRoles, onRoleModelChange, modelSwitching,
   onCompact, onAbortCompaction, isCompacting, compactError, compactResult, toolPreset, onToolPresetChange,
-  thinkingLevel, onThinkingLevelChange, onCycleThinkingLevel, availableThinkingLevels, thinkingLevelMap,
+  thinkingLevel, onThinkingLevelChange, onCycleThinkingLevel, availableThinkingLevels, modelThinkingLevels,
   fastModeEnabled = false, fastModeAvailable = false, onFastModeChange,
   retryInfo, queuedMessages, inputHistory = [], subagents = EMPTY_SUBAGENTS,
   onDeleteQueuedMessage, onUndoDeletedQueuedMessage, onEditQueuedMessage,
@@ -482,9 +522,16 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   slashCommands, slashCommandsLoading, onLoadSlashCommands,
   onBuiltinCommand,
   onAudioUnlock,
+  onOpenGoal,
   onPromptWithStreamingBehavior,
   draftKey,
+  onEnsureSession,
   cwd,
+  onSelectWorktree,
+  onRegisterWorktreeCommand,
+  onSelectProject,
+  onRegisterProjectCommand,
+  footerMode = "session",
   contextUsage,
   sessionStats,
   projectTrust,
@@ -497,16 +544,74 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   onListReviewBranches,
 }: Props, ref) {
   const { t } = useI18n();
+  const worktreeControlRef = useRef<ComposerWorktreeControlHandle>(null);
+  const projectControlRef = useRef<ComposerProjectControlHandle>(null);
+  const [pendingProjectPath, setPendingProjectPath] = useState<string | null>(null);
+  const [pendingWorktreePath, setPendingWorktreePath] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  useEffect(() => {
+    onRegisterWorktreeCommand?.(() => {
+      runComposerCommand("composer.toggleWorktreeMode", () => worktreeControlRef.current?.open());
+    });
+    return () => onRegisterWorktreeCommand?.(() => {});
+  }, [onRegisterWorktreeCommand]);
+  useEffect(() => {
+    onRegisterProjectCommand?.(() => {
+      runComposerCommand("composer.openProjectPicker", () => projectControlRef.current?.open());
+    });
+    return () => onRegisterProjectCommand?.(() => {});
+  }, [onRegisterProjectCommand]);
   const [value, setValue] = useState(() => (draftKey ? getDraft(draftKey)?.value ?? "" : ""));
-  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [modelMenu, dispatchModelMenu] = useReducer(reduceModelMenuState, INITIAL_MODEL_MENU_STATE);
+  const [recentConfigurations, setRecentConfigurations] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try { return readRecentModelConfigurations(JSON.parse(window.localStorage.getItem(RECENT_MODEL_CONFIGURATIONS_KEY) ?? "[]")); }
+    catch { return []; }
+  });
+  const modelDropdownOpen = modelMenu.open;
+  const modelSubmenu = modelMenu.submenu;
+  const modelFilter = modelMenu.filter;
+  const [modelStage, setModelStage] = useState<"model" | "effort" | null>("model");
+  const [modelStageTransition, setModelStageTransition] = useState<"enter" | "leave" | null>(null);
+  useEffect(() => {
+    if (!modelDropdownOpen) {
+      setModelStage(null);
+      setModelStageTransition(null);
+      return;
+    }
+    if (modelSubmenu === null) {
+      setModelStage(null);
+      setModelStageTransition("enter");
+      return;
+    }
+    if (modelSubmenu === "speed" || modelSubmenu === "advanced") return;
+    const nextStage = modelSubmenu === "effort" ? "effort" : "model";
+    if (modelStage === nextStage) return;
+    if (modelStage === null) {
+      setModelStage(nextStage);
+      setModelStageTransition("enter");
+      return;
+    }
+    setModelStageTransition("leave");
+    const timer = globalThis.setTimeout(() => {
+      setModelStage(nextStage);
+      setModelStageTransition("enter");
+    }, 336);
+    return () => globalThis.clearTimeout(timer);
+  }, [modelDropdownOpen, modelStage, modelSubmenu]);
   const [attachmentPickerError, setAttachmentPickerError] = useState<string | null>(null);
+  const [dictationState, setDictationState] = useState<DictationState>("idle");
+  const [dictationAvailable, setDictationAvailable] = useState(false);
+  const [dictationError, setDictationError] = useState<DictationError>(null);
+  const [browserUploadsPending, setBrowserUploadsPending] = useState(0);
+  const [localAttachments, setLocalAttachments] = useState<ComposerAttachmentDescriptor[]>(
+    () => draftKey ? getDraft(draftKey)?.attachments ?? [] : [],
+  );
   const [commandActionError, setCommandActionError] = useState<string | null>(null);
   const [commandActionPending, setCommandActionPending] = useState(false);
+  const [composerDisplayPreferences, setComposerDisplayPreferences] = useState(() => readComposerDisplayPreferences());
   const [pendingAddCommand, setPendingAddCommand] = useState<ComposerSuggestion | null>(null);
   const [modelDropdownRect, setModelDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null);
-  const [modelSubmenu, setModelSubmenu] = useState<ModelSubmenu | null>(null);
-  const [modelFilter, setModelFilter] = useState("");
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
   const [sessionCommandStatus, setSessionCommandStatus] = useState<string | null>(null);
   /**
@@ -533,7 +638,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     if (contextUsage) setSessionCommandStatus(null);
   }, [contextUsage]);
   const trimmedValue = value.trimStart();
-  const bashMode = attachedImages.length === 0 && trimmedValue.startsWith("!");
+  const bashMode = attachedImages.length === 0 && localAttachments.length === 0 && trimmedValue.startsWith("!");
   const bashExcluded = bashMode && trimmedValue.startsWith("!!");
   const [slashMenuOpen, setSlashMenuOpen] = useState(false);
   const [slashActiveIndex, setSlashActiveIndex] = useState(0);
@@ -571,7 +676,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const modelDropdownPanelRef = useRef<HTMLDivElement>(null);
   const modelTriggerRef = useRef<HTMLButtonElement>(null);
   const modelRowRef = useRef<HTMLButtonElement>(null);
-  const effortRowRef = useRef<HTMLButtonElement>(null);
   const speedRowRef = useRef<HTMLButtonElement>(null);
   const advancedRowRef = useRef<HTMLButtonElement>(null);
   const modelFilterRef = useRef<HTMLInputElement>(null);
@@ -580,6 +684,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const controlsMenuRef = useRef<HTMLDivElement>(null);
   const historyMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const browserFileInputRef = useRef<HTMLInputElement>(null);
+  const browserUploadsPendingRef = useRef(0);
   const isComposingRef = useRef(false);
   const lastCompositionEndAtRef = useRef(0);
   const slashCommandsRequestedRef = useRef(false);
@@ -589,11 +695,81 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const draftKeyRef = useRef(draftKey);
   const valueRef = useRef(value);
   const attachedImagesRef = useRef(attachedImages);
+  const localAttachmentsRef = useRef(localAttachments);
+  const beforeQueuedEditRef = useRef<ChatDraft | null>(null);
   const pendingImageCountRef = useRef(0);
   const editingQueuedMessageRef = useRef<QueuedMessageDraft | null>(null);
   valueRef.current = value;
   attachedImagesRef.current = attachedImages;
+  localAttachmentsRef.current = localAttachments;
   editingQueuedMessageRef.current = editingQueuedMessage;
+
+  useEffect(() => {
+    if (!cwd) return;
+    let active = true;
+    void onEnsureSession?.().then(async (sessionId) => {
+      if (!active || !sessionId) return;
+      try {
+        const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/speech`);
+        if (!response.ok) return;
+        const availability = await response.json() as { enabled?: boolean };
+        if (active) {
+          setDictationAvailable(Boolean(availability.enabled));
+          if (!availability.enabled) {
+            setDictationError({ kind: "start", message: t("chat.dictationUnsupported") });
+            setAttachmentPickerError(t("chat.dictationUnsupported"));
+          }
+        }
+        const stream = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/speech?events`);
+        if (!stream.ok || !stream.body || !active) return;
+        const reader = stream.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (active) {
+          const chunk = await reader.read();
+          if (chunk.done) break;
+          buffer += decoder.decode(chunk.value, { stream: true });
+          const messages = buffer.split("\n\n");
+          buffer = messages.pop() ?? "";
+          for (const message of messages) {
+            const line = message.split("\n").find((entry) => entry.startsWith("data: "));
+            if (!line) continue;
+            const event = JSON.parse(line.slice(6)) as { type: string; state?: DictationState; code?: string; text?: string; submit?: boolean };
+            if (event.type === "state" && event.state) setDictationState(event.state);
+            if (event.type === "error") {
+              setDictationState("failed");
+              setDictationError({
+                kind: event.code === "permission-denied" ? "permission" : event.code === "transcription" ? "transcription" : "start",
+                message: event.code === "permission-denied" ? t("chat.dictationPermissionDenied") : event.code === "transcription" ? t("chat.dictationTranscribeError") : t("chat.dictationStartError"),
+              });
+            }
+            if (event.type === "result" && event.text) {
+              textareaRef.current?.insertText(event.text);
+              if (event.submit) textareaRef.current?.focus();
+            }
+          }
+        }
+      } catch {
+        if (active) setDictationError({ kind: "start", message: t("chat.dictationUnavailable") });
+      }
+    });
+    return () => { active = false; };
+  }, [cwd, onEnsureSession, t]);
+
+  const dictationAction = useCallback(async (action: DictationAction) => {
+    if (action === "none") return;
+    const sessionId = await onEnsureSession?.();
+    if (!sessionId) return;
+    setDictationError(null);
+    try {
+      const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/speech`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }),
+      });
+      if (!response.ok) throw new Error("Speech request failed");
+    } catch {
+      setDictationError({ kind: "start", message: t("chat.dictationStartError") });
+    }
+  }, [onEnsureSession, t]);
 
   useEffect(() => {
     try {
@@ -602,6 +778,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     } catch {
       // Keep Queue as the default when browser storage is unavailable.
     }
+  }, []);
+
+  useEffect(() => {
+    const refreshDisplayPreferences = () => setComposerDisplayPreferences(readComposerDisplayPreferences());
+    window.addEventListener("reeve-composer-preferences-change", refreshDisplayPreferences);
+    return () => window.removeEventListener("reeve-composer-preferences-change", refreshDisplayPreferences);
   }, []);
 
   useEffect(() => {
@@ -629,7 +811,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
 
   useEffect(() => () => {
     const edit = editingQueuedMessageRef.current;
-    if (edit) void onCancelQueuedMessageEdit?.(edit.editToken);
+    if (edit) {
+      const previous = beforeQueuedEditRef.current;
+      if (previous && draftKeyRef.current) setDraft(draftKeyRef.current, previous);
+      void onCancelQueuedMessageEdit?.(edit.editToken);
+    }
   }, [draftKey, onCancelQueuedMessageEdit]);
 
   const processImageFiles = useCallback(async (files: File[]) => {
@@ -668,6 +854,43 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     }
   }, []);
 
+  const processBrowserFiles = useCallback(async (files: File[]) => {
+    if (files.length === 0) return;
+    if (localAttachmentsRef.current.length + browserUploadsPendingRef.current + files.length > 32) {
+      setAttachmentPickerError(t("composer.localAttachmentLimit", { count: 32 }));
+      return;
+    }
+    browserUploadsPendingRef.current += files.length;
+    setBrowserUploadsPending(browserUploadsPendingRef.current);
+    setAttachmentPickerError(null);
+    try {
+      const sessionId = await onEnsureSession?.();
+      if (!sessionId) throw new Error(t("composer.browserUploadNoSession"));
+      for (const file of files) {
+        try {
+          const upload = await uploadBrowserFile(sessionId, file);
+          const activeDraftKey = draftKeyRef.current;
+          if (activeDraftKey && !activeDraftKey.startsWith("new:") && activeDraftKey !== sessionId) {
+            await deleteBrowserUpload(sessionId, upload.id);
+            continue;
+          }
+          const next = addBrowserUpload(localAttachmentsRef.current, sessionId, upload);
+          localAttachmentsRef.current = next;
+          setLocalAttachments(next);
+        } catch (error) {
+          setAttachmentPickerError(error instanceof Error ? error.message : t("composer.browserUploadFailed"));
+        } finally {
+          browserUploadsPendingRef.current--;
+          setBrowserUploadsPending(browserUploadsPendingRef.current);
+        }
+      }
+    } catch (error) {
+      setAttachmentPickerError(error instanceof Error ? error.message : t("composer.browserUploadFailed"));
+      browserUploadsPendingRef.current -= files.length;
+      setBrowserUploadsPending(browserUploadsPendingRef.current);
+    }
+  }, [onEnsureSession, t]);
+
   useImperativeHandle(ref, () => ({
     /**
      * Send text composed elsewhere through the composer's own send, so a
@@ -696,7 +919,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     replaceMessage(message: UserMessage) {
       const ta = textareaRef.current;
       const current = ta ? ta.value : value;
-      if (!canRestoreUserMessage(current, attachedImagesRef.current.length, pendingImageCountRef.current)) return;
+      if (!canRestoreUserMessage(current, attachedImagesRef.current.length, pendingImageCountRef.current, localAttachmentsRef.current.length)) return;
 
       const restoredText = getUserMessageText(message);
       const restoredImages = draftImagesToAttachedImages(getUserMessageDraftImages(message));
@@ -740,6 +963,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       const currentDraft = {
         value: valueRef.current,
         images: attachedImagesRef.current.map(imageToDraftImage),
+        attachments: localAttachmentsRef.current,
       };
       const moved = rekeyStoredDraft(previousKey, nextKey, currentDraft) ?? { value: "", images: [] };
       const unchanged = moved.value === currentDraft.value
@@ -747,14 +971,23 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         && moved.images.every((image, index) => (
           image.data === currentDraft.images[index]?.data
           && image.mimeType === currentDraft.images[index]?.mimeType
+        ))
+        && (moved.attachments?.length ?? 0) === currentDraft.attachments.length
+        && (moved.attachments ?? []).every((attachment, index) => (
+          attachment.selection?.signature === currentDraft.attachments[index]?.selection?.signature
+          && attachment.upload?.id === currentDraft.attachments[index]?.upload?.id
+          && attachment.readError === currentDraft.attachments[index]?.readError
         ));
       draftKeyRef.current = nextKey;
       if (unchanged) return;
 
       const movedImages = draftImagesToAttachedImages(moved.images);
+      const movedAttachments = moved.attachments ?? [];
       valueRef.current = moved.value;
       attachedImagesRef.current = movedImages;
+      localAttachmentsRef.current = movedAttachments;
       setValue(moved.value);
+      setLocalAttachments(movedAttachments);
       setAttachedImages((current) => {
         current.forEach(revokeImagePreview);
         return movedImages;
@@ -762,8 +995,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       setAtQuery(null);
       setHistoryMenuOpen(false);
     },
-    restoreSubmission(text: string, images?: ChatDraftImage[], targetDraftKey?: string) {
-      if (!text.trim() && !images?.length) return;
+    restoreSubmission(text: string, images?: ChatDraftImage[], targetDraftKey?: string, attachments?: ComposerAttachmentDescriptor[], attachmentError?: string) {
+      if (!text.trim() && !images?.length && !attachments?.length) return;
 
       // clearInput is queued before the submission handler runs. Compose with
       // that queued state so a fast rejection cannot observe stale DOM text and
@@ -781,6 +1014,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         targetsCurrentComposer
           ? attachedImagesRef.current.map(imageToDraftImage)
           : (storedDraft?.images ?? []),
+        attachmentError && attachments?.length ? markComposerAttachmentError(attachments, attachmentError) : attachments,
+        targetsCurrentComposer ? localAttachmentsRef.current : storedDraft?.attachments,
       );
       // The first optimistic message switches ChatWindow out of its empty-state
       // layout and remounts this component. Persist synchronously so recovery is
@@ -796,10 +1031,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             ...attachedImagesRef.current,
           ].slice(0, COMPOSER_MAX_ATTACHED_IMAGES)
         : attachedImagesRef.current;
+      const restoredAttachments = restoredDraft.attachments ?? [];
       // Session promotion can rekey this composer before React flushes the
       // functional updates below, so update the imperative snapshot first.
       valueRef.current = restoredDraft.value;
       attachedImagesRef.current = restoredImages;
+      localAttachmentsRef.current = restoredAttachments;
       setValue((current) => {
         const restored = mergeRestoredSubmissionText(text, current);
         valueRef.current = restored;
@@ -807,6 +1044,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       });
       setAtQuery(null);
       setHistoryMenuOpen(false);
+      setLocalAttachments(restoredAttachments);
       if (images?.length) {
         setAttachedImages((current) => {
           const available = Math.max(0, COMPOSER_MAX_ATTACHED_IMAGES - current.length);
@@ -849,6 +1087,22 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     addImages(files: File[]) {
       processImageFiles(files);
     },
+    addFiles(files: File[]) {
+      const images = files.filter(file => file.type.startsWith("image/"));
+      if (images.length) processImageFiles(images);
+      const otherFiles = files.filter(file => !file.type.startsWith("image/"));
+      if (otherFiles.length && !getSecureAttachmentPicker()) void processBrowserFiles(otherFiles);
+    },
+    addDroppedFiles(files: File[]) {
+      const images = files.filter(file => file.type.startsWith("image/"));
+      const otherFiles = files.filter(file => !file.type.startsWith("image/"));
+      if (images.length) processImageFiles(images);
+      if (otherFiles.length) void processBrowserFiles(otherFiles);
+    },
+    addDroppedText(text: string) {
+      if (text.length > PASTED_TEXT_THRESHOLD) handlePasteText(text);
+      else textareaRef.current?.insertText(text);
+    },
   }));
 
   const removeImage = useCallback((index: number) => {
@@ -869,25 +1123,50 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     });
   }, []);
 
-  const clearInput = useCallback(() => {
+  const clearInput = useCallback((preserveUploads = false) => {
     valueRef.current = "";
     setValue("");
     setAtQuery(null);
     setHistoryMenuOpen(false);
-    if (draftKey) clearDraft(draftKey);
-    if (draftKeyRef.current && draftKeyRef.current !== draftKey) clearDraft(draftKeyRef.current);
+    if (draftKey) clearDraft(draftKey, { preserveUploads });
+    if (draftKeyRef.current && draftKeyRef.current !== draftKey) clearDraft(draftKeyRef.current, { preserveUploads });
     clearImages();
+    localAttachmentsRef.current = [];
+    setLocalAttachments([]);
+    setAttachmentPickerError(null);
     setTextareaHeight("auto");
   }, [clearImages, draftKey]);
+
+  const restoreBeforeQueuedEdit = useCallback(() => {
+    const previous = beforeQueuedEditRef.current;
+    beforeQueuedEditRef.current = null;
+    if (!previous) return;
+    const images = draftImagesToAttachedImages(previous.images);
+    const attachments = previous.attachments ?? [];
+    valueRef.current = previous.value;
+    attachedImagesRef.current = images;
+    localAttachmentsRef.current = attachments;
+    setValue(previous.value);
+    setAttachedImages(images);
+    setLocalAttachments(attachments);
+    if (draftKeyRef.current) setDraft(draftKeyRef.current, previous);
+  }, []);
 
   const editQueuedMessage = useCallback(async (id: string) => {
     if (editingQueuedMessageRef.current) return;
     const draft = await onEditQueuedMessage?.(id);
     if (!draft) return;
+    beforeQueuedEditRef.current = {
+      value: valueRef.current,
+      images: attachedImagesRef.current.map(imageToDraftImage),
+      attachments: localAttachmentsRef.current,
+    };
     const restoredImages = draftImagesToAttachedImages(draft.images);
     valueRef.current = draft.text;
     attachedImagesRef.current = restoredImages;
+    localAttachmentsRef.current = [];
     setValue(draft.text);
+    setLocalAttachments([]);
     setAttachedImages((current) => {
       current.forEach(revokeImagePreview);
       return restoredImages;
@@ -903,10 +1182,15 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     await onCancelQueuedMessageEdit?.(editingQueuedMessage.editToken);
     setEditingQueuedMessage(null);
     clearInput();
-  }, [clearInput, editingQueuedMessage, onCancelQueuedMessageEdit]);
+    restoreBeforeQueuedEdit();
+  }, [clearInput, editingQueuedMessage, onCancelQueuedMessageEdit, restoreBeforeQueuedEdit]);
 
   const completeQueuedMessageEdit = useCallback(async () => {
     if (!editingQueuedMessage || !onCompleteQueuedMessageEdit) return false;
+    if (localAttachments.length > 0) {
+      setAttachmentPickerError(t("composer.localAttachmentDuringResponse"));
+      return false;
+    }
     const message = value.trim();
     if (!message && attachedImages.length === 0) return false;
     await onCompleteQueuedMessageEdit(
@@ -916,8 +1200,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     );
     setEditingQueuedMessage(null);
     clearInput();
+    restoreBeforeQueuedEdit();
     return true;
-  }, [attachedImages, clearInput, editingQueuedMessage, onCompleteQueuedMessageEdit, value]);
+  }, [attachedImages, clearInput, editingQueuedMessage, localAttachments, onCompleteQueuedMessageEdit, restoreBeforeQueuedEdit, t, value]);
 
   const deleteQueuedMessage = useCallback(async (id: string) => {
     const undoToken = await onDeleteQueuedMessage?.(id);
@@ -937,8 +1222,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     setDraft(draftKey, {
       value,
       images: attachedImages.map(imageToDraftImage),
+      attachments: localAttachments,
     });
-  }, [attachedImages, draftKey, value]);
+  }, [attachedImages, draftKey, localAttachments, value]);
 
   useEffect(() => {
     const previousDraftKey = draftKeyRef.current;
@@ -948,6 +1234,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       setDraft(previousDraftKey, {
         value: valueRef.current,
         images: attachedImagesRef.current.map(imageToDraftImage),
+        attachments: localAttachmentsRef.current,
       });
     }
 
@@ -955,9 +1242,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     draftKeyRef.current = draftKey;
     const nextValue = draft?.value ?? "";
     const nextImages = draftImagesToAttachedImages(draft?.images);
+    const nextAttachments = draft?.attachments ?? [];
     valueRef.current = nextValue;
     attachedImagesRef.current = nextImages;
+    localAttachmentsRef.current = nextAttachments;
     setValue(nextValue);
+    setLocalAttachments(nextAttachments);
     setAtQuery(null);
     setHistoryMenuOpen(false);
     setAttachedImages((prev) => {
@@ -984,12 +1274,24 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   }, []);
 
   const handleSend = useCallback(async () => {
+    if (browserUploadsPendingRef.current > 0) {
+      setAttachmentPickerError(t("composer.browserUploading"));
+      return;
+    }
     if (builtinCommandPending) return;
+    const goalCommand = /^\/goal(?:\s+([\s\S]*))?$/i.exec(value.trim());
+    if (goalCommand && onOpenGoal) {
+      if (pendingImageCountRef.current > 0) return;
+      onOpenGoal(goalCommand[1]?.trim() ?? "", attachedImages);
+      clearInput();
+      return;
+    }
     setBuiltinCommandPending(true);
     try {
       await dispatchIdleSubmission({
         value,
         images: attachedImages,
+        attachments: localAttachments,
         isStreaming,
         onBuiltinCommand,
         onBuiltinAction: (action) => {
@@ -1003,12 +1305,13 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         },
         onAudioUnlock,
         clearInput,
+        onAttachmentBlocked: setAttachmentPickerError,
         onSend,
       });
     } finally {
       setBuiltinCommandPending(false);
     }
-  }, [builtinCommandPending, value, attachedImages, isStreaming, onBuiltinCommand, onSend, clearInput, onAudioUnlock, contextUsage, t]);
+  }, [builtinCommandPending, value, attachedImages, localAttachments, isStreaming, onBuiltinCommand, onOpenGoal, onSend, clearInput, onAudioUnlock, contextUsage, t]);
 
   const requestIdleSubmission = useCallback(() => {
     // The command already running is the one the human asked for; a second
@@ -1056,7 +1359,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   );
   const reviewEnabled = reviewGate?.enabled === true;
   /** R18's other condition: nothing in the composer but this command. */
-  const composerHoldsOnlyCommand = attachedImages.length === 0 && value.trimStart().startsWith("/");
+  const composerHoldsOnlyCommand = attachedImages.length === 0 && localAttachments.length === 0 && value.trimStart().startsWith("/");
   const reviewSubmenuOpen = reviewEnabled && /^\/review\b/.test(value.trimStart());
   const reviewBranchLoaderRef = useRef(onListReviewBranches);
   useEffect(() => {
@@ -1098,12 +1401,58 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     return [...entries, { name: branch.id, description: detail }];
   }, [reviewBranches]);
 
+  const selectorRegistry = modelList && modelList.length > 0
+    ? modelList.map((entry) => ({
+      provider: entry.provider,
+      id: entry.id,
+      name: entry.name,
+      thinkingLevels: modelThinkingLevels?.[`${entry.provider}:${entry.id}`]
+        ?? (entry.provider === model?.provider && entry.id === model.modelId ? availableThinkingLevels ?? [] : []),
+    }))
+    : Object.entries(modelNames ?? {}).map(([key, name]) => {
+      const separator = key.indexOf(":");
+      const provider = separator < 0 ? model?.provider ?? "unknown" : key.slice(0, separator);
+      const id = separator < 0 ? key : key.slice(separator + 1);
+      return {
+        provider,
+        id,
+        name,
+        thinkingLevels: provider === model?.provider && id === model.modelId ? availableThinkingLevels ?? [] : [],
+      };
+    });
+  const selector = buildModelSelectorState({
+    registry: selectorRegistry,
+    roles: modelRoles ?? [],
+    currentModel: model,
+    currentThinkingLevel: thinkingLevel,
+    explicitModelOverride,
+    filter: modelFilter,
+  }, t);
+  const modelOptions = selector.models;
+  const defaultRow = selector.defaultRow;
+  const showModelFilter = modelOptions.length > MODEL_FILTER_THRESHOLD;
+
+  useEffect(() => {
+    if (!model) return;
+    setRecentConfigurations((current) => rememberModelConfiguration(current, {
+      model: { provider: model.provider, modelId: model.modelId },
+      thinkingLevel: thinkingLevel ?? "auto",
+    }));
+  }, [model?.provider, model?.modelId, thinkingLevel]);
+
+  useEffect(() => {
+    try { window.localStorage.setItem(RECENT_MODEL_CONFIGURATIONS_KEY, JSON.stringify(recentConfigurations)); }
+    catch { /* Browser storage is optional. */ }
+  }, [recentConfigurations]);
+
   const availableSlashCommands = useMemo<SlashCommandInfo[]>(() => [
     ...(isStreaming ? [] : BUILTIN_SLASH_COMMANDS.map((command) => ({
       name: command.name,
       description: t(command.descriptionKey),
       icon: command.icon,
       source: command.source,
+      ...(command.name === "model" ? { subcommands: modelOptions.map((option) => ({ name: `${option.provider}/${option.modelId}` })) } : {}),
+      ...(command.name === "reasoning" ? { subcommands: [{ name: "auto" }, ...THINKING_STEP_ORDER.map((name) => ({ name }))] } : {}),
     }))),
     /*
      * Always offered, per R18: a failed Git-root gate disables the entry
@@ -1119,16 +1468,27 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       source: "builtin" as const,
       ...(reviewEnabled ? { subcommands: reviewSubcommands } : {}),
     }] : []),
-    ...(slashCommands ?? []),
-  ], [composerHoldsOnlyCommand, isStreaming, reviewEnabled, reviewGate?.reason, reviewSubcommands, slashCommands, t]);
+    ...(onOpenGoal && !isStreaming ? [{ name: "goal", description: t("composer.goalSlashCommand.setDescription"), icon: "prompt", source: "builtin" as const }] : []),
+    ...(slashCommands ?? []).filter((command) => !(onOpenGoal && command.name === "goal")),
+  ], [composerHoldsOnlyCommand, isStreaming, onOpenGoal, reviewEnabled, reviewGate?.reason, reviewSubcommands, slashCommands, t]);
   const slashContext = useMemo(
     () => extractSlashQuery(value, availableSlashCommands),
     [availableSlashCommands, value],
   );
   const slashQuery = slashContext?.query ?? null;
+  const modelCommand = buildModelCommandSections(modelOptions, recentConfigurations, slashQuery ?? "", t);
+  const allModelCommands = buildModelCommandSections(modelOptions, recentConfigurations, "", t);
+  const reasoningCommand = buildReasoningCommandSections(
+    availableThinkingLevels ?? selector.steps.map((step) => step.thinkingLevel), slashQuery ?? "", t,
+  );
+  const allReasoningCommands = buildReasoningCommandSections(
+    availableThinkingLevels ?? selector.steps.map((step) => step.thinkingLevel), "", t,
+  );
   const slashSections = useMemo(() => {
     if (!slashContext) return [];
     if (slashContext.parentCommand) {
+      if (slashContext.parentCommand.name === "model") return modelCommand.sections;
+      if (slashContext.parentCommand.name === "reasoning") return reasoningCommand.sections;
       return buildSlashSubcommandSections(slashContext.parentCommand, slashContext.query);
     }
     return buildSlashSections({
@@ -1137,13 +1497,13 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       skills: composerSkills,
       disabledCommands: reviewEnabled ? undefined : REVIEW_DISABLED_COMMANDS,
     });
-  }, [availableSlashCommands, composerSkills, reviewEnabled, slashContext]);
+  }, [availableSlashCommands, composerSkills, modelCommand.sections, reasoningCommand.sections, reviewEnabled, slashContext]);
   const displayedSlashCommands = useMemo(
     () => flattenSuggestionSections(slashSections),
     [slashSections],
   );
   const hasInputText = Boolean(value.trim());
-  const canQueueStreamingMessage = hasInputText || attachedImages.length > 0;
+  const canQueueStreamingMessage = hasInputText || attachedImages.length > 0 || localAttachments.length > 0;
 
   // ── @ file autocomplete ──────────────────────────────────────────────────
   // Recomputed from the text before the caret on every change/caret move.
@@ -1301,8 +1661,43 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     });
   }, []);
 
+  const selectSelectorCommand = useCallback((suggestion: ComposerSuggestion, fromSlash: boolean): boolean => {
+    const modelChoice = modelCommand.choices.get(suggestion.id) ?? allModelCommands.choices.get(suggestion.id);
+    if (modelChoice) {
+      if (fromSlash) clearInput();
+      setSlashMenuOpen(false);
+      const sameModel = model?.provider === modelChoice.model.provider && model.modelId === modelChoice.model.modelId;
+      const setEffort = () => {
+        if (modelChoice.thinkingLevel && modelChoice.thinkingLevel !== thinkingLevel) {
+          void onThinkingLevelChange?.(modelChoice.thinkingLevel);
+        }
+      };
+      if (sameModel) setEffort();
+      else if (onModelChange) {
+        void Promise.resolve(onModelChange(modelChoice.model.provider, modelChoice.model.modelId))
+          .then((success) => { if (success !== false) setEffort(); });
+      }
+      return true;
+    }
+    const reasoningChoice = reasoningCommand.choices.get(suggestion.id) ?? allReasoningCommands.choices.get(suggestion.id);
+    if (reasoningChoice) {
+      if (fromSlash) clearInput();
+      setSlashMenuOpen(false);
+      if (reasoningChoice !== thinkingLevel) void onThinkingLevelChange?.(reasoningChoice);
+      return true;
+    }
+    return false;
+  }, [allModelCommands.choices, allReasoningCommands.choices, clearInput, model, modelCommand.choices, onModelChange, onThinkingLevelChange, reasoningCommand.choices, thinkingLevel]);
+
   const applySlashCommand = useCallback((suggestion: ComposerSuggestion) => {
     if (suggestion.disabled) return;
+    if (suggestion.raw === "/goal" && onOpenGoal) {
+      onOpenGoal("", attachedImages);
+      clearInput();
+      setSlashMenuOpen(false);
+      return;
+    }
+    if (selectSelectorCommand(suggestion, true)) return;
     const editor = textareaRef.current;
     if (!editor) return;
     editor.replaceRangeWithMention(0, editor.selectionStart, {
@@ -1311,20 +1706,26 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     }, true);
     setSlashMenuOpen(false);
     setSlashActiveIndex(0);
-  }, []);
+  }, [attachedImages, clearInput, onOpenGoal, selectSelectorCommand]);
 
   const sendQueued = useCallback((mode: "steer" | "followUp") => {
+    if (browserUploadsPendingRef.current > 0) {
+      setAttachmentPickerError(t("composer.browserUploading"));
+      return;
+    }
     dispatchStreamingSubmission({
       value,
       images: attachedImages,
+      attachments: localAttachments,
       mode,
       onPromptWithStreamingBehavior,
       onSteer,
       onFollowUp,
       onAudioUnlock,
       clearInput,
+      onAttachmentBlocked: setAttachmentPickerError,
     });
-  }, [value, attachedImages, onPromptWithStreamingBehavior, onSteer, onFollowUp, clearInput, onAudioUnlock]);
+  }, [value, attachedImages, localAttachments, onPromptWithStreamingBehavior, onSteer, onFollowUp, clearInput, onAudioUnlock, t]);
 
   const getNextSlashIndex = useCallback((direction: "up" | "down") => {
     const lastIndex = displayedSlashCommands.length - 1;
@@ -1438,6 +1839,59 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         return;
       }
 
+      const defaultCommand = matchDefaultComposerCommand({
+        key: e.key,
+        metaKey: e.metaKey,
+        ctrlKey: e.ctrlKey,
+        shiftKey: e.shiftKey,
+        altKey: e.altKey,
+        isComposing,
+      });
+      if (defaultCommand === "composer.addFiles") {
+        e.preventDefault();
+        browserFileInputRef.current?.click();
+        requestAnimationFrame(() => textareaRef.current?.focus());
+        return;
+      }
+      if (defaultCommand === "composer.openModelPicker") {
+        e.preventDefault();
+        const rect = modelTriggerRef.current?.getBoundingClientRect();
+        if (rect) setModelDropdownRect({ top: rect.top, left: rect.left, width: rect.width });
+        dispatchModelMenu({ type: "toggle" });
+        dispatchModelMenu({ type: "submenu", value: "effort" });
+        return;
+      }
+      if (defaultCommand === "composer.startDictation") {
+        e.preventDefault();
+        if (!onEnsureSession) return;
+        void onEnsureSession().then((sessionId) => {
+          if (!sessionId) return;
+          return fetch(`/api/sessions/${encodeURIComponent(sessionId)}/speech`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "start" }),
+          }).then((response) => {
+            if (!response.ok) throw new Error(`Speech request failed: ${response.status}`);
+          }).catch(() => setAttachmentPickerError(t("chat.dictationUnavailable")));
+        });
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.altKey && !e.shiftKey && e.key.toLowerCase() === "backspace") {
+        e.preventDefault();
+        clearInput();
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.altKey && ["ArrowUp", "ArrowDown", "ArrowRight"].includes(e.key) && onThinkingLevelChange) {
+        e.preventDefault();
+        const levels = ["auto", ...THINKING_STEP_ORDER] as const;
+        const direction = e.key === "ArrowUp" ? "increase" : e.key === "ArrowDown" ? "decrease" : "cycle";
+        const next = nextThinkingLevel(thinkingLevel ?? "auto", direction, levels);
+        if (next) onThinkingLevelChange(next as "auto" | typeof THINKING_STEP_ORDER[number]);
+        return;
+      }
+
       if (e.key === "ArrowUp" && !isComposing && !isStreaming && inputHistory.length > 0 && value.trim().length === 0) {
         e.preventDefault();
         setSlashMenuOpen(false);
@@ -1480,7 +1934,16 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         return;
       }
 
-      if (e.key === "Enter" && !e.shiftKey) {
+      if (shouldSendWithEnterBehavior({
+        key: e.key,
+        shiftKey: e.shiftKey,
+        metaKey: e.metaKey,
+        ctrlKey: e.ctrlKey,
+        behavior: readComposerEnterBehavior(localStorage.getItem(COMPOSER_ENTER_BEHAVIOR_STORAGE_KEY)),
+        isComposing,
+        recentlyComposed,
+        isMultiline: value.includes("\n"),
+      })) {
         e.preventDefault();
         if (editingQueuedMessage) {
           void completeQueuedMessageEdit();
@@ -1491,7 +1954,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         }
       }
     },
-    [isStreaming, onSteer, onFollowUp, onAbort, onCycleThinkingLevel, slashMenuOpen, slashQuery, displayedSlashCommands, slashActiveIndex, applySlashCommand, sendQueued, requestIdleSubmission, getNextSlashIndex, atMenuOpen, atQuery, displayedAtSuggestions, atActiveIndex, applyAtCompletion, historyMenuOpen, inputHistory, historyActiveIndex, applyHistoryInput, value, lastQueueUndoToken, undoDeletedQueuedMessage, editingQueuedMessage, cancelQueuedMessageEdit, completeQueuedMessageEdit, queueingEnabled]
+    [isStreaming, onSteer, onFollowUp, onAbort, onCycleThinkingLevel, onThinkingLevelChange, thinkingLevel, clearInput, slashMenuOpen, slashQuery, displayedSlashCommands, slashActiveIndex, applySlashCommand, sendQueued, requestIdleSubmission, getNextSlashIndex, atMenuOpen, atQuery, displayedAtSuggestions, atActiveIndex, applyAtCompletion, historyMenuOpen, inputHistory, historyActiveIndex, applyHistoryInput, value, lastQueueUndoToken, undoDeletedQueuedMessage, editingQueuedMessage, cancelQueuedMessageEdit, completeQueuedMessageEdit, queueingEnabled]
   );
 
   const handlePasteImages = useCallback((files: File[]) => {
@@ -1499,6 +1962,42 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     processImageFiles(files);
     return true;
   }, [processImageFiles]);
+
+  const handlePasteText = useCallback((text: string) => {
+    if (text.length <= PASTED_TEXT_THRESHOLD) return false;
+    const [pending] = addPastedTextAttachment(localAttachmentsRef.current, text);
+    const withPending = [...localAttachmentsRef.current, pending];
+    localAttachmentsRef.current = withPending;
+    setLocalAttachments(withPending);
+    browserUploadsPendingRef.current += 1;
+    setBrowserUploadsPending(browserUploadsPendingRef.current);
+    void (async () => {
+      try {
+        const sessionId = await onEnsureSession?.();
+        if (!sessionId) throw new Error(t("composer.browserUploadNoSession"));
+        const file = new File([text], "Pasted text.txt", { type: "text/plain" });
+        const upload = await uploadBrowserFile(sessionId, file);
+        const next = replacePastedTextAttachment(
+          localAttachmentsRef.current,
+          pending.id,
+          { ...upload, sessionId },
+        );
+        localAttachmentsRef.current = next;
+        setLocalAttachments(next);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : t("composer.browserUploadFailed");
+        const next = localAttachmentsRef.current.map((attachment) => attachment.id === pending.id
+          ? { ...attachment, readError: message }
+          : attachment);
+        localAttachmentsRef.current = next;
+        setLocalAttachments(next);
+      } finally {
+        browserUploadsPendingRef.current -= 1;
+        setBrowserUploadsPending(browserUploadsPendingRef.current);
+      }
+    })();
+    return true;
+  }, [onEnsureSession, t]);
 
   useEffect(() => {
     if (slashQuery === null) {
@@ -1566,57 +2065,29 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     }
   }, [displayedSlashCommands.length, slashActiveIndex]);
 
-  // Build model options: prefer modelList (has provider info), fallback to modelNames
-  const modelOptions: ModelOption[] = (() => {
-    if (modelList && modelList.length > 0) {
-      return modelList.map((m) => ({ provider: m.provider, modelId: m.id, name: m.name })).sort(compareModelOptions);
-    }
-    return Object.entries(modelNames ?? {}).map(([modelId, name]) => ({
-      provider: model?.provider ?? "unknown",
-      modelId,
-      name,
-    })).sort(compareModelOptions);
-  })();
-  const filteredModelOptions = filterModelOptions(modelOptions, modelFilter);
-  const showModelFilter = modelOptions.length > MODEL_FILTER_THRESHOLD;
-
   useEffect(() => {
-    if (modelDropdownOpen && modelSubmenu === "model" && showModelFilter) modelFilterRef.current?.focus();
+    if (!modelDropdownOpen || modelSubmenu !== "model" || !showModelFilter) return;
+    const timer = globalThis.setTimeout(() => modelFilterRef.current?.focus(), 0);
+    return () => globalThis.clearTimeout(timer);
   }, [modelDropdownOpen, modelSubmenu, showModelFilter]);
-
-  // Group options by provider, preserving insertion order
-  const modelsByProvider: { provider: string; options: ModelOption[] }[] = [];
-  for (const opt of filteredModelOptions) {
-    const group = modelsByProvider.find((g) => g.provider === opt.provider);
-    if (group) group.options.push(opt);
-    else modelsByProvider.push({ provider: opt.provider, options: [opt] });
-  }
-
-  // omp's roles, in omp's own order, minus the ones it hides from its selector
-  // and the ones with nothing configured to switch to.
-  const roleRows = (modelRoles ?? []).filter((role) => !role.hidden && role.resolved);
-  const activeRole = model
-    ? roleRows.find((role) => role.resolved?.provider === model.provider && role.resolved?.modelId === model.modelId)
-    : undefined;
 
   const displayModelName = model
     ? (modelOptions.find((o) => o.modelId === model.modelId && o.provider === model.provider)?.name ?? model.modelId)
     : null;
   const currentName = displayModelName;
-  const effortLevels = availableThinkingLevels
-    ? THINKING_LEVELS.filter((level) => availableThinkingLevels.includes(level))
-    : [];
-  const currentEffortLabel = t(THINKING_LEVEL_LABEL_KEYS[thinkingLevel ?? "auto"]);
+  const currentEffortLabel = selector.currentStep?.effortLabel ?? t(thinkingLevelLabelKey(thinkingLevel ?? "auto"));
+  const modelChipHasPrefix = Boolean(currentName || (modelError && modelOptions.length === 0));
+  const currentEffortIsTopStep = selector.currentStep
+    ? selector.steps.at(-1)?.id === selector.currentStep.id
+    : selector.steps.length === 0 && thinkingLevel === "max";
   const currentSpeedLabel = fastModeEnabled ? t("chat.speedFast") : t("chat.speedStandard");
   const modelMenuRows: Array<{
-    id: "model" | "effort" | "speed";
+    id: "speed";
     label: string;
     value: string | null;
     disabled: boolean;
     triggerRef: React.RefObject<HTMLButtonElement | null>;
   }> = [
-    { id: "model", label: t("chat.model"), value: currentName, disabled: !onModelChange, triggerRef: modelRowRef },
-    { id: "effort", label: t("chat.effort"), value: currentEffortLabel, disabled: !onThinkingLevelChange, triggerRef: effortRowRef },
     ...(fastModeAvailable
       ? [{ id: "speed" as const, label: t("chat.speed"), value: currentSpeedLabel, disabled: !onFastModeChange, triggerRef: speedRowRef }]
       : []),
@@ -1636,9 +2107,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
         modelDropdownPanelRef.current && !modelDropdownPanelRef.current.contains(e.target as Node)
       ) {
-        setModelDropdownOpen(false);
-        setModelSubmenu(null);
-        setModelFilter("");
+        dispatchModelMenu({ type: "close" });
       }
       if (sessionMenuRef.current && !sessionMenuRef.current.contains(e.target as Node)) {
         setSessionMenuOpen(false);
@@ -1778,12 +2247,22 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     files: fileIndex && fileIndex.cwd === cwd ? fileIndex.entries : [],
     subagents,
   }), [availableSlashCommands, composerSkills, cwd, fileIndex, mentionablePlugins, subagents]);
+  const hasStreamingSubmissionHandler = Boolean(onSteer || onFollowUp || onPromptWithStreamingBehavior);
+  const placeholder = selectComposerPlaceholder({
+    working: () => isStreaming && !hasStreamingSubmissionHandler
+      ? t("chat.agentPlaceholder")
+      : undefined,
+    callerOverride: () => isStreaming && hasStreamingSubmissionHandler
+      ? t("chat.steerPlaceholder")
+      : undefined,
+    fallback: () => t("chat.messagePlaceholder"),
+  });
   const editor = (
     <ComposerEditor
       ref={textareaRef}
       value={value}
       mentions={recognizedMentions}
-      placeholder={t("chat.messagePlaceholder")}
+      placeholder={placeholder}
       ariaLabel="Message"
       onChange={(nextValue) => {
       valueRef.current = nextValue;
@@ -1805,9 +2284,70 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         updateAtQuery(nextValue, cursor);
       }}
       onPasteImages={handlePasteImages}
+      onPasteText={handlePasteText}
+      plainTextMode={composerDisplayPreferences.plainTextMode}
       onHeightChange={(scrollHeight) => setTextareaHeight(getComposerTextareaHeight(scrollHeight))}
     />
   );
+  const localAttachmentRows = localAttachments.length > 0 || browserUploadsPending > 0 ? (
+    <div className={styles.localAttachmentList} role="list" aria-label={t("composer.localAttachments")}>
+      {browserUploadsPending > 0 && (
+        <div className={styles.localAttachmentRow} role="status" data-state="uploading">
+          {t("composer.browserUploading")}
+        </div>
+      )}
+      {localAttachments.map((attachment) => (
+        <div key={attachment.id} className={styles.localAttachmentRow} role="listitem" data-state={attachment.readError ? "error" : "ready"}>
+          <span className={styles.localAttachmentKind} aria-hidden="true">{attachment.kind === "folder" ? "▣" : "▤"}</span>
+          <span className={styles.localAttachmentDetails}>
+            <span className={styles.localAttachmentName}>{attachment.pastedText ? t("composer.pastedTextAttachmentTitle") : attachment.name}</span>
+            <span className={styles.localAttachmentMeta}>
+              {t(attachment.upload ? "composer.browserFile" : attachment.kind === "folder" ? "composer.localFolder" : "composer.localFile")}
+              {attachment.pathSummary && <><span aria-hidden="true"> · </span>{attachment.pathSummary}</>}
+              <span aria-hidden="true"> · </span>
+              <span role={attachment.readError ? "alert" : undefined}>
+                {attachment.pastedText && !attachment.upload && !attachment.readError
+                  ? t("composer.pastedTextAttachmentAdding")
+                  : attachment.readError === "inaccessible"
+                  ? t("composer.localAttachmentInaccessible")
+                  : attachment.readError ?? t("composer.localAttachmentReady")}
+              </span>
+            </span>
+          </span>
+          {attachment.pastedText && <button type="button" className={styles.localAttachmentRestore} onClick={() => {
+            const text = pastedTextFromAttachment(attachment);
+            if (text === null) return;
+            textareaRef.current?.insertText(text);
+            const next = removeComposerAttachment(localAttachmentsRef.current, attachment.id);
+            localAttachmentsRef.current = next;
+            setLocalAttachments(next);
+            if (!draftKeyRef.current && attachment.upload) {
+              void deleteBrowserUpload(attachment.upload.sessionId, attachment.upload.id).catch(() => {});
+            }
+          }}>{t("composer.pastedTextAttachmentShowInTextField")}</button>}
+          <button
+            type="button"
+            className={styles.localAttachmentRemove}
+            aria-label={attachment.pastedText
+              ? t("composer.pastedTextAttachmentRemoveAriaLabel")
+              : t("composer.removeLocalAttachment", { name: attachment.name })}
+            onClick={() => {
+              const previous = localAttachmentsRef.current.find(item => item.id === attachment.id);
+              const next = removeComposerAttachment(localAttachmentsRef.current, attachment.id);
+              localAttachmentsRef.current = next;
+              setLocalAttachments(next);
+              setAttachmentPickerError(null);
+              if (!draftKeyRef.current && previous?.upload) {
+                void deleteBrowserUpload(previous.upload.sessionId, previous.upload.id).catch(() => {});
+              }
+            }}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+      ))}
+    </div>
+  ) : null;
   const primaryActions = null;
   const statusLine = bashMode ? (
           <div className={styles.bashStatus} data-excluded={bashExcluded ? "true" : "false"}>
@@ -1839,9 +2379,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     />
   ) : null;
   const closeModelMenu = useCallback(() => {
-    setModelDropdownOpen(false);
-    setModelSubmenu(null);
-    setModelFilter("");
+    dispatchModelMenu({ type: "close" });
     requestAnimationFrame(() => modelTriggerRef.current?.focus());
   }, []);
   // Codex order: the model pill sits in the right cluster, after the Context donut and before Send.
@@ -1856,13 +2394,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                     onClick={(e) => {
                       const rect = e.currentTarget.getBoundingClientRect();
                       setModelDropdownRect({ top: rect.top, left: rect.left, width: rect.width });
-                      setModelDropdownOpen((open) => {
-                        if (open) {
-                          setModelSubmenu(null);
-                          setModelFilter("");
-                        }
-                        return !open;
-                      });
+                      dispatchModelMenu({ type: "toggle" });
                     }}
                     disabled={isStreaming || modelSwitching}
                     aria-label={t("chat.modelSettings")}
@@ -1880,10 +2412,15 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                         <path d="M21 12a9 9 0 1 1-2.64-6.36" />
                       </svg>
                     ) : <ModelBoltIcon />}
-                    <span className={`${styles.ellipsis} ${styles.modelName}`}>
-                      {currentName ?? (modelOptions.length > 0 ? "Select model" : "No models")}
-                    </span>
-                    <span className={styles.reasoningLevel}>{currentEffortLabel}</span>
+                    {currentName && selector.currentRouteLabel && <span className={styles.modelRoute}>{selector.currentRouteLabel}</span>}
+                    {modelChipHasPrefix && <span className={`${styles.ellipsis} ${styles.modelName}`}>
+                      {currentName ?? "No models"}
+                    </span>}
+                    <AnimatedEffortLabel
+                      label={currentEffortLabel}
+                      topStep={currentEffortIsTopStep}
+                      hasModelPrefix={modelChipHasPrefix}
+                    />
                     <svg className={styles.modelChevron} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="m5 6.5 3 3 3-3" />
                     </svg>
@@ -1891,7 +2428,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                   {modelDropdownOpen && modelDropdownRect && (() => {
                     const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
                     const bottom = viewportHeight - modelDropdownRect.top + 6;
-                    const maxHeight = Math.max(120, Math.min(modelDropdownRect.top - 8, viewportHeight * 0.6));
+                    const availableHeight = modelDropdownRect.top - 8;
+                    const maxHeight = modelSubmenu === "model"
+                      ? Math.max(12, availableHeight)
+                      : Math.max(120, Math.min(availableHeight, viewportHeight * 0.6));
                     return (
                       <ComposerFloatingGeometry
                         left={modelDropdownRect.left}
@@ -1899,7 +2439,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                         maxHeight={maxHeight}
                         isMobile={isMobile}
                       >
-                      <div ref={modelDropdownPanelRef} className={styles.modelMenuStack} data-mobile={isMobile ? "true" : "false"}>
+                      <div
+                        ref={modelDropdownPanelRef}
+                        className={styles.modelMenuStack}
+                        data-mobile={isMobile ? "true" : "false"}
+                        data-stage={modelStage ?? undefined}
+                      >
                         <Menu
                           open
                           label={t("chat.modelSettings")}
@@ -1908,6 +2453,25 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                           surface="plain"
                           className={styles.modelMenu}
                         >
+                          <ModelPowerSlider
+                            steps={selector.steps}
+                            currentStepId={selector.currentStep?.id}
+                            effortLabel={currentEffortLabel}
+                            modelName={currentName}
+                            effortStage={modelSubmenu === "effort"}
+                            modelTriggerRef={modelRowRef}
+                            modelMenuOpen={modelSubmenu === "model"}
+                            canSelectModel={Boolean(onModelChange)}
+                            canChangeEffort={Boolean(onThinkingLevelChange)}
+                            onOpenModels={() => dispatchModelMenu({ type: "submenu", value: "model" })}
+                            onSelectEffort={(level) => onThinkingLevelChange?.(level)}
+                            explicitModelOverride={explicitModelOverride}
+                            onResetToDefault={() => {
+                              if (onRoleModelChange) onRoleModelChange("default");
+                              else if (selector.defaultRow && onModelChange) onModelChange(selector.defaultRow.model.provider, selector.defaultRow.model.modelId);
+                            }}
+                            stageTransition={modelStageTransition}
+                          />
                           {modelMenuRows.map((row) => {
                             return (
                               <MenuItem
@@ -1917,8 +2481,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                                 aria-haspopup="menu"
                                 aria-expanded={modelSubmenu === row.id}
                                 disabled={row.disabled}
-                                onMouseEnter={() => setModelSubmenu(row.id)}
-                                onClick={() => setModelSubmenu(row.id)}
+                                onMouseEnter={() => dispatchModelMenu({ type: "submenu", value: row.id })}
+                                onClick={() => dispatchModelMenu({ type: "submenu", value: row.id })}
                                 className={styles.modelMenuRow}
                                 surface="plain"
                               >
@@ -1930,94 +2494,52 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                               </MenuItem>
                             );
                           })}
-                          <div className={styles.modelMenuDivider} />
-                          <MenuItem
-                            ref={advancedRowRef}
-                            data-model-menu-row="advanced"
-                            aria-haspopup="menu"
-                            aria-expanded={modelSubmenu === "advanced"}
-                            disabled={!onToolPresetChange && !onThinkingLevelChange}
-                            onMouseEnter={() => setModelSubmenu("advanced")}
-                            onClick={() => setModelSubmenu("advanced")}
-                            className={styles.modelMenuRow}
-                            surface="plain"
-                          >
-                            <span>{t("chat.advanced")}</span>
-                            <svg className={styles.advancedChevron} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                              <path d="m5 9.5 3-3 3 3" />
-                            </svg>
-                          </MenuItem>
+                          <div className={styles.modelMenuFooter}>
+                            <MenuItem
+                              ref={advancedRowRef}
+                              data-model-menu-row="advanced"
+                              aria-haspopup="menu"
+                              aria-expanded={modelSubmenu === "advanced"}
+                              disabled={!onToolPresetChange && !onThinkingLevelChange}
+                              onMouseEnter={() => dispatchModelMenu({ type: "submenu", value: "advanced" })}
+                              onClick={() => dispatchModelMenu({ type: "submenu", value: "advanced" })}
+                              className={styles.modelMenuRow}
+                              surface="plain"
+                            >
+                              <span>{t("chat.advanced")}</span>
+                              <svg className={styles.advancedChevron} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="m5 9.5 3-3 3 3" />
+                              </svg>
+                            </MenuItem>
+                          </div>
                         </Menu>
 
-                        {modelSubmenu === "model" && (
-                          <Menu open label={t("chat.model")} onClose={() => setModelSubmenu(null)} triggerRef={modelRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuModel}`} data-model-submenu="model">
-                            {showModelFilter && (
-                              <div className={styles.modelFilterWrap}>
-                                <input ref={modelFilterRef} value={modelFilter} onChange={(e) => setModelFilter(e.target.value)} placeholder={t("chat.filterModels")} aria-label={t("chat.filterModels")} autoFocus autoComplete="off" spellCheck={false} className={styles.modelFilter} data-mobile={isMobile ? "true" : "false"} />
-                              </div>
-                            )}
-                            <div className={styles.modelMenuScroller}>
-                              {roleRows.length > 0 && !modelFilter.trim() && onRoleModelChange && (
-                                <div>
-                                  <div className={styles.modelGroupLabel}>{t("chat.modelRoles")}</div>
-                                  {roleRows.map((role) => {
-                                    const isActive = activeRole?.role === role.role;
-                                    const resolvedName = role.resolved?.name ?? role.resolved?.modelId ?? "";
-                                    return (
-                                      <MenuItem key={role.role} onClick={() => { closeModelMenu(); onRoleModelChange(role.role); }} title={role.selector ?? resolvedName} className={styles.selectableControl} data-selected={isActive ? "true" : "false"} data-active={isActive ? "true" : "false"} role="menuitemradio" checked={isActive} surface="plain">
-                                        {isActive ? <ModelSelectionMark /> : <span className={styles.selectionSpacer} />}
-                                        <span className={styles.roleTag} data-active={isActive ? "true" : "false"}>{role.tag ?? role.role.toUpperCase()}</span>
-                                        <span className={styles.roleName}>{role.name}</span>
-                                        <span className={styles.roleResolved}>{resolvedName}{role.resolved?.thinkingLevel ? ` · ${role.resolved.thinkingLevel}` : ""}</span>
-                                      </MenuItem>
-                                    );
-                                  })}
-                                  <div className={`${styles.modelGroupLabel} ${styles.modelGroupDivider}`}>{t("chat.allModels")}</div>
-                                </div>
-                              )}
-                              {modelsByProvider.length === 0 ? (
-                                <div className={styles.noModels}>{modelFilter.trim() ? t("chat.noMatchingModels") : t("chat.noAvailableModels")}</div>
-                              ) : modelsByProvider.map((group, groupIndex) => (
-                                <div key={group.provider}>
-                                  {modelsByProvider.length > 1 && <div className={styles.modelGroupLabel} data-divided={groupIndex > 0 ? "true" : "false"}>{group.provider}</div>}
-                                  {group.options.map((option) => {
-                                    const isActive = option.modelId === model?.modelId && option.provider === model?.provider;
-                                    return (
-                                      <MenuItem key={`${option.provider}:${option.modelId}`} onClick={() => { closeModelMenu(); if (!isActive || isAutoModelSelection) onModelChange(option.provider, option.modelId); }} className={styles.selectableControl} data-selected={isActive ? "true" : "false"} role="menuitemradio" checked={isActive} surface="plain">
-                                        {isActive ? <ModelSelectionMark /> : <span className={styles.selectionSpacer} />}
-                                        {option.name}
-                                      </MenuItem>
-                                    );
-                                  })}
-                                </div>
-                              ))}
-                            </div>
-                          </Menu>
-                        )}
-
-                        {modelSubmenu === "effort" && onThinkingLevelChange && (
-                          <Menu open label={t("chat.effort")} onClose={() => setModelSubmenu(null)} triggerRef={effortRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuEffort}`} data-model-submenu="effort">
-                            <div className={styles.modelSubmenuTitle}>{t("chat.effort")}</div>
-                            <div data-menu-section="reasoning">
-                              {effortLevels.length === 0 ? (
-                                <div className={styles.modelSubmenuEmpty}>{t("chat.noEffortLevels")}</div>
-                              ) : effortLevels.map((level) => {
-                                const isActive = (thinkingLevel ?? "auto") === level;
-                                const mappedValue = level !== "auto" && thinkingLevelMap ? thinkingLevelMap[level] : undefined;
-                                return (
-                                  <MenuItem key={level} title={mappedValue && mappedValue !== level ? `${level} → ${mappedValue}` : undefined} onClick={() => { closeModelMenu(); if (!isActive) onThinkingLevelChange(level); }} className={styles.submenuChoice} data-selected={isActive ? "true" : "false"} role="menuitemradio" checked={isActive} surface="plain">
-                                    <span>{t(THINKING_LEVEL_LABEL_KEYS[level])}</span>
-                                    {level === "max" && <span className={styles.ultraWarning}>{t("chat.ultraUsageWarning")}</span>}
-                                    {isActive && <SubmenuSelectionCheck />}
-                                  </MenuItem>
-                                );
-                              })}
-                            </div>
+                        {modelStage === "model" && modelSubmenu !== null && (
+                          <Menu open label={t("chat.model")} onClose={() => dispatchModelMenu({ type: "submenu", value: null })} triggerRef={modelRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuModel}`} data-model-submenu="model">
+                            <ModelList
+                              selector={selector}
+                              filter={modelFilter}
+                              showFilter={showModelFilter}
+                              filterRef={modelFilterRef}
+                              isMobile={isMobile}
+                              isAutoModelSelection={isAutoModelSelection}
+                              onFilterChange={(value) => dispatchModelMenu({ type: "filter", value })}
+                              onDefault={defaultRow ? () => {
+                                dispatchModelMenu({ type: "submenu", value: "effort" });
+                                if (onRoleModelChange) onRoleModelChange("default");
+                                else onModelChange(defaultRow.model.provider, defaultRow.model.modelId);
+                              } : undefined}
+                              onModel={(provider, modelId, selected) => {
+                                dispatchModelMenu({ type: "submenu", value: "effort" });
+                                if (!selected) onModelChange(provider, modelId);
+                              }}
+                              stageTransition={modelStageTransition}
+                            />
                           </Menu>
                         )}
 
                         {modelSubmenu === "speed" && onFastModeChange && (
-                          <Menu open label={t("chat.speed")} onClose={() => setModelSubmenu(null)} triggerRef={speedRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuSpeed}`} data-model-submenu="speed">
+                          <Menu open label={t("chat.speed")} onClose={() => dispatchModelMenu({ type: "submenu", value: null })} triggerRef={speedRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuSpeed}`} data-model-submenu="speed">
                             <div className={styles.modelSubmenuTitle}>{t("chat.speed")}</div>
                             {[false, true].map((enabled) => {
                               const isActive = fastModeEnabled === enabled;
@@ -2033,7 +2555,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                         )}
 
                         {modelSubmenu === "advanced" && (onToolPresetChange || onThinkingLevelChange) && (
-                          <Menu open label={t("chat.advanced")} onClose={() => setModelSubmenu(null)} triggerRef={advancedRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuAdvanced}`} data-model-submenu="advanced">
+                          <Menu open label={t("chat.advanced")} onClose={() => dispatchModelMenu({ type: "submenu", value: null })} triggerRef={advancedRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuAdvanced}`} data-model-submenu="advanced">
                             <div className={styles.modelSubmenuTitle}>{t("chat.advanced")}</div>
                             {onThinkingLevelChange && (
                               <div data-menu-section="effort-modes">
@@ -2042,7 +2564,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                                   const isActive = (thinkingLevel ?? "auto") === level;
                                   return (
                                     <MenuItem key={level} onClick={() => { closeModelMenu(); if (!isActive) onThinkingLevelChange(level); }} className={styles.submenuChoice} data-selected={isActive ? "true" : "false"} role="menuitemradio" checked={isActive} surface="plain">
-                                      <span>{t(THINKING_LEVEL_LABEL_KEYS[level])}</span>
+                                      <span>{t(thinkingLevelLabelKey(level))}</span>
                                       {isActive && <SubmenuSelectionCheck />}
                                     </MenuItem>
                                   );
@@ -2077,15 +2599,27 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   );
   const toolbarStart = (
     <>
-            {attachmentPickerError && <span role="alert">{attachmentPickerError}</span>}
+            {footerMode === "home" && cwd && onSelectProject && <ComposerProjectControl
+              ref={projectControlRef}
+              selectedPath={cwd}
+              onSelect={(path) => {
+                if (hasUnsentComposerInput(value, attachedImages.length, localAttachments.length)) setPendingProjectPath(path);
+                else onSelectProject(path);
+              }}
+            />}
+            {cwd && onSelectWorktree && <ComposerWorktreeControl ref={worktreeControlRef} cwd={cwd} onSelect={(path) => {
+              if (hasUnsentComposerInput(value, attachedImages.length, localAttachments.length)) setPendingWorktreePath(path);
+              else onSelectWorktree(path);
+            }} />}
             {commandActionError && <span role="alert">{commandActionError}</span>}
+            {onOpenGoal && <GoalEntryButton onOpen={() => onOpenGoal("")} disabled={isStreaming} />}
             <ComposerAddMenu
               loading={Boolean(slashCommandsLoading || composerResourcesLoading)}
               onOpen={() => {
                 setSlashMenuOpen(false);
                 setAtMenuOpen(false);
                 setHistoryMenuOpen(false);
-                setModelDropdownOpen(false);
+                dispatchModelMenu({ type: "close" });
                 if (onLoadSlashCommands) void Promise.resolve(onLoadSlashCommands()).catch(() => {
                   slashCommandsRequestedRef.current = false;
                 });
@@ -2104,36 +2638,32 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               sections={buildComposerAddSections({ commands: availableSlashCommands, skills: composerSkills, plugins: mentionablePlugins, subagents })}
               onAttachImages={() => fileInputRef.current?.click()}
               childrenFor={item => {
+                if (item.raw === "/model") return allModelCommands.sections;
+                if (item.raw === "/reasoning") return allReasoningCommands.sections;
                 const command = availableSlashCommands.find(command => item.raw === `/${command.name}`);
                 return command?.subcommands?.length ? buildSlashSubcommandSections(command, "") : [];
               }}
               onBrowseFiles={cwd ? () => {
-                const editor = textareaRef.current;
-                if (!editor) return;
-                const picker = getAttachmentPicker();
+                const picker = getSecureAttachmentPicker();
                 if (picker) {
                   setAttachmentPickerError(null);
-                  void picker().then(paths => {
-                    if (textareaRef.current !== editor) return;
-                    for (const path of paths) {
-                      const at = editor.selectionStart;
-                      if (at > 0 && !/\s/.test(editor.value[at - 1])) editor.replaceRange(at, at, " ");
-                      editor.replaceRangeWithMention(editor.selectionStart, editor.selectionEnd, {
-                        kind: "file", label: path.split(/[\\/]/).at(-1) || path,
-                        raw: path.includes(" ") ? `@"${path}"` : `@${path}`, icon: "file",
-                      }, true);
+                  void picker().then(selections => {
+                    if (localAttachmentsRef.current.length + selections.length > 32) {
+                      setAttachmentPickerError(t("composer.localAttachmentLimit", { count: 32 }));
+                      return;
                     }
-                    requestAnimationFrame(() => editor.focus());
+                    const next = addComposerAttachments(localAttachmentsRef.current, selections);
+                    localAttachmentsRef.current = next;
+                    setLocalAttachments(next);
+                    requestAnimationFrame(() => textareaRef.current?.focus());
                   }).catch(() => setAttachmentPickerError(t("composer.attachmentPickerError")));
                   return;
                 }
-                const start = editor.selectionStart;
-                const prefix = start > 0 && !/\s/.test(editor.value[start - 1]) ? " @" : "@";
-                editor.replaceRange(start, editor.selectionEnd, prefix);
-                requestAnimationFrame(() => editor.focus());
-                updateAtQuery(editor.value, start + prefix.length);
+                browserFileInputRef.current?.click();
+                requestAnimationFrame(() => textareaRef.current?.focus());
               } : undefined}
               onSelect={(item) => {
+                if (selectSelectorCommand(item, false)) return;
                 const editor = textareaRef.current;
                 if (!editor) return;
                 if (item.kind === "command" && ["/compact", "/copy", "/reload", "/session"].includes(item.raw) && onBuiltinCommand) {
@@ -2152,6 +2682,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                     }
                   }).catch(cause => setCommandActionError(cause instanceof Error ? cause.message : String(cause)))
                     .finally(() => setCommandActionPending(false));
+                  return;
+                }
+                if (item.kind === "command" && item.raw === "/goal" && onOpenGoal) {
+                  onOpenGoal("", attachedImages);
                   return;
                 }
                 if (item.kind === "command") {
@@ -2257,7 +2791,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         <Tooltip content={t("chat.send")}>
             <button
             type="submit"
-            disabled={builtinCommandPending || (!value.trim() && !attachedImages.length)}
+            disabled={builtinCommandPending || (!value.trim() && !attachedImages.length && !localAttachments.length)}
             aria-label={t("chat.send")}
             className={styles.sendAction}
           >
@@ -2271,6 +2805,33 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
 
   return (
     <>
+      <input
+        ref={browserFileInputRef}
+        type="file"
+        multiple
+        hidden
+        onChange={(event) => {
+          void processBrowserFiles(Array.from(event.target.files ?? []));
+          event.target.value = "";
+        }}
+      />
+      <Dialog
+        open={pendingProjectPath !== null || pendingWorktreePath !== null}
+        title={t(pendingWorktreePath !== null ? "composer.worktree.confirmTitle" : "composer.project.confirmTitle")}
+        size="sm"
+        onOpenChange={(open) => { if (!open) { setPendingProjectPath(null); setPendingWorktreePath(null); } }}
+      >
+        <p>{t(pendingWorktreePath !== null ? "composer.worktree.confirmBody" : "composer.project.confirmBody")}</p>
+        <div className={cssModule.projectConfirmActions}>
+          <Button type="button" size="sm" tone="ghost" onClick={() => { setPendingProjectPath(null); setPendingWorktreePath(null); }}>{t("trust.cancel")}</Button>
+          <Button type="button" size="sm" tone="primary" onClick={() => {
+            if (pendingWorktreePath) onSelectWorktree?.(pendingWorktreePath);
+            else if (pendingProjectPath) onSelectProject?.(pendingProjectPath);
+            setPendingProjectPath(null);
+            setPendingWorktreePath(null);
+          }}>{t("composer.project.confirmAction")}</Button>
+        </div>
+      </Dialog>
       <ComposerFrame
       requestPending={requestPending}
       onSubmit={(event) => {
@@ -2354,7 +2915,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       } : null}
       successStatus={compactResultText}
       compactError={compactError}
+      attachmentError={attachmentPickerError}
       attachments={attachedImages}
+      localAttachments={localAttachmentRows}
       onRemoveAttachment={removeImage}
       inputOverlay={inputOverlay}
       editor={editor}
@@ -2372,9 +2935,32 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       )}
       toolbarEnd={toolbarEnd}
       dictateLabel={t("chat.dictate")}
+      utilityBarLabel={t("composer.utilityBar")}
+      footerMode={footerMode}
+      dictationControl={<DictationControl state={dictationState} available={dictationAvailable} error={dictationError} labels={{
+        idle: t("chat.dictate"), starting: t("chat.dictationStarting"), recording: t("chat.dictationRecording"),
+        finishing: t("chat.dictationFinishing"), transcribing: t("chat.dictationTranscribing"),
+        transcribingCancel: t("chat.dictationCancel"), failedRetry: t("chat.dictationRetry"),
+        failedView: t("chat.dictationViewRecording"), startError: t("chat.dictationStartError"),
+        transcribeError: t("chat.dictationTranscribeError"), unsupported: t("chat.dictationUnsupported"),
+        permissionDenied: t("chat.dictationPermissionDenied"), openMicrophoneSettings: t("chat.dictationOpenMicrophoneSettings"),
+      }} onAction={dictationAction} onViewRecording={() => void (async () => {
+        const sessionId = await onEnsureSession?.();
+        if (!sessionId) return;
+        const anchor = document.createElement("a");
+        anchor.href = `/api/sessions/${encodeURIComponent(sessionId)}/speech?recording=1`;
+        anchor.target = "_blank";
+        anchor.rel = "noreferrer";
+        anchor.click();
+      })()} onOpenMicrophoneSettings={() => {
+        void (globalThis as { ompDesktop?: { openMicrophoneSettings?: () => Promise<unknown> } }).ompDesktop?.openMicrophoneSettings?.();
+      }} />}
       toolbarEndRef={controlsMenuRef}
       isMobile={isMobile}
-      />
+      plainTextMode={composerDisplayPreferences.plainTextMode}
+      attachmentLayout={composerDisplayPreferences.attachmentLayout}
+      topInsetPx={composerDisplayPreferences.topInsetPx}
+    />
       {pendingAddCommand && <CommandArgumentsDialog
         command={pendingAddCommand.raw} title={pendingAddCommand.mentionLabel ?? pendingAddCommand.label}
         description={pendingAddCommand.detail}
@@ -2409,6 +2995,76 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     </>
   );
 });
+
+function AnimatedEffortLabel({ label, topStep, hasModelPrefix }: { label: string; topStep: boolean; hasModelPrefix: boolean }) {
+  const previousLabel = useRef(label);
+  const [outgoingLabel, setOutgoingLabel] = useState<string | null>(null);
+  const wrapperRef = useRef<HTMLSpanElement>(null);
+  const currentRef = useRef<HTMLSpanElement>(null);
+  const outgoingRef = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    const previous = previousLabel.current;
+    previousLabel.current = label;
+    if (previous === label) return;
+    setOutgoingLabel(window.matchMedia("(prefers-reduced-motion: reduce)").matches ? null : previous);
+  }, [label]);
+
+  useLayoutEffect(() => {
+    if (outgoingLabel === null) return;
+    const wrapper = wrapperRef.current;
+    const current = currentRef.current;
+    const outgoing = outgoingRef.current;
+    if (!wrapper || !current || !outgoing || !wrapper.animate) {
+      setOutgoingLabel(null);
+      return;
+    }
+
+    const oldWidth = outgoing.getBoundingClientRect().width;
+    const newWidth = current.getBoundingClientRect().width;
+    if (!oldWidth || !newWidth) {
+      setOutgoingLabel(null);
+      return;
+    }
+
+    const widthAnimation = wrapper.animate(
+      [{ width: `${oldWidth}px` }, { width: `${newWidth}px` }],
+      { duration: 420, easing: "linear(0, .22 10%, .47 20%, .69 30%, .84 40%, .94 50%, .99 60%, 1.01 70%, 1.005 80%, 1)", fill: "both" },
+    );
+    const incomingAnimation = current.animate(
+      [{ opacity: 0, filter: "blur(4px)" }, { opacity: 1, filter: "blur(0px)" }],
+      { duration: 220, easing: "ease-out", fill: "both" },
+    );
+    const outgoingAnimation = outgoing.animate(
+      [{ opacity: 1, filter: "blur(0px)" }, { opacity: 0, filter: "blur(4px)" }],
+      { duration: 180, easing: "ease-in", fill: "both" },
+    );
+    const finish = () => setOutgoingLabel(null);
+    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onMotionChange = (event: MediaQueryListEvent) => { if (event.matches) finish(); };
+    widthAnimation.addEventListener("finish", finish, { once: true });
+    motionPreference.addEventListener?.("change", onMotionChange);
+    return () => {
+      motionPreference.removeEventListener?.("change", onMotionChange);
+      widthAnimation.removeEventListener("finish", finish);
+      widthAnimation.cancel();
+      incomingAnimation.cancel();
+      outgoingAnimation.cancel();
+    };
+  }, [outgoingLabel]);
+
+  return (
+    <span
+      ref={wrapperRef}
+      className={styles.reasoningLevel}
+      data-top-step={topStep ? "true" : undefined}
+      data-model-prefix={hasModelPrefix ? undefined : "false"}
+    >
+      {outgoingLabel !== null && <span ref={outgoingRef} className={styles.reasoningOld} aria-hidden="true">{outgoingLabel}</span>}
+      <span ref={currentRef} className={styles.reasoningCurrent}>{label}</span>
+    </span>
+  );
+}
 
 function ModelBoltIcon() {
   return (

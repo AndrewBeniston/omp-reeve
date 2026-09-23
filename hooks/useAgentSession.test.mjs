@@ -116,8 +116,8 @@ test("restores a rejected prompt through the current composer handle", () => {
 
   assert.match(source, /modelsRefreshKey, chatInputRef, onBranchDataChange/);
   assert.match(sendSource, /chatInputRef\?\.current\?\.restoreSubmission\?\.\(/);
-  assert.match(sendSource, /getRejectedPromptRecovery\(message, images, session\?\.id, sentSessionId, newSessionPromotedRef\.current\)/);
-  assert.match(sendSource, /recovery\.text,\s*recovery\.images,\s*recovery\.targetDraftKey/);
+  assert.match(sendSource, /getRejectedPromptRecovery\(message, images, session\?\.id, sentSessionId, newSessionPromotedRef\.current, attachments\)/);
+  assert.match(sendSource, /recovery\.text,\s*recovery\.images,\s*recovery\.targetDraftKey,\s*recovery\.attachments/);
   assert.match(sendSource, /chatInputRef, closeEvents/);
   assert.doesNotMatch(sendSource, /opts\.chatInputRef/);
 });
