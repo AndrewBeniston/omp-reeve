@@ -654,10 +654,14 @@ test("names ready and loading user image attachments", () => {
 
   assert.match(html, /aria-busy="true"/);
   assert.match(html, /alt="User attachment"/);
+  assert.equal((html.match(/<img/g) ?? []).length, 1);
   assert.doesNotMatch(html, /\/home\/|source path/i);
 });
 
 test("names a failed user image and keeps its short status", async () => {
+  const originalRect = window.HTMLElement.prototype.getBoundingClientRect;
+  window.getComputedStyle = () => ({ fontSize: "16px", lineHeight: "24px" });
+  window.HTMLElement.prototype.getBoundingClientRect = () => ({ height: 0 });
   const view = await mount(React.createElement(I18nProvider, null,
     React.createElement(MessageView, {
       message: {
@@ -681,6 +685,11 @@ test("names a failed user image and keeps its short status", async () => {
     assert.equal(view.container.querySelector("img"), null);
   } finally {
     await view.unmount();
+    if (originalRect) {
+      window.HTMLElement.prototype.getBoundingClientRect = originalRect;
+    } else {
+      delete window.HTMLElement.prototype.getBoundingClientRect;
+    }
   }
 });
 
@@ -694,9 +703,40 @@ test("renders a video marker without its hidden source path", () => {
     }],
   });
 
-  assert.match(html, /aria-label="Video attachment"/);
-  assert.match(html, />Video attachment</);
+  assert.match(html, /aria-label="Video unavailable"/);
+  assert.match(html, />Video unavailable</);
   assert.doesNotMatch(html, /private|recordings|demo\.mp4/);
+});
+
+test("names inaccessible user image media without rendering its path", () => {
+  const html = renderMessage({
+    role: "user",
+    content: [{ type: "image", path: "/private/captures/lost.png" }],
+  });
+
+  assert.match(html, /aria-label="Image failed to load"/);
+  assert.doesNotMatch(html, /private|captures|lost\.png/);
+});
+
+test("restores persisted user image media state", () => {
+  const loaded = buildSessionContext([
+    { type: "message", id: "user-1", parentId: null, timestamp: "2026-01-01T00:00:00.000Z", message: { role: "user", content: [
+      { type: "image", source: { type: "base64", media_type: "image/png", data: "aW1hZ2U=" } },
+    ] } },
+  ]);
+
+  assert.match(renderMessage(loaded.messages[0]), /alt="User attachment"/);
+  assert.match(renderMessage(loaded.messages[0]), /aria-busy="true"/);
+});
+
+test("keeps an unavailable user media attachment named", () => {
+  const html = renderMessage({
+    role: "user",
+    content: "See the capture",
+    attachments: [{ name: "capture.png", kind: "file", available: false }],
+  });
+
+  assert.match(html, /capture\.png \(unavailable\)/);
 });
 
 test("keeps tool activity status accessible without color", () => {

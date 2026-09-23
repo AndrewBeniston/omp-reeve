@@ -406,9 +406,7 @@ function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, o
       copyContent={content}
       userText={content.trim()
         ? <SafeMarkdownBody className="markdown-user-message" cwd={cwd} onOpenFile={onOpenFile}>{content}</SafeMarkdownBody>
-        : hasUserMediaAttachments(message.content)
-          ? <UserMediaAttachments content={message.content} />
-          : imageBlocks.length === 0 && !message.attachments?.length ? t("codex.userMessage.noContent") : undefined}
+        : !hasUserMediaAttachments(message.content) && !message.attachments?.length ? t("codex.userMessage.noContent") : undefined}
       userEditText={content}
       timestamp={time}
       branchPending={forking}
