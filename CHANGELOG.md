@@ -11,6 +11,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Inspected images now appear behind a counted disclosure and open in a keyboard accessible image dialog.
+
 - Assistant responses now announce streaming start, progress, and completion to screen readers through a polite live region.
 - The fork action on user messages now opens a destination dialog to fork into the current workspace, same worktree, or a new worktree.
 - The queue persists failed message sends with safe error summaries, reload and reconnect reconciliation, and a Retry command.
