@@ -591,6 +591,7 @@ export const enLocale: LocalePlugin = {
     "transcript.activity.command.running.detail": "{command}",
     "transcript.activity.command.completed.detail": "{command}",
     "transcript.activity.command.interrupted.detail": "{command}",
+    "transcript.activity.header.thinking": "Thinking",
     "transcript.activity.read": "Reading",
     "transcript.activity.search.query": "Searching",
     "transcript.activity.search.queryDetail": "for {query}",

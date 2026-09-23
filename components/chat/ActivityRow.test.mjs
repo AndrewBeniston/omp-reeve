@@ -5,7 +5,7 @@ import { createJiti } from "jiti";
 import { React, click, mount } from "../../test/dom-harness.mjs";
 
 const jiti = createJiti(import.meta.url, { jsx: { runtime: "automatic" }, tsconfigPaths: true });
-const { ActivityRow } = await jiti.import("./ActivityRow.tsx");
+const { ActivityHeader, ActivityRow } = await jiti.import("./ActivityRow.tsx");
 const { I18nProvider } = await jiti.import("../../hooks/useI18n.tsx");
 const { enLocale } = await jiti.import("../../lib/i18n/messages/en.ts");
 const { zhCNLocale } = await jiti.import("../../lib/i18n/messages/zh-CN.ts");
@@ -101,5 +101,20 @@ test("a first-party label keeps the standalone call count segment", async () => 
   const view = await mount(h(I18nProvider, null, h(ActivityRow, { block: calls[0], result: results[0], groupedCalls: calls.map((block, index) => ({ block, result: results[index] })) })));
   assert.equal(view.container.querySelector("[data-activity-repeats]")?.textContent, "Reading· 2 calls");
   assert.equal(view.container.querySelector("[data-activity-count]")?.textContent, "· 2 calls");
+  await view.unmount();
+});
+
+test("renders the selected live Activity header", async () => {
+  const view = await mount(h(I18nProvider, null, h(ActivityHeader, {
+    input: {
+      calls: [{ block: tool("read", { path: "notes.md" }) }],
+      closed: false,
+      inProgress: true,
+      latestVisible: true,
+      exploring: false,
+    },
+    summary: "Worked",
+  })));
+  assert.equal(view.container.querySelector("[data-live-activity-header='activity']")?.textContent, "Readingnotes.md");
   await view.unmount();
 });

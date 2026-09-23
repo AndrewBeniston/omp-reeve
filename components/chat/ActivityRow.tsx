@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { CircleStop, FilePenLine, FolderSearch, Globe2, List, Search, Terminal, Users, Wrench } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
 import { activityCallGroups, activityRowContent, type ActivityRowContent, type ActivityRowState } from "./transcript-rows";
@@ -8,11 +8,17 @@ import { getResultText } from "./tool-presentation";
 import { TerminalOutput } from "./TerminalOutput";
 import type { ToolCallContent, ToolResultMessage } from "@/lib/types";
 import type { ActivityCall } from "@/lib/transcript/repeat-collapsing";
+import { selectLiveActivityHeader, type LiveActivityHeaderInput } from "@/lib/transcript/live-activity-header";
 import styles from "./activity-row.module.css";
 
 interface ActivityRowProps {
   content: ActivityRowContent;
   toolName: string;
+}
+
+interface ActivityHeaderProps {
+  input: LiveActivityHeaderInput;
+  summary?: ReactNode;
 }
 
 const stateKey = (state: ActivityRowState) => state === "running" ? "running" : state === "interrupted" ? "interrupted" : "completed";
@@ -71,6 +77,26 @@ function ActivityIcon({ content }: ActivityRowProps) {
 
 function firstPartyLabel(content: ActivityRowContent): boolean {
   return !["connector", "application-control", "unknown"].includes(content.classification.kind);
+}
+
+/** Render the selected header. Summary composition is supplied by the Turn renderer. */
+export function ActivityHeader({ input, summary }: ActivityHeaderProps) {
+  const { t } = useI18n();
+  const selected = selectLiveActivityHeader(input);
+  if (selected.kind === "summary") return <div className={styles.row} data-live-activity-header="summary">{summary}</div>;
+  if (selected.kind === "thinking") {
+    return <div className={styles.row} data-live-activity-header="thinking">{t("transcript.activity.header.thinking")}</div>;
+  }
+  const { block, result } = selected.call;
+  const content = activityRowContent(block, result);
+  const text = rowText(content, block.toolName, t);
+  return (
+    <div className={styles.row} data-live-activity-header="activity" data-activity-kind={content.classification.kind}>
+      <span className={styles.icon}><ActivityIcon content={content} toolName={block.toolName} /></span>
+      <span className={styles.action}>{text.action}</span>
+      {text.detail ? <span className={styles.detail} title={text.detail}>{text.detail}</span> : null}
+    </div>
+  );
 }
 
 export function ActivityRow({ block, result, interrupted = false, groupedCalls }: { block: ToolCallContent; result?: ToolResultMessage; interrupted?: boolean; groupedCalls?: ActivityCall[] }) {

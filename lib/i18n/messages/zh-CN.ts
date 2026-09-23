@@ -591,6 +591,7 @@ export const zhCNLocale: LocalePlugin = {
     "transcript.activity.command.running.detail": "{command}",
     "transcript.activity.command.completed.detail": "{command}",
     "transcript.activity.command.interrupted.detail": "{command}",
+    "transcript.activity.header.thinking": "正在思考",
     "transcript.activity.read": "正在读取",
     "transcript.activity.search.query": "正在搜索",
     "transcript.activity.search.queryDetail": "{query}",
