@@ -1,4 +1,16 @@
 export const VISIBLE_PAGE_SIZE = 50;
+export const HISTORY_LOAD_DISTANCE_PX = 64;
+
+export function shouldLoadHistory({ scrollTop, clientHeight, pagedHiddenHistory }: {
+  scrollTop: number;
+  clientHeight: number;
+  pagedHiddenHistory: boolean;
+}): boolean {
+  const distance = pagedHiddenHistory
+    ? Math.max(clientHeight, HISTORY_LOAD_DISTANCE_PX)
+    : HISTORY_LOAD_DISTANCE_PX;
+  return scrollTop <= distance;
+}
 
 export function getVisibleRenderWindow(totalCount: number, visibleCount: number): {
   startIndex: number;
