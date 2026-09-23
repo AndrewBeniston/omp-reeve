@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Maximize2, Pause, Play, X } from "lucide-react";
+import { Maximize2, Pause, Pencil, Play, X } from "lucide-react";
 import type { Goal, GoalStatus } from "@oh-my-pi/pi-tui/tools/goal";
 import { useI18n } from "@/hooks/useI18n";
+import type { GoalAction } from "@/hooks/useGoalState";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
+import { GoalBudgetDialog } from "./GoalBudgetDialog";
 import styles from "./goal-pill.module.css";
 
 const COMPLETED_GOAL_DISPLAY_MS = 3_000;
@@ -34,18 +36,20 @@ function formatElapsed(seconds: number, locale: string): string {
 interface GoalPillProps {
   goal: Goal | null;
   isRunning?: boolean;
-  pendingAction?: "pause" | "resume" | "drop" | null;
-  actionError?: { action: "pause" | "resume" | "drop"; message: string } | null;
+  pendingAction?: GoalAction | null;
+  actionError?: { action: GoalAction; message: string } | null;
   onClear?: () => Promise<boolean> | void;
   onPause?: () => Promise<boolean> | void;
   onResume?: () => Promise<boolean> | void;
+  onEditBudget?: (tokenBudget: number | null) => Promise<boolean>;
   onExpand?: () => void;
 }
 
-export function GoalPill({ goal, isRunning = false, pendingAction, actionError, onClear, onPause, onResume, onExpand }: GoalPillProps) {
+export function GoalPill({ goal, isRunning = false, pendingAction, actionError, onClear, onPause, onResume, onEditBudget, onExpand }: GoalPillProps) {
   const { locale, t } = useI18n();
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [confirmingResume, setConfirmingResume] = useState(false);
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [localBusy, setLocalBusy] = useState(false);
   const actionInFlight = useRef(false);
   const confirmClearRef = useRef<HTMLButtonElement>(null);
@@ -104,6 +108,7 @@ export function GoalPill({ goal, isRunning = false, pendingAction, actionError, 
   }
   if (!visibleGoal || visibleGoal.status === "dropped") return null;
   const showTokens = (visibleGoal.status === "active" || visibleGoal.status === "budget-limited") && visibleGoal.tokenBudget !== undefined;
+  const canEditBudget = visibleGoal.status === "active" || visibleGoal.status === "paused" || visibleGoal.status === "budget-limited";
   const elapsedSeconds = visibleGoal.status === "active" && clock?.key === clockKey
     ? visibleGoal.timeUsedSeconds + Math.max(0, (clock.now - visibleGoal.updatedAt) / 1_000)
     : visibleGoal.timeUsedSeconds;
@@ -160,6 +165,16 @@ export function GoalPill({ goal, isRunning = false, pendingAction, actionError, 
           <button
             type="button"
             className={styles.iconButton}
+            aria-label={t("composer.threadGoal.budgetDialog.open")}
+            title={t("composer.threadGoal.budgetDialog.open")}
+            disabled={!goal || !onEditBudget || !canEditBudget || busy}
+            onClick={() => setEditingGoalId(goal?.id ?? null)}
+          >
+            <Pencil size={16} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className={styles.iconButton}
             aria-label={t("composer.threadGoal.editDialog.title")}
             title={t("composer.threadGoal.editDialog.title")}
             disabled={!goal || !onExpand || busy}
@@ -169,7 +184,17 @@ export function GoalPill({ goal, isRunning = false, pendingAction, actionError, 
           </button>
         </span>
       </div>
-      {actionError && !confirmingClear && !confirmingResume && <p className={styles.error} role="alert">{errorLabel}: {actionError.message}</p>}
+      {actionError && !confirmingClear && !confirmingResume && editingGoalId !== goal?.id && <p className={styles.error} role="alert">{errorLabel}: {actionError.message}</p>}
+      {editingGoalId === goal?.id && goal && canEditBudget && onEditBudget && (
+        <GoalBudgetDialog
+          key={goal.id}
+          tokenBudget={goal.tokenBudget}
+          tokensUsed={goal.tokensUsed}
+          onSave={onEditBudget}
+          onClose={() => setEditingGoalId(null)}
+          error={actionError?.action === "budget" ? actionError.message : null}
+        />
+      )}
       {confirmingClear && (
         <Dialog
           open
