@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { createJiti } from "jiti";
 
-const { buildTranscriptRows, finalAnswerPosition, presentationAssistantPosition } = await createJiti(import.meta.url).import("./transcript-rows.ts");
+const { buildTranscriptRows, dividerPresentation, finalAnswerPosition, presentationAssistantPosition } = await createJiti(import.meta.url).import("./transcript-rows.ts");
 const recorded = JSON.parse(readFileSync(new URL("../../lib/transcript/recorded-event-stream.json", import.meta.url), "utf8"));
 
 function displayedMessages(rows) {
@@ -21,6 +21,23 @@ test("a saved Session renders one row per message in Turn order", () => {
   assert.deepEqual(turns[0].items.map((item) => item.entryId), ids.slice(0, 4));
   assert.equal(turns[0].phase, "final-answer");
   assert.equal(turns[0].settled, true);
+});
+
+test("a Turn renders a Divider only after final response with renderable activity", () => {
+  const items = recorded.phaseEntries.map((entry, index) => ({
+    message: entry.message,
+    index,
+    entryId: entry.id,
+    textPhases: index === 1 ? ["prework", undefined, undefined] : index === 3 ? ["final-answer"] : undefined,
+    streaming: false,
+  }));
+  const beforeFinal = { status: "worked", startedAt: 0, completedAt: 1000 };
+  const complete = { status: "worked", startedAt: 0, completedAt: 65_000 };
+
+  assert.equal(dividerPresentation(items.slice(0, 3), beforeFinal), null);
+  assert.equal(dividerPresentation(items, complete)?.previousMessageCount, 1);
+  assert.equal(dividerPresentation(items, { ...complete, status: "stopped" }), null);
+  assert.equal(dividerPresentation([{ ...items[0] }, { ...items[1], textPhases: [] }], complete), null);
 });
 
 test("a related Session origin note is the first transcript row", () => {

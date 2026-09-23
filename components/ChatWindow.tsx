@@ -16,7 +16,7 @@ import type {
 } from "@/lib/types";
 import { countToolCallBlocks, getAssistantErrorMessage, getDisplayableAssistantBlocks, splitFinalAssistantBlocks } from "@/lib/message-display";
 import { extractTurnWrittenFiles, type WrittenFile } from "@/lib/turn-written-files";
-import type { TurnPhase } from "@/lib/transcript/turn-folder";
+import type { TurnClock, TurnPhase } from "@/lib/transcript/turn-folder";
 import { collectSessionSummarySources, type SummarySource } from "@/lib/session-summary";
 import { MessageView } from "./MessageView";
 import { ModelChangedNote } from "./chat/ModelChangedNote";
@@ -45,7 +45,8 @@ import { ComposerTurnStatus } from "./chat/ComposerTurnStatus";
 import { ActiveTurnResponseSpacer } from "./chat/ActiveTurnResponseSpacer";
 import { SessionLoadingState } from "./chat/SessionLoadingState";
 import { TurnErrorBoundary } from "./chat/TurnErrorBoundary";
-import { buildTranscriptRows, finalAnswerPosition, presentationAssistantPosition, CompactionNote, ProviderRetryNote, SessionOriginNote, type TranscriptMessageRow } from "./chat/transcript-rows";
+import { buildTranscriptRows, dividerPresentation, finalAnswerPosition, presentationAssistantPosition, CompactionNote, ProviderRetryNote, SessionOriginNote, type TranscriptMessageRow } from "./chat/transcript-rows";
+import { Divider } from "./chat/Divider";
 import { ArchivedSessionCard } from "./chat/ArchivedSessionCard";
 import {
   TranscriptNavigationRail,
@@ -191,36 +192,6 @@ function withAssistantBlocks(
   const next = { ...message, content };
   if (options.omitUsage) next.usage = undefined;
   return next;
-}
-
-function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = false, children, t }: { messageCount: number; toolCallCount: number; defaultExpanded?: boolean; children: ReactNode; t: (key: string, params?: Record<string, string | number>) => string }) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
-  const parts = [t("chat.processDetails"), `${messageCount} ${t(messageCount === 1 ? "chat.message" : "chat.messages")}`];
-  if (toolCallCount > 0) parts.push(`${toolCallCount} ${t(toolCallCount === 1 ? "chat.toolCall" : "chat.toolCalls")}`);
-
-  return (
-    <div className={styles.processDetails}>
-      <button
-        type="button"
-        aria-expanded={expanded}
-        onClick={() => setExpanded((v) => !v)}
-        className={styles.processDetailsTrigger}
-        title={expanded ? t("chat.collapseProcess") : t("chat.expandProcess")}
-      >
-        <svg className={styles.processDetailsMarker} data-expanded={expanded} width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="4 2.5 7.5 6 4 9.5" />
-        </svg>
-        <span className={styles.processDetailsLabel}>
-          {parts.join(" · ")}
-        </span>
-      </button>
-      {expanded && (
-        <div className={styles.processDetailsPanel}>
-          {children}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onOpenSession = () => {}, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onRequestReview, onListReviewBranches, reviewGate }: Props) {
@@ -723,7 +694,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
               };
 
               const rendered: ReactNode[] = [];
-              const renderSection = (items: TranscriptMessageRow[], key: string, live: boolean, phase: TurnPhase) => {
+              const renderSection = (items: TranscriptMessageRow[], key: string, live: boolean, phase: TurnPhase, clock: TurnClock) => {
                 const assistantPosition = presentationAssistantPosition(items);
                 if (assistantPosition === -1 || live) {
                   for (const item of items) rendered.push(renderMessage(item));
@@ -751,22 +722,13 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                   : null;
 
                 const processCount = visibleProcessItems.length + (finalProcessMessage ? 1 : 0);
-                if (processCount > 0) {
-                  const processGroup = (
-                    <ProcessDetailsGroup
-                      messageCount={processCount}
-                      defaultExpanded={!finalAnswerMessage}
-                      t={t}
-                      toolCallCount={countToolCalls(visibleProcessItems) + countToolCallBlocks(processBlocks)}
-                    >
+                const divider = dividerPresentation(items, clock);
+                if (processCount > 0 && divider) {
+                  rendered.push(
+                    <Divider key={`divider-${key}`} turnId={key} {...divider}>
                       {visibleProcessItems.map((item) => renderMessage(item, { keyPrefix: "process" }))}
                       {finalProcessMessage && renderMessage(finalItem, { keyPrefix: "process-final", messageOverride: finalProcessMessage, showTimestamp: false })}
-                    </ProcessDetailsGroup>
-                  );
-                  rendered.push(
-                    <div key={`process-group-${key}`}>
-                      {processGroup}
-                    </div>,
+                    </Divider>,
                   );
                 }
 
@@ -846,12 +808,13 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                 }
                 const turnRenderStart = row.kind === "turn" ? rendered.length : -1;
                 const live = (sessionBusy || streamState.isStreaming) && rowIndex === lastContentRowIndex;
+                const clock = row.kind === "turn" ? row.clock : { status: "worked" as const };
                 // A steered user message or compaction remains visible inside
                 // its Turn, even when the surrounding process is collapsed.
                 let start = 0;
                 for (let index = 1; index <= row.items.length; index += 1) {
                   if (index < row.items.length && !isGroupAnchor(row.items[index].message)) continue;
-                  renderSection(row.items.slice(start, index), `${row.id}-${start}`, live && index === row.items.length, row.phase);
+                  renderSection(row.items.slice(start, index), `${row.id}-${start}`, live && index === row.items.length, row.phase, clock);
                   start = index;
                 }
                 if (turnRenderStart !== -1) {

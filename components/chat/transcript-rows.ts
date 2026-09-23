@@ -1,8 +1,8 @@
 import type { AgentMessage, ModelChangeNote } from "@/lib/types";
-import { getAssistantErrorMessage, getDisplayableAssistantBlocks } from "@/lib/message-display";
-import { foldTurns, type TranscriptRecord, type TurnPhase, type TurnTextPhase } from "@/lib/transcript/turn-folder";
+import { getAssistantErrorMessage, getDisplayableAssistantBlocks, splitFinalAssistantBlocks } from "@/lib/message-display";
+import { foldTurns, type TranscriptRecord, type TurnClock, type TurnPhase, type TurnTextPhase } from "@/lib/transcript/turn-folder";
 import { classifyActivityTool, type ActivityClassification } from "@/lib/transcript/activity-classifier";
-import type { ToolCallContent, ToolResultMessage } from "@/lib/types";
+import type { AssistantMessage, ToolCallContent, ToolResultMessage } from "@/lib/types";
 
 export interface TranscriptMessageRow {
   message: AgentMessage;
@@ -76,7 +76,7 @@ export interface SessionOrigin {
 export type TranscriptRow =
   | { kind: "archived"; sessionId: string }
   | { kind: "session-origin"; kindOfOrigin: "continued" | "parent"; relatedSessionId: string }
-  | { kind: "turn"; id: string; phase: TurnPhase; settled: boolean; items: TranscriptMessageRow[] }
+  | { kind: "turn"; id: string; phase: TurnPhase; settled: boolean; items: TranscriptMessageRow[]; clock: TurnClock }
   | {
       kind: "compaction";
       id: string;
@@ -111,6 +111,23 @@ export function presentationAssistantPosition(items: readonly TranscriptMessageR
   return -1;
 }
 
+export interface DividerPresentation extends TurnClock { previousMessageCount: number; }
+
+/** Return Divider data when a Turn has a final response and renderable process items. */
+export function dividerPresentation(items: readonly TranscriptMessageRow[], clock: TurnClock): DividerPresentation | null {
+  if (clock.status === "stopped") return null;
+  const finalPosition = finalAnswerPosition(items);
+  if (finalPosition === -1) return null;
+  const processItems = items.slice(1, finalPosition).filter((item) => {
+    const message = item.message;
+    if (message.role === "assistant") return getDisplayableAssistantBlocks(message).length > 0;
+    return message.role === "custom" && message.customType !== "compaction";
+  });
+  const finalBlocks = splitFinalAssistantBlocks(items[finalPosition].message as AssistantMessage);
+  const processCount = processItems.length + finalBlocks.processBlocks.length;
+  return processCount > 0 ? { ...clock, previousMessageCount: processCount } : null;
+}
+
 /** Keep the Session reader's message order while the Turn folder owns boundaries and phases. */
 export function buildTranscriptRows(
   messages: readonly AgentMessage[],
@@ -129,7 +146,7 @@ export function buildTranscriptRows(
       records.push({ type: "agent_start" });
       liveRunStarted = true;
     }
-    records.push({ type: "message", id: entryIds[index], message });
+    records.push({ type: "message", id: entryIds[index], timestamp: message.timestamp, message });
   });
   if (streamingMessage) records.push({ type: "message_start", id: undefined, message: streamingMessage });
   const turns = foldTurns(records);
@@ -165,6 +182,7 @@ export function buildTranscriptRows(
       phase: turn.phase,
       settled: turn.settled && !(running && turnIndex === turns.length - 1),
       items,
+      clock: { status: turn.status, startedAt: turn.startedAt, completedAt: turn.completedAt },
     });
   });
 
