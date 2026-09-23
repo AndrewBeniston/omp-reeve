@@ -17,11 +17,12 @@ the What's New dialog adds a second page that invites support.
   terminal is open, and it never types into your shell. This works in the
   desktop application only, because a browser tab owns no shell of yours.
 
-### Fixed
+### Changed
 
-- Claude Opus 5.5 now answers in Reeve. Reeve now runs OMP 18.2.11, which
-  identifies itself to Anthropic as a Claude Code version that supports the
-  model. Before, Anthropic refused every request with "version too old".
+- Reeve now runs OMP 18.2.11, so the latest models work. Claude Opus 5.5
+  answers now. Before, Anthropic refused it with "version too old".
+
+### Fixed
 
 - `/collab list` now shows the active local collaboration hosts. OMP added
   the command, and Reeve showed it in the menu but refused to run it.
