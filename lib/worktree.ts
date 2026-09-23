@@ -33,6 +33,14 @@ export interface WorktreeInfo {
   path: string;
   branch: string | null;
   isMain: boolean;
+  isDetached: boolean;
+  isDirty: boolean;
+}
+
+export class WorktreeStatusError extends Error {
+  constructor(path: string, cause: unknown) {
+    super(`Cannot read worktree status: ${path}`, { cause });
+  }
 }
 
 declare global {
@@ -268,41 +276,66 @@ async function getRepoRoot(cwd: string): Promise<string> {
   return dirname(commonDir);
 }
 
-export async function listWorktrees(cwd: string): Promise<WorktreeInfo[]> {
-  const out = await git(cwd, ["worktree", "list", "--porcelain"]);
-  const worktrees: WorktreeInfo[] = [];
-  let current: (Partial<WorktreeInfo> & { prunable?: boolean }) | null = null;
+async function listWorktreeRecords(cwd: string): Promise<Array<Omit<WorktreeInfo, "isDirty">>> {
+  const out = await git(cwd, ["worktree", "list", "--porcelain", "-z"]);
+  const worktrees: Array<Omit<WorktreeInfo, "isDirty">> = [];
+  let current: (Partial<WorktreeInfo> & { prunable?: boolean; bare?: boolean }) | null = null;
+  let position = 0;
 
   const flush = () => {
     if (current?.path) {
       // Prunable worktrees point at missing/broken gitdirs and cannot be
       // browsed or selected usefully. Also skip vanished paths even if git has
       // not marked them prunable yet.
-      if (!current.prunable && existsSync(current.path)) {
+      if (!current.prunable && !current.bare && existsSync(current.path)) {
         worktrees.push({
           path: current.path,
           branch: current.branch ?? null,
-          isMain: worktrees.length === 0,
+          isMain: current.isMain ?? false,
+          isDetached: current.isDetached ?? false,
         });
       }
     }
     current = null;
   };
 
-  for (const line of out.split("\n")) {
+  for (const line of out.split("\0")) {
     if (line.startsWith("worktree ")) {
       flush();
-      current = { path: line.slice("worktree ".length).trim() };
+      current = { path: line.slice("worktree ".length), isMain: position++ === 0 };
     } else if (line.startsWith("branch ") && current) {
-      current.branch = line.slice("branch ".length).trim().replace(/^refs\/heads\//, "");
+      current.branch = line.slice("branch ".length).replace(/^refs\/heads\//, "");
+    } else if (line === "detached" && current) {
+      current.isDetached = true;
     } else if (line.startsWith("prunable") && current) {
       current.prunable = true;
-    } else if (line.trim() === "") {
+    } else if (line === "bare" && current) {
+      current.bare = true;
+    } else if (line === "") {
       flush();
     }
   }
   flush();
   return worktrees;
+}
+
+async function withWorktreeStatus(worktree: Omit<WorktreeInfo, "isDirty">): Promise<WorktreeInfo> {
+  try {
+    const status = await git(worktree.path, ["status", "--porcelain=v1", "--untracked-files=normal"]);
+    return { ...worktree, isDirty: status.length > 0 };
+  } catch (error) {
+    throw new WorktreeStatusError(worktree.path, error);
+  }
+}
+
+export async function listWorktrees(cwd: string): Promise<WorktreeInfo[]> {
+  return Promise.all((await listWorktreeRecords(cwd)).map(withWorktreeStatus));
+}
+
+export async function selectWorktree(cwd: string, path: string): Promise<WorktreeInfo> {
+  const worktree = (await listWorktreeRecords(cwd)).find((entry) => entry.path === path);
+  if (!worktree) throw new Error("Not a worktree of this project");
+  return withWorktreeStatus(worktree);
 }
 
 function sanitizeBranchForDir(branch: string): string {
@@ -349,7 +382,7 @@ export async function addWorktree(cwd: string, branch: string): Promise<{ path: 
 }
 
 export async function removeWorktree(cwd: string, worktreePath: string, force = false): Promise<void> {
-  const worktrees = await listWorktrees(cwd);
+  const worktrees = await listWorktreeRecords(cwd);
   const target = worktrees.find((w) => w.path === worktreePath);
   if (!target) throw new Error(`Not a worktree of this repository: ${worktreePath}`);
   if (target.isMain) throw new Error("Cannot remove the main worktree");
