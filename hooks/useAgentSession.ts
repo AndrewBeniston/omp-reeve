@@ -498,6 +498,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const [isCompacting, setIsCompacting] = useState(false);
   const [compactError, setCompactError] = useState<string | null>(null);
   const [compactResult, setCompactResult] = useState<CompactResultInfo | null>(null);
+  const [compactSource, setCompactSource] = useState<"manual" | "automatic">("automatic");
   const [agentPhase, setAgentPhase] = useState<AgentPhase>(null);
   const [slashCommands, setSlashCommands] = useState<SlashCommandInfo[]>([]);
   const [slashCommandsLoading, setSlashCommandsLoading] = useState(false);
@@ -1579,28 +1580,40 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       case "auto_retry_start":
         setRetryInfo({ attempt: event.attempt as number, maxAttempts: event.maxAttempts as number, errorMessage: event.errorMessage as string | undefined });
         break;
-      case "auto_retry_end":
-        setRetryInfo(null);
-        break;
-      case "auto_compaction_start":
-      case "compaction_start":
+     case "auto_retry_end":
+       setRetryInfo(null);
+       break;
+     case "auto_compaction_start":
         setIsCompacting(true);
+        setCompactSource("automatic");
         setCompactError(null);
         setCompactResult(null);
         break;
-      case "auto_compaction_end":
-      case "compaction_end":
-        setIsCompacting(false);
+     case "compaction_start":
+       setIsCompacting(true);
+        setCompactSource((event.source as string | undefined) === "manual" ? "manual" : (event.reason === "manual" ? "manual" : "automatic"));
+       setCompactError(null);
+       setCompactResult(null);
+       break;
+     case "auto_compaction_end":
+     case "compaction_end":
         if (event.errorMessage) {
+          setIsCompacting(false);
           setCompactError(event.errorMessage as string);
           setCompactResult(null);
         } else if (!event.aborted) {
           setCompactResult(readCompactResult(event.result, (event.reason as string | undefined) ?? "auto"));
           const sid = sessionIdRef.current;
           if (sid) {
-            void loadSession(sid);
-            void refreshContextUsage(sid);
+            void loadSession(sid).finally(() => {
+              setIsCompacting(false);
+              void refreshContextUsage(sid);
+            });
+          } else {
+            setIsCompacting(false);
           }
+        } else {
+          setIsCompacting(false);
         }
         break;
       /*
@@ -1939,12 +1952,13 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     }
   }, [isNew, modelRoles, setNewSessionModel]);
 
-  const handleCompact = useCallback(async () => {
-    const sid = sessionIdRef.current;
-    if (!sid || isCompacting) return;
-    setIsCompacting(true);
-    setCompactError(null);
-    setCompactResult(null);
+ const handleCompact = useCallback(async () => {
+   const sid = sessionIdRef.current;
+   if (!sid || isCompacting) return;
+   setIsCompacting(true);
+    setCompactSource("manual");
+   setCompactError(null);
+   setCompactResult(null);
     try {
       const result = await sendAgentCommand<CompactCommandResult>(sid, { type: "compact" });
       setCompactResult(readCompactResult(result, "manual"));
@@ -2006,11 +2020,12 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
     try {
       switch (commandName) {
-        case "compact": {
-          if (!sid || isCompacting) return complete({ handled: true, error: "No active session to compact" });
-          setIsCompacting(true);
-          setCompactError(null);
-          setCompactResult(null);
+       case "compact": {
+         if (!sid || isCompacting) return complete({ handled: true, error: "No active session to compact" });
+         setIsCompacting(true);
+          setCompactSource("manual");
+         setCompactError(null);
+         setCompactResult(null);
           const result = await sendAgentCommand<CompactCommandResult>(sid, {
             type: "compact",
             ...(args ? { customInstructions: args } : {}),
@@ -2735,9 +2750,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     // State
     data, loading, error, activeLeafId, messages, entryIds, streamState,
     agentRunning, modelNames, modelList, modelError, modelScopeWarnings, modelThinkingLevels, modelThinkingLevelMaps, modelRoles, newSessionModel, toolPreset, approvalMode, approvalModeChanging, approvalModeError, thinkingLevel, fastModeEnabled, fastModeAvailable,
-    retryInfo, contextUsage, systemPrompt, forkingEntryId,
-    isCompacting, compactError, compactResult, currentModel, displayModel, modelSwitching, sessionStats,
-    slashCommands, slashCommandsLoading, queuedMessages, subagents,
+   retryInfo, contextUsage, systemPrompt, forkingEntryId,
+    isCompacting, compactError, compactResult, compactSource, currentModel, displayModel, modelSwitching, sessionStats,
+   slashCommands, slashCommandsLoading, queuedMessages, subagents,
     notices: noticeState.visible, extensionDialog, extensionCustomUi, extensionStatuses, extensionWidgets, respondToExtensionUi, sendExtensionCustomInput,
     approvalNudgeOpen, approvalDialogId, handleApprovalNudgeAccept, handleApprovalNudgeDismiss,
     isAutoModelSelection: isNew && newSessionModel === null,

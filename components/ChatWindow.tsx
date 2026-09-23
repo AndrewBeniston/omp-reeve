@@ -43,7 +43,7 @@ import { EmptyChatHome } from "./chat/EmptyChatHome";
 import { NewMessagesControl } from "./chat/NewMessagesControl";
 import { ComposerTurnStatus } from "./chat/ComposerTurnStatus";
 import { ActiveTurnResponseSpacer } from "./chat/ActiveTurnResponseSpacer";
-import { buildTranscriptRows, finalAnswerPosition, presentationAssistantPosition, type TranscriptMessageRow } from "./chat/transcript-rows";
+import { buildTranscriptRows, finalAnswerPosition, presentationAssistantPosition, CompactionNote, type TranscriptMessageRow } from "./chat/transcript-rows";
 import { ArchivedSessionCard } from "./chat/ArchivedSessionCard";
 import {
   TranscriptNavigationRail,
@@ -247,7 +247,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
     data: sessionData, loading, error, messages, entryIds, streamState,
     agentRunning, bashRunning, pendingBash, modelNames, modelList, modelError, modelScopeWarnings, modelThinkingLevels, modelThinkingLevelMaps, modelRoles, toolPreset, approvalMode, approvalModeChanging, approvalModeError, thinkingLevel, fastModeEnabled, fastModeAvailable,
     retryInfo, contextUsage, forkingEntryId,
-    isCompacting, compactError, compactResult, displayModel: displayModelValue, modelSwitching, sessionStats,
+    isCompacting, compactError, compactResult, compactSource, displayModel: displayModelValue, modelSwitching, sessionStats,
     slashCommands, slashCommandsLoading, queuedMessages, subagents,
     notices, extensionDialog, extensionCustomUi, extensionStatuses, extensionWidgets, respondToExtensionUi, sendExtensionCustomInput,
     approvalNudgeOpen, approvalDialogId, handleApprovalNudgeAccept, handleApprovalNudgeDismiss,
@@ -416,8 +416,25 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
   const transcriptRows = useMemo(
     () => archivedSessionId
       ? [{ kind: "archived" as const, sessionId: archivedSessionId }]
-      : buildTranscriptRows(messages, entryIds, activeStreamingMessage, agentRunning, sessionData?.context.modelChanges ?? []),
-    [messages, entryIds, activeStreamingMessage, agentRunning, sessionData?.context.modelChanges, archivedSessionId],
+      : buildTranscriptRows(
+          messages,
+          entryIds,
+          activeStreamingMessage,
+          agentRunning,
+          sessionData?.context.modelChanges ?? [],
+          isCompacting || compactError ? { isCompacting, source: compactSource, error: compactError } : null,
+        ),
+    [
+      messages,
+      entryIds,
+      activeStreamingMessage,
+      agentRunning,
+      sessionData?.context.modelChanges,
+      archivedSessionId,
+      isCompacting,
+      compactSource,
+      compactError,
+    ],
   );
   const activeTurnBlocks = useMemo(() => {
     let turnStart = -1;
@@ -774,7 +791,10 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
               };
 
               const lastContentRowIndex = transcriptRows.reduce(
-                (lastIndex, row, index) => row.kind === "model-change" ? lastIndex : index,
+                (lastIndex, row, index) =>
+                  row.kind === "model-change" || (row.kind === "compaction" && row.items.length === 0)
+                    ? lastIndex
+                    : index,
                 -1,
               );
               transcriptRows.forEach((row, rowIndex) => {
@@ -798,6 +818,17 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                       key={`model-change-${row.id}`}
                       fromModel={row.note.fromModel}
                       toModel={row.note.toModel}
+                    />,
+                  );
+                  return;
+                }
+                if (row.kind === "compaction" && row.items.length === 0) {
+                  rendered.push(
+                    <CompactionNote
+                      key={`compaction-${row.id}`}
+                      completed={row.completed ?? false}
+                      source={row.source ?? "automatic"}
+                      error={row.error}
                     />,
                   );
                   return;

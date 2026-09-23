@@ -107,3 +107,70 @@ test("a delivered follow-up stays in the active live Turn", () => {
   assert.deepEqual(rows[1].items.map((item) => item.message), [user, reply, followUp, nextReply]);
   assert.equal(rows[1].settled, false);
 });
+
+test("a running manual compaction appends a live compaction row", () => {
+  const messages = [{ role: "user", content: "Question" }];
+  const rows = buildTranscriptRows(messages, ["u1"], null, false, [], {
+    isCompacting: true,
+    source: "manual",
+  });
+  const compactionRow = rows.find((row) => row.kind === "compaction");
+  assert.ok(compactionRow);
+  assert.equal(compactionRow.completed, false);
+  assert.equal(compactionRow.source, "manual");
+  assert.equal(compactionRow.items.length, 0);
+  assert.equal(rows.at(-1)?.kind, "compaction");
+});
+
+test("a running automatic compaction appends a live compaction row", () => {
+  const messages = [{ role: "user", content: "Question" }];
+  const rows = buildTranscriptRows(messages, ["u1"], null, false, [], {
+    isCompacting: true,
+    source: "automatic",
+  });
+  const compactionRow = rows.find((row) => row.kind === "compaction");
+  assert.ok(compactionRow);
+  assert.equal(compactionRow.completed, false);
+  assert.equal(compactionRow.source, "automatic");
+  assert.equal(compactionRow.items.length, 0);
+  assert.equal(rows.at(-1)?.kind, "compaction");
+});
+
+test("a compaction_end with error appends an error compaction row", () => {
+  const messages = [{ role: "user", content: "Question" }];
+  const rows = buildTranscriptRows(messages, ["u1"], null, false, [], {
+    isCompacting: false,
+    source: "automatic",
+    error: "Context window exceeded limit",
+  });
+  const compactionRow = rows.find((row) => row.kind === "compaction");
+  assert.ok(compactionRow);
+  assert.equal(compactionRow.completed, true);
+  assert.equal(compactionRow.error, "Context window exceeded limit");
+  assert.equal(compactionRow.items.length, 0);
+  assert.equal(rows.at(-1)?.kind, "compaction");
+});
+
+test("a finished compaction note replaces the running note without duplicate row", () => {
+  const savedCompaction = {
+    role: "custom",
+    customType: "compaction",
+    content: "Summary of earlier messages",
+    display: true,
+    details: { source: "manual" },
+  };
+  const messages = [savedCompaction];
+  const rowsFinished = buildTranscriptRows(messages, ["c1"], null, false, [], null);
+  const compactionRowsFinished = rowsFinished.filter((row) => row.kind === "compaction");
+  assert.equal(compactionRowsFinished.length, 1);
+  assert.equal(compactionRowsFinished[0].completed, true);
+  assert.equal(compactionRowsFinished[0].source, "manual");
+
+  const rowsWithState = buildTranscriptRows(messages, ["c1"], null, false, [], {
+    isCompacting: true,
+    source: "manual",
+  });
+  const compactionRowsWithState = rowsWithState.filter((row) => row.kind === "compaction");
+  assert.equal(compactionRowsWithState.length, 1);
+  assert.equal(compactionRowsWithState[0].completed, true);
+});

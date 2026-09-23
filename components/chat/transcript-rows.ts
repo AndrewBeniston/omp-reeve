@@ -10,10 +10,24 @@ export interface TranscriptMessageRow {
   streaming: boolean;
 }
 
+export interface LiveCompactionState {
+  isCompacting: boolean;
+  source?: "manual" | "automatic" | string;
+  error?: string | null;
+}
+
 export type TranscriptRow =
   | { kind: "archived"; sessionId: string }
   | { kind: "turn"; id: string; phase: TurnPhase; settled: boolean; items: TranscriptMessageRow[] }
-  | { kind: "compaction"; id: string; phase: TurnPhase; items: TranscriptMessageRow[] }
+  | {
+      kind: "compaction";
+      id: string;
+      phase: TurnPhase;
+      items: TranscriptMessageRow[];
+      completed?: boolean;
+      source?: "manual" | "automatic" | string;
+      error?: string | null;
+    }
   | { kind: "model-change"; id: string; note: Pick<ModelChangeNote, "fromModel" | "toModel"> }
   | { kind: "message"; item: TranscriptMessageRow };
 
@@ -46,6 +60,7 @@ export function buildTranscriptRows(
   streamingMessage: AgentMessage | null,
   running: boolean,
   modelChanges: readonly ModelChangeNote[] = [],
+  compaction?: LiveCompactionState | null,
 ): TranscriptRow[] {
   const sourceMessages = streamingMessage ? [...messages, streamingMessage] : [...messages];
   const records: TranscriptRecord<AgentMessage>[] = [];
@@ -144,9 +159,30 @@ export function buildTranscriptRows(
         id: entryIds[items[0].index] ?? `compaction:${items[0].index}`,
         phase: continuation.phase,
         items,
+        completed: true,
+        source: (message.details as { source?: string } | undefined)?.source ?? "automatic",
       });
     } else {
       rows.push({ kind: "message", item: messageRow(index) });
+    }
+  }
+  if (compaction?.isCompacting || compaction?.error) {
+    const lastSourceMessage = sourceMessages[sourceMessages.length - 1];
+    const hasSavedCompactionAtEnd =
+      lastSourceMessage &&
+      lastSourceMessage.role === "custom" &&
+      lastSourceMessage.customType === "compaction";
+
+    if (!hasSavedCompactionAtEnd) {
+      rows.push({
+        kind: "compaction",
+        id: "live-compaction",
+        phase: "prework",
+        items: [],
+        completed: !compaction.isCompacting,
+        source: compaction.source ?? "automatic",
+        error: compaction.error ?? null,
+      });
     }
   }
   return rows;
