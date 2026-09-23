@@ -315,20 +315,22 @@ export function QuestionRequestPanel({
       </div>
 
       <div className={styles.customRow}>
-        <span className={styles.customIcon}><PencilIcon /></span>
-        <input
-          value={customAnswer}
-          className={styles.customInput}
-          placeholder={t("chat.writeOwnResponse")}
-          aria-label={t("chat.writeOwnResponse")}
-          onChange={(event) => setCustomAnswer(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== "Enter" || event.shiftKey) return;
-            event.preventDefault();
-            if (!isLastQuestion && currentAnswered) moveQuestion(questionIndex + 1);
-            else submitAnswers();
-          }}
-        />
+        <div className={styles.customField}>
+          <span className={styles.customIcon}><PencilIcon /></span>
+          <input
+            value={customAnswer}
+            className={styles.customInput}
+            placeholder={t("chat.writeOwnResponse")}
+            aria-label={t("chat.writeOwnResponse")}
+            onChange={(event) => setCustomAnswer(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || event.shiftKey) return;
+              event.preventDefault();
+              if (!isLastQuestion && currentAnswered) moveQuestion(questionIndex + 1);
+              else submitAnswers();
+            }}
+          />
+        </div>
         <div className={styles.footer}>
           <Button
             className={styles.skipButton}

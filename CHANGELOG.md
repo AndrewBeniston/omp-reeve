@@ -9,6 +9,7 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+- The Question window now uses rounded controls and neutral focus borders for its response field and actions.
 - Worktree selection now reports branches, detached HEAD, and uncommitted changes. Selecting a worktree leaves its branch unchanged.
 
 ## [0.8.0] - 2026-09-23
