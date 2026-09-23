@@ -43,6 +43,8 @@ export const enLocale: LocalePlugin = {
     "transcript.archived.restoredDescription": "This chat has been restored",
     "transcript.turnRenderError.title": "This turn couldn't render",
     "transcript.turnRenderError.retry": "Try again",
+    "transcript.historyLoadFailed": "Couldn't load earlier messages",
+    "transcript.retryHistoryLoad": "Retry",
     "transcript.divider.working": "Working",
     "transcript.divider.workingFor": "Working for {time}",
     "transcript.divider.workedFor": "Worked for {time}",
