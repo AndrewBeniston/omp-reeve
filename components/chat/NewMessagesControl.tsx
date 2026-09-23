@@ -17,15 +17,21 @@ export interface NewMessagesControlProps {
  */
 export function NewMessagesControl({ mode, button, onGoToNewest }: NewMessagesControlProps) {
   const { t } = useI18n();
-  if (!button.visible || mode === "user_follow" || mode === "prework_follow") return null;
+  const visible = button.visible && mode !== "user_follow" && mode !== "prework_follow";
 
   return (
     <div className={styles.newMessagesBar} role="status" aria-live="polite">
       <button
         type="button"
-        aria-label={t("chat.scrollToBottom")}
+        aria-label={t("localConversation.scrollToBottomButton")}
+        aria-hidden={!visible}
+        tabIndex={visible ? 0 : -1}
+        data-visible={visible}
         className={styles.newMessagesButton}
-        onClick={onGoToNewest}
+        onClick={(event) => {
+          event.currentTarget.blur();
+          onGoToNewest();
+        }}
       >
         {button.workingDots ? <span className={styles.workingDots} aria-hidden="true"><span /><span /><span /></span> : <svg
           className={styles.newMessagesArrow}

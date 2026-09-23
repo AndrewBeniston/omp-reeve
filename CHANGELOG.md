@@ -24,6 +24,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Fixed
 
+- The scroll-to-bottom button now fades in place and uses a 260 ms move that respects reduced motion.
 - The Session transcript follows the active Turn phase, including answers that continue after compaction.
 
 ## [0.8.0] - 2026-09-23

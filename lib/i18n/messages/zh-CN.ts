@@ -165,7 +165,7 @@ export const zhCNLocale: LocalePlugin = {
     "workspace.chats": "聊天",
     "workspace.chooseProject": "选择项目…",
     "workspace.chooseProjectShort": "选择项目",
-    "chat.scrollToBottom": "滚动到底部",
+    "localConversation.scrollToBottomButton": "滚动到底部",
     "workspace.searchProjects": "搜索项目",
     "workspace.loadingProjects": "正在加载项目…",
     "workspace.projectsUnavailable": "无法加载项目",

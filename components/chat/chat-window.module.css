@@ -228,6 +228,7 @@
 }
 
 .newMessagesButton.newMessagesButton {
+  --transition-duration-basic: 150ms;
   position: absolute;
   bottom: 24px;
   z-index: 30;
@@ -243,12 +244,20 @@
   background: var(--ui-surface);
   color: var(--ui-text-muted);
   cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
   font-size: var(--text-sm);
   box-shadow: 0 6px 18px -10px var(--ui-backdrop);
+  transition: opacity var(--transition-duration-basic) ease-in-out;
+}
+
+.newMessagesButton[data-visible="true"] {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .newMessagesButton > span { display: inline-flex; align-items: center; gap: var(--space-2); }
-.newMessagesArrow { flex-shrink: 0; color: var(--ui-text); }
+.newMessagesArrow { flex-shrink: 0; color: var(--ui-text); transform: rotate(180deg); }
 .newMessagesButton:focus-visible { outline: var(--ui-focus-ring); }
 .newMessagesButton > .workingDots { gap: 4px; }
 .workingDots > span {
@@ -580,7 +589,7 @@
     animation: none;
   }
 
-  .newMessagesButton {
+  .newMessagesButton.newMessagesButton {
     transition: none;
   }
 }
