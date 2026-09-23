@@ -11,14 +11,16 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
-### Added
-
 - File citations now show a file chip with its type and location, and open the file panel.
 - The Session transcript now has a four-mode follow model for phase-aware scrolling.
 - Markdown tables now have controls to copy their rows and open a larger table preview.
 - Long user messages show two lines with a Show more control. Empty messages show "(No content)". The copy control confirms successful copies.
 - The transcript keeps the reader's position when an existing Turn changes height.
 - The Session transcript uses one 24 px band for following and its scroll-to-bottom button.
+- Session history can load earlier pages and keep the cursor after a read failure.
+- Add a pure Turn folder and a recorded OMP event stream for future Session transcript rendering.
+- Track the Turn phase as assistant text and activity arrive, including the settled phase for saved Sessions.
+- Render saved and live Session messages from the Turn list while keeping their current transcript rows.
 
 ## [0.8.0] - 2026-09-23
 
