@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type PointerEvent, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
 import type { PowerSelection, ThinkingStep } from "@/lib/model-selector";
 import { useI18n } from "@/hooks/useI18n";
 import { MenuItem } from "@/components/ui/Menu";
@@ -34,10 +34,34 @@ export function ModelPowerSlider({
   onSelectEffort,
 }: Props) {
   const { t } = useI18n();
+  const instructionsId = useId();
   const currentIndex = steps.findIndex((step) => step.id === currentStepId);
-  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [previewStepId, setPreviewStepId] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
   const activePointer = useRef<number | null>(null);
-  const visibleIndex = previewIndex ?? currentIndex;
+  const previewIndex = steps.findIndex((step) => step.id === previewStepId);
+  const visibleIndex = previewIndex >= 0 ? previewIndex : currentIndex;
+
+  useEffect(() => {
+    setPreviewStepId(null);
+  }, [currentStepId]);
+
+  const handlePowerKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (!canChangeEffort || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (steps.length === 0) return;
+    const direction = event.key === "ArrowLeft" ? -1 : 1;
+    const from = visibleIndex >= 0 ? visibleIndex : direction === 1 ? -1 : 0;
+    const nextIndex = (from + direction + steps.length) % steps.length;
+    const step = steps[nextIndex];
+    if (nextIndex === visibleIndex) return;
+    setPreviewStepId(step.id);
+    const value = `${modelName ?? step.model.modelId} ${step.sliderLabel}`;
+    const status = t("chat.powerKeyboardValue", { value, position: nextIndex + 1, total: steps.length });
+    setAnnouncement(nextIndex === steps.length - 1 ? `${status} ${t("chat.ultraUsageWarning")}` : status);
+    onSelectEffort(step.thinkingLevel);
+  };
 
   const indexAt = (event: PointerEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -49,7 +73,7 @@ export function ModelPowerSlider({
   const cancelDrag = (event: PointerEvent<HTMLDivElement>) => {
     if (activePointer.current !== event.pointerId) return;
     activePointer.current = null;
-    setPreviewIndex(null);
+    setPreviewStepId(null);
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -89,13 +113,13 @@ export function ModelPowerSlider({
               if (event.button !== 0 || !canChangeEffort || activePointer.current !== null) return;
               const index = indexAt(event);
               activePointer.current = event.pointerId;
-              setPreviewIndex(index);
+              setPreviewStepId(steps[index].id);
               event.currentTarget.setPointerCapture?.(event.pointerId);
             }}
             onPointerMove={(event) => {
               if (activePointer.current !== event.pointerId) return;
               const index = indexAt(event);
-              setPreviewIndex(index);
+              setPreviewStepId(steps[index].id);
             }}
             onPointerUp={(event) => {
               if (activePointer.current !== event.pointerId) return;
@@ -106,6 +130,18 @@ export function ModelPowerSlider({
             onPointerCancel={cancelDrag}
             onLostPointerCapture={cancelDrag}
           >
+            <MenuItem
+              className={styles.keyboardControl}
+              surface="plain"
+              aria-label={t("chat.powerKeyboardLabel")}
+              aria-keyshortcuts="ArrowLeft ArrowRight"
+              aria-describedby={instructionsId}
+              disabled={!canChangeEffort}
+              onKeyDown={handlePowerKeyDown}
+            />
+            <span id={instructionsId} className={styles.visuallyHidden}>
+              {t("chat.powerKeyboardInstructions")}
+            </span>
             <div className={styles.rail}>
               {steps.map((step, index) => {
                 const position = steps.length === 1 ? 50 : (index / (steps.length - 1)) * 100;
@@ -126,6 +162,9 @@ export function ModelPowerSlider({
               />}
             </div>
           </div>
+          <span role="status" aria-live="polite" aria-atomic="true" className={styles.visuallyHidden}>
+            {announcement}
+          </span>
         </div>
       ) : (
         <div className={styles.empty}>{t("chat.noEffortLevels")}</div>
