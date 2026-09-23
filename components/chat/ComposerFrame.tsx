@@ -51,6 +51,9 @@ interface ComposerFrameProps {
   dictationAvailable?: boolean;
   toolbarEndRef: Ref<HTMLDivElement>;
   isMobile: boolean;
+  plainTextMode?: boolean;
+  attachmentLayout?: "card" | "icon";
+  topInsetPx?: number;
 }
 
 function ModelNoticeBanner({ tone, title, body }: { tone: "error" | "warning"; title: string; body: string }) {
@@ -178,6 +181,9 @@ export function ComposerFrame({
   dictationAvailable = false,
   toolbarEndRef,
   isMobile,
+  plainTextMode = false,
+  attachmentLayout = "card",
+  topInsetPx = 0,
 }: ComposerFrameProps) {
   const useSingleRow = requestPending
     && !modelError
@@ -238,6 +244,9 @@ export function ComposerFrame({
       <div
         className={styles.composer}
         data-compact={useSingleRow ? "true" : undefined}
+        data-plain-text-mode={plainTextMode ? "true" : undefined}
+        data-attachment-layout={attachmentLayout}
+        data-top-inset={topInsetPx}
         data-frame-variant={useSingleRow || !hasLargeContent ? undefined : "large"}
       >
         <div className={styles.composerContent}>

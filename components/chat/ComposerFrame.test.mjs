@@ -79,6 +79,39 @@ test("owns the composer surface, editor, attachments, toolbar, and status semant
   assert.ok(html.indexOf('class="toolbarRight"') < html.indexOf("Send"));
 });
 
+test("applies Composer display preferences without replacing the editor", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ComposerFrame, {
+      onSubmit() {},
+      fileInputRef: React.createRef(),
+      onFileInputChange() {},
+      attachments: [{ previewUrl: "blob:one" }],
+      localAttachments: React.createElement("div", { "data-local-attachments": true }),
+      onRemoveAttachment() {},
+      editor: React.createElement("div", { "data-composer-editor": true }),
+      textareaHeight: "44px",
+      mode: "idle",
+      primaryActions: null,
+      toolbarStart: React.createElement("button", { type: "button" }, "Attach"),
+      toolbarCenter: null,
+      toolbarModelArea: null,
+      toolbarEnd: React.createElement("button", { type: "submit" }, "Send"),
+      dictateLabel: "Dictate",
+      toolbarEndRef: React.createRef(),
+      isMobile: false,
+      plainTextMode: true,
+      attachmentLayout: "icon",
+      topInsetPx: 24,
+    }),
+  );
+
+  assert.match(html, /data-plain-text-mode="true"/);
+  assert.match(html, /data-attachment-layout="icon"/);
+  assert.match(html, /data-top-inset="24"/);
+  assert.match(html, /data-composer-editor="true"/);
+  assert.match(html, /data-local-attachments="true"/);
+});
+
 test("places the queued messages before the Composer surface", async () => {
   const source = await readFile(new URL("./ComposerFrame.tsx", import.meta.url), "utf8");
   const queueIndex = source.indexOf("<QueuedMessageList");

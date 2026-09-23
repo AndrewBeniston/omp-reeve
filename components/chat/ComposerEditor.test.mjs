@@ -74,3 +74,16 @@ test("preserves multiline drafts around mention chips", () => {
   const value = "First line\n/skill:codebase-design second line";
   assert.equal(serializeComposerDocument(parseComposerValue(value, mentions)), value);
 });
+
+test("plain-text mode keeps mention syntax as literal text", () => {
+  const value = "Use /skill:codebase-design and @components/ChatInput.tsx";
+  const doc = parseComposerValue(value, []);
+  let chips = 0;
+  doc.descendants((node) => {
+    if (node.type.name === "mention") chips += 1;
+  });
+  assert.equal(chips, 0);
+  assert.equal(serializeComposerDocument(doc), value);
+  assert.match(editorSource, /plainTextModeRef\.current/);
+  assert.match(editorSource, /new Slice\(plainTextFragment\(inserted\), 0, 0\)/);
+});
