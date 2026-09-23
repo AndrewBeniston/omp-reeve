@@ -11,7 +11,7 @@ import type { ActivityCall } from "@/lib/transcript/repeat-collapsing";
 import { selectLiveActivityHeader, type LiveActivityHeaderInput } from "@/lib/transcript/live-activity-header";
 import { composeActivitySummary } from "@/lib/transcript/activity-summary";
 import type { SubagentSnapshot } from "@/lib/types";
-import { SubagentActivityRow, visibleSubagentRows } from "./SubagentActivityRow";
+import { SubagentActivityRow, SubagentGroupSummary, visibleSubagentRows } from "./SubagentActivityRow";
 import styles from "./activity-row.module.css";
 
 interface ActivityRowProps {
@@ -121,9 +121,9 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls, 
   const subagentRows = visibleSubagentRows(subagents, first.block.toolCallId, t("transcript.activity.subAgent.defaultName"));
   const childRows = subagentRows.length > 0 ? (
     <div data-subagent-activity-group>
-      {subagentRows.map(({ snapshot, name }) => (
-        <SubagentActivityRow key={snapshot.id} subagent={snapshot} displayName={name} onOpen={onOpenSubagent} />
-      ))}
+      {subagentRows.length === 1
+        ? <SubagentActivityRow subagent={subagentRows[0]!.snapshot} displayName={subagentRows[0]!.name} onOpen={onOpenSubagent} />
+        : <SubagentGroupSummary subagents={subagentRows.map(({ snapshot }) => snapshot)} fallbackName={t("transcript.activity.subAgent.defaultName")} onOpen={onOpenSubagent} />}
     </div>
   ) : null;
   if (group) {

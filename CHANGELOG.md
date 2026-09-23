@@ -14,6 +14,7 @@ the What's New dialog adds a second page that invites support.
 - Show a neutral transcript note when OMP routes a request to a fallback model.
 - Show a past-tense summary in the completed Turn Activity header.
 - Show the live Activity header for the newest unfinished action in a Turn.
+- Group sub-agent activity under its parent Turn action with a status summary.
 - Show a retry action when earlier Session messages fail to load.
 - Show classified usage-limit failures in the transcript with a timed retry action.
 - Render the classified usage-limit note at the end of its failed Turn.

@@ -141,6 +141,18 @@ test("sub-agent rows render lifecycle state and attach by parent tool call id", 
   await unrelated.unmount();
 });
 
+test("several sub-agents under one anchor render a grouped summary", async () => {
+  const view = await mount(h(I18nProvider, null, h(ActivityRow, {
+    block: tool("task"),
+    subagents: [
+      subagent({ id: "one", agent: "One", parentToolCallId: "call-task" }),
+      subagent({ id: "two", agent: "Two", parentToolCallId: "call-task" }),
+    ],
+  })));
+  assert.equal(view.container.querySelector("[data-subagent-summary-sentence]")?.textContent, "One and Two started working");
+  await view.unmount();
+});
+
 test("sub-agent rows use the fallback name and drop unusable names", async () => {
   const view = await mount(h(I18nProvider, null, h(ActivityRow, {
     block: tool("task"),
@@ -155,7 +167,7 @@ test("sub-agent rows use the fallback name and drop unusable names", async () =>
   await view.unmount();
 });
 
-test("only openable sub-agent rows are buttons and they open the selected sub-agent", async () => {
+test("grouped sub-agent names open the selected sub-agent", async () => {
   let opened = null;
   const view = await mount(h(I18nProvider, null, h(ActivityRow, {
     block: tool("task"),
@@ -167,17 +179,10 @@ test("only openable sub-agent rows are buttons and they open the selected sub-ag
       subagent({ id: "updated", agent: "Updated", status: "running", progress: { id: "updated", index: 1, agent: "Updated", status: "running", task: "Review", recentTools: [], recentOutput: [], toolCount: 0, requests: 0, tokens: 0, cost: 0, durationMs: 1 }, parentToolCallId: "call-task" }),
     ],
   })));
-  const rows = view.container.querySelectorAll("[data-subagent-activity]");
-  assert.equal(rows.length, 4);
-  assert.equal(rows[0]?.tagName, "BUTTON");
-  assert.equal(rows[0]?.getAttribute("aria-label"), "Open Active subagent");
-  assert.equal(rows[1]?.tagName, "BUTTON");
-  assert.equal(rows[1]?.getAttribute("aria-label"), "Open Background subagent");
-  assert.equal(rows[2]?.tagName, "DIV");
-  assert.equal(rows[2]?.hasAttribute("aria-label"), false);
-  assert.equal(rows[3]?.tagName, "DIV");
-  assert.equal(rows[3]?.hasAttribute("aria-label"), false);
-  await click(rows[0]);
+  const names = view.container.querySelectorAll("[data-subagent-summary-name]");
+  assert.equal(names.length, 2);
+  assert.deepEqual([...names].map((row) => row.textContent), ["Active", "Background"]);
+  await click(names[0]);
   assert.equal(opened, "active");
   await view.unmount();
 });

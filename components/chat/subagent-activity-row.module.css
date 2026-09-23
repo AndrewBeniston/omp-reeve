@@ -37,3 +37,10 @@ button.row { cursor: pointer; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.group { display: flex; min-width: 0; align-items: center; gap: var(--space-1-5); padding: var(--space-1-5) 0; color: var(--ui-text-muted); font-size: var(--text-sm); }
+.avatars { display: inline-flex; flex: 0 0 auto; align-items: center; }
+.avatars .avatar { margin-left: -5px; border: 1px solid var(--ui-bg); }
+.avatars .avatar:first-child { margin-left: 0; }
+.summary { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.summary button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
