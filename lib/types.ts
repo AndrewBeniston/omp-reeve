@@ -430,7 +430,15 @@ export interface SessionInfo {
 export interface SessionContext {
   messages: AgentMessage[];
   entryIds: string[]; // parallel to messages — the session entry id for each message
+  modelChanges: ModelChangeNote[];
   thinkingLevel: string;
   model: { provider: string; modelId: string } | null;
   serviceTierByFamily: Partial<Record<"openai" | "anthropic" | "google", string>>;
+}
+
+export interface ModelChangeNote {
+  entryId: string;
+  position: number;
+  fromModel: string;
+  toModel: string;
 }

@@ -15,6 +15,7 @@ the What's New dialog adds a second page that invites support.
 - Add a pure Turn folder and a recorded OMP event stream for future Session transcript rendering.
 - Track the Turn phase as assistant text and activity arrive, including the settled phase for saved Sessions.
 - Render saved and live Session messages from the Turn list while keeping their current transcript rows.
+- Show a transcript note when the default model changes, with warnings about performance and compaction.
 
 ## [0.8.0] - 2026-09-23
 

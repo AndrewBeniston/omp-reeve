@@ -8,6 +8,7 @@ import type {
   ExtensionStatusItem,
   ExtensionUiRequest,
   ExtensionWidgetItem,
+  ModelChangeNote,
   SessionInfo,
   SessionTreeNode,
   SubagentSnapshot,
@@ -66,6 +67,7 @@ export interface SessionData {
   context: {
     messages: AgentMessage[];
     entryIds: string[];
+    modelChanges: ModelChangeNote[];
     thinkingLevel: string;
     model: { provider: string; modelId: string } | null;
     serviceTierByFamily?: Partial<Record<"openai" | "anthropic" | "google", string>>;
@@ -699,11 +701,15 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const d = await res.json() as {
-        context: { messages: AgentMessage[]; entryIds: string[] };
+        context: { messages: AgentMessage[]; entryIds: string[]; modelChanges: ModelChangeNote[] };
         contextUsage?: ContextUsage;
       };
       setMessages(d.context.messages);
       setEntryIds(d.context.entryIds ?? []);
+      setData((current) => current ? {
+        ...current,
+        context: { ...current.context, modelChanges: d.context.modelChanges ?? [] },
+      } : current);
       setContextUsage(d.contextUsage ?? null);
     } catch (e) {
       console.error("Failed to load context:", e);
