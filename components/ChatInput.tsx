@@ -7,7 +7,7 @@ import type { ContextUsage, SessionStatsInfo, SlashCommandInfo } from "@/lib/omp
 import type { QueuedMessageDraft } from "@/lib/queued-message-types";
 import type { ApprovalMode } from "@/lib/approval-mode";
 import { REVIEW_SLASH_COMMAND, REVIEW_SLASH_ENTRIES } from "@/lib/review-slash-entries";
-import { matchDefaultComposerCommand, nextThinkingLevel, readComposerEnterBehavior, shouldSendWithEnterBehavior, COMPOSER_ENTER_BEHAVIOR_STORAGE_KEY } from "@/lib/composer-keyboard-commands";
+import { matchDefaultComposerCommand, nextThinkingLevel, readComposerEnterBehavior, runComposerCommand, shouldSendWithEnterBehavior, COMPOSER_ENTER_BEHAVIOR_STORAGE_KEY } from "@/lib/composer-keyboard-commands";
 
 /** Listed with its reason instead of an action when the Git gate fails. */
 const REVIEW_DISABLED_COMMANDS: ReadonlySet<string> = new Set([REVIEW_SLASH_COMMAND]);
@@ -71,6 +71,7 @@ import { CommandArgumentsDialog } from "./chat/CommandArgumentsDialog";
 import { ComposerEditor, type ComposerEditorHandle } from "./chat/ComposerEditor";
 import { ModelList } from "./chat/ModelList";
 import { ModelPowerSlider } from "./chat/ModelPowerSlider";
+import { ComposerWorktreeControl, type ComposerWorktreeControlHandle } from "./chat/ComposerWorktreeControl";
 import { PausedQueueSubmitDialog } from "./chat/PausedQueueSubmitDialog";
 import { ApprovalModeSelector } from "./chat/ApprovalModeSelector";
 import { SendArrowIcon, StopSquareIcon } from "./navigation/CodexIcons";
@@ -175,6 +176,8 @@ interface Props {
   imageInputId?: string;
   /** Session working directory — enables the @ file autocomplete menu */
   cwd?: string | null;
+  onSelectWorktree?: (path: string) => void;
+  onRegisterWorktreeCommand?: (open: () => void) => void;
   contextUsage?: ContextUsage | null;
   sessionStats?: SessionStatsInfo | null;
   projectTrust?: ProjectTrustStatus | null;
@@ -491,6 +494,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   draftKey,
   onEnsureSession,
   cwd,
+  onSelectWorktree,
+  onRegisterWorktreeCommand,
   contextUsage,
   sessionStats,
   projectTrust,
@@ -503,7 +508,14 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   onListReviewBranches,
 }: Props, ref) {
   const { t } = useI18n();
+  const worktreeControlRef = useRef<ComposerWorktreeControlHandle>(null);
   const isMobile = useIsMobile();
+  useEffect(() => {
+    onRegisterWorktreeCommand?.(() => {
+      runComposerCommand("composer.toggleWorktreeMode", () => worktreeControlRef.current?.open());
+    });
+    return () => onRegisterWorktreeCommand?.(() => {});
+  }, [onRegisterWorktreeCommand]);
   const [value, setValue] = useState(() => (draftKey ? getDraft(draftKey)?.value ?? "" : ""));
   const [modelMenu, dispatchModelMenu] = useReducer(reduceModelMenuState, INITIAL_MODEL_MENU_STATE);
   const [recentConfigurations, setRecentConfigurations] = useState(() => {
@@ -2450,6 +2462,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   );
   const toolbarStart = (
     <>
+            {cwd && onSelectWorktree && <ComposerWorktreeControl ref={worktreeControlRef} cwd={cwd} onSelect={onSelectWorktree} />}
             {commandActionError && <span role="alert">{commandActionError}</span>}
             <ComposerAddMenu
               loading={Boolean(slashCommandsLoading || composerResourcesLoading)}
