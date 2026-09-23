@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useCallback, useEffect, useLayoutEffect, useImperativeHandle, useMemo, forwardRef } from "react";
+import React, { useRef, useState, useReducer, useCallback, useEffect, useLayoutEffect, useImperativeHandle, useMemo, forwardRef } from "react";
 import type { BuiltinSlashCommandResult, CompactResultInfo, QueuedMessages } from "@/hooks/useAgentSession";
 import type { ModelRoleAssignment, PluginPackageInfo, PluginsResponse, ProjectTrustStatus, SkillInfo, SkillsResponse } from "@/lib/api-types";
 import type { ContextUsage, SessionStatsInfo, SlashCommandInfo } from "@/lib/omp-types";
@@ -43,6 +43,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { getAttachmentPicker } from "@/lib/desktop-attachments";
 import { useI18n } from "@/hooks/useI18n";
 import { PRESET_DEFAULT, PRESET_FULL } from "@/lib/tool-presets";
+import { buildModelSelectorState, filterModelOptions, INITIAL_MODEL_MENU_STATE, reduceModelMenuState, THINKING_STEP_ORDER, thinkingLevelLabelKey } from "@/lib/model-selector";
 import {
   ComposerFloatingGeometry,
   ComposerFrame,
@@ -95,12 +96,6 @@ export async function dispatchPausedQueueSubmission({
   await onSend();
 }
 
-interface ModelOption {
-  provider: string;
-  modelId: string;
-  name: string;
-}
-
 interface Props {
   requestPending?: boolean;
   onSend: (message: string, images?: AttachedImage[]) => void;
@@ -111,6 +106,7 @@ interface Props {
   isStreaming: boolean;
   model?: { provider: string; modelId: string } | null;
   isAutoModelSelection?: boolean;
+  explicitModelOverride?: boolean;
   modelNames?: Record<string, string>;
   modelList?: { id: string; name: string; provider: string }[];
   modelError?: string | null;
@@ -132,6 +128,7 @@ interface Props {
   onThinkingLevelChange?: (level: "auto" | "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max") => void;
   onCycleThinkingLevel?: () => void;
   availableThinkingLevels?: string[] | null;
+  modelThinkingLevels?: Record<string, string[]>;
   thinkingLevelMap?: Record<string, string | null> | null;
   fastModeEnabled?: boolean;
   fastModeAvailable?: boolean;
@@ -197,25 +194,8 @@ const COMPOSITION_END_ENTER_GRACE_MS = 100;
 const COMPOSER_MAX_ATTACHED_IMAGES = 5;
 const FOLLOW_UP_QUEUE_MODE_KEY = "reeve-follow-up-queue-mode";
 const MODEL_FILTER_THRESHOLD = 8;
-const MODEL_OPTION_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 const EMPTY_SUBAGENTS: SubagentSnapshot[] = [];
-
-function compareModelOptions(a: ModelOption, b: ModelOption): number {
-  return MODEL_OPTION_COLLATOR.compare(a.name || a.modelId, b.name || b.modelId)
-    || MODEL_OPTION_COLLATOR.compare(a.provider, b.provider)
-    || MODEL_OPTION_COLLATOR.compare(a.modelId, b.modelId);
-}
-
-export function filterModelOptions(options: ModelOption[], query: string): ModelOption[] {
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  if (!normalizedQuery) return options;
-
-  return options.filter((option) => (
-    `${option.name} ${option.modelId}`
-      .toLocaleLowerCase()
-      .includes(normalizedQuery)
-  ));
-}
+export { filterModelOptions };
 
 export function getComposerTextareaHeight(scrollHeight: number): string {
   return `${scrollHeight}px`;
@@ -358,19 +338,7 @@ export function dispatchStreamingSubmission({
   return "ignored";
 }
 
-const THINKING_LEVELS = ["auto", "off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
-const THINKING_LEVEL_LABEL_KEYS: Record<typeof THINKING_LEVELS[number], string> = {
-  auto: "chat.effortAuto",
-  off: "chat.effortNone",
-  minimal: "chat.effortMinimal",
-  low: "chat.effortLight",
-  medium: "chat.effortMedium",
-  high: "chat.effortHigh",
-  xhigh: "chat.effortExtraHigh",
-  max: "chat.effortUltra",
-};
-
-type ModelSubmenu = "model" | "effort" | "speed" | "advanced";
+const THINKING_LEVELS = ["auto", ...THINKING_STEP_ORDER] as const;
 
 function ModelSelectionMark() {
   return (
@@ -469,10 +437,10 @@ function revokeImagePreview(image: AttachedImage): void {
 export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   imageInputId = COMPOSER_IMAGE_INPUT_ID,
   requestPending = false,
-  onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, modelNames, modelList, modelError, modelScopeWarnings, onModelChange,
+  onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, explicitModelOverride, modelNames, modelList, modelError, modelScopeWarnings, onModelChange,
   modelRoles, onRoleModelChange, modelSwitching,
   onCompact, onAbortCompaction, isCompacting, compactError, compactResult, toolPreset, onToolPresetChange,
-  thinkingLevel, onThinkingLevelChange, onCycleThinkingLevel, availableThinkingLevels, thinkingLevelMap,
+  thinkingLevel, onThinkingLevelChange, onCycleThinkingLevel, availableThinkingLevels, modelThinkingLevels, thinkingLevelMap,
   fastModeEnabled = false, fastModeAvailable = false, onFastModeChange,
   retryInfo, queuedMessages, inputHistory = [], subagents = EMPTY_SUBAGENTS,
   onDeleteQueuedMessage, onUndoDeletedQueuedMessage, onEditQueuedMessage,
@@ -498,14 +466,15 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const { t } = useI18n();
   const isMobile = useIsMobile();
   const [value, setValue] = useState(() => (draftKey ? getDraft(draftKey)?.value ?? "" : ""));
-  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [modelMenu, dispatchModelMenu] = useReducer(reduceModelMenuState, INITIAL_MODEL_MENU_STATE);
+  const modelDropdownOpen = modelMenu.open;
+  const modelSubmenu = modelMenu.submenu;
+  const modelFilter = modelMenu.filter;
   const [attachmentPickerError, setAttachmentPickerError] = useState<string | null>(null);
   const [commandActionError, setCommandActionError] = useState<string | null>(null);
   const [commandActionPending, setCommandActionPending] = useState(false);
   const [pendingAddCommand, setPendingAddCommand] = useState<ComposerSuggestion | null>(null);
   const [modelDropdownRect, setModelDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null);
-  const [modelSubmenu, setModelSubmenu] = useState<ModelSubmenu | null>(null);
-  const [modelFilter, setModelFilter] = useState("");
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
   const [sessionCommandStatus, setSessionCommandStatus] = useState<string | null>(null);
   /**
@@ -1565,47 +1534,45 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     }
   }, [displayedSlashCommands.length, slashActiveIndex]);
 
-  // Build model options: prefer modelList (has provider info), fallback to modelNames
-  const modelOptions: ModelOption[] = (() => {
-    if (modelList && modelList.length > 0) {
-      return modelList.map((m) => ({ provider: m.provider, modelId: m.id, name: m.name })).sort(compareModelOptions);
-    }
-    return Object.entries(modelNames ?? {}).map(([modelId, name]) => ({
+  const selectorRegistry = modelList && modelList.length > 0
+    ? modelList.map((entry) => ({
+      provider: entry.provider,
+      id: entry.id,
+      name: entry.name,
+      thinkingLevels: modelThinkingLevels?.[`${entry.provider}:${entry.id}`]
+        ?? (entry.provider === model?.provider && entry.id === model.modelId ? availableThinkingLevels ?? [] : []),
+    }))
+    : Object.entries(modelNames ?? {}).map(([modelId, name]) => ({
       provider: model?.provider ?? "unknown",
-      modelId,
+      id: modelId,
       name,
-    })).sort(compareModelOptions);
-  })();
-  const filteredModelOptions = filterModelOptions(modelOptions, modelFilter);
+      thinkingLevels: modelId === model?.modelId ? availableThinkingLevels ?? [] : [],
+    }));
+  const selector = buildModelSelectorState({
+    registry: selectorRegistry,
+    roles: modelRoles ?? [],
+    currentModel: model,
+    currentThinkingLevel: thinkingLevel,
+    explicitModelOverride,
+    filter: modelFilter,
+  }, t);
+  const modelOptions = selector.models;
   const showModelFilter = modelOptions.length > MODEL_FILTER_THRESHOLD;
 
   useEffect(() => {
     if (modelDropdownOpen && modelSubmenu === "model" && showModelFilter) modelFilterRef.current?.focus();
   }, [modelDropdownOpen, modelSubmenu, showModelFilter]);
 
-  // Group options by provider, preserving insertion order
-  const modelsByProvider: { provider: string; options: ModelOption[] }[] = [];
-  for (const opt of filteredModelOptions) {
-    const group = modelsByProvider.find((g) => g.provider === opt.provider);
-    if (group) group.options.push(opt);
-    else modelsByProvider.push({ provider: opt.provider, options: [opt] });
-  }
-
-  // omp's roles, in omp's own order, minus the ones it hides from its selector
-  // and the ones with nothing configured to switch to.
-  const roleRows = (modelRoles ?? []).filter((role) => !role.hidden && role.resolved);
-  const activeRole = model
-    ? roleRows.find((role) => role.resolved?.provider === model.provider && role.resolved?.modelId === model.modelId)
-    : undefined;
+  const modelsByProvider = selector.modelsByProvider;
+  const roleRows = selector.roleRows;
+  const activeRole = selector.activeRole;
 
   const displayModelName = model
     ? (modelOptions.find((o) => o.modelId === model.modelId && o.provider === model.provider)?.name ?? model.modelId)
     : null;
   const currentName = displayModelName;
-  const effortLevels = availableThinkingLevels
-    ? THINKING_LEVELS.filter((level) => availableThinkingLevels.includes(level))
-    : [];
-  const currentEffortLabel = t(THINKING_LEVEL_LABEL_KEYS[thinkingLevel ?? "auto"]);
+  const effortLevels = selector.steps.map((step) => step.thinkingLevel);
+  const currentEffortLabel = selector.currentStep?.effortLabel ?? t(thinkingLevelLabelKey(thinkingLevel ?? "auto"));
   const currentSpeedLabel = fastModeEnabled ? t("chat.speedFast") : t("chat.speedStandard");
   const modelMenuRows: Array<{
     id: "model" | "effort" | "speed";
@@ -1635,9 +1602,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
         modelDropdownPanelRef.current && !modelDropdownPanelRef.current.contains(e.target as Node)
       ) {
-        setModelDropdownOpen(false);
-        setModelSubmenu(null);
-        setModelFilter("");
+        dispatchModelMenu({ type: "close" });
       }
       if (sessionMenuRef.current && !sessionMenuRef.current.contains(e.target as Node)) {
         setSessionMenuOpen(false);
@@ -1838,9 +1803,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     />
   ) : null;
   const closeModelMenu = useCallback(() => {
-    setModelDropdownOpen(false);
-    setModelSubmenu(null);
-    setModelFilter("");
+    dispatchModelMenu({ type: "close" });
     requestAnimationFrame(() => modelTriggerRef.current?.focus());
   }, []);
   // Codex order: the model pill sits in the right cluster, after the Context donut and before Send.
@@ -1855,13 +1818,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                     onClick={(e) => {
                       const rect = e.currentTarget.getBoundingClientRect();
                       setModelDropdownRect({ top: rect.top, left: rect.left, width: rect.width });
-                      setModelDropdownOpen((open) => {
-                        if (open) {
-                          setModelSubmenu(null);
-                          setModelFilter("");
-                        }
-                        return !open;
-                      });
+                      dispatchModelMenu({ type: "toggle" });
                     }}
                     disabled={isStreaming || modelSwitching}
                     aria-label={t("chat.modelSettings")}
@@ -1916,8 +1873,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                                 aria-haspopup="menu"
                                 aria-expanded={modelSubmenu === row.id}
                                 disabled={row.disabled}
-                                onMouseEnter={() => setModelSubmenu(row.id)}
-                                onClick={() => setModelSubmenu(row.id)}
+                                onMouseEnter={() => dispatchModelMenu({ type: "submenu", value: row.id })}
+                                onClick={() => dispatchModelMenu({ type: "submenu", value: row.id })}
                                 className={styles.modelMenuRow}
                                 surface="plain"
                               >
@@ -1936,8 +1893,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                             aria-haspopup="menu"
                             aria-expanded={modelSubmenu === "advanced"}
                             disabled={!onToolPresetChange && !onThinkingLevelChange}
-                            onMouseEnter={() => setModelSubmenu("advanced")}
-                            onClick={() => setModelSubmenu("advanced")}
+                            onMouseEnter={() => dispatchModelMenu({ type: "submenu", value: "advanced" })}
+                            onClick={() => dispatchModelMenu({ type: "submenu", value: "advanced" })}
                             className={styles.modelMenuRow}
                             surface="plain"
                           >
@@ -1949,10 +1906,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                         </Menu>
 
                         {modelSubmenu === "model" && (
-                          <Menu open label={t("chat.model")} onClose={() => setModelSubmenu(null)} triggerRef={modelRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuModel}`} data-model-submenu="model">
+                          <Menu open label={t("chat.model")} onClose={() => dispatchModelMenu({ type: "submenu", value: null })} triggerRef={modelRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuModel}`} data-model-submenu="model">
                             {showModelFilter && (
                               <div className={styles.modelFilterWrap}>
-                                <input ref={modelFilterRef} value={modelFilter} onChange={(e) => setModelFilter(e.target.value)} placeholder={t("chat.filterModels")} aria-label={t("chat.filterModels")} autoFocus autoComplete="off" spellCheck={false} className={styles.modelFilter} data-mobile={isMobile ? "true" : "false"} />
+                                <input ref={modelFilterRef} value={modelFilter} onChange={(e) => dispatchModelMenu({ type: "filter", value: e.target.value })} placeholder={t("chat.filterModels")} aria-label={t("chat.filterModels")} autoFocus autoComplete="off" spellCheck={false} className={styles.modelFilter} data-mobile={isMobile ? "true" : "false"} />
                               </div>
                             )}
                             <div className={styles.modelMenuScroller}>
@@ -1995,17 +1952,17 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                         )}
 
                         {modelSubmenu === "effort" && onThinkingLevelChange && (
-                          <Menu open label={t("chat.effort")} onClose={() => setModelSubmenu(null)} triggerRef={effortRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuEffort}`} data-model-submenu="effort">
+                          <Menu open label={t("chat.effort")} onClose={() => dispatchModelMenu({ type: "submenu", value: null })} triggerRef={effortRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuEffort}`} data-model-submenu="effort">
                             <div className={styles.modelSubmenuTitle}>{t("chat.effort")}</div>
                             <div data-menu-section="reasoning">
                               {effortLevels.length === 0 ? (
                                 <div className={styles.modelSubmenuEmpty}>{t("chat.noEffortLevels")}</div>
                               ) : effortLevels.map((level) => {
                                 const isActive = (thinkingLevel ?? "auto") === level;
-                                const mappedValue = level !== "auto" && thinkingLevelMap ? thinkingLevelMap[level] : undefined;
+                                const mappedValue = thinkingLevelMap?.[level];
                                 return (
                                   <MenuItem key={level} title={mappedValue && mappedValue !== level ? `${level} → ${mappedValue}` : undefined} onClick={() => { closeModelMenu(); if (!isActive) onThinkingLevelChange(level); }} className={styles.submenuChoice} data-selected={isActive ? "true" : "false"} role="menuitemradio" checked={isActive} surface="plain">
-                                    <span>{t(THINKING_LEVEL_LABEL_KEYS[level])}</span>
+                                    <span>{t(thinkingLevelLabelKey(level))}</span>
                                     {level === "max" && <span className={styles.ultraWarning}>{t("chat.ultraUsageWarning")}</span>}
                                     {isActive && <SubmenuSelectionCheck />}
                                   </MenuItem>
@@ -2016,7 +1973,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                         )}
 
                         {modelSubmenu === "speed" && onFastModeChange && (
-                          <Menu open label={t("chat.speed")} onClose={() => setModelSubmenu(null)} triggerRef={speedRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuSpeed}`} data-model-submenu="speed">
+                          <Menu open label={t("chat.speed")} onClose={() => dispatchModelMenu({ type: "submenu", value: null })} triggerRef={speedRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuSpeed}`} data-model-submenu="speed">
                             <div className={styles.modelSubmenuTitle}>{t("chat.speed")}</div>
                             {[false, true].map((enabled) => {
                               const isActive = fastModeEnabled === enabled;
@@ -2032,7 +1989,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                         )}
 
                         {modelSubmenu === "advanced" && (onToolPresetChange || onThinkingLevelChange) && (
-                          <Menu open label={t("chat.advanced")} onClose={() => setModelSubmenu(null)} triggerRef={advancedRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuAdvanced}`} data-model-submenu="advanced">
+                          <Menu open label={t("chat.advanced")} onClose={() => dispatchModelMenu({ type: "submenu", value: null })} triggerRef={advancedRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuAdvanced}`} data-model-submenu="advanced">
                             <div className={styles.modelSubmenuTitle}>{t("chat.advanced")}</div>
                             {onThinkingLevelChange && (
                               <div data-menu-section="effort-modes">
@@ -2041,7 +1998,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                                   const isActive = (thinkingLevel ?? "auto") === level;
                                   return (
                                     <MenuItem key={level} onClick={() => { closeModelMenu(); if (!isActive) onThinkingLevelChange(level); }} className={styles.submenuChoice} data-selected={isActive ? "true" : "false"} role="menuitemradio" checked={isActive} surface="plain">
-                                      <span>{t(THINKING_LEVEL_LABEL_KEYS[level])}</span>
+                                      <span>{t(thinkingLevelLabelKey(level))}</span>
                                       {isActive && <SubmenuSelectionCheck />}
                                     </MenuItem>
                                   );
@@ -2084,7 +2041,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 setSlashMenuOpen(false);
                 setAtMenuOpen(false);
                 setHistoryMenuOpen(false);
-                setModelDropdownOpen(false);
+                dispatchModelMenu({ type: "close" });
                 if (onLoadSlashCommands) void Promise.resolve(onLoadSlashCommands()).catch(() => {
                   slashCommandsRequestedRef.current = false;
                 });
