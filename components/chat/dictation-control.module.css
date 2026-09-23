@@ -1,0 +1,6 @@
+.control { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--ui-composer-muted, currentColor); font: inherit; }
+.action, .secondary { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.action:disabled { cursor: default; opacity: .65; }
+.error { color: var(--ui-danger, currentColor); font-size: 11px; }
+.status { font-size: 12px; }
+.action span:first-child { font-size: 9px; }
