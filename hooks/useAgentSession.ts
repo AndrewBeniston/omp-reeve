@@ -11,6 +11,8 @@ import type {
   SessionInfo,
   SessionTreeNode,
   SubagentSnapshot,
+  UserMessage,
+  UserMessageAttachment,
 } from "@/lib/types";
 import { isBlockingExtensionUiRequest } from "@/lib/browser-notifications";
 import type { AgentControlReply, AgentControlRequestEvent } from "@/lib/agent-control/types";
@@ -374,6 +376,37 @@ function userMessageKey(message: Partial<AgentMessage>): string {
   });
 }
 
+interface FileMentionMessage {
+  role: "fileMention";
+  files: Array<{
+    path: string;
+    content: string;
+    kind?: "file" | "folder";
+  }>;
+}
+
+function isFileMentionMessage(message: unknown): message is FileMentionMessage {
+  if (!message || typeof message !== "object") return false;
+  const candidate = message as { role?: unknown; files?: unknown };
+  return candidate.role === "fileMention" && Array.isArray(candidate.files);
+}
+
+function userMessageAttachmentsFromFileMention(message: FileMentionMessage): UserMessageAttachment[] {
+  return message.files.map((file) => {
+    const uploaded = file.path.startsWith("browser-upload:");
+    const source = uploaded ? file.path.slice(file.path.indexOf("/") + 1) : file.path;
+    const name = source.split(/[/\\]/).filter(Boolean).at(-1) || source;
+    return {
+      name,
+      kind: file.kind ?? (file.path.endsWith("/") ? "folder" : "file"),
+      available: true,
+      uploaded,
+      ...(!uploaded ? { openPath: file.path } : {}),
+      ...(uploaded ? { content: file.content } : {}),
+    };
+  });
+}
+
 
 function readCompactResult(result: unknown, reason: string): CompactResultInfo | null {
   if (!result || typeof result !== "object") return null;
@@ -513,6 +546,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const notifiedPromptRunIdRef = useRef(-1);
   const bashRunningRef = useRef(false);
   const bashRecoveryIdRef = useRef(0);
+  const pendingFileMentionsRef = useRef<UserMessageAttachment[]>([]);
   const handleAgentEventRef = useRef<((event: AgentEvent) => void) | null>(null);
   const executeBashRef = useRef<(command: string, excludeFromContext: boolean) => Promise<void> | undefined>(undefined);
   const ensuringNewSessionRef = useRef<Promise<string | null> | null>(null);
@@ -1395,6 +1429,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         if (msg?.role === "user") {
           break;
         }
+        if (isFileMentionMessage(msg)) {
+          break;
+        }
         if (msg) {
           dispatch({ type: "update", message: normalizeToolCalls(msg as AgentMessage) });
         }
@@ -1407,12 +1444,22 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         // appending it again would duplicate it.
         if (!agentRunningRef.current) break;
         const completed = event.message as AgentMessage | undefined;
-        if (completed && completed.role === "user") {
+        if (isFileMentionMessage(completed)) {
+          pendingFileMentionsRef.current.push(...userMessageAttachmentsFromFileMention(completed as FileMentionMessage));
+          break;
+        } else if (completed && completed.role === "user") {
           // Delivered steering/follow-up messages surface here as user
           // messages. The run's initial prompt also emits one, but handleSend
           // already appended it optimistically. Consume only the still-adjacent
           // optimistic bubble; later same-text queue deliveries must render.
-          const delivered = normalizeToolCalls(completed);
+          const delivered = normalizeToolCalls(completed) as UserMessage;
+          const deliveredWithAttachments = pendingFileMentionsRef.current.length > 0
+            ? {
+              ...delivered,
+              attachments: [...(delivered.attachments ?? []), ...pendingFileMentionsRef.current],
+            }
+            : delivered;
+          pendingFileMentionsRef.current = [];
           const deliveredKey = userMessageKey(delivered);
           const optimisticKey = optimisticUserMessageKeyRef.current;
           optimisticUserMessageKeyRef.current = null;
@@ -1420,10 +1467,12 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
             const last = prev[prev.length - 1];
             if (optimisticKey && last?.role === "user" && userMessageKey(last) === optimisticKey) {
               return optimisticKey === deliveredKey
-                ? prev
-                : [...prev.slice(0, -1), delivered];
+                ? deliveredWithAttachments.attachments
+                  ? [...prev.slice(0, -1), deliveredWithAttachments]
+                  : prev
+                : [...prev.slice(0, -1), deliveredWithAttachments];
             }
-            return [...prev, delivered];
+            return [...prev, deliveredWithAttachments];
           });
         } else if (completed) {
           setMessages((prev) => [...prev, normalizeToolCalls(completed)]);
