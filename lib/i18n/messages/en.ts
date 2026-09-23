@@ -598,6 +598,8 @@ export const enLocale: LocalePlugin = {
     "transcript.activity.applicationControl.terminal": "Reading the terminal",
     "transcript.activity.unknown.running": "Running tool",
     "transcript.activity.unknown.completed": "Ran tool",
+    "transcript.activity.repeatedCount.one": "· {count} call",
+    "transcript.activity.repeatedCount.other": "· {count} calls",
     "transcript.providerRetrying": "Retrying…",
     "transcript.providerRetryProgressStart": "Retrying (",
     "transcript.providerRetryProgressDenominator": "/{maxAttempts}",

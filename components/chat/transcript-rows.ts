@@ -2,6 +2,7 @@ import type { AgentMessage, ModelChangeNote } from "@/lib/types";
 import { getAssistantErrorMessage, getDisplayableAssistantBlocks } from "@/lib/message-display";
 import { foldTurns, type TranscriptRecord, type TurnPhase, type TurnTextPhase } from "@/lib/transcript/turn-folder";
 import { classifyActivityTool, type ActivityClassification } from "@/lib/transcript/activity-classifier";
+import { groupConsecutiveActivityCalls, type ActivityCall } from "@/lib/transcript/repeat-collapsing";
 import type { ToolCallContent, ToolResultMessage } from "@/lib/types";
 
 export interface TranscriptMessageRow {
@@ -18,6 +19,10 @@ export interface ActivityRowContent {
   classification: ActivityClassification;
   state: ActivityRowState;
   detail?: string;
+}
+
+export function activityCallGroups(calls: readonly ActivityCall[]): ReturnType<typeof groupConsecutiveActivityCalls> {
+  return groupConsecutiveActivityCalls(calls);
 }
 
 export interface ActivityStrings {

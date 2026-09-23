@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { createJiti } from "jiti";
-import { React, mount } from "../../test/dom-harness.mjs";
+import { React, click, mount } from "../../test/dom-harness.mjs";
 
 const jiti = createJiti(import.meta.url, { jsx: { runtime: "automatic" }, tsconfigPaths: true });
 const { ActivityRow } = await jiti.import("./ActivityRow.tsx");
@@ -75,4 +75,31 @@ test("Activity strings exist in both locales and do not end with an ellipsis", (
     assert.doesNotMatch(enLocale.messages[key], /(?:\.{3}|…)$/);
     assert.doesNotMatch(zhCNLocale.messages[key], /(?:\.{3}|…)$/);
   }
+});
+
+test("a grouped connector call renders a counted disclosure and reveals every call", async () => {
+  const calls = [tool("mcp__github__list_issues"), tool("mcp__github__list_issues")];
+  calls[1].toolCallId = "call-two";
+  const results = calls.map((block) => ({ role: "toolResult", toolCallId: block.toolCallId, content: [] }));
+  const view = await mount(h(I18nProvider, null, h(ActivityRow, { block: calls[0], result: results[0], groupedCalls: calls.map((block, index) => ({ block, result: results[index] })) })));
+  const trigger = view.container.querySelector("[data-activity-repeats]");
+  assert.ok(trigger);
+  assert.equal(trigger?.getAttribute("aria-expanded"), "false");
+  assert.equal(trigger?.querySelector("[data-activity-count]")?.textContent, "· 2 calls");
+  assert.equal(trigger?.textContent, "mcp__github__list_issues· 2 calls");
+  assert.equal(view.container.querySelectorAll("[data-activity-instance]").length, 0);
+  await click(trigger);
+  assert.equal(trigger?.getAttribute("aria-expanded"), "true");
+  assert.equal(view.container.querySelectorAll("[data-activity-instance]").length, 2);
+  await view.unmount();
+});
+
+test("a first-party label keeps the standalone call count segment", async () => {
+  const calls = [tool("read", { path: "notes.md" }), tool("read", { path: "notes.md" })];
+  calls[1].toolCallId = "call-two";
+  const results = calls.map((block) => ({ role: "toolResult", toolCallId: block.toolCallId, content: [] }));
+  const view = await mount(h(I18nProvider, null, h(ActivityRow, { block: calls[0], result: results[0], groupedCalls: calls.map((block, index) => ({ block, result: results[index] })) })));
+  assert.equal(view.container.querySelector("[data-activity-repeats]")?.textContent, "Reading· 2 calls");
+  assert.equal(view.container.querySelector("[data-activity-count]")?.textContent, "· 2 calls");
+  await view.unmount();
 });

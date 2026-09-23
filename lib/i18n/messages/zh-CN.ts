@@ -598,6 +598,8 @@ export const zhCNLocale: LocalePlugin = {
     "transcript.activity.applicationControl.terminal": "正在读取终端",
     "transcript.activity.unknown.running": "正在运行工具",
     "transcript.activity.unknown.completed": "已运行工具",
+    "transcript.activity.repeatedCount.one": "· {count} 次调用",
+    "transcript.activity.repeatedCount.other": "· {count} 次调用",
     "transcript.providerRetrying": "正在重试…",
     "transcript.providerRetryProgressStart": "正在重试（",
     "transcript.providerRetryProgressDenominator": "/{maxAttempts}",

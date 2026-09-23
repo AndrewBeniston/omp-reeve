@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Collapse consecutive identical completed tool calls into counted activity rows.
 - Show a polite loading status above the Composer while a Session loads.
 - Show related Session links above the first message for continued and forked Sessions.
 - Add live and saved Turn clock fields and locale-aware duration formatting.
