@@ -44,7 +44,7 @@ import { NewMessagesControl } from "./chat/NewMessagesControl";
 import { ComposerTurnStatus } from "./chat/ComposerTurnStatus";
 import { ActiveTurnResponseSpacer } from "./chat/ActiveTurnResponseSpacer";
 import { TurnErrorBoundary } from "./chat/TurnErrorBoundary";
-import { buildTranscriptRows, finalAnswerPosition, presentationAssistantPosition, CompactionNote, type TranscriptMessageRow } from "./chat/transcript-rows";
+import { buildTranscriptRows, finalAnswerPosition, presentationAssistantPosition, CompactionNote, SessionOriginNote, type TranscriptMessageRow } from "./chat/transcript-rows";
 import { ArchivedSessionCard } from "./chat/ArchivedSessionCard";
 import {
   TranscriptNavigationRail,
@@ -90,6 +90,7 @@ interface Props {
   onSessionCreated?: (session: SessionInfo) => void;
   onSessionRestored?: () => void;
   onSessionForked?: (newSessionId: string) => void;
+  onOpenSession?: (sessionId: string) => void;
   onSessionNameChanged?: (sessionId: string, name: string) => void;
   /** Answer an agent control request for this Session. See AppShell. */
   onAgentControlRequest?: (request: AgentControlRequestEvent) => AgentControlReply | null;
@@ -221,7 +222,7 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = fa
   );
 }
 
-export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onRequestReview, onListReviewBranches, reviewGate }: Props) {
+export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onOpenSession = () => {}, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onRequestReview, onListReviewBranches, reviewGate }: Props) {
   const { t } = useI18n();
 
   // Wrap onAgentEnd to play the completion sound. This is more reliable than
@@ -414,6 +415,9 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
   }, [messages]);
   const activeStreamingMessage = streamState.streamingMessage as AgentMessage | null;
   const archivedSessionId = session && "archived" in session && session.archived === true ? session.id : undefined;
+  const sessionOrigin = session?.parentSessionId
+    ? { kind: "continued" as const, relatedSessionId: session.parentSessionId }
+    : undefined;
   const transcriptRows = useMemo(
     () => archivedSessionId
       ? [{ kind: "archived" as const, sessionId: archivedSessionId }]
@@ -424,6 +428,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
           agentRunning,
           sessionData?.context.modelChanges ?? [],
           isCompacting || compactError ? { isCompacting, source: compactSource, error: compactError } : null,
+          sessionOrigin,
         ),
     [
       messages,
@@ -435,6 +440,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
       isCompacting,
       compactSource,
       compactError,
+      sessionOrigin?.relatedSessionId,
     ],
   );
   const activeTurnBlocks = useMemo(() => {
@@ -811,6 +817,17 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                 }
                 if (row.kind === "message") {
                   rendered.push(renderMessage(row.item));
+                  return;
+                }
+                if (row.kind === "session-origin") {
+                  rendered.push(
+                    <SessionOriginNote
+                      key={`session-origin-${row.relatedSessionId}`}
+                      kind={row.kindOfOrigin}
+                      relatedSessionId={row.relatedSessionId}
+                      onOpenSession={onOpenSession}
+                    />,
+                  );
                   return;
                 }
                 if (row.kind === "model-change") {

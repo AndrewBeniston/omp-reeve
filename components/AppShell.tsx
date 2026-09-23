@@ -2267,6 +2267,7 @@ export function AppShell() {
                 handleSelectSession(restoredSession, true);
               }}
               onSessionForked={handleSessionForked}
+              onOpenSession={(sessionId) => { void selectSessionById(sessionId); }}
               onSessionNameChanged={handleSessionNameChanged}
               onAgentControlRequest={handleAgentControlRequest}
               modelsRefreshKey={modelsRefreshKey}
