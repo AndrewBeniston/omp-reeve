@@ -62,3 +62,6 @@ tmp-*.log
 # Never commit a link. Git stores it as a text file or as a second copy.
 /.claude/skills/*
 !/.claude/skills/gitnexus-*
+
+# The maintainer's local release skill.
+/.agents/skills/release-reeve/

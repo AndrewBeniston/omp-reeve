@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
 const root = join(import.meta.dir, "..");
-const skill = readFileSync(join(root, ".agents", "skills", "release-reeve", "SKILL.md"), "utf8");
+// The release skill is local to the maintainer and ignored by Git. A clone
+// without it has nothing to check.
+const skillPath = join(root, ".agents", "skills", "release-reeve", "SKILL.md");
+const skip = existsSync(skillPath) ? false : "the local release skill is not on this machine";
+const skill = skip ? "" : readFileSync(skillPath, "utf8");
 const releasing = readFileSync(join(root, "RELEASING.md"), "utf8");
 
-test("the release skill points at sections RELEASING.md still has", () => {
+test("the release skill points at sections RELEASING.md still has", { skip }, () => {
   // The skill holds the order and sends the agent to RELEASING.md for the
   // commands. A renamed section leaves it pointing at nothing, and the agent
   // then invents a step.
@@ -17,7 +21,7 @@ test("the release skill points at sections RELEASING.md still has", () => {
   }
 });
 
-test("the release skill names every target the build supports", () => {
+test("the release skill names every target the build supports", { skip }, () => {
   // A target the skill cannot name is a platform the user cannot release.
   const targets = Object.keys(JSON.parse(readFileSync(join(root, "desktop", "targets.json"), "utf8")));
   const named = targets.filter((id) => skill.includes(id));
@@ -26,7 +30,7 @@ test("the release skill names every target the build supports", () => {
   assert.ok(named.length >= 4);
 });
 
-test("the release skill fires from the words a user actually says", () => {
+test("the release skill fires from the words a user actually says", { skip }, () => {
   // The description is the pointer. Its wording decides whether the agent
   // reaches the skill at all.
   const description = /^description:\s*(.+)$/m.exec(skill)?.[1] ?? "";
@@ -37,7 +41,7 @@ test("the release skill fires from the words a user actually says", () => {
   assert.doesNotMatch(skill, /disable-model-invocation:\s*true/);
 });
 
-test("every step of the release skill ends on a checkable condition", () => {
+test("every step of the release skill ends on a checkable condition", { skip }, () => {
   const steps = skill.split("\n").filter((line) => /^## Step \d/.test(line));
   const criteria = skill.split("\n").filter((line) => line.startsWith("Done when"));
   assert.ok(steps.length >= 7, "found " + steps.length + " steps");
