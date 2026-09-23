@@ -47,6 +47,9 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
+    if (error instanceof Error && error.message.includes("Cannot send the same Retry twice")) {
+      return NextResponse.json({ error: error.message, code: "retry_duplicate" }, { status: 409 });
+    }
     return NextResponse.json({
       error: error instanceof Error ? error.message : String(error),
       ...(commandType === "prompt" && !promptAccepted

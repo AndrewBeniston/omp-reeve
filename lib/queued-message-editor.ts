@@ -6,7 +6,7 @@ import {
   toRestoredQueuedMessage,
 } from "@oh-my-pi/pi-coding-agent/session/queued-messages";
 import { randomUUID } from "crypto";
-import type { QueuedMessageItem, QueuedMessageKind, QueuedMessageSnapshot } from "./queued-message-types";
+import type { QueuedMessageItem, QueuedMessageKind, QueuedMessageSnapshot, QueuedMessageStatus } from "./queued-message-types";
 
 const QUEUE_PREVIEW_MAX_BASE64_CHARS = 256_000;
 
@@ -52,6 +52,7 @@ function imageCount(message: AgentMessage): number {
 
 export class QueuedMessageEditor {
   private readonly ids = new WeakMap<object, string>();
+  private readonly itemStates = new Map<string, { status: QueuedMessageStatus; errorSummary?: string }>();
 
   constructor(
     private readonly agent: QueueAgent,
@@ -63,13 +64,18 @@ export class QueuedMessageEditor {
       items: [
         ...this.userTokens("steer"),
         ...this.userTokens("followUp"),
-      ].map(({ kind, token }) => ({
-        id: token.id,
-        kind,
-        text: queueChipText(token.message),
-        imageCount: imageCount(token.message),
-        imagePreview: firstImagePreview(token.message),
-      } satisfies QueuedMessageItem)),
+      ].map(({ kind, token }) => {
+        const itemState = this.itemStates.get(token.id);
+        return {
+          id: token.id,
+          kind,
+          text: queueChipText(token.message),
+          imageCount: imageCount(token.message),
+          imagePreview: firstImagePreview(token.message),
+          status: itemState?.status ?? "queued",
+          ...(itemState?.errorSummary ? { errorSummary: itemState.errorSummary } : {}),
+        } satisfies QueuedMessageItem;
+      }),
       paused,
     };
   }
@@ -85,6 +91,73 @@ export class QueuedMessageEditor {
       return { id, kind, token, tokenIndex };
     }
     return null;
+  }
+
+  markFailed(id: string, errorSummary: string): boolean {
+    for (const kind of ["steer", "followUp"] as const) {
+      const tokens = this.tokens(kind);
+      const token = tokens.find((t) => t.type === "user" && t.id === id);
+      if (token && token.type === "user") {
+        this.itemStates.set(id, { status: "failed", errorSummary });
+        return true;
+      }
+    }
+    return false;
+  }
+
+  clearFailed(id: string): boolean {
+    const had = this.itemStates.has(id);
+    this.itemStates.delete(id);
+    return had;
+  }
+
+  restoreUserItem(item: {
+    id: string;
+    kind: QueuedMessageKind;
+    text: string;
+    images?: Array<{ type: "image"; data: string; mimeType: string }>;
+    position?: number;
+    status?: QueuedMessageStatus;
+    errorSummary?: string;
+  }): boolean {
+    if (item.status === "failed") {
+      this.itemStates.set(item.id, { status: "failed", errorSummary: item.errorSummary });
+    } else {
+      this.itemStates.delete(item.id);
+    }
+
+    for (const kind of ["steer", "followUp"] as const) {
+      const tokens = this.tokens(kind);
+      const existing = tokens.find((t) => t.type === "user" && t.id === item.id);
+      if (existing && existing.type === "user") {
+        return false;
+      }
+    }
+
+    const content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }> = [
+      { type: "text", text: item.text },
+      ...(item.images ?? []),
+    ];
+    const message: AgentMessage = {
+      role: "user",
+      content,
+      timestamp: Date.now(),
+    };
+    this.ids.set(message as object, item.id);
+    const token: UserQueueToken = {
+      type: "user",
+      id: item.id,
+      entries: [message],
+      message,
+    };
+
+    const tokens = this.tokens(item.kind);
+    const position = typeof item.position === "number"
+      ? Math.min(Math.max(item.position, 0), tokens.length)
+      : tokens.length;
+    tokens.splice(position, 0, token);
+    this.replace(item.kind, tokens);
+    return true;
   }
 
   restore(removed: RemovedQueuedMessage): boolean {

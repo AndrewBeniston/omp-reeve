@@ -48,6 +48,14 @@ import { PRESET_FULL } from "./tool-presets";
 import { persistExplicitStartupPreferences } from "./startup-preferences";
 import { QueuedMessageEditor, type RemovedQueuedMessage, type QueueAgent } from "./queued-message-editor";
 import type { QueuedMessageDraft, QueuedMessageSnapshot } from "./queued-message-types";
+import {
+  clearSessionQueueFailures,
+  readSessionQueueFailures,
+  recordQueueFailure,
+  removeQueueFailure,
+  sanitizeErrorSummary,
+  writeSessionQueueFailures,
+} from "./queue-failure-store";
 import { CollaborationAdapter } from "./collaboration-adapter";
 import type { ApprovalMode } from "./approval-mode";
 import type { SlashCommandInfo } from "./omp-types";
@@ -359,6 +367,7 @@ export class AgentSessionWrapper {
   private readonly deletedQueuedMessages = new Map<string, RemovedQueuedMessage>();
   /** This Session's control host channel, when the build registers controls. */
   private controlChannel: AgentControlChannel | null = null;
+  private readonly retryingQueueItems = new Set<string>();
   private queuePaused = false;
   private _alive = true;
   /**
@@ -413,6 +422,7 @@ export class AgentSessionWrapper {
       throw error;
     }
     this.subagents.setSubscriptionLevel("progress");
+    this.reconcileQueueFailures();
   }
 
   private rememberSubagentSnapshot(snapshot: SubagentSnapshot): void {
@@ -549,6 +559,7 @@ export class AgentSessionWrapper {
 
 
   start(): void {
+    this.reconcileQueueFailures();
     this.syncPlanModeFromSession();
     /*
      * OMP's own word on approvals, forwarded to the browser. A dialog that
@@ -785,12 +796,100 @@ export class AgentSessionWrapper {
     try {
       await this.inner.steer(draft.text, draft.images?.length ? draft.images : undefined);
       this.queuedMessageEditor.adoptNewest("steer", removed.id);
+      this.queuedMessageEditor.clearFailed(removed.id);
+      removeQueueFailure(this.inner.sessionId, removed.id);
       return this.emitQueueUpdate();
     } catch (error) {
       this.queuedMessageEditor.restore(removed);
       this.queuePaused = true;
+      const safeError = sanitizeErrorSummary(error);
+      this.queuedMessageEditor.markFailed(removed.id, safeError);
+      recordQueueFailure({
+        id: removed.id,
+        sessionId: this.inner.sessionId,
+        kind: removed.kind,
+        text: draft.text,
+        images: draft.images,
+        position: removed.tokenIndex,
+        errorSummary: safeError,
+      });
       this.emitQueueUpdate();
       throw error;
+    }
+  }
+
+  private reconcileQueueFailures(): void {
+    const failures = readSessionQueueFailures(this.inner.sessionId);
+    if (failures.length === 0) return;
+    for (const failure of failures) {
+      this.queuedMessageEditor.restoreUserItem({
+        id: failure.id,
+        kind: failure.kind,
+        text: failure.text,
+        images: failure.images,
+        position: failure.position,
+        status: "failed",
+        errorSummary: failure.errorSummary,
+      });
+    }
+    this.queuePaused = true;
+  }
+
+  private async retryQueueItem(id: string): Promise<QueuedMessageSnapshot> {
+    if (!id || typeof id !== "string") {
+      throw new Error("Missing queue item id");
+    }
+    if (this.retryingQueueItems.has(id)) {
+      throw new Error("Cannot send the same Retry twice");
+    }
+    this.retryingQueueItems.add(id);
+    try {
+      let removed = this.queuedMessageEditor.remove(id);
+      if (!removed) {
+        const failures = readSessionQueueFailures(this.inner.sessionId);
+        const failure = failures.find((item) => item.id === id);
+        if (failure) {
+          this.queuedMessageEditor.restoreUserItem({
+            id: failure.id,
+            kind: failure.kind,
+            text: failure.text,
+            images: failure.images,
+            position: failure.position,
+            status: "failed",
+            errorSummary: failure.errorSummary,
+          });
+          removed = this.queuedMessageEditor.remove(id);
+        }
+      }
+      if (!removed) throw new Error("Queued message not found");
+
+      const draft = this.queuedMessageEditor.draft(removed);
+      this.queuePaused = false;
+      try {
+        await this.inner.steer(draft.text, draft.images?.length ? draft.images : undefined);
+        this.queuedMessageEditor.adoptNewest("steer", removed.id);
+        this.queuedMessageEditor.clearFailed(removed.id);
+        removeQueueFailure(this.inner.sessionId, removed.id);
+        return this.emitQueueUpdate();
+      } catch (error) {
+        this.queuedMessageEditor.restore(removed);
+        this.queuePaused = true;
+        const safeError = sanitizeErrorSummary(error);
+        this.queuedMessageEditor.markFailed(removed.id, safeError);
+        recordQueueFailure({
+          id: removed.id,
+          sessionId: this.inner.sessionId,
+          kind: removed.kind,
+          text: draft.text,
+          images: draft.images,
+          position: removed.tokenIndex,
+          errorSummary: safeError,
+        });
+        this.emitQueueUpdate();
+        throw error;
+      }
+    } finally {
+      this.retryingQueueItems.delete(id);
     }
   }
 
@@ -1331,6 +1430,7 @@ export class AgentSessionWrapper {
         const toText = (message: unknown): string =>
           typeof message === "string" ? message : String((message as { text?: string })?.text ?? "");
         this.queuePaused = false;
+        clearSessionQueueFailures(this.inner.sessionId);
         this.emitQueueUpdate();
         return { steering: cleared.steering.map(toText), followUp: cleared.followUp.map(toText) };
       }
@@ -1344,6 +1444,8 @@ export class AgentSessionWrapper {
       case "delete_queue_item": {
         const removed = this.queuedMessageEditor.remove(command.id as string);
         if (!removed) throw new Error("Queued message not found");
+        this.queuedMessageEditor.clearFailed(command.id as string);
+        removeQueueFailure(this.inner.sessionId, command.id as string);
         const undoToken = randomUUID();
         this.deletedQueuedMessages.set(undoToken, removed);
         if (this.deletedQueuedMessages.size > MAX_QUEUED_MESSAGE_UNDOS) {
@@ -1390,8 +1492,20 @@ export class AgentSessionWrapper {
 
       case "reorder_queue_items": {
         this.queuedMessageEditor.reorder(command.ids as string[]);
+        const currentFailures = readSessionQueueFailures(this.inner.sessionId);
+        if (currentFailures.length > 0) {
+          const snapshotItems = this.queueSnapshot().items;
+          for (const failure of currentFailures) {
+            const newIndex = snapshotItems.findIndex((item) => item.id === failure.id);
+            if (newIndex >= 0) failure.position = newIndex;
+          }
+          writeSessionQueueFailures(this.inner.sessionId, currentFailures);
+        }
         return this.emitQueueUpdate();
       }
+
+      case "retry_queue_item":
+        return this.retryQueueItem(command.id as string);
 
       case "send_queue_item_now":
         return this.sendQueueItemNow(command.id as string);
@@ -1551,6 +1665,7 @@ export class AgentSessionWrapper {
     for (const channel of this.sessionEventChannels) releaseSessionEventChannel(channel);
     this.subagents.dispose();
     this.subagentHistory.clear();
+    this.retryingQueueItems.clear();
     this.queuedMessageEdits.clear();
     this.deletedQueuedMessages.clear();
     for (const pending of this.pendingUiResponses.values()) pending.cancel();

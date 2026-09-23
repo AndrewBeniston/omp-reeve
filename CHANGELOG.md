@@ -13,6 +13,7 @@ the What's New dialog adds a second page that invites support.
 
 - Assistant responses now announce streaming start, progress, and completion to screen readers through a polite live region.
 - The fork action on user messages now opens a destination dialog to fork into the current workspace, same worktree, or a new worktree.
+- The queue persists failed message sends with safe error summaries, reload and reconnect reconciliation, and a Retry command.
 - Session history loads 50 more messages near the top and keeps the reading position after each page.
 - Assistant Markdown images now show loading and failure states, and inline videos use native playback controls.
 - Session transcripts restore a saved reading distance and preserve the reading position when the composer grows.
