@@ -18,6 +18,7 @@ the What's New dialog adds a second page that invites support.
 - Markdown tables now have controls to copy their rows and open a larger table preview.
 - Long user messages show two lines with a Show more control. Empty messages show "(No content)". The copy control confirms successful copies.
 - The transcript keeps the reader's position when an existing Turn changes height.
+- The Session transcript uses one 24 px band for following and its scroll-to-bottom button.
 
 ## [0.8.0] - 2026-09-23
 

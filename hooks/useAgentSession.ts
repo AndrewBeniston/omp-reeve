@@ -49,12 +49,6 @@ import type {
 import { applyCollaborationSnapshot, isCollaborationSnapshot } from "@/lib/collaboration-message";
 import type { ModelRoleAssignment } from "@/lib/api-types";
 import type { QueuedMessageDraft, QueuedMessageItem, QueuedMessageSnapshot } from "@/lib/queued-message-types";
-import {
-  nextPinnedStateForScrollEvent,
-  prefersReducedMotion,
-  resolveScrollBehavior,
-  shouldFollowStreamingTail,
-} from "@/components/chat/transcript-follow";
 
 export interface SessionData {
   sessionId: string;
@@ -243,8 +237,6 @@ export interface UseAgentSessionOptions {
 export type ThinkingLevelOption = "auto" | "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 type FastModeFamily = "openai" | "anthropic" | "google";
 
-const PROGRAMMATIC_SCROLL_IGNORE_MS = 700;
-const USER_SCROLL_INTENT_MS = 1200;
 const PROMPT_SETTLE_INITIAL_DELAY_MS = 800;
 const PROMPT_SETTLE_POLL_MS = 600;
 const PROMPT_SETTLE_MAX_MS = 20_000;
@@ -256,7 +248,6 @@ const EVENT_STREAM_CONNECT_TIMEOUT_MS = 5_000;
 const MAX_NOTICES = 5;
 const NOTICE_VISIBLE_MS = 5000;
 const NOTICE_EXIT_ANIMATION_MS = 180;
-const SCROLL_KEYS = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " ", "Space", "Spacebar"]);
 
 type EventStreamConnectionStatus = "connected" | "timeout" | "closed";
 
@@ -523,33 +514,17 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const bashRunningRef = useRef(false);
   const bashRecoveryIdRef = useRef(0);
   const handleAgentEventRef = useRef<((event: AgentEvent) => void) | null>(null);
-  const initialScrollDoneRef = useRef(false);
-  const completionScrollAllowedRef = useRef(true);
   const executeBashRef = useRef<(command: string, excludeFromContext: boolean) => Promise<void> | undefined>(undefined);
-  const userScrollIntentUntilRef = useRef(0);
-  const ignoreProgrammaticScrollUntilRef = useRef(0);
-  const previousScrollTopRef = useRef<number | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const ensuringNewSessionRef = useRef<Promise<string | null> | null>(null);
   const newSessionPromotedRef = useRef(false);
 
-  const [transcriptPinned, setTranscriptPinned] = useState(true);
   const [activeTurnHeld, setActiveTurnHeld] = useState(false);
-  const activeTurnHeldRef = useRef(false);
-  const setPinned = useCallback((pinned: boolean) => {
-    completionScrollAllowedRef.current = pinned;
-    setTranscriptPinned(pinned);
-  }, []);
   const holdActiveTurn = useCallback(() => {
-    activeTurnHeldRef.current = true;
     setActiveTurnHeld(true);
   }, []);
   const releaseActiveTurnHold = useCallback(() => {
-    activeTurnHeldRef.current = false;
     setActiveTurnHeld(false);
-    setPinned(false);
-  }, [setPinned]);
+  }, []);
 
   const newSessionModelOverrideRef = useRef<SelectedModel | null>(null);
   const thinkingLevelOverrideRef = useRef<ThinkingLevelOption | null>(null);
@@ -1670,7 +1645,6 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     setAgentRunning(true);
     setAgentPhase(isSlashCommandPrompt ? { kind: "running_command" } : { kind: "waiting_model" });
     dispatch({ type: "start" });
-    setPinned(true);
     holdActiveTurn();
 
     const piImages = images?.map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
@@ -1751,13 +1725,12 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       setAgentPhase(null);
       dispatch({ type: "end" });
     }
-  }, [isNew, newSessionCwd, newSessionModel, session, ensureNewSession, ensureEventsConnected, promoteNewSession, waitForPromptSettlement, addNotice, cancelEventStreamGrace, chatInputRef, closeEvents, holdActiveTurn, setPinned]);
+  }, [isNew, newSessionCwd, newSessionModel, session, ensureNewSession, ensureEventsConnected, promoteNewSession, waitForPromptSettlement, addNotice, cancelEventStreamGrace, chatInputRef, closeEvents, holdActiveTurn]);
 
   const executeBash = useCallback(async (command: string, excludeFromContext: boolean) => {
     if (agentRunningRef.current || bashRunningRef.current) return;
     const inputText = `${excludeFromContext ? "!!" : "!"}${command}`;
     bashRunningRef.current = true;
-    setPinned(true);
     setPendingBash({ command, excludeFromContext });
     setBashRunning(true);
     try {
@@ -1779,7 +1752,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       setPendingBash(null);
       setBashRunning(false);
     }
-  }, [addNotice, chatInputRef, ensureNewSession, loadSession, promoteNewSession, session, setPinned]);
+  }, [addNotice, chatInputRef, ensureNewSession, loadSession, promoteNewSession, session]);
   executeBashRef.current = executeBash;
 
   const handleAbort = useCallback(async () => {
@@ -2487,58 +2460,6 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     }
   }, [setToolPresetState]);
 
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    ignoreProgrammaticScrollUntilRef.current = Date.now() + PROGRAMMATIC_SCROLL_IGNORE_MS;
-    container.scrollTo({
-      top: container.scrollHeight,
-      behavior: resolveScrollBehavior(behavior, prefersReducedMotion()),
-    });
-  }, []);
-
-  const scrollTranscriptToBottom = useCallback(() => {
-    releaseActiveTurnHold();
-    setPinned(true);
-    const container = scrollContainerRef.current;
-    if (container) {
-      previousScrollTopRef.current = Math.max(0, container.scrollHeight - container.clientHeight);
-    }
-    scrollToBottom("smooth");
-  }, [releaseActiveTurnHold, scrollToBottom, setPinned]);
-
-  const markUserScrollIntent = useCallback((event: Event) => {
-    if (event instanceof KeyboardEvent) {
-      if (!SCROLL_KEYS.has(event.key)) return;
-      if (event.target instanceof Element && event.target.closest("input, textarea, [contenteditable='true']")) return;
-    }
-    userScrollIntentUntilRef.current = Date.now() + USER_SCROLL_INTENT_MS;
-  }, []);
-
-  const handleScrollPositionChange = useCallback(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const metrics = {
-      scrollTop: container.scrollTop,
-      scrollHeight: container.scrollHeight,
-      clientHeight: container.clientHeight,
-    };
-    const previousScrollTop = previousScrollTopRef.current;
-    // Record ignored scrolls so the next upward move uses the current position.
-    previousScrollTopRef.current = metrics.scrollTop;
-    if (!agentRunningRef.current && !bashRunningRef.current) return;
-    const now = Date.now();
-    const pinned = nextPinnedStateForScrollEvent({
-      pinned: completionScrollAllowedRef.current,
-      previousScrollTop,
-      metrics,
-      now,
-      ignoreProgrammaticScrollUntil: ignoreProgrammaticScrollUntilRef.current,
-      userScrollIntentUntil: userScrollIntentUntilRef.current,
-    });
-    if (pinned !== completionScrollAllowedRef.current) setPinned(pinned);
-  }, [setPinned]);
-
   // Load session on mount
   useEffect(() => {
     if (session) {
@@ -2608,61 +2529,6 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     if (!onBranchDataChange) return;
     onBranchDataChange(data?.tree ?? [], activeLeafId, handleLeafChange);
   }, [data?.tree, activeLeafId, handleLeafChange, onBranchDataChange]);
-
-  useEffect(() => {
-    window.addEventListener("keydown", markUserScrollIntent);
-    return () => {
-      window.removeEventListener("keydown", markUserScrollIntent);
-    };
-  }, [markUserScrollIntent]);
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    container.addEventListener("pointerdown", markUserScrollIntent, { passive: true });
-    container.addEventListener("wheel", markUserScrollIntent, { passive: true });
-    container.addEventListener("touchstart", markUserScrollIntent, { passive: true });
-    container.addEventListener("scroll", handleScrollPositionChange, { passive: true });
-    return () => {
-      container.removeEventListener("pointerdown", markUserScrollIntent);
-      container.removeEventListener("wheel", markUserScrollIntent);
-      container.removeEventListener("touchstart", markUserScrollIntent);
-      container.removeEventListener("scroll", handleScrollPositionChange);
-    };
-  }, [messages.length, loading, handleScrollPositionChange, markUserScrollIntent]);
-
-  useEffect(() => {
-    if ((!agentRunning && !bashRunning) || !shouldFollowStreamingTail({
-      pinned: completionScrollAllowedRef.current,
-      activeTurnHeld,
-    })) return;
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const frame = requestAnimationFrame(() => {
-      if (!shouldFollowStreamingTail({
-        pinned: completionScrollAllowedRef.current,
-        activeTurnHeld: activeTurnHeldRef.current,
-      })) return;
-      ignoreProgrammaticScrollUntilRef.current = Date.now() + PROGRAMMATIC_SCROLL_IGNORE_MS;
-      container.scrollTo({ top: container.scrollHeight, behavior: "instant" });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [activeTurnHeld, agentRunning, bashRunning, messages.length, streamState.streamingMessage, agentPhase, pendingBash]);
-
-  useEffect(() => {
-    if (messages.length === 0) return;
-    if (!initialScrollDoneRef.current) {
-      initialScrollDoneRef.current = true;
-      scrollToBottom("instant");
-      return;
-    }
-    if (shouldFollowStreamingTail({
-      pinned: completionScrollAllowedRef.current,
-      activeTurnHeld: activeTurnHeldRef.current,
-    })) {
-      scrollToBottom(agentRunningRef.current || bashRunningRef.current ? "instant" : "smooth");
-    }
-  }, [messages.length, agentRunning, bashRunning, scrollToBottom]);
 
   // Load model list
   useEffect(() => {
@@ -2737,16 +2603,16 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     isAutoModelSelection: isNew && newSessionModel === null,
     agentPhase,
     isNew,
-    transcriptPinned, activeTurnHeld,
+    activeTurnHeld,
     // Refs
-    sessionIdRef, eventSourceRef, messagesEndRef, scrollContainerRef,
+    sessionIdRef, eventSourceRef,
     // Actions
     handleSend, handleAbort, handleFork, handleNavigate, handleModelChange, handleRoleModelChange,
     handleCompact, handleSteer, handleFollowUp, handlePromptWithStreamingBehavior, handleAbortCompaction,
     handleDeleteQueuedMessage, handleUndoDeletedQueuedMessage,
     handleEditQueuedMessage, handleCancelQueuedMessageEdit, handleCompleteQueuedMessageEdit,
     handleReorderQueuedMessages, handleSendQueuedMessageNow, handleResumeQueuedMessages, handleResolvePausedQueueSubmission,
-    scrollTranscriptToBottom, releaseActiveTurnHold,
+    releaseActiveTurnHold,
     handleBuiltinSlashCommand,
     handleToolPresetChange, handleApprovalModeChange, handleThinkingLevelChange, handleCycleThinkingLevel, handleFastModeChange, loadTools, loadSlashCommands, setActiveLeafId, setData, setMessages,
     dispatch, setAgentRunning, setForkingEntryId,

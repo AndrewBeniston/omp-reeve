@@ -48,6 +48,7 @@ import {
 } from "./chat/TranscriptNavigationRail";
 import { prefersReducedMotion, resolveScrollBehavior } from "./chat/transcript-follow";
 import { useTranscriptHeightRestoration } from "./chat/useTranscriptHeightRestoration";
+import { useTranscriptFollow } from "./chat/useTranscriptFollow";
 import styles from "./chat/chat-window.module.css";
 
 const QUESTION_DEBUG_REQUEST: QuestionRequest = {
@@ -267,20 +268,22 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
     isAutoModelSelection,
     agentPhase,
     isNew,
-    transcriptPinned,
-    sessionIdRef, messagesEndRef, scrollContainerRef,
+    activeTurnHeld,
+    sessionIdRef,
     handleSend, handleAbort, handleFork, handleNavigate, handleModelChange, handleRoleModelChange,
     handleCompact, handleSteer, handleFollowUp, handlePromptWithStreamingBehavior, handleAbortCompaction,
     handleDeleteQueuedMessage, handleUndoDeletedQueuedMessage,
     handleEditQueuedMessage, handleCancelQueuedMessageEdit, handleCompleteQueuedMessageEdit,
     handleReorderQueuedMessages, handleSendQueuedMessageNow, handleResumeQueuedMessages, handleResolvePausedQueueSubmission,
-    scrollTranscriptToBottom, releaseActiveTurnHold,
+    releaseActiveTurnHold,
     handleBuiltinSlashCommand,
     handleToolPresetChange, handleApprovalModeChange, handleThinkingLevelChange, handleCycleThinkingLevel, handleFastModeChange, loadSlashCommands,
   } = useAgentSession({
     session, newSessionCwd, onAgentEnd: wrappedOnAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSessionNameChanged,
     onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onRequestReview, translate: t,
   });
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const sessionBusy = agentRunning || bashRunning;
   const showActiveTurnResponseSpacer = agentRunning || streamState.isStreaming;
 
@@ -447,6 +450,24 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
     }
     return blocks;
   }, [messages, activeStreamingMessage, turnStatusDebug]);
+  // The Turn folder will supply this phase when #260 connects its output.
+  const lastActiveTurnBlock = activeTurnBlocks.at(-1);
+  const followPhase = !sessionBusy && !streamState.isStreaming
+    ? "idle"
+    : lastActiveTurnBlock?.type === "text" && lastActiveTurnBlock.text.trim()
+      ? "final-answer"
+      : "prework";
+  const transcriptFollow = useTranscriptFollow({
+    scrollContainerRef,
+    contentRef: transcriptContentRef,
+    phase: followPhase,
+    working: sessionBusy || streamState.isStreaming,
+    activeTurnHeld,
+    contentChange: streamState.streamingMessage ?? pendingBash,
+    messageCount: messages.length,
+    sessionKey: session?.id ?? newDraftKey ?? newSessionCwd,
+    onGoToNewest: releaseActiveTurnHold,
+  });
   const inputHistory = useMemo(() => {
     const seen = new Set<string>();
     const history: string[] = [];
@@ -868,10 +889,9 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
 
       <div className={styles.composerDock}>
         <NewMessagesControl
-          scrollContainerRef={scrollContainerRef}
-          pinned={transcriptPinned}
-          streaming={sessionBusy || streamState.isStreaming}
-          onGoToNewest={scrollTranscriptToBottom}
+          mode={transcriptFollow.mode}
+          button={transcriptFollow.button}
+          onGoToNewest={transcriptFollow.goToNewest}
         />
         <div className={styles.transcriptGutter}>
           <div className={styles.transcriptMeasure}>

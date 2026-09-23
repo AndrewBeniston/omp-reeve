@@ -431,7 +431,6 @@ export const zhCNLocale: LocalePlugin = {
     "chat.fileChanged": "改动了 {count} 个文件",
     "chat.filesChanged": "改动了 {count} 个文件",
     "chat.loadEarlier": "向上滚动以加载更早的消息（隐藏 {count} 条）",
-    "chat.newMessages": "有新消息。跳到最新消息。",
     "chat.messageNavigation": "用户消息",
     "chat.jumpToMessage": "跳转到用户消息 {position}",
     "chat.extensionRequest": "扩展请求",
