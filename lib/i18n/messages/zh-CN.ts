@@ -11,6 +11,7 @@ export const zhCNLocale: LocalePlugin = {
     "common.skills": "技能",
     "common.plugins": "插件",
     "common.settings": "设置",
+    "live.unknownAction": "未知的实时操作",
     "settings.backToApp": "返回应用",
     "update.downloadingTitle": "正在下载 Reeve {version}",
     "update.readyTitle": "Reeve {version} 已准备好安装",

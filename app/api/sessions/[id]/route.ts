@@ -16,6 +16,7 @@ import { setSessionArchived } from "@/lib/session-archive";
 import { setSessionPinned } from "@/lib/session-pins";
 import { getRpcSession } from "@/lib/rpc-manager";
 import { closeSpeechSession } from "@/lib/speech-bridge";
+import { closeLiveControllerSession } from "@/lib/live-controller-bridge";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 import { projectTreeForResponse } from "@/lib/project-tree";
 import { computeSessionTotalActiveMs } from "@/lib/session-timing";
@@ -183,6 +184,7 @@ export async function DELETE(
     const sessionId = readSessionHeader(filePath)?.id ?? id;
     await getRpcSession(id)?.shutdown();
     await closeSpeechSession(sessionId);
+    await closeLiveControllerSession(sessionId);
     unlinkSync(filePath);
     invalidateSessionPathCache(id);
     invalidateSessionListCache();
