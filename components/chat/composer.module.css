@@ -145,6 +145,77 @@
   margin-bottom: var(--space-1);
 }
 
+.localAttachmentList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.localAttachmentRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--ui-surface-inset);
+}
+
+.localAttachmentRow[data-state="error"] {
+  border-color: var(--ui-danger);
+}
+
+.localAttachmentKind {
+  color: var(--ui-text-dim);
+  font-size: var(--text-base);
+}
+
+.localAttachmentDetails {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.localAttachmentName,
+.localAttachmentMeta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.localAttachmentName {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.localAttachmentMeta {
+  color: var(--ui-text-dim);
+  font-size: var(--text-2xs);
+}
+
+.localAttachmentRow[data-state="error"] .localAttachmentMeta {
+  color: var(--ui-danger);
+}
+
+.localAttachmentRemove {
+  flex: none;
+  width: var(--composer-control-size);
+  height: var(--composer-control-size);
+  border: 0;
+  border-radius: var(--radius-round);
+  background: transparent;
+  color: var(--ui-text-dim);
+  cursor: pointer;
+}
+
+.localAttachmentRemove:hover {
+  background: var(--ui-hover);
+  color: var(--ui-text);
+}
+
 .imagePreview {
   position: relative;
   width: 56px;

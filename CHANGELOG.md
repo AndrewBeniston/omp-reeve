@@ -11,6 +11,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The Composer shows removable local file and folder rows, keeps them in drafts, and reports unreadable paths before OMP receives a prompt.
+
 ### Added
 
 - Worktree selection now reports branches, detached HEAD, and uncommitted changes. Selecting a worktree leaves its branch unchanged.

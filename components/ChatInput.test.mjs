@@ -30,6 +30,7 @@ const {
   shouldSubmitComposer,
 } = await jiti.import("./ChatInput.tsx");
 const { clearDraft, getDraft, mergeRestoredSubmissionDraft, mergeRestoredSubmissionText, rekeyDraft, setDraft } = await jiti.import("../lib/draft-store.ts");
+const attachmentState = () => jiti.import("../lib/composer-attachment-state.ts");
 const { I18nProvider } = await jiti.import("../hooks/useI18n.tsx");
 const englishMessages = await readFile(new URL("../lib/i18n/messages/en.ts", import.meta.url), "utf8");
 const chineseMessages = await readFile(new URL("../lib/i18n/messages/zh-CN.ts", import.meta.url), "utf8");
@@ -510,6 +511,64 @@ test("keeps a failed first submission recoverable across a composer remount", ()
   );
 });
 
+test("keeps native file and folder selections as removable Composer descriptors", async () => {
+  const { addComposerAttachments, removeComposerAttachment, selectedAttachmentPaths } = await attachmentState();
+  const file = { path: "/Projects/Client/notes.txt", issuedAt: 123, signature: "a".repeat(64), kind: "file" };
+  const folder = { path: "/Projects/Client/Assets", issuedAt: 123, signature: "b".repeat(64), kind: "folder" };
+  const attachments = addComposerAttachments([], [file, folder]);
+
+  assert.deepEqual(attachments.map(({ name, kind, pathSummary, readError }) => ({ name, kind, pathSummary, readError })), [
+    { name: "notes.txt", kind: "file", pathSummary: "…/Projects/Client", readError: null },
+    { name: "Assets", kind: "folder", pathSummary: "…/Projects/Client", readError: null },
+  ]);
+  assert.deepEqual(selectedAttachmentPaths(attachments), [
+    { path: file.path, issuedAt: file.issuedAt, signature: file.signature },
+    { path: folder.path, issuedAt: folder.issuedAt, signature: folder.signature },
+  ]);
+  assert.deepEqual(removeComposerAttachment(attachments, attachments[0].id), [attachments[1]]);
+});
+
+test("preserves local attachment descriptors in draft restore and Session promotion", async () => {
+  const { addComposerAttachments } = await attachmentState();
+  const [first, second] = addComposerAttachments([], [
+    { path: "/Projects/Client/notes.txt", issuedAt: 123, signature: "a".repeat(64), kind: "file" },
+    { path: "/Projects/Client/Assets", issuedAt: 123, signature: "b".repeat(64), kind: "folder" },
+  ]);
+  const provisionalKey = "new:attachment-draft";
+  const sessionKey = "attachment-session";
+  clearDraft(provisionalKey);
+  clearDraft(sessionKey);
+  setDraft(provisionalKey, { value: "", images: [], attachments: [first] });
+
+  const read = getDraft(provisionalKey);
+  assert.deepEqual(read?.attachments, [first]);
+  read.attachments[0].selection.path = "/changed";
+  assert.equal(getDraft(provisionalKey)?.attachments?.[0].selection.path, first.selection.path);
+  assert.deepEqual(rekeyDraft(provisionalKey, sessionKey)?.attachments, [first]);
+  assert.deepEqual(mergeRestoredSubmissionDraft("failed", [], "current", [], [second], [first]).attachments, [second, first]);
+
+  clearDraft(sessionKey);
+});
+
+test("renders file and folder rows with names, locations, readiness, errors, and remove controls", async () => {
+  const { addComposerAttachments } = await attachmentState();
+  const key = "attachment-rows";
+  const attachments = addComposerAttachments([], [
+    { path: "/Projects/Client/notes.txt", issuedAt: 123, signature: "a".repeat(64), kind: "file" },
+    { path: "/Projects/Client/Assets", issuedAt: 123, signature: "b".repeat(64), kind: "folder", readError: "Assets cannot be read" },
+  ]);
+  setDraft(key, { value: "", images: [], attachments });
+  const html = renderChatInput({ draftKey: key });
+
+  assert.match(html, /aria-label="Local attachments"/);
+  assert.match(html, /notes\.txt[\s\S]*File[\s\S]*…\/Projects\/Client[\s\S]*Ready/);
+  assert.match(html, /Assets[\s\S]*Folder[\s\S]*Assets cannot be read/);
+  assert.match(html, /aria-label="Remove notes\.txt"/);
+  assert.match(html, /aria-label="Remove Assets"/);
+  assert.doesNotMatch(html, /@&quot;\/Projects/);
+  clearDraft(key);
+});
+
 test("preserves duplicate image attachments when restoring a submission", () => {
   const image = { data: "AQID", mimeType: "image/png" };
   const restored = mergeRestoredSubmissionDraft("", [image, image], "", [image]);
@@ -639,6 +698,69 @@ test("dispatches text and image payloads before clearing the idle composer", asy
 
   assert.equal(result, "sent");
   assert.deepEqual(calls, ["unlock", "clear", ["inspect this", [image]]]);
+});
+
+test("sends signed local selections as structured data and keeps unreadable rows in the Composer", async () => {
+  const { addComposerAttachments } = await attachmentState();
+  const [attachment] = addComposerAttachments([], [
+    { path: "/Projects/O'Brien/notes.txt", issuedAt: 123, signature: "a".repeat(64), kind: "file" },
+  ]);
+  const calls = [];
+  assert.equal(await dispatchIdleSubmission({
+    value: "",
+    images: [],
+    attachments: [attachment],
+    isStreaming: false,
+    clearInput: () => calls.push("clear"),
+    onSend: (message, images, attachments) => calls.push([message, images, attachments]),
+  }), "sent");
+  assert.deepEqual(calls, ["clear", ["", undefined, [attachment]]]);
+
+  calls.length = 0;
+  assert.equal(await dispatchIdleSubmission({
+    value: "Check this",
+    images: [],
+    attachments: [{ ...attachment, readError: "notes.txt cannot be read" }],
+    isStreaming: false,
+    clearInput: () => calls.push("clear"),
+    onAttachmentBlocked: (error) => calls.push(error),
+    onSend: () => calls.push("send"),
+  }), "attachment-blocked");
+  assert.deepEqual(calls, ["notes.txt cannot be read"]);
+});
+
+test("retains local attachments when steer or follow-up cannot transport them", async () => {
+  const { addComposerAttachments } = await attachmentState();
+  const [attachment] = addComposerAttachments([], [
+    { path: "/Projects/notes.txt", issuedAt: 123, signature: "a".repeat(64), kind: "file" },
+  ]);
+  for (const mode of ["steer", "followUp"]) {
+    const calls = [];
+    assert.equal(dispatchStreamingSubmission({
+      value: "Review this",
+      images: [],
+      attachments: [attachment],
+      mode,
+      clearInput: () => calls.push("clear"),
+      onAttachmentBlocked: () => calls.push("blocked"),
+      onSteer: () => calls.push("steer"),
+      onFollowUp: () => calls.push("followUp"),
+    }), "attachment-blocked");
+    assert.deepEqual(calls, ["blocked"]);
+  }
+});
+
+test("recovers signed selections after an OMP prompt rejection", async () => {
+  const { addComposerAttachments, markComposerAttachmentError, selectedAttachmentPaths } = await attachmentState();
+  const { getRejectedPromptRecovery } = await jiti.import("../hooks/useAgentSession.ts");
+  const [attachment] = addComposerAttachments([], [
+    { path: "/Projects/O'Brien/notes.txt", issuedAt: 123, signature: "a".repeat(64), kind: "file" },
+  ]);
+  const recovery = getRejectedPromptRecovery("Check this", undefined, undefined, "session-1", true, [attachment]);
+
+  assert.deepEqual(selectedAttachmentPaths(recovery.attachments), [attachment.selection]);
+  assert.equal(recovery.targetDraftKey, "session-1");
+  assert.equal(markComposerAttachmentError(recovery.attachments, "Attachment is inaccessible")[0].readError, "Attachment is inaccessible");
 });
 
 test("handles built-in commands without dispatching an empty prompt", async () => {

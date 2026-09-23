@@ -49,6 +49,7 @@ import type {
 import { applyCollaborationSnapshot, isCollaborationSnapshot } from "@/lib/collaboration-message";
 import type { ModelRoleAssignment } from "@/lib/api-types";
 import type { QueuedMessageDraft, QueuedMessageItem, QueuedMessageSnapshot } from "@/lib/queued-message-types";
+import { selectedAttachmentPaths, type ComposerAttachmentDescriptor } from "@/lib/composer-attachment-state";
 import {
   nextPinnedStateForScrollEvent,
   prefersReducedMotion,
@@ -396,7 +397,7 @@ export interface ChatInputHandle {
   insertIfEmpty: (content: string) => void;
   prependText: (text: string) => void;
   addImages: (files: File[]) => void;
-  restoreSubmission: (text: string, images?: Array<{ data: string; mimeType: string }>, targetDraftKey?: string) => void;
+  restoreSubmission: (text: string, images?: Array<{ data: string; mimeType: string }>, targetDraftKey?: string, attachments?: ComposerAttachmentDescriptor[], attachmentError?: string) => void;
 }
 
 export interface AttachedImage {
@@ -409,6 +410,7 @@ export interface RejectedPromptRecovery {
   text: string;
   images?: Array<{ data: string; mimeType: string }>;
   targetDraftKey?: string;
+  attachments?: ComposerAttachmentDescriptor[];
 }
 
 export function getRejectedPromptRecovery(
@@ -417,11 +419,13 @@ export function getRejectedPromptRecovery(
   sessionId: string | undefined,
   sentSessionId: string | null,
   promoted = true,
+  attachments?: ComposerAttachmentDescriptor[],
 ): RejectedPromptRecovery {
   return {
     text: message,
     images: images?.map(({ data, mimeType }) => ({ data, mimeType })),
     targetDraftKey: sessionId ?? (promoted ? sentSessionId ?? undefined : undefined),
+    ...(attachments?.length ? { attachments } : {}),
   };
 }
 
@@ -1636,13 +1640,13 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, [addNotice, cancelEventStreamGrace, handleAgentControlRequest, handleExtensionUiRequest, loadSession, notifyPromptStage, onAgentEnd, onSessionNameChanged, refreshContextUsage, scheduleEventStreamClose, settleUiStage]);
   handleAgentEventRef.current = handleAgentEvent;
 
-  const handleSend = useCallback(async (message: string, images?: AttachedImage[]) => {
+  const handleSend = useCallback(async (message: string, images?: AttachedImage[], attachments?: ComposerAttachmentDescriptor[]) => {
     const trimmedMessage = message.trim();
-    if (!trimmedMessage && !images?.length) return;
+    if (!trimmedMessage && !images?.length && !attachments?.length) return;
     if (agentRunningRef.current || bashRunningRef.current) return;
-    const isSlashCommandPrompt = !images?.length && trimmedMessage.startsWith("/");
+    const isSlashCommandPrompt = !images?.length && !attachments?.length && trimmedMessage.startsWith("/");
 
-    const isBashCommand = !images?.length && trimmedMessage.startsWith("!");
+    const isBashCommand = !images?.length && !attachments?.length && trimmedMessage.startsWith("!");
     if (isBashCommand) {
       const isExcluded = trimmedMessage.startsWith("!!");
       const bashCmd = (isExcluded ? trimmedMessage.slice(2) : trimmedMessage.slice(1)).trim();
@@ -1674,6 +1678,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     holdActiveTurn();
 
     const piImages = images?.map((img) => ({ type: "image" as const, data: img.data, mimeType: img.mimeType }));
+    const selectedPaths = attachments?.length ? selectedAttachmentPaths(attachments) : undefined;
     let sentSessionId: string | null = null;
     let promptRequestStarted = false;
 
@@ -1697,6 +1702,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
             type: "prompt",
             message,
             ...(piImages?.length ? { images: piImages } : {}),
+            ...(selectedPaths?.length ? { attachments: selectedPaths } : {}),
           });
           promoteNewSession(1, message);
         }
@@ -1708,6 +1714,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           type: "prompt",
           message,
           ...(piImages?.length ? { images: piImages } : {}),
+          ...(selectedPaths?.length ? { attachments: selectedPaths } : {}),
         });
       }
       if (isSlashCommandPrompt && sentSessionId) {
@@ -1740,11 +1747,13 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       // any attached images) into the input instead of losing it. Mirrors the
       // shell-command recovery in executeBash; restoreSubmission avoids
       // clobbering anything typed since.
-      const recovery = getRejectedPromptRecovery(message, images, session?.id, sentSessionId, newSessionPromotedRef.current);
+      const recovery = getRejectedPromptRecovery(message, images, session?.id, sentSessionId, newSessionPromotedRef.current, attachments);
       chatInputRef?.current?.restoreSubmission?.(
         recovery.text,
         recovery.images,
         recovery.targetDraftKey,
+        recovery.attachments,
+        attachments?.length && e instanceof Error && /attachment/i.test(e.message) ? e.message : undefined,
       );
       optimisticUserMessageKeyRef.current = null;
       setAgentRunning(false);

@@ -33,7 +33,9 @@ interface ComposerFrameProps {
   retryStatus?: ComposerRetryStatus | null;
   successStatus?: string | null;
   compactError?: string | null;
+  attachmentError?: string | null;
   attachments: ComposerAttachment[];
+  localAttachments?: ReactNode;
   onRemoveAttachment: (index: number) => void;
   inputOverlay?: ReactNode;
   editor: ReactNode;
@@ -158,7 +160,9 @@ export function ComposerFrame({
   retryStatus,
   successStatus,
   compactError,
+  attachmentError,
   attachments,
+  localAttachments,
   onRemoveAttachment,
   inputOverlay,
   editor,
@@ -182,7 +186,9 @@ export function ComposerFrame({
     && !retryStatus
     && !successStatus
     && !compactError
+    && !attachmentError
     && attachments.length === 0
+    && !localAttachments
     && !statusLine;
   const dictateControl = (
     <button
@@ -224,6 +230,8 @@ export function ComposerFrame({
         {retryStatus && <RetryStatus status={retryStatus} />}
         {successStatus && <SuccessStatus>{successStatus}</SuccessStatus>}
         {compactError && <div role="alert" data-state="error" className={`${styles.statusBanner} ${styles.compactError}`}>{compactError}</div>}
+        {attachmentError && <div role="alert" data-state="error" className={`${styles.statusBanner} ${styles.compactError}`}>{attachmentError}</div>}
+        {localAttachments}
         {attachments.length > 0 && (
           <div className={styles.imagePreviews} role="list" aria-label="Image attachments">
             {attachments.map((attachment, index) => (

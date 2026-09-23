@@ -5,10 +5,10 @@ export function getAttachmentPicker(): (() => Promise<string[]>) | undefined {
   return bridge?.selectAttachments;
 }
 
-export function getSecureAttachmentPicker(): (() => Promise<SelectedAttachmentPath[]>) | undefined {
+export function getSecureAttachmentPicker(): (() => Promise<PickerAttachment[]>) | undefined {
   const bridge = (globalThis as unknown as {
-    ompDesktop?: { selectAttachmentsWithCapabilities?: () => Promise<SelectedAttachmentPath[]> };
+    ompDesktop?: { selectAttachmentsWithCapabilities?: () => Promise<PickerAttachment[]> };
   }).ompDesktop;
   return bridge?.selectAttachmentsWithCapabilities;
 }
-import type { SelectedAttachmentPath } from "./attachment-paths";
+import type { PickerAttachment } from "./composer-attachment-state";
