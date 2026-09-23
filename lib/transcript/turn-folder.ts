@@ -50,6 +50,8 @@ export interface Turn<Message extends { role: string }> extends TurnClock {
   items: TurnItem<Message>[];
   phase: TurnPhase;
   settled: boolean;
+  /** Historical auto-review denials in this Turn. OMP does not supply this yet. */
+  deniedActionCount: number;
 }
 
 function markPrework<Message extends { role: string }>(turn: Turn<Message>): void {
@@ -218,6 +220,7 @@ export function foldTurns<Message extends { role: string; steering?: boolean; co
           items: [],
           phase: "idle",
           settled: record.type === "message",
+          deniedActionCount: 0,
           status: startsLiveRun ? "working" : "idle",
           startedAt: startsLiveRun ? pendingStartAt : timestampToMs(record.timestamp),
         };

@@ -30,6 +30,7 @@ the What's New dialog adds a second page that invites support.
 - Keep terminal output and accessible status text in classified Activity rows.
 - Render the Session origin note at the start of related transcripts and link back to the source Session.
 - Show Turn duration dividers with live working labels and collapsible activity.
+- Show denied-action counts on Turn dividers when OMP supplies the count.
 
 ## [0.8.0] - 2026-09-23
 

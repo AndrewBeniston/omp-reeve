@@ -76,7 +76,7 @@ export interface SessionOrigin {
 export type TranscriptRow =
   | { kind: "archived"; sessionId: string }
   | { kind: "session-origin"; kindOfOrigin: "continued" | "parent"; relatedSessionId: string }
-  | { kind: "turn"; id: string; phase: TurnPhase; settled: boolean; items: TranscriptMessageRow[]; clock: TurnClock }
+  | { kind: "turn"; id: string; phase: TurnPhase; settled: boolean; items: TranscriptMessageRow[]; clock: TurnClock; deniedActionCount: number }
   | {
       kind: "compaction";
       id: string;
@@ -111,10 +111,10 @@ export function presentationAssistantPosition(items: readonly TranscriptMessageR
   return -1;
 }
 
-export interface DividerPresentation extends TurnClock { previousMessageCount: number; }
+export interface DividerPresentation extends TurnClock { previousMessageCount: number; deniedActionCount: number; }
 
 /** Return Divider data when a Turn has a final response and renderable process items. */
-export function dividerPresentation(items: readonly TranscriptMessageRow[], clock: TurnClock): DividerPresentation | null {
+export function dividerPresentation(items: readonly TranscriptMessageRow[], clock: TurnClock, deniedActionCount = 0): DividerPresentation | null {
   if (clock.status === "stopped") return null;
   const finalPosition = finalAnswerPosition(items);
   if (finalPosition === -1) return null;
@@ -125,7 +125,7 @@ export function dividerPresentation(items: readonly TranscriptMessageRow[], cloc
   });
   const finalBlocks = splitFinalAssistantBlocks(items[finalPosition].message as AssistantMessage);
   const processCount = processItems.length + finalBlocks.processBlocks.length;
-  return processCount > 0 ? { ...clock, previousMessageCount: processCount } : null;
+  return processCount > 0 ? { ...clock, previousMessageCount: processCount, deniedActionCount } : null;
 }
 
 /** Keep the Session reader's message order while the Turn folder owns boundaries and phases. */
@@ -183,6 +183,7 @@ export function buildTranscriptRows(
       settled: turn.settled && !(running && turnIndex === turns.length - 1),
       items,
       clock: { status: turn.status, startedAt: turn.startedAt, completedAt: turn.completedAt },
+      deniedActionCount: turn.deniedActionCount,
     });
   });
 
