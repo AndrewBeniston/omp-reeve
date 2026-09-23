@@ -46,8 +46,8 @@ export function useGoalState(sessionId: string | null) {
   const [pendingAction, setPendingAction] = useState<GoalAction | null>(null);
   const [actionError, setActionError] = useState<{ action: GoalAction; message: string } | null>(null);
 
-  const refresh = useCallback(async () => {
-    if (!sessionId) return;
+  const refresh = useCallback(async (targetSessionId = sessionId) => {
+    if (!sessionId || targetSessionId !== sessionId || sessionRef.current !== sessionId) return;
     const readId = ++readIdRef.current;
     const eventRevision = eventRevisionRef.current;
     setState((current) => current.status === "error" ? { ...current, status: "loading", error: null } : current);

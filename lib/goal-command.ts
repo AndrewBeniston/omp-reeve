@@ -74,7 +74,10 @@ export function readPersistedGoal(session: AgentSessionLike): Goal | null {
   return candidate as Goal;
 }
 
-export async function restoreGoalFromSession(session: AgentSessionLike): Promise<void> {
+export async function restoreGoalFromSession(
+  session: AgentSessionLike,
+  options: { preserveActiveGoal?: boolean } = {},
+): Promise<void> {
   const { mode } = session.sessionManager.buildSessionContext();
   if (mode !== "goal" && mode !== "goal_paused") return;
   requireGoalCapability(session, "onThreadResumed");
@@ -86,7 +89,7 @@ export async function restoreGoalFromSession(session: AgentSessionLike): Promise
   const goal = readPersistedGoal(session);
   if (!goal) return;
   session.setGoalModeState({ enabled: mode === "goal", mode: "active", goal });
-  await session.goalRuntime.onThreadResumed({ preserveActiveGoal: false });
+  await session.goalRuntime.onThreadResumed({ preserveActiveGoal: options.preserveActiveGoal === true });
 }
 
 export async function runGoalCommand(

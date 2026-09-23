@@ -275,5 +275,6 @@ export interface AgentSessionLike {
   }>;
   setPlanReferencePath?(path: string): void;
   getContextUsage(): { tokens: number; contextWindow: number; percent: number } | undefined;
+  beginDispose?(): void;
   dispose?(options?: { keepAlive?: boolean }): Promise<void>;
 }

@@ -166,6 +166,7 @@ export interface RpcSessionStartOptions {
   toolNames?: string[];
   initialModel?: { provider: string; modelId: string };
   thinkingLevel?: ConfiguredThinkingLevel;
+  preserveActiveGoal?: boolean;
 }
 
 const CODING_TOOL_NAMES: Record<string, true> = Object.fromEntries(
@@ -352,6 +353,8 @@ export class AgentSessionWrapper {
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private onDestroyCallback: (() => void) | null = null;
   private shutdownPromise: Promise<void> | null = null;
+  private disposalPromise: Promise<void> = Promise.resolve();
+  private disposalStarted = false;
   private readonly subagents: RpcSubagentRegistry;
   // The SDK registry removes terminal entries after emitting their lifecycle frame.
   // Keep a bounded per-session copy so state requests can still expose history.
@@ -1198,6 +1201,7 @@ export class AgentSessionWrapper {
         if (this.inner.isBashRunning) {
           throw new Error("Cannot fork while a shell command is running");
         }
+        await this.goalCommandTail;
         const sessionManager = this.inner.sessionManager;
         const entryId = resolveForkEntryId(
           sessionManager.getBranch() as ForkBranchEntry[],
@@ -1228,10 +1232,27 @@ export class AgentSessionWrapper {
           newSessionFile = forkedPath;
         }
 
-        const newSessionId = (await SessionManager.open(newSessionFile, sessionDir)).getSessionId();
+        const childManager = await SessionManager.open(newSessionFile, sessionDir);
+        const newSessionId = childManager.getSessionId();
+        const childBranch = childManager.getBranch();
+        let childMode: string | undefined;
+        for (let index = childBranch.length - 1; index >= 0; index -= 1) {
+          const entry = childBranch[index];
+          if (entry.type !== "mode_change") continue;
+          childMode = entry.mode;
+          break;
+        }
         cacheSessionPath(newSessionId, newSessionFile);
         invalidateSessionListCache();
         await this.shutdownAfterCommittedFork(newSessionId);
+        if (childMode === "goal" || childMode === "goal_paused") {
+          try {
+            await startRpcSession(newSessionId, newSessionFile, undefined, { preserveActiveGoal: true });
+          } catch (error) {
+            // The child is durable. Return its id so the browser can recover it.
+            console.error("[reeve] forked Session could not start:", error);
+          }
+        }
         return { cancelled: false, newSessionId };
       }
 
@@ -1551,6 +1572,7 @@ export class AgentSessionWrapper {
 
   destroy(): void {
     if (!this._alive) return;
+    this.beginSessionDisposal();
     this._alive = false;
     forgetTurnLifecycle(this.openedSessionId);
     void this.collaboration.stop("session closed");
@@ -1578,7 +1600,10 @@ export class AgentSessionWrapper {
     this.pendingControlReplies.clear();
     this.pendingControlRequests.clear();
     try {
-      void this.inner.dispose?.();
+      this.disposalPromise = Promise.resolve(this.inner.dispose?.());
+      void this.disposalPromise.catch((error) => {
+        console.error("[reeve] Session disposal failed:", error);
+      });
     } finally {
       try {
         this.onDestroyCallback?.();
@@ -1590,7 +1615,8 @@ export class AgentSessionWrapper {
 
   async shutdown(): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
-    if (!this._alive) return;
+    if (!this._alive) return this.disposalPromise;
+    this.beginSessionDisposal();
 
     this.shutdownPromise = (async () => {
       try {
@@ -1606,9 +1632,16 @@ export class AgentSessionWrapper {
         await this.inner.extensionRunner?.emit?.({ type: "session_shutdown", reason: "quit" });
       } finally {
         this.destroy();
+        await this.disposalPromise;
       }
     })();
     return this.shutdownPromise;
+  }
+
+  private beginSessionDisposal(): void {
+    if (this.disposalStarted) return;
+    this.disposalStarted = true;
+    this.inner.beginDispose?.();
   }
 
   private resolveExtensionUiResponse(response: ExtensionUiResponse): void {
@@ -2199,7 +2232,7 @@ export async function startRpcSession(
   cwd: string | undefined,
   options: RpcSessionStartOptions = {},
 ): Promise<{ session: AgentSessionWrapper; realSessionId: string }> {
-  const { toolNames, initialModel, thinkingLevel } = options;
+  const { toolNames, initialModel, thinkingLevel, preserveActiveGoal } = options;
   const registry = getRegistry();
   const locks = getLocks();
 
@@ -2331,7 +2364,7 @@ export async function startRpcSession(
       const session = inner as unknown as AgentSessionLike;
 
       try {
-        await restoreGoalFromSession(session);
+        await restoreGoalFromSession(session, { preserveActiveGoal });
       } catch (error) {
         if (!(error instanceof GoalApiError)) throw error;
         // Preserve ordinary chat even if this Session has an invalid Goal entry.

@@ -512,6 +512,25 @@ test("reload restores a persisted Goal without a create command", async () => {
   }
 });
 
+test("reconciliation skips a Goal read for an old Session id", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  let client;
+  globalThis.fetch = async (url) => {
+    requests.push(String(url));
+    return response();
+  };
+  function Harness() { client = useGoalState("session-one"); return h("div"); }
+  const view = await mount(h(Harness));
+  try {
+    await React.act(async () => { await client.refresh("session-two"); });
+    assert.deepEqual(requests, ["/api/agent/session-one"]);
+  } finally {
+    await view.unmount();
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("the Session hook receives Goal events from its event stream", async () => {
   const originalFetch = globalThis.fetch;
   let client;
