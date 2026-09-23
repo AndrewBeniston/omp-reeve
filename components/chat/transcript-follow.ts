@@ -1,4 +1,12 @@
 /** Transcript spacer and motion rules. The follow reducer lives in lib/transcript-follow.ts. */
+import type { TurnPhase } from "@/lib/transcript/turn-folder";
+import type { TranscriptRow } from "./transcript-rows";
+
+/** The latest active Turn supplies the reducer phase. Saved Turns are idle. */
+export function followPhaseFromRows(rows: readonly TranscriptRow[]): TurnPhase {
+  const lastTurn = rows.findLast((row) => row.kind !== "message");
+  return lastTurn && !lastTurn.settled ? lastTurn.phase : "idle";
+}
 
 /** Codex keeps one pixel below the active turn while its response area grows. */
 export const ACTIVE_TURN_BOTTOM_DISTANCE_PX = 1;

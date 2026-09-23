@@ -12,7 +12,7 @@ export interface TranscriptMessageRow {
 
 export type TranscriptRow =
   | { kind: "turn"; id: string; phase: TurnPhase; settled: boolean; items: TranscriptMessageRow[] }
-  | { kind: "compaction"; id: string; phase: TurnPhase; items: TranscriptMessageRow[] }
+  | { kind: "compaction"; id: string; phase: TurnPhase; settled: boolean; items: TranscriptMessageRow[] }
   | { kind: "message"; item: TranscriptMessageRow };
 
 /** Text uses the folder's phase. Images and errors remain visible final replies. */
@@ -124,6 +124,7 @@ export function buildTranscriptRows(
         kind: "compaction",
         id: entryIds[items[0].index] ?? `compaction:${items[0].index}`,
         phase: continuation.phase,
+        settled: continuation.settled && !(running && index === sourceMessages.length - 1),
         items,
       });
     } else {

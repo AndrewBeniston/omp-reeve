@@ -10,6 +10,10 @@ const jiti = createJiti(import.meta.url, {
   tsconfigPaths: true,
 });
 const { getRejectedPromptRecovery, useAgentSession } = await jiti.import("./useAgentSession.ts");
+const { buildTranscriptRows } = await jiti.import("../components/chat/transcript-rows.ts");
+const { followPhaseFromRows } = await jiti.import("../components/chat/transcript-follow.ts");
+const { createTranscriptFollowState, reduceTranscriptFollow } = await jiti.import("../lib/transcript-follow.ts");
+const { useTranscriptFollow } = await jiti.import("../components/chat/useTranscriptFollow.ts");
 
 const h = React.createElement;
 
@@ -226,73 +230,76 @@ test("reuses an open event stream and hides an empty agent phase", () => {
   assert.match(chatWindowSource, /return null;/);
 });
 
-test("the transcript uses the integrated scroll decision and exposes the existing re-pin action", () => {
-  const scrollSource = source.slice(
-    source.indexOf("  const handleScrollPositionChange = useCallback"),
-    source.indexOf("  // Load session on mount"),
-  );
-  const repinSource = source.slice(
-    source.indexOf("  const scrollTranscriptToBottom = useCallback"),
-    source.indexOf("  const markUserScrollIntent = useCallback"),
-  );
+test("the follow reducer reads the active Turn phase and returns to idle after settlement", () => {
+  const user = { role: "user", content: "Question" };
+  const thinking = { role: "assistant", content: [{ type: "thinking", thinking: "Working" }] };
+  const answer = { role: "assistant", content: [{ type: "text", text: "Answer" }] };
+  const saved = buildTranscriptRows([user, answer], ["user", "answer"], null, false);
+  const prework = buildTranscriptRows([user], [undefined], thinking, true);
+  const finalAnswer = buildTranscriptRows([user], [undefined], answer, true);
+  const compaction = { role: "custom", customType: "compaction", content: "Earlier work", display: true };
+  const continuedAnswer = buildTranscriptRows([compaction], ["compaction"], answer, true);
+  const metrics = { scrollTop: 3400, scrollHeight: 4000, clientHeight: 600 };
+  const observe = (state, rows) => reduceTranscriptFollow(state, {
+    turn: { phase: followPhaseFromRows(rows) }, metrics, preworkContentHeight: 0,
+    spacerHeight: 0, working: true, now: 0, event: "phase",
+  }).state;
 
-  assert.match(scrollSource, /nextPinnedStateForScrollEvent\(/);
-  assert.match(scrollSource, /previousScrollTopRef\.current = metrics\.scrollTop/);
-  assert.match(repinSource, /setPinned\(true\)/);
-  assert.match(repinSource, /container\.scrollHeight - container\.clientHeight/);
-  assert.match(repinSource, /scrollToBottom\("smooth"\)/);
-  assert.match(source, /scrollTranscriptToBottom,/);
+  assert.equal(followPhaseFromRows(saved), "idle");
+  assert.equal(followPhaseFromRows(prework), "prework");
+  assert.equal(followPhaseFromRows(finalAnswer), "final-answer");
+  assert.equal(followPhaseFromRows(continuedAnswer), "final-answer");
+  let state = observe(createTranscriptFollowState(metrics), prework);
+  assert.equal(state.mode, "prework_follow");
+  state = observe(state, finalAnswer);
+  assert.equal(state.mode, "user_follow");
+  state = observe(state, saved);
+  assert.equal(state.phase, "idle");
+  assert.match(chatWindowSource, /followPhaseFromRows\(transcriptRows\)/);
 });
 
-test("upward user scroll stays detached while streaming tokens renew the ignore window", async () => {
-  const originalFetch = globalThis.fetch;
-  let latestSession;
-  globalThis.fetch = async () => ({
-    ok: true,
-    async json() {
-      return { models: {}, modelList: [], defaultModel: null };
-    },
-  });
+test("an upward scroll stays detached during streaming, and the newest-message action restores follow", async () => {
+  let latestFollow;
+  let transcript;
+  let newestCalls = 0;
 
-  function Harness() {
-    latestSession = useAgentSession({ session: null, newSessionCwd: "/tmp" });
-    return h(
-      "div",
-      { ref: latestSession.scrollContainerRef },
-      h("div", { ref: latestSession.messagesEndRef }),
-    );
+  function Harness({ contentChange }) {
+    const scrollContainerRef = React.useRef(null);
+    const contentRef = React.useRef(null);
+    const setScrollContainer = React.useCallback((node) => {
+      scrollContainerRef.current = node;
+      if (!node) return;
+      transcript = node;
+      node.clientHeight = 600;
+      node.scrollHeight = 4000;
+      node.scrollTop = 3400;
+      node.scrollTo = ({ top }) => {
+        node.scrollTop = Math.min(top, node.scrollHeight - node.clientHeight);
+        node.dispatchEvent(new DomEvent("scroll"));
+      };
+    }, []);
+    const setContent = React.useCallback((node) => {
+      contentRef.current = node;
+      if (node) node.getBoundingClientRect = () => ({ height: 100 });
+    }, []);
+    latestFollow = useTranscriptFollow({
+      scrollContainerRef, contentRef, phase: "final-answer", working: true,
+      activeTurnHeld: false, contentChange, messageCount: 1,
+      sessionKey: "follow-test", onGoToNewest: () => { newestCalls += 1; },
+    });
+    return h("div", { ref: setScrollContainer }, h("div", { ref: setContent }));
   }
 
-  const view = await mount(h(Harness));
-  const transcript = view.container.querySelector("div");
-  const end = transcript.querySelector("div");
-  transcript.clientHeight = 600;
-  transcript.scrollHeight = 4000;
-  transcript.scrollTop = 3400;
-  transcript.scrollTo = ({ top }) => {
-    transcript.scrollTop = Math.min(top, transcript.scrollHeight - transcript.clientHeight);
-    transcript.dispatchEvent(new DomEvent("scroll"));
-  };
-  end.scrollIntoView = () => { throw new Error("Transcript scrolling must not move ancestor containers"); };
-
-  const settleFrame = async () => {
-    await React.act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 5));
-    });
-  };
-  const streamToken = async (text, scrollHeight) => {
+  const view = await mount(h(Harness, { contentChange: 0 }));
+  const streamToken = async (contentChange, scrollHeight) => {
     transcript.scrollHeight = scrollHeight;
-    await React.act(async () => {
-      latestSession.dispatch({ type: "update", message: { role: "assistant", content: text } });
-    });
-    await settleFrame();
+    await view.render(h(Harness, { contentChange }));
   };
 
   try {
-    await React.act(async () => latestSession.setAgentRunning(true));
-    await settleFrame();
-    await streamToken("one", 4200);
-    await streamToken("two", 4400);
+    await streamToken(1, 4200);
+    await streamToken(2, 4400);
+    assert.equal(latestFollow.mode, "user_follow");
 
     await React.act(async () => {
       transcript.dispatchEvent(new DomEvent("keydown", { key: "ArrowUp", bubbles: true }));
@@ -300,18 +307,21 @@ test("upward user scroll stays detached while streaming tokens renew the ignore 
       transcript.dispatchEvent(new DomEvent("scroll"));
     });
 
-    assert.equal(latestSession.transcriptPinned, false);
+    assert.equal(latestFollow.mode, "static");
     const detachedTop = transcript.scrollTop;
 
-    await streamToken("three", 4600);
-    assert.equal(latestSession.transcriptPinned, false);
+    await streamToken(3, 4600);
+    assert.equal(latestFollow.mode, "static");
     assert.equal(transcript.scrollTop, detachedTop, "new tokens do not move a detached transcript");
 
-    await React.act(async () => latestSession.scrollTranscriptToBottom());
-    assert.equal(latestSession.transcriptPinned, true, "the existing newest-message action restores the pin");
+    await React.act(async () => latestFollow.goToNewest());
+    assert.equal(newestCalls, 1);
+    assert.equal(latestFollow.mode, "user_follow");
+    assert.equal(transcript.scrollTop, 4000);
+    await streamToken(4, 4800);
+    assert.equal(transcript.scrollTop, 4200, "the next streamed update follows the answer");
   } finally {
     await view.unmount();
-    globalThis.fetch = originalFetch;
   }
 });
 

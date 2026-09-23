@@ -48,7 +48,7 @@ import {
   buildTranscriptNavigationItems,
   type TranscriptNavigationItem,
 } from "./chat/TranscriptNavigationRail";
-import { prefersReducedMotion, resolveScrollBehavior } from "./chat/transcript-follow";
+import { followPhaseFromRows, prefersReducedMotion, resolveScrollBehavior } from "./chat/transcript-follow";
 import { useTranscriptHeightRestoration } from "./chat/useTranscriptHeightRestoration";
 import { useTranscriptFollow } from "./chat/useTranscriptFollow";
 import styles from "./chat/chat-window.module.css";
@@ -439,13 +439,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
     }
     return blocks;
   }, [messages, activeStreamingMessage, turnStatusDebug]);
-  // The Turn folder will supply this phase when #260 connects its output.
-  const lastActiveTurnBlock = activeTurnBlocks.at(-1);
-  const followPhase = !sessionBusy && !streamState.isStreaming
-    ? "idle"
-    : lastActiveTurnBlock?.type === "text" && lastActiveTurnBlock.text.trim()
-      ? "final-answer"
-      : "prework";
+  const followPhase = followPhaseFromRows(transcriptRows);
   const transcriptFollow = useTranscriptFollow({
     scrollContainerRef,
     contentRef: transcriptContentRef,

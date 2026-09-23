@@ -22,6 +22,10 @@ the What's New dialog adds a second page that invites support.
 - Track the Turn phase as assistant text and activity arrive, including the settled phase for saved Sessions.
 - Render saved and live Session messages from the Turn list while keeping their current transcript rows.
 
+### Fixed
+
+- The Session transcript follows the active Turn phase, including answers that continue after compaction.
+
 ## [0.8.0] - 2026-09-23
 
 ### Added
