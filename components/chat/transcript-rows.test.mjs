@@ -7,7 +7,7 @@ const { buildTranscriptRows, dividerPresentation, finalAnswerPosition, presentat
 const recorded = JSON.parse(readFileSync(new URL("../../lib/transcript/recorded-event-stream.json", import.meta.url), "utf8"));
 
 function displayedMessages(rows) {
-  return rows.flatMap((row) => row.kind === "message" ? [row.item.message] : row.kind === "model-change" ? [] : row.items.map((item) => item.message));
+  return rows.flatMap((row) => ["message", "model-change", "fallback-route"].includes(row.kind) ? (row.kind === "message" ? [row.item.message] : []) : row.items.map((item) => item.message));
 }
 
 test("a saved Session renders one row per message in Turn order", () => {
@@ -89,6 +89,34 @@ test("model-change notes appear before the next Turn and after the final Turn", 
     { fromModel: "openai/a", toModel: "anthropic/b" },
     { fromModel: "anthropic/b", toModel: "google/c" },
   ]);
+});
+
+test("a fallback route appears once before its affected Turn", () => {
+  const messages = [
+    { role: "user", content: "First question" },
+    { role: "assistant", content: [{ type: "text", text: "First answer" }] },
+    { role: "user", content: "Second question" },
+    { role: "assistant", content: [{ type: "text", text: "Second answer" }] },
+  ];
+
+  const rows = buildTranscriptRows(
+    messages,
+    ["u1", "a1", "u2", "a2"],
+    null,
+    false,
+    [],
+    null,
+    null,
+    [{ entryId: "fallback-1", position: 2, toModel: "openai/model-fallback" }],
+  );
+
+  assert.deepEqual(rows.map((row) => [row.kind, row.id]), [
+    ["turn", "u1"],
+    ["fallback-route", "fallback-1"],
+    ["turn", "u2"],
+  ]);
+  assert.deepEqual(rows[1].note, { toModel: "openai/model-fallback" });
+  assert.deepEqual(displayedMessages(rows), messages);
 });
 
 test("a live Session adds its provisional assistant message to the active Turn once", () => {

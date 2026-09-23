@@ -581,6 +581,7 @@ export const enLocale: LocalePlugin = {
     "transcript.modelChanged": "Model changed from {fromModel} to {toModel}.",
     "transcript.modelChangedWarningLine1": "Changing models mid-conversation will degrade performance.",
     "transcript.modelChangedWarningLine2": "Context may automatically compact.",
+    "transcript.fallbackRouting": "Your request was routed to {toModel}.",
     "transcript.contextManuallyCompacting": "Compacting context",
     "transcript.contextManuallyCompacted": "Context compacted",
     "transcript.contextAutomaticallyCompacting": "Context automatically compacting",

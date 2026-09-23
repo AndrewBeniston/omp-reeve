@@ -420,6 +420,7 @@ export function buildSessionContext(
   const messages: AgentMessage[] = [];
   const entryIds: string[] = [];
   const modelChanges: ModelChangeNote[] = [];
+  const fallbackRoutes: SessionContext["fallbackRoutes"] = [];
   let activeDefaultModel: string | undefined;
   for (const entry of collectDisplayEntries(entries, byId, leafId)) {
     if (entry.type === "model_change") {
@@ -433,7 +434,9 @@ export function buildSessionContext(
           ? `${String(entry.provider)}/${String(entry.modelId)}`
           : undefined
       );
-      if ((modelEntry.role ?? "default") === "default" && nextModel && !modelEntry.resolvedModelIsFallback) {
+      if ((modelEntry.role ?? "default") === "default" && nextModel && modelEntry.resolvedModelIsFallback) {
+        fallbackRoutes.push({ entryId: entry.id, position: messages.length, toModel: nextModel });
+      } else if ((modelEntry.role ?? "default") === "default" && nextModel) {
         if (activeDefaultModel && activeDefaultModel !== nextModel) {
           modelChanges.push({
             entryId: entry.id,
@@ -460,6 +463,7 @@ export function buildSessionContext(
     messages,
     entryIds,
     modelChanges,
+    fallbackRoutes,
     thinkingLevel: ompCtx.configuredThinkingLevel ?? ompCtx.thinkingLevel ?? "off",
     model: parseDefaultModel(ompCtx.models),
     serviceTierByFamily: ompCtx.serviceTier ?? {},

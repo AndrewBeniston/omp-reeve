@@ -1,4 +1,4 @@
-import type { AgentMessage, ModelChangeNote } from "@/lib/types";
+import type { AgentMessage, FallbackRouteNote, ModelChangeNote } from "@/lib/types";
 import { getAssistantErrorMessage, getDisplayableAssistantBlocks, splitFinalAssistantBlocks } from "@/lib/message-display";
 import { foldTurns, type TranscriptRecord, type TurnClock, type TurnPhase, type TurnTextPhase } from "@/lib/transcript/turn-folder";
 import { classifyActivityTool, type ActivityClassification } from "@/lib/transcript/activity-classifier";
@@ -92,6 +92,7 @@ export type TranscriptRow =
       error?: string | null;
     }
   | { kind: "model-change"; id: string; note: Pick<ModelChangeNote, "fromModel" | "toModel"> }
+  | { kind: "fallback-route"; id: string; note: Pick<FallbackRouteNote, "toModel"> }
   | { kind: "message"; item: TranscriptMessageRow };
 
 /** Text uses the folder's phase. Images and errors remain visible final replies. */
@@ -142,6 +143,7 @@ export function buildTranscriptRows(
   modelChanges: readonly ModelChangeNote[] = [],
   compaction?: LiveCompactionState | null,
   sessionOrigin?: SessionOrigin | null,
+  fallbackRoutes: readonly FallbackRouteNote[] = [],
 ): TranscriptRow[] {
   const sourceMessages = streamingMessage ? [...messages, streamingMessage] : [...messages];
   const records: TranscriptRecord<AgentMessage>[] = [];
@@ -213,7 +215,17 @@ export function buildTranscriptRows(
     changes.push(change);
     changesAtPosition.set(position, changes);
   }
+  const routesAtPosition = new Map<number, FallbackRouteNote[]>();
+  for (const route of fallbackRoutes) {
+    const position = Math.max(0, Math.min(route.position, sourceMessages.length));
+    const routes = routesAtPosition.get(position) ?? [];
+    routes.push(route);
+    routesAtPosition.set(position, routes);
+  }
   for (let index = 0; index <= sourceMessages.length; index += 1) {
+    for (const route of routesAtPosition.get(index) ?? []) {
+      rows.push({ kind: "fallback-route", id: route.entryId, note: { toModel: route.toModel } });
+    }
     for (const change of changesAtPosition.get(index) ?? []) {
       rows.push({
         kind: "model-change",
@@ -232,7 +244,7 @@ export function buildTranscriptRows(
     if (message.role === "custom" && message.customType === "compaction") {
       const items = [messageRow(index)];
       while (index + 1 < sourceMessages.length && !claimed.has(index + 1)) {
-        if (changesAtPosition.has(index + 1)) break;
+        if (changesAtPosition.has(index + 1) || routesAtPosition.has(index + 1)) break;
         const nextMessage = sourceMessages[index + 1];
         if (nextMessage.role === "custom" && nextMessage.customType === "compaction") break;
         items.push(messageRow(++index));
