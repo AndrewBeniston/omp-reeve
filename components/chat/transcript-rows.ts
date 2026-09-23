@@ -281,3 +281,4 @@ export function buildTranscriptRows(
 export { CompactionNote } from "./CompactionNote";
 export { SessionOriginNote } from "./SessionOriginNote";
 export { ProviderRetryNote } from "./ProviderRetryNote";
+export { UsageLimitNote } from "./UsageLimitNote";
