@@ -6,21 +6,25 @@ import vm from "node:vm";
 const source = readFileSync(new URL("./main.cjs", import.meta.url), "utf8");
 const handlerSource = source.slice(source.indexOf("function registerAttachmentPickerHandler()"), source.indexOf("function registerSessionMenuHandler()"));
 
-function picker({ platform = "darwin", canceled = false, window = {} } = {}) {
+function picker({ platform = "darwin", canceled = false, window = {}, choice = 0 } = {}) {
   let handler;
   const dialogs = [];
+  const choices = [];
   vm.runInNewContext(`${handlerSource}\nregisterAttachmentPickerHandler();`, {
     ipcMain: { handle: (name, callback) => { assert.equal(name, "omp-desktop:select-attachments"); handler = callback; } },
     desktopUrl: "http://127.0.0.1:30142",
     isTrustedRendererUrl: url => url === "http://127.0.0.1:30142/",
     BrowserWindow: { fromWebContents: () => window },
     process: { platform },
-    dialog: { showOpenDialog: async (_window, options) => {
-      dialogs.push(options);
-      return { canceled, filePaths: ["/selected/file.txt", "/selected/folder"] };
-    } },
+    dialog: {
+      showMessageBox: async (_window, options) => { choices.push(options); return { response: choice }; },
+      showOpenDialog: async (_window, options) => {
+        dialogs.push(options);
+        return { canceled, filePaths: ["/selected/file.txt", "/selected/folder"] };
+      },
+    },
   });
-  return { handler, dialogs };
+  return { handler, dialogs, choices };
 }
 const trusted = { senderFrame: { url: "http://127.0.0.1:30142/" }, sender: {} };
 
@@ -36,9 +40,19 @@ test("macOS selects multiple files and folders, while cancellation returns no pa
   assert.deepEqual(Array.from(dialogs[0].properties), ["openFile", "openDirectory", "multiSelections"]);
   assert.equal((await picker({ canceled: true }).handler(trusted)).length, 0);
 });
-test("other platforms use the supported file picker and require an application window", async () => {
-  const { handler, dialogs } = picker({ platform: "win32" });
+test("Windows and Linux offer separate multi-file and multi-folder native pickers", async () => {
+  const { handler, dialogs, choices } = picker({ platform: "win32" });
   await handler(trusted);
+  assert.equal(choices.length, 1);
   assert.deepEqual(Array.from(dialogs[0].properties), ["openFile", "multiSelections"]);
+  const folders = picker({ platform: "linux", choice: 1 });
+  await folders.handler(trusted);
+  assert.deepEqual(Array.from(folders.dialogs[0].properties), ["openDirectory", "multiSelections"]);
+  const cancelled = picker({ platform: "win32", choice: 2 });
+  assert.equal((await cancelled.handler(trusted)).length, 0);
+  assert.equal(cancelled.dialogs.length, 0);
+});
+
+test("the attachment picker requires an application window", async () => {
   await assert.rejects(picker({ window: null }).handler(trusted), /no application window/);
 });

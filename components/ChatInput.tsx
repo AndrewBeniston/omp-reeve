@@ -108,9 +108,9 @@ interface Props {
   requestPending?: boolean;
   onSend: (message: string, images?: AttachedImage[], attachments?: ComposerAttachmentDescriptor[]) => void;
   onAbort: () => void;
-  onSteer?: (message: string, images?: AttachedImage[]) => void;
-  onFollowUp?: (message: string, images?: AttachedImage[]) => void;
-  onPromptWithStreamingBehavior?: (message: string, behavior: "steer" | "followUp", images?: AttachedImage[]) => void;
+  onSteer?: (message: string, images?: AttachedImage[], attachments?: ComposerAttachmentDescriptor[]) => void;
+  onFollowUp?: (message: string, images?: AttachedImage[], attachments?: ComposerAttachmentDescriptor[]) => void;
+  onPromptWithStreamingBehavior?: (message: string, behavior: "steer" | "followUp", images?: AttachedImage[], attachments?: ComposerAttachmentDescriptor[]) => void;
   isStreaming: boolean;
   model?: { provider: string; modelId: string } | null;
   isAutoModelSelection?: boolean;
@@ -323,7 +323,7 @@ interface StreamingSubmissionOptions {
   onFollowUp?: Props["onFollowUp"];
   onAudioUnlock?: () => void;
   clearInput: () => void;
-  onAttachmentBlocked?: () => void;
+  onAttachmentBlocked?: (error: string) => void;
 }
 
 export function dispatchStreamingSubmission({
@@ -340,24 +340,25 @@ export function dispatchStreamingSubmission({
 }: StreamingSubmissionOptions): "ignored" | "steered" | "followed-up" | "attachment-blocked" {
   const message = value.trim();
   if (!message && images.length === 0 && attachments.length === 0) return "ignored";
-  if (attachments.length > 0) {
-    onAttachmentBlocked?.();
+  const readError = attachments.find((attachment) => attachment.readError)?.readError;
+  if (readError) {
+    onAttachmentBlocked?.(readError);
     return "attachment-blocked";
   }
   onAudioUnlock?.();
   if (message.startsWith("/") && images.length === 0 && onPromptWithStreamingBehavior) {
     clearInput();
-    onPromptWithStreamingBehavior(message, mode);
+    onPromptWithStreamingBehavior(message, mode, undefined, attachments.length ? attachments : undefined);
     return mode === "steer" ? "steered" : "followed-up";
   }
   if (mode === "steer" && onSteer) {
     clearInput();
-    onSteer(message, images.length ? images : undefined);
+    onSteer(message, images.length ? images : undefined, attachments.length ? attachments : undefined);
     return "steered";
   }
   if (mode === "followUp" && onFollowUp) {
     clearInput();
-    onFollowUp(message, images.length ? images : undefined);
+    onFollowUp(message, images.length ? images : undefined, attachments.length ? attachments : undefined);
     return "followed-up";
   }
   return "ignored";
@@ -1379,9 +1380,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       onFollowUp,
       onAudioUnlock,
       clearInput,
-      onAttachmentBlocked: () => setAttachmentPickerError(t("composer.localAttachmentDuringResponse")),
+      onAttachmentBlocked: setAttachmentPickerError,
     });
-  }, [value, attachedImages, localAttachments, onPromptWithStreamingBehavior, onSteer, onFollowUp, clearInput, onAudioUnlock, t]);
+  }, [value, attachedImages, localAttachments, onPromptWithStreamingBehavior, onSteer, onFollowUp, clearInput, onAudioUnlock]);
 
   const getNextSlashIndex = useCallback((direction: "up" | "down") => {
     const lastIndex = displayedSlashCommands.length - 1;

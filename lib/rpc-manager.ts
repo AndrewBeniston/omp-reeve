@@ -26,7 +26,7 @@ import { randomUUID } from "crypto";
 import { existsSync, realpathSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { validateAgentImages } from "./image-attachments";
-import { AttachmentPathError, prepareAttachmentPathMessages } from "./attachment-paths";
+import { AttachmentPathError, prepareAttachmentPathMessages, QueuedAttachmentContext } from "./attachment-paths";
 import type { FileMentionMessage } from "@oh-my-pi/pi-coding-agent/session/messages";
 import type { AgentControlChannel } from "./agent-control/channel";
 import { startSessionControlHost } from "./agent-control/host";
@@ -355,6 +355,7 @@ export class AgentSessionWrapper {
   // Keep a bounded per-session copy so state requests can still expose history.
   private readonly subagentHistory = new Map<string, SubagentSnapshot>();
   private readonly queuedMessageEditor: QueuedMessageEditor;
+  private queuedAttachmentContext: QueuedAttachmentContext | null = null;
   private readonly collaboration: CollaborationAdapter;
   private readonly queuedMessageEdits = new Map<string, RemovedQueuedMessage>();
   private readonly deletedQueuedMessages = new Map<string, RemovedQueuedMessage>();
@@ -773,6 +774,14 @@ export class AgentSessionWrapper {
     };
   }
 
+  private attachmentQueue(): QueuedAttachmentContext {
+    const agent = this.inner.agent as unknown as ConstructorParameters<typeof QueuedAttachmentContext>[0];
+    if (!this.queuedAttachmentContext || this.queuedAttachmentContext.agent !== agent) {
+      this.queuedAttachmentContext = new QueuedAttachmentContext(agent);
+    }
+    return this.queuedAttachmentContext;
+  }
+
   private async sendQueueItemNow(id: string): Promise<QueuedMessageSnapshot> {
     if (!this.queuePaused || this.inner.isStreaming) {
       if (!this.queuedMessageEditor.moveToSteering(id)) throw new Error("Queued message not found");
@@ -782,9 +791,12 @@ export class AgentSessionWrapper {
     const removed = this.queuedMessageEditor.remove(id);
     if (!removed) throw new Error("Queued message not found");
     const draft = this.queuedMessageEditor.draft(removed);
+    const files = this.queuedAttachmentContext?.forMessage(removed.token.message) ?? [];
     this.queuePaused = false;
     try {
-      await this.inner.steer(draft.text, draft.images?.length ? draft.images : undefined);
+      const send = () => this.inner.steer(draft.text, draft.images?.length ? draft.images : undefined);
+      if (files.length) await this.attachmentQueue().run(files, send);
+      else await send();
       this.queuedMessageEditor.adoptNewest("steer", removed.id);
       return this.emitQueueUpdate();
     } catch (error) {
@@ -803,19 +815,24 @@ export class AgentSessionWrapper {
     const removed = this.queuedMessageEdits.get(editToken);
     if (!removed) throw new Error("The queued message edit expired");
     this.queuedMessageEdits.delete(editToken);
+    const files = this.queuedAttachmentContext?.forMessage(removed.token.message) ?? [];
     try {
-      if (this.inner.isStreaming) {
-        this.inner.maybeStartTitleGeneration(message);
-        await this.inner.prompt(message, {
-          streamingBehavior: removed.kind,
-          ...(images?.length ? { images } : {}),
-          userInitiated: true,
-        });
-      } else if (removed.kind === "steer") {
-        await this.inner.steer(message, images);
-      } else {
-        await this.inner.followUp(message, images);
-      }
+      const send = async () => {
+        if (this.inner.isStreaming && files.length === 0) {
+          this.inner.maybeStartTitleGeneration(message);
+          await this.inner.prompt(message, {
+            streamingBehavior: removed.kind,
+            ...(images?.length ? { images } : {}),
+            userInitiated: true,
+          });
+        } else if (removed.kind === "steer") {
+          await this.inner.steer(message, images);
+        } else {
+          await this.inner.followUp(message, images);
+        }
+      };
+      if (files.length) await this.attachmentQueue().run(files, send);
+      else await send();
       if (this.queuedMessageEditor.adoptNewest(removed.kind, removed.id)) {
         this.queuedMessageEditor.place(removed.id, removed.tokenIndex, removed.kind);
       }
@@ -1023,8 +1040,8 @@ export class AgentSessionWrapper {
   async send(command: Record<string, unknown>): Promise<unknown> {
     this.resetIdleTimer();
     const type = command.type as string;
-    if (command.attachments !== undefined && type !== "prompt") {
-      throw new AttachmentPathError("Attachments are only supported with prompts");
+    if (command.attachments !== undefined && type !== "prompt" && type !== "steer" && type !== "follow_up") {
+      throw new AttachmentPathError("Attachments are only supported with user messages");
     }
     if (this.shouldWaitForExtensions(type)) await this.waitForExtensionsBound();
     if (this.handoffRunning && HANDOFF_ALLOWED_COMMAND_TYPES[type] !== true) {
@@ -1048,12 +1065,23 @@ export class AgentSessionWrapper {
           command.attachments,
           this.inner.sessionManager.getCwd(),
         );
-        if (attachmentMessages.length > 0 && this.inner.isStreaming) {
-          throw new AttachmentPathError("Wait for the current response before sending attachments");
-        }
         // Fire and forget — events come via subscribe
         const promptImages = command.images as Array<{ type: "image"; data: string; mimeType: string }> | undefined;
         const streamingBehavior = command.streamingBehavior as "steer" | "followUp" | undefined;
+        if (attachmentMessages.length > 0 && this.inner.isStreaming && !streamingBehavior) {
+          throw new AttachmentPathError("Choose Steer or Queue to send attachments during a response");
+        }
+        if (attachmentMessages.length > 0 && this.inner.isStreaming && (command.message as string).startsWith("/")) {
+          throw new AttachmentPathError("Local attachments cannot accompany a slash command during a response");
+        }
+        if (attachmentMessages.length > 0 && streamingBehavior && this.inner.isStreaming) {
+          await this.noteTurn({ type: "continuation" });
+          const send = () => streamingBehavior === "steer"
+            ? this.inner.steer(command.message as string, promptImages)
+            : this.inner.followUp(command.message as string, promptImages);
+          await this.attachmentQueue().run(attachmentMessages, send);
+          return this.emitQueueUpdate();
+        }
         if (!streamingBehavior) this.queuePaused = false;
         this.promptRunning = true;
         notifyRunningChange();
@@ -1404,13 +1432,19 @@ export class AgentSessionWrapper {
 
       case "steer": {
         const steerImages = command.images as Array<{ type: "image"; data: string; mimeType: string }> | undefined;
-        await this.inner.steer(command.message as string, steerImages?.length ? steerImages : undefined);
+        const files = await prepareAttachmentPathMessages(command.attachments, this.inner.sessionManager.getCwd());
+        const send = () => this.inner.steer(command.message as string, steerImages?.length ? steerImages : undefined);
+        if (files.length) await this.attachmentQueue().run(files, send);
+        else await send();
         return this.emitQueueUpdate();
       }
 
       case "follow_up": {
         const followImages = command.images as Array<{ type: "image"; data: string; mimeType: string }> | undefined;
-        await this.inner.followUp(command.message as string, followImages?.length ? followImages : undefined);
+        const files = await prepareAttachmentPathMessages(command.attachments, this.inner.sessionManager.getCwd());
+        const send = () => this.inner.followUp(command.message as string, followImages?.length ? followImages : undefined);
+        if (files.length) await this.attachmentQueue().run(files, send);
+        else await send();
         return this.emitQueueUpdate();
       }
 

@@ -11,6 +11,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The desktop picker selects multiple files and folders together on macOS. Windows and Linux offer separate file and folder selection.
+- The Composer sends local files and folders with queued, steered, and follow-up messages during an active response.
 - The model menu now opens on a power slider with OMP's supported effort steps. Drag the thumb to choose an effort.
 
 ### Added
