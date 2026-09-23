@@ -155,7 +155,7 @@ interface Props {
   onLoadSlashCommands?: () => Promise<SlashCommandInfo[]> | SlashCommandInfo[];
   onBuiltinCommand?: (message: string) => Promise<BuiltinSlashCommandResult>;
   onAudioUnlock?: () => void;
-  onOpenGoal?: (objective: string) => void;
+  onOpenGoal?: (objective: string, images?: AttachedImage[]) => void;
   draftKey?: string;
   imageInputId?: string;
   /** Session working directory — enables the @ file autocomplete menu */
@@ -988,8 +988,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const handleSend = useCallback(async () => {
     if (builtinCommandPending) return;
     const goalCommand = /^\/goal(?:\s+([\s\S]*))?$/i.exec(value.trim());
-    if (goalCommand && onOpenGoal && attachedImages.length === 0) {
-      onOpenGoal(goalCommand[1]?.trim() ?? "");
+    if (goalCommand && onOpenGoal) {
+      if (pendingImageCountRef.current > 0) return;
+      onOpenGoal(goalCommand[1]?.trim() ?? "", attachedImages);
       clearInput();
       return;
     }
@@ -1313,7 +1314,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const applySlashCommand = useCallback((suggestion: ComposerSuggestion) => {
     if (suggestion.disabled) return;
     if (suggestion.raw === "/goal" && onOpenGoal) {
-      onOpenGoal("");
+      onOpenGoal("", attachedImages);
       clearInput();
       setSlashMenuOpen(false);
       return;
@@ -1326,7 +1327,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     }, true);
     setSlashMenuOpen(false);
     setSlashActiveIndex(0);
-  }, [clearInput, onOpenGoal]);
+  }, [attachedImages, clearInput, onOpenGoal]);
 
   const sendQueued = useCallback((mode: "steer" | "followUp") => {
     dispatchStreamingSubmission({
@@ -2171,7 +2172,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                   return;
                 }
                 if (item.kind === "command" && item.raw === "/goal" && onOpenGoal) {
-                  onOpenGoal("");
+                  onOpenGoal("", attachedImages);
                   return;
                 }
                 if (item.kind === "command") {

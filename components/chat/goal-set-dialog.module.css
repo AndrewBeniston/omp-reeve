@@ -50,6 +50,34 @@
   font-size: var(--text-sm);
 }
 
+[data-goal-attachment] {
+  position: relative;
+  display: inline-block;
+  margin: 10px 6px 0 0;
+}
+
+[data-goal-attachment] img {
+  display: block;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+}
+
+[data-goal-attachment] button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--ui-main);
+  color: var(--ui-text);
+  font: inherit;
+}
+
 .actions {
   display: flex;
   justify-content: flex-end;

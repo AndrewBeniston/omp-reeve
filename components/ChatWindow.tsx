@@ -41,7 +41,7 @@ import { EmptyChatHome } from "./chat/EmptyChatHome";
 import { NewMessagesControl } from "./chat/NewMessagesControl";
 import { ComposerTurnStatus } from "./chat/ComposerTurnStatus";
 import { GoalPill } from "./chat/GoalPill";
-import { GoalSetDialog } from "./chat/GoalSetDialog";
+import { GoalSetDialog, type GoalAttachment } from "./chat/GoalSetDialog";
 import { ActiveTurnResponseSpacer } from "./chat/ActiveTurnResponseSpacer";
 import {
   TranscriptNavigationRail,
@@ -301,7 +301,10 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
   // Only render the last N messages initially. When the user scrolls to the
   // top, load another page while keeping the scroll position stable.
   const [visibleCount, setVisibleCount] = useState(VISIBLE_PAGE_SIZE);
-  const [goalEntryDraft, setGoalEntryDraft] = useState<string | null>(null);
+  const [goalEntryDraft, setGoalEntryDraft] = useState<{ objective: string; attachments: GoalAttachment[] } | null>(null);
+  const openGoalDialog = (objective: string, images: import("@/hooks/useAgentSession").AttachedImage[] = []) => {
+    setGoalEntryDraft({ objective, attachments: images });
+  };
   const [turnStatusDebug, setTurnStatusDebug] = useState(false);
   const [questionDebug, setQuestionDebug] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -488,7 +491,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
       ref={chatInputRef}
       requestPending={displayedExtensionDialog?.method === "ask"}
       onSend={handleSend}
-      onOpenGoal={setGoalEntryDraft}
+      onOpenGoal={openGoalDialog}
       onAbort={handleAbort}
       onSteer={agentRunning ? handleSteer : undefined}
       onFollowUp={agentRunning ? handleFollowUp : undefined}
@@ -582,7 +585,8 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
     >
       {goalEntryDraft !== null && <GoalSetDialog
         key={session?.id ?? newDraftKey ?? newSessionCwd ?? "new"}
-        initialObjective={goalEntryDraft}
+        initialObjective={goalEntryDraft.objective}
+        initialAttachments={goalEntryDraft.attachments}
         existingGoal={goalState.goal}
         onSubmit={handleGoalSubmit}
         onClose={() => setGoalEntryDraft(null)}

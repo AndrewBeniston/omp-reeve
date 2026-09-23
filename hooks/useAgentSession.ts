@@ -17,6 +17,7 @@ import type { AgentControlReply, AgentControlRequestEvent } from "@/lib/agent-co
 import { normalizeToolCalls } from "@/lib/normalize";
 import { stripAnsi } from "@/lib/ansi";
 import { isPromptRejectedError, sendAgentCommand } from "@/lib/agent-client";
+import { validateAgentImages } from "@/lib/image-attachments";
 import { useGoalState, type GoalUpdateEvent } from "./useGoalState";
 import { getToolNamesForPreset, type ToolEntry } from "@/lib/tool-presets";
 import {
@@ -406,6 +407,12 @@ export interface AttachedImage {
   previewUrl: string;
 }
 
+export interface GoalSetInput {
+  objective: string;
+  tokenBudget?: number;
+  attachments?: AttachedImage[];
+}
+
 export interface RejectedPromptRecovery {
   text: string;
   images?: Array<{ data: string; mimeType: string }>;
@@ -555,6 +562,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, [setPinned]);
 
   const newSessionModelOverrideRef = useRef<SelectedModel | null>(null);
+  const createdGoalSessionRef = useRef<{ sessionId: string; operation: "create" | "replace" } | null>(null);
   const thinkingLevelOverrideRef = useRef<ThinkingLevelOption | null>(null);
   const promptRunIdRef = useRef(0);
   const contextUsageRequestIdRef = useRef(0);
@@ -1801,16 +1809,26 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, [isNew, newSessionCwd, newSessionModel, session, ensureNewSession, ensureEventsConnected, promoteNewSession, waitForPromptSettlement, addNotice, cancelEventStreamGrace, chatInputRef, closeEvents, holdActiveTurn, setPinned]);
 
   const handleGoalSubmit = useCallback(async (
-    input: { objective: string; tokenBudget?: number },
+    input: GoalSetInput,
     operation: "create" | "replace",
   ) => {
     if (agentRunningRef.current || bashRunningRef.current) throw new Error("Wait for the current Turn to finish.");
     const sid = sessionIdRef.current ?? session?.id ?? await ensureNewSession();
     if (!sid) throw new Error("Unable to create a Session for this Goal.");
-    await sendAgentCommand(sid, { type: "goal", op: operation, ...input });
-    await goalState.refresh();
-    const sent = await handleSend(input.objective, undefined, true);
+    const { attachments, ...goalInput } = input;
+    const promptImages = attachments?.map((image) => ({ type: "image" as const, data: image.data, mimeType: image.mimeType }));
+    if (validateAgentImages(promptImages)) {
+      throw new Error("Failed to prepare goal attachments");
+    }
+    const created = createdGoalSessionRef.current;
+    if (!created || created.operation !== operation || created.sessionId !== sid) {
+      await sendAgentCommand(sid, { type: "goal", op: operation, ...goalInput });
+      if (operation === "create") createdGoalSessionRef.current = { sessionId: sid, operation };
+      await goalState.refresh();
+    }
+    const sent = await handleSend(input.objective, attachments, true);
     if (!sent) throw new Error("The Goal was created, but the first message could not be sent.");
+    createdGoalSessionRef.current = null;
   }, [ensureNewSession, goalState.refresh, handleSend, session?.id]);
 
   const executeBash = useCallback(async (command: string, excludeFromContext: boolean) => {

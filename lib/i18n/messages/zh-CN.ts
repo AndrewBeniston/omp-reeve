@@ -13,6 +13,8 @@ export const zhCNLocale: LocalePlugin = {
     "composer.goal.invalidBudget": "请输入正整数令牌数。",
     "composer.goal.budgetHelp": "此上限是 OMP 目标的硬性令牌预算，不是上下文窗口。",
     "composer.goal.submit": "设定目标",
+    "composer.goal.attachmentPreparationFailed": "准备目标附件失败",
+    "composer.goal.removeAttachment": "移除图片",
     "composer.goalSlashCommand.setDescription": "设定持续执行的目标",
     "composer.placeholder.goal": "描述目标，最好定义可衡量的结果",
     "composer.threadGoal.setError": "设定目标失败",
