@@ -129,6 +129,35 @@
   white-space: nowrap;
 }
 
+.warning {
+  position: absolute;
+  z-index: 60;
+  right: 0;
+  bottom: calc(100% + var(--space-1));
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: min(360px, calc(100vw - 32px));
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-md);
+  background: var(--ui-surface);
+  color: var(--ui-full-access);
+  box-shadow: var(--shadow-composer);
+  font-size: var(--text-xs);
+}
+
+.dismissWarning {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 @media (max-width: 640px) and (pointer: coarse) {
   .trigger { min-height: var(--ui-control-touch); }
 }
