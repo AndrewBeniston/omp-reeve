@@ -167,3 +167,74 @@ test("defines shimmer keyframes and reduced motion in CSS module", () => {
   assert.match(css, /prefers-reduced-motion/);
 });
 
+test("renders running manual compaction row from buildTranscriptRows", async () => {
+  const { buildTranscriptRows } = await jiti.import("./transcript-rows.ts");
+  const rows = buildTranscriptRows([{ role: "user", content: "hi" }], ["u1"], null, false, [], {
+    isCompacting: true,
+    source: "manual",
+  });
+  const row = rows.find((r) => r.kind === "compaction");
+  assert.ok(row);
+
+  const view = await mount(h(I18nProvider, null, h(CompactionNote, {
+    completed: row.completed,
+    source: row.source,
+    error: row.error,
+  })));
+  const note = view.container.querySelector('[data-transcript-note="compaction"]');
+  const shimmer = note?.querySelector('[data-shimmer="true"]');
+  assert.ok(note);
+  assert.equal(note?.getAttribute("data-completed"), "false");
+  assert.equal(note?.getAttribute("data-source"), "manual");
+  assert.ok(shimmer);
+  assert.equal(textOf(shimmer), "Compacting context");
+  await view.unmount();
+});
+
+test("renders running automatic compaction row from buildTranscriptRows", async () => {
+  const { buildTranscriptRows } = await jiti.import("./transcript-rows.ts");
+  const rows = buildTranscriptRows([{ role: "user", content: "hi" }], ["u1"], null, false, [], {
+    isCompacting: true,
+    source: "automatic",
+  });
+  const row = rows.find((r) => r.kind === "compaction");
+  assert.ok(row);
+
+  const view = await mount(h(I18nProvider, null, h(CompactionNote, {
+    completed: row.completed,
+    source: row.source,
+    error: row.error,
+  })));
+  const note = view.container.querySelector('[data-transcript-note="compaction"]');
+  const shimmer = note?.querySelector('[data-shimmer="true"]');
+  assert.ok(note);
+  assert.equal(note?.getAttribute("data-completed"), "false");
+  assert.equal(note?.getAttribute("data-source"), "automatic");
+  assert.ok(shimmer);
+  assert.equal(textOf(shimmer), "Context automatically compacting");
+  await view.unmount();
+});
+
+test("renders error compaction row from buildTranscriptRows on compaction_end error", async () => {
+  const { buildTranscriptRows } = await jiti.import("./transcript-rows.ts");
+  const rows = buildTranscriptRows([{ role: "user", content: "hi" }], ["u1"], null, false, [], {
+    isCompacting: false,
+    source: "automatic",
+    error: "Compaction aborted due to timeout",
+  });
+  const row = rows.find((r) => r.kind === "compaction");
+  assert.ok(row);
+
+  const view = await mount(h(I18nProvider, null, h(CompactionNote, {
+    completed: row.completed,
+    source: row.source,
+    error: row.error,
+  })));
+  const note = view.container.querySelector('[data-transcript-note="compaction"]');
+  const errorEl = view.container.querySelector('[role="alert"]');
+  assert.ok(note);
+  assert.equal(note?.getAttribute("data-completed"), "true");
+  assert.ok(errorEl);
+  assert.match(textOf(errorEl), /Compaction aborted due to timeout/);
+  await view.unmount();
+});
