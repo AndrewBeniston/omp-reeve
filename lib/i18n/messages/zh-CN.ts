@@ -371,6 +371,8 @@ export const zhCNLocale: LocalePlugin = {
     "session.menu": "会话菜单",
     "chat.modelSettings": "模型设置",
     "chat.model": "模型",
+    "chat.openaiApiRoute": "OpenAI API",
+    "chat.chatgptSubscriptionRoute": "ChatGPT 订阅",
     "chat.effort": "推理强度",
     "chat.speed": "速度",
     "chat.advanced": "高级",

@@ -90,6 +90,12 @@ function modelKey(model: ModelRef): string {
   return `${model.provider}/${model.modelId}`;
 }
 
+function routeLabel(provider: string, label: (key: string) => string): string {
+  if (provider === "openai") return label("chat.openaiApiRoute");
+  if (provider === "openai-codex") return label("chat.chatgptSubscriptionRoute");
+  return provider;
+}
+
 function sameModel(a: ModelRef, b: ModelRef): boolean {
   return a.provider === b.provider && a.modelId === b.modelId;
 }
@@ -140,11 +146,11 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
       || MODEL_COLLATOR.compare(a.modelId, b.modelId)
   ));
   const filteredModels = filterModelOptions(models, input.filter ?? "");
-  const modelsByProvider: { provider: string; options: ModelOption[] }[] = [];
+  const modelsByProvider: { provider: string; label: string; options: ModelOption[] }[] = [];
   for (const option of filteredModels) {
     const group = modelsByProvider.find((candidate) => candidate.provider === option.provider);
     if (group) group.options.push(option);
-    else modelsByProvider.push({ provider: option.provider, options: [option] });
+    else modelsByProvider.push({ provider: option.provider, label: routeLabel(option.provider, label), options: [option] });
   }
 
   const selections: PowerSelection[] = [];
@@ -184,6 +190,7 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
     activeRole,
     selections,
     currentModel,
+    currentRouteLabel: currentModel ? routeLabel(currentModel.provider, label) : undefined,
     currentStep,
     steps,
     defaultRow: defaultModel ? {

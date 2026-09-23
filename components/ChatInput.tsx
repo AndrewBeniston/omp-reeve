@@ -1542,12 +1542,17 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       thinkingLevels: modelThinkingLevels?.[`${entry.provider}:${entry.id}`]
         ?? (entry.provider === model?.provider && entry.id === model.modelId ? availableThinkingLevels ?? [] : []),
     }))
-    : Object.entries(modelNames ?? {}).map(([modelId, name]) => ({
-      provider: model?.provider ?? "unknown",
-      id: modelId,
-      name,
-      thinkingLevels: modelId === model?.modelId ? availableThinkingLevels ?? [] : [],
-    }));
+    : Object.entries(modelNames ?? {}).map(([key, name]) => {
+      const separator = key.indexOf(":");
+      const provider = separator < 0 ? model?.provider ?? "unknown" : key.slice(0, separator);
+      const id = separator < 0 ? key : key.slice(separator + 1);
+      return {
+        provider,
+        id,
+        name,
+        thinkingLevels: provider === model?.provider && id === model.modelId ? availableThinkingLevels ?? [] : [],
+      };
+    });
   const selector = buildModelSelectorState({
     registry: selectorRegistry,
     roles: modelRoles ?? [],
@@ -1581,7 +1586,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     disabled: boolean;
     triggerRef: React.RefObject<HTMLButtonElement | null>;
   }> = [
-    { id: "model", label: t("chat.model"), value: currentName, disabled: !onModelChange, triggerRef: modelRowRef },
+    { id: "model", label: t("chat.model"), value: currentName && selector.currentRouteLabel ? `${currentName} · ${selector.currentRouteLabel}` : currentName, disabled: !onModelChange, triggerRef: modelRowRef },
     { id: "effort", label: t("chat.effort"), value: currentEffortLabel, disabled: !onThinkingLevelChange, triggerRef: effortRowRef },
     ...(fastModeAvailable
       ? [{ id: "speed" as const, label: t("chat.speed"), value: currentSpeedLabel, disabled: !onFastModeChange, triggerRef: speedRowRef }]
@@ -1839,6 +1844,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                     <span className={`${styles.ellipsis} ${styles.modelName}`}>
                       {currentName ?? (modelOptions.length > 0 ? "Select model" : "No models")}
                     </span>
+                    {currentName && selector.currentRouteLabel && <span className={styles.modelRoute}>{selector.currentRouteLabel}</span>}
                     <span className={styles.reasoningLevel}>{currentEffortLabel}</span>
                     <svg className={styles.modelChevron} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="m5 6.5 3 3 3-3" />
@@ -1934,8 +1940,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                               {modelsByProvider.length === 0 ? (
                                 <div className={styles.noModels}>{modelFilter.trim() ? t("chat.noMatchingModels") : t("chat.noAvailableModels")}</div>
                               ) : modelsByProvider.map((group, groupIndex) => (
-                                <div key={group.provider}>
-                                  {modelsByProvider.length > 1 && <div className={styles.modelGroupLabel} data-divided={groupIndex > 0 ? "true" : "false"}>{group.provider}</div>}
+                                <div key={group.provider} data-model-provider={group.provider}>
+                                  {(modelsByProvider.length > 1 || group.label !== group.provider) && <div className={styles.modelGroupLabel} data-divided={groupIndex > 0 ? "true" : "false"}>{group.label}</div>}
                                   {group.options.map((option) => {
                                     const isActive = option.modelId === model?.modelId && option.provider === model?.provider;
                                     return (
