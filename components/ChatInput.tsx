@@ -7,6 +7,7 @@ import type { ContextUsage, SessionStatsInfo, SlashCommandInfo } from "@/lib/omp
 import type { QueuedMessageDraft } from "@/lib/queued-message-types";
 import type { ApprovalMode } from "@/lib/approval-mode";
 import { REVIEW_SLASH_COMMAND, REVIEW_SLASH_ENTRIES } from "@/lib/review-slash-entries";
+import { matchDefaultComposerCommand, nextThinkingLevel, readComposerEnterBehavior, shouldSendWithEnterBehavior, COMPOSER_ENTER_BEHAVIOR_STORAGE_KEY } from "@/lib/composer-keyboard-commands";
 
 /** Listed with its reason instead of an action when the Git gate fails. */
 const REVIEW_DISABLED_COMMANDS: ReadonlySet<string> = new Set([REVIEW_SLASH_COMMAND]);
@@ -1690,6 +1691,59 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         return;
       }
 
+      const defaultCommand = matchDefaultComposerCommand({
+        key: e.key,
+        metaKey: e.metaKey,
+        ctrlKey: e.ctrlKey,
+        shiftKey: e.shiftKey,
+        altKey: e.altKey,
+        isComposing,
+      });
+      if (defaultCommand === "composer.addFiles") {
+        e.preventDefault();
+        browserFileInputRef.current?.click();
+        requestAnimationFrame(() => textareaRef.current?.focus());
+        return;
+      }
+      if (defaultCommand === "composer.openModelPicker") {
+        e.preventDefault();
+        const rect = modelTriggerRef.current?.getBoundingClientRect();
+        if (rect) setModelDropdownRect({ top: rect.top, left: rect.left, width: rect.width });
+        dispatchModelMenu({ type: "toggle" });
+        dispatchModelMenu({ type: "submenu", value: "effort" });
+        return;
+      }
+      if (defaultCommand === "composer.startDictation") {
+        e.preventDefault();
+        if (!onEnsureSession) return;
+        void onEnsureSession().then((sessionId) => {
+          if (!sessionId) return;
+          return fetch(`/api/sessions/${encodeURIComponent(sessionId)}/speech`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "start" }),
+          }).then((response) => {
+            if (!response.ok) throw new Error(`Speech request failed: ${response.status}`);
+          }).catch(() => setAttachmentPickerError(t("chat.dictationUnavailable")));
+        });
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.altKey && !e.shiftKey && e.key.toLowerCase() === "backspace") {
+        e.preventDefault();
+        clearInput();
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.altKey && ["ArrowUp", "ArrowDown", "ArrowRight"].includes(e.key) && onThinkingLevelChange) {
+        e.preventDefault();
+        const levels = ["auto", ...THINKING_STEP_ORDER] as const;
+        const direction = e.key === "ArrowUp" ? "increase" : e.key === "ArrowDown" ? "decrease" : "cycle";
+        const next = nextThinkingLevel(thinkingLevel ?? "auto", direction, levels);
+        if (next) onThinkingLevelChange(next as "auto" | typeof THINKING_STEP_ORDER[number]);
+        return;
+      }
+
       if (e.key === "ArrowUp" && !isComposing && !isStreaming && inputHistory.length > 0 && value.trim().length === 0) {
         e.preventDefault();
         setSlashMenuOpen(false);
@@ -1732,7 +1786,16 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         return;
       }
 
-      if (e.key === "Enter" && !e.shiftKey) {
+      if (shouldSendWithEnterBehavior({
+        key: e.key,
+        shiftKey: e.shiftKey,
+        metaKey: e.metaKey,
+        ctrlKey: e.ctrlKey,
+        behavior: readComposerEnterBehavior(localStorage.getItem(COMPOSER_ENTER_BEHAVIOR_STORAGE_KEY)),
+        isComposing,
+        recentlyComposed,
+        isMultiline: value.includes("\n"),
+      })) {
         e.preventDefault();
         if (editingQueuedMessage) {
           void completeQueuedMessageEdit();
@@ -1743,7 +1806,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         }
       }
     },
-    [isStreaming, onSteer, onFollowUp, onAbort, onCycleThinkingLevel, slashMenuOpen, slashQuery, displayedSlashCommands, slashActiveIndex, applySlashCommand, sendQueued, requestIdleSubmission, getNextSlashIndex, atMenuOpen, atQuery, displayedAtSuggestions, atActiveIndex, applyAtCompletion, historyMenuOpen, inputHistory, historyActiveIndex, applyHistoryInput, value, lastQueueUndoToken, undoDeletedQueuedMessage, editingQueuedMessage, cancelQueuedMessageEdit, completeQueuedMessageEdit, queueingEnabled]
+    [isStreaming, onSteer, onFollowUp, onAbort, onCycleThinkingLevel, onThinkingLevelChange, thinkingLevel, clearInput, slashMenuOpen, slashQuery, displayedSlashCommands, slashActiveIndex, applySlashCommand, sendQueued, requestIdleSubmission, getNextSlashIndex, atMenuOpen, atQuery, displayedAtSuggestions, atActiveIndex, applyAtCompletion, historyMenuOpen, inputHistory, historyActiveIndex, applyHistoryInput, value, lastQueueUndoToken, undoDeletedQueuedMessage, editingQueuedMessage, cancelQueuedMessageEdit, completeQueuedMessageEdit, queueingEnabled]
   );
 
   const handlePasteImages = useCallback((files: File[]) => {
