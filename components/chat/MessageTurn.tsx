@@ -136,10 +136,15 @@ export function MessageTurn({
   const { t } = useI18n();
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const markCopied = () => {
+    if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    copiedTimerRef.current = setTimeout(() => {
+      copiedTimerRef.current = null;
+      setCopied(false);
+    }, 1500);
   };
 
   const copyMessage = () => {
