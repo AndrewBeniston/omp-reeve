@@ -61,6 +61,22 @@ export async function uploadBrowserFile(sessionId: string, file: File): Promise<
   return upload as BrowserUpload;
 }
 
+export async function deleteBrowserUpload(sessionId: string, id: string): Promise<void> {
+  const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/uploads/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    credentials: "same-origin",
+  });
+  if (!response.ok && response.status !== 404) throw new Error(`Upload deletion failed (${response.status})`);
+}
+
+export function selectedBrowserUploadIds(attachments: ComposerAttachmentDescriptor[], sessionId: string): string[] {
+  return attachments.flatMap(({ upload }) => {
+    if (!upload) return [];
+    if (upload.sessionId !== sessionId) throw new Error("The upload belongs to another Session");
+    return [upload.id];
+  });
+}
+
 function describePath(path: string): { name: string; pathSummary: string } {
   const parts = path.split(/[\\/]/).filter(Boolean);
   const name = parts.at(-1) ?? path;
@@ -103,12 +119,12 @@ export function addBrowserUpload(
   current: ComposerAttachmentDescriptor[],
   sessionId: string,
   upload: BrowserUpload,
-  sendError: string,
+  readError: string | null = null,
 ): ComposerAttachmentDescriptor[] {
   const id = current.reduce((max, attachment) => Math.max(max, attachment.id), 0) + 1;
   return [...current, {
     id, upload: { ...upload, sessionId }, name: upload.name,
-    kind: "file", pathSummary: "", readError: sendError,
+    kind: "file", pathSummary: "", readError,
   }];
 }
 

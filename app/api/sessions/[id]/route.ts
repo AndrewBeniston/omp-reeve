@@ -19,6 +19,7 @@ import { closeSpeechSession } from "@/lib/speech-bridge";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 import { projectTreeForResponse } from "@/lib/project-tree";
 import { computeSessionTotalActiveMs } from "@/lib/session-timing";
+import { deleteSessionBrowserUploads } from "@/lib/upload-store";
 
 export async function GET(
   req: Request,
@@ -179,11 +180,15 @@ export async function DELETE(
       }
     } catch { /* skip if dir unreadable */ }
 
+    const sessionId = readSessionHeader(filePath)?.id ?? id;
     await getRpcSession(id)?.shutdown();
-    await closeSpeechSession(readSessionHeader(filePath)?.id ?? id);
+    await closeSpeechSession(sessionId);
     unlinkSync(filePath);
     invalidateSessionPathCache(id);
     invalidateSessionListCache();
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)) {
+      await deleteSessionBrowserUploads({ sessionId });
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });

@@ -11,6 +11,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Browser uploads now reach OMP, follow draft and Session ownership, and expire after one day without a retry.
+- The Composer returns keyboard focus after the browser file picker opens.
 - A session speech API now streams OMP dictation states, model download progress, transcripts, and typed errors.
 - The Composer model chip shows the effort beside the model and animates effort changes unless reduced motion is enabled.
 - Browser-selected files now upload to private Session storage with opaque IDs, size limits, and retry protection.

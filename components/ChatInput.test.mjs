@@ -578,6 +578,54 @@ test("preserves local attachment descriptors in draft restore and Session promot
   clearDraft(sessionKey);
 });
 
+test("draft replacement and deletion release only uploads without another draft owner", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const deleted = [];
+  globalThis.fetch = async (url, options) => {
+    if (options.method === "DELETE") deleted.push(url);
+    return new Response(null, { status: 204 });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const sessionId = "b7b00000-0000-4000-8000-000000000001";
+  const upload = { id: `up_${"a".repeat(32)}`, sessionId, name: "notes.txt", size: 5, mediaType: "text/plain", state: "ready" };
+  const attachment = { id: 1, upload, name: upload.name, kind: "file", pathSummary: "", readError: null };
+  const first = "draft-upload-first";
+  const second = "draft-upload-second";
+  clearDraft(first);
+  clearDraft(second);
+  setDraft(first, { value: "", images: [], attachments: [attachment] });
+  setDraft(second, { value: "", images: [], attachments: [attachment] });
+  setDraft(first, { value: "replacement", images: [] });
+  await Promise.resolve();
+  assert.deepEqual(deleted, []);
+  clearDraft(second);
+  await Promise.resolve();
+  assert.deepEqual(deleted, [`/api/sessions/${sessionId}/uploads/${upload.id}`]);
+  clearDraft(first);
+});
+
+test("Session promotion and submission preserve the upload during draft transfer", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const deleted = [];
+  globalThis.fetch = async (url, options) => {
+    if (options.method === "DELETE") deleted.push(url);
+    return new Response(null, { status: 204 });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const sessionId = "b7b00000-0000-4000-8000-000000000001";
+  const upload = { id: `up_${"b".repeat(32)}`, sessionId, name: "notes.txt", size: 5, mediaType: "text/plain", state: "ready" };
+  const attachment = { id: 1, upload, name: upload.name, kind: "file", pathSummary: "", readError: null };
+  const provisional = "new:draft-upload-promotion";
+  clearDraft(provisional);
+  clearDraft(sessionId);
+  setDraft(provisional, { value: "send this", images: [], attachments: [attachment] });
+  rekeyDraft(provisional, sessionId);
+  assert.equal(getDraft(sessionId)?.attachments?.[0].upload.id, upload.id);
+  clearDraft(sessionId, { preserveUploads: true });
+  await Promise.resolve();
+  assert.deepEqual(deleted, []);
+});
+
 test("renders file and folder rows with names, locations, readiness, errors, and remove controls", async () => {
   const { addComposerAttachments } = await attachmentState();
   const key = "attachment-rows";
@@ -755,6 +803,23 @@ test("sends signed local selections as structured data and keeps unreadable rows
     onSend: () => calls.push("send"),
   }), "attachment-blocked");
   assert.deepEqual(calls, ["notes.txt cannot be read"]);
+});
+
+test("sending a browser upload preserves its draft bytes until OMP claims the upload", async () => {
+  const { addBrowserUpload } = await attachmentState();
+  const sessionId = "b7b00000-0000-4000-8000-000000000001";
+  const upload = { id: `up_${"c".repeat(32)}`, name: "notes.txt", size: 5, mediaType: "text/plain", state: "ready" };
+  const attachments = addBrowserUpload([], sessionId, upload);
+  const calls = [];
+  assert.equal(await dispatchIdleSubmission({
+    value: "Read this",
+    images: [],
+    attachments,
+    isStreaming: false,
+    clearInput: preserveUploads => calls.push(["clear", preserveUploads]),
+    onSend: (message, images, selected) => calls.push(["send", message, images, selected]),
+  }), "sent");
+  assert.deepEqual(calls, [["clear", true], ["send", "Read this", undefined, attachments]]);
 });
 
 test("sends local attachments with steer and follow-up messages", async () => {

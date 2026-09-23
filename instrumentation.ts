@@ -3,7 +3,17 @@ import type { configureHttpDispatcher as ConfigureHttpDispatcher } from "@/lib/h
 type DispatcherModule = { configureHttpDispatcher: typeof ConfigureHttpDispatcher };
 
 export async function register(): Promise<void> {
-  if (process.env.NEXT_RUNTIME !== "nodejs" || typeof process.versions.bun === "string") return;
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+
+  if (typeof process.versions.bun === "string") {
+    const [{ collectBrowserUploads }, { SessionManager }] = await Promise.all([
+      import("@/lib/upload-store"),
+      import("@oh-my-pi/pi-coding-agent"),
+    ]);
+    const existingSessions = new Set((await SessionManager.listAll()).map(session => session.id));
+    await collectBrowserUploads({ sessionExists: async sessionId => existingSessions.has(sessionId) });
+    return;
+  }
 
   // Keep the Node-only undici graph out of Next's browser/edge instrumentation
   // bundles. Node 22 can load this local TypeScript module directly.
