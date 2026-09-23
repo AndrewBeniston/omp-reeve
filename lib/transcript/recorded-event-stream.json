@@ -1,5 +1,5 @@
 {
-  "source": "Captured OMP 18.2.11 Agent events and in-memory Session entries with a scripted model. Reeve prompt_done boundaries were added after each prompt. No provider request was made.",
+  "source": "Captured OMP 18.2.11 Agent events and in-memory Session entries with a scripted model. Reeve prompt_done boundaries were added after each prompt. The phase scenario uses scripted OMP event and Session entry shapes. No provider request was made.",
   "events": [
     {
       "type": "agent_start"
@@ -530,5 +530,29 @@
         "timestamp": 1790195468940
       }
     }
+  ],
+  "phaseEvents": [
+    { "type": "agent_start" },
+    { "type": "message_start", "message": { "role": "user", "content": "Phase question" } },
+    { "type": "message_end", "message": { "role": "user", "content": "Phase question" } },
+    { "type": "message_start", "message": { "role": "assistant", "content": [] } },
+    { "type": "message_update", "message": { "role": "assistant", "content": [{ "type": "text", "text": "Checking now." }] } },
+    { "type": "message_update", "message": { "role": "assistant", "content": [{ "type": "text", "text": "Checking now." }, { "type": "thinking", "thinking": "Consider the file." }] } },
+    { "type": "message_update", "message": { "role": "assistant", "content": [{ "type": "text", "text": "Checking now." }, { "type": "thinking", "thinking": "Consider the file." }, { "type": "toolCall", "id": "call-1", "name": "read", "arguments": { "path": "README.md" } }] } },
+    { "type": "message_end", "message": { "role": "assistant", "content": [{ "type": "text", "text": "Checking now." }, { "type": "thinking", "thinking": "Consider the file." }, { "type": "toolCall", "id": "call-1", "name": "read", "arguments": { "path": "README.md" } }] } },
+    { "type": "tool_execution_start", "toolCallId": "call-1", "toolName": "read", "args": { "path": "README.md" } },
+    { "type": "message_start", "message": { "role": "toolResult", "content": [{ "type": "text", "text": "File contents" }] } },
+    { "type": "message_end", "message": { "role": "toolResult", "content": [{ "type": "text", "text": "File contents" }] } },
+    { "type": "subagent_lifecycle", "payload": { "id": "agent-1", "agent": "reviewer", "agentSource": "project", "parentToolCallId": "call-1", "index": 0, "status": "started" } },
+    { "type": "message_start", "message": { "role": "assistant", "content": [{ "type": "text", "text": "The answer." }] } },
+    { "type": "message_end", "message": { "role": "assistant", "content": [{ "type": "text", "text": "The answer." }] } },
+    { "type": "agent_end" },
+    { "type": "prompt_done" }
+  ],
+  "phaseEntries": [
+    { "type": "message", "id": "phase-user", "message": { "role": "user", "content": "Phase question" } },
+    { "type": "message", "id": "phase-work", "message": { "role": "assistant", "content": [{ "type": "text", "text": "Checking now." }, { "type": "thinking", "thinking": "Consider the file." }, { "type": "toolCall", "id": "call-1", "name": "read", "arguments": { "path": "README.md" } }] } },
+    { "type": "message", "id": "phase-result", "message": { "role": "toolResult", "content": [{ "type": "text", "text": "File contents" }] } },
+    { "type": "message", "id": "phase-answer", "message": { "role": "assistant", "content": [{ "type": "text", "text": "The answer." }] } }
   ]
 }
