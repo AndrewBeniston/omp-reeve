@@ -36,8 +36,8 @@ function isVideoBlock(block: MediaBlock): boolean {
 
 function UserImage({ block }: { block: MediaBlock }) {
   const { t } = useI18n();
-  const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
   const source = imageSource(block);
+  const [state, setState] = useState<"loading" | "loaded" | "failed">(source ? "loading" : "failed");
   const label = t("codex.userMessage.userImageAttachment");
 
   if (state === "failed") {
@@ -60,7 +60,11 @@ function UserImage({ block }: { block: MediaBlock }) {
         onLoad={() => setState("loaded")}
         onError={() => setState("failed")}
       />
-      {state === "loading" && <span className={styles.loading}>{t("codex.userMessage.userImageAttachment")}</span>}
+      {state === "loading" && (
+        <span className={styles.loading} role="status" aria-label={label}>
+          {label}
+        </span>
+      )}
     </span>
   );
 }
@@ -76,8 +80,8 @@ export function UserMediaAttachments({ content }: { content: unknown }) {
     <div className={styles.attachments} data-has-text={blocks.some((block) => block.type === "text")}>
       {images.map((block, index) => <UserImage key={`image-${index}`} block={block} />)}
       {videos.map((block, index) => (
-        <span key={`video-${index}`} className={styles.videoMarker} role="img" aria-label={t("codex.userMessage.userVideoAttachment")}>
-          {t("codex.userMessage.userVideoAttachment")}
+        <span key={`video-${index}`} className={styles.videoMarker} role="img" aria-label={t("markdown.videoUnavailable")}>
+          {t("markdown.videoUnavailable")}
         </span>
       ))}
     </div>
