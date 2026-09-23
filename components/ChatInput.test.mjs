@@ -1075,9 +1075,13 @@ test("renders the complete semantic composer contract", async () => {
   assert.match(css, /min-width:\s*var\(--ui-control-touch\)/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
   assert.match(css, /\.contextDonut\s*\{[^}]*height:\s*var\(--composer-control-size\);/);
-  // The right group spans the centre and end columns, so its model area can flex before the trailing cluster.
-  assert.match(css, /\.toolbarLeft\s*\{[^}]*grid-column:\s*1;/);
-  assert.match(css, /\.toolbarRight\s*\{[^}]*grid-column:\s*2 \/ -1;[^}]*justify-content:\s*flex-end;/);
+  // The flex footer keeps the start group before the model area, then the trailing controls at the end.
+  assert.match(html, /class="toolbarLeft"[^>]*>[\s\S]*class="toolbarRight"[^>]*>[\s\S]*class="toolbarModelArea"[^>]*>[\s\S]*class="toolbarTrailing"/);
+  assert.match(css, /\.toolbarModelArea\s*\{[^}]*flex:\s*1;[^}]*min-width:\s*0;/);
+  assert.match(css, /\.toolbarTrailing\s*\{[^}]*flex-shrink:\s*0;/);
+  assert.match(css, /\.toolbar\[data-footer-mode="session"\]\s*\{[^}]*flex-wrap:\s*wrap;/);
+  assert.match(css, /\.toolbar\[data-footer-mode="home"\]\s*\{[^}]*overflow-x:\s*auto;[^}]*scrollbar-width:\s*none;/);
+  assert.match(css, /\.toolbar\[data-footer-mode="home"\]::-webkit-scrollbar\s*\{[^}]*display:\s*none;/);
   // Codex context donut: 12px, 2px stroke, track at 0.16 opacity, arc rotated -90deg, 120ms ease-out.
   assert.match(css, /\.contextRingTrack\s*\{[^}]*opacity:\s*0\.16;/);
   assert.match(css, /\.contextRingArc\s*\{[^}]*transition:\s*stroke-dashoffset 120ms ease-out, opacity 120ms ease-out;/);
