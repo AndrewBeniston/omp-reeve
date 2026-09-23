@@ -26,6 +26,10 @@ the What's New dialog adds a second page that invites support.
 - The Session client now restores Goal state and reconciles missed Goal updates.
   A failed initial read offers a retry action.
 
+### Fixed
+
+- The Session wrapper lifecycle regression test now includes the Goal state read used by wrapped sessions.
+
 ## [0.8.0] - 2026-09-23
 
 ### Added
