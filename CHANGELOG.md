@@ -36,6 +36,8 @@ the What's New dialog adds a second page that invites support.
 - Render the Session origin note at the start of related transcripts and link back to the source Session.
 - Show Turn duration dividers with live working labels and collapsible activity.
 - Show denied-action counts on Turn dividers when OMP supplies the count.
+- Document the OMP follow-up queue marker gap that prevents queued messages from
+  staying in their interrupted Turn after reload.
 
 ## [0.8.0] - 2026-09-23
 

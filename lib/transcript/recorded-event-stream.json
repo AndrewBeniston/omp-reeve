@@ -1,5 +1,5 @@
 {
-  "source": "Captured OMP 18.2.11 Agent events and in-memory Session entries with a scripted model. Reeve prompt_done boundaries were added after each prompt. The phase scenario uses scripted OMP event and Session entry shapes. No provider request was made.",
+  "source": "Captured OMP 18.2.11 Agent events and in-memory Session entries with a scripted model. Reeve prompt_done boundaries were added after each prompt. The phase scenario uses scripted OMP event and Session entry shapes. OMP 18.2.11 persists steering but does not persist a queued follow-up marker. No provider request was made.",
   "events": [
     {
       "type": "agent_start"
