@@ -44,7 +44,7 @@ import { NewMessagesControl } from "./chat/NewMessagesControl";
 import { ComposerTurnStatus } from "./chat/ComposerTurnStatus";
 import { ActiveTurnResponseSpacer } from "./chat/ActiveTurnResponseSpacer";
 import { TurnErrorBoundary } from "./chat/TurnErrorBoundary";
-import { buildTranscriptRows, finalAnswerPosition, presentationAssistantPosition, CompactionNote, type TranscriptMessageRow } from "./chat/transcript-rows";
+import { buildTranscriptRows, finalAnswerPosition, presentationAssistantPosition, CompactionNote, ProviderRetryNote, type TranscriptMessageRow } from "./chat/transcript-rows";
 import { ArchivedSessionCard } from "./chat/ArchivedSessionCard";
 import {
   TranscriptNavigationRail,
@@ -866,6 +866,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                     </div>
                   )}
                   {rendered.slice(startIndex)}
+                  {retryInfo ? <ProviderRetryNote {...retryInfo} /> : null}
                 </>
               );
             })()}

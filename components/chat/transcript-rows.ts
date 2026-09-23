@@ -189,3 +189,4 @@ export function buildTranscriptRows(
 }
 
 export { CompactionNote } from "./CompactionNote";
+export { ProviderRetryNote } from "./ProviderRetryNote";

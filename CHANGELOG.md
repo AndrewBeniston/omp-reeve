@@ -22,6 +22,7 @@ the What's New dialog adds a second page that invites support.
 - Render the compaction transcript note in four states with shimmer, error details, and preserved card content.
 - Show the live compaction note in the transcript during manual or automatic compaction and errors.
 - Keep the transcript usable when one Turn fails to render, with a retry action for that Turn.
+- Show provider retry progress beside the interrupted response.
 
 ## [0.8.0] - 2026-09-23
 
