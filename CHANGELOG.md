@@ -14,6 +14,7 @@ the What's New dialog adds a second page that invites support.
 ### Added
 
 - Assistant messages now show copy and branch actions in a hover and focus action row.
+- User image and video attachments now show loading, ready, and unavailable states without exposing local paths.
 - The Composer shows a preview of the latest Turn when the reader is away from it.
 - User messages can now be edited in place with Send and Cancel controls.
 - Inspected images now appear behind a counted disclosure and open in a keyboard accessible image dialog.

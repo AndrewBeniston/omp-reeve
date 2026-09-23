@@ -4,7 +4,7 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createJiti } from "jiti";
-import { click, mount } from "../test/dom-harness.mjs";
+import { click, DomEvent, mount } from "../test/dom-harness.mjs";
 
 const jiti = createJiti(import.meta.url, {
   jsx: { runtime: "automatic" },
@@ -624,6 +624,62 @@ test("an empty user message has a visible fallback", () => {
   const html = renderMessage({ role: "user", content: "   " });
 
   assert.match(html, /\(No content\)/);
+});
+
+test("names ready and loading user image attachments", () => {
+  const html = renderMessage({
+    role: "user",
+    content: [{
+      type: "image",
+      source: { type: "base64", media_type: "image/png", data: "aW1hZ2U=" },
+    }],
+  });
+
+  assert.match(html, /aria-busy="true"/);
+  assert.match(html, /alt="User attachment"/);
+  assert.doesNotMatch(html, /\/home\/|source path/i);
+});
+
+test("names a failed user image and keeps its short status", async () => {
+  const view = await mount(React.createElement(I18nProvider, null,
+    React.createElement(MessageView, {
+      message: {
+        role: "user",
+        content: [{
+          type: "image",
+          source: { type: "base64", media_type: "image/png", data: "aW1hZ2U=" },
+        }],
+      },
+    })));
+  try {
+    const image = view.container.querySelector("img");
+    assert.ok(image);
+    await React.act(async () => { image.dispatchEvent(new DomEvent("error")); });
+
+    const failed = view.container.querySelector("[role='img']");
+    assert.ok(failed);
+    assert.equal(failed.getAttribute("aria-label"), "Image failed to load");
+    assert.match(failed.textContent, /Image failed to load/);
+    assert.match(failed.textContent, /Failed/);
+    assert.equal(view.container.querySelector("img"), null);
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("renders a video marker without its hidden source path", () => {
+  const html = renderMessage({
+    role: "user",
+    content: [{
+      type: "video",
+      mimeType: "video/mp4",
+      path: "/private/recordings/demo.mp4",
+    }],
+  });
+
+  assert.match(html, /aria-label="Video attachment"/);
+  assert.match(html, />Video attachment</);
+  assert.doesNotMatch(html, /private|recordings|demo\.mp4/);
 });
 
 test("keeps tool activity status accessible without color", () => {
