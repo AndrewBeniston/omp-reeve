@@ -77,5 +77,62 @@ test("shows the denied-action count inside the same disclosure", async () => {
 
   assert.ok(trigger);
   assert.match(textOf(trigger), /2 denied actions/);
+  assert.equal(trigger.getAttribute("title"), "Auto-review denied 2 actions. View the actions and why they were denied.");
   await view.unmount();
+});
+
+test("hides a zero count and uses the singular tooltip", async () => {
+  const view = await renderDivider({ deniedActionCount: 0 });
+  assert.doesNotMatch(textOf(view.container), /denied action/);
+  assert.equal(view.container.querySelector("button").getAttribute("title"), null);
+  await view.unmount();
+
+  const singular = await renderDivider({ deniedActionCount: 1 });
+  assert.match(textOf(singular.container), /1 denied action/);
+  assert.equal(singular.container.querySelector("button").getAttribute("title"), "Auto-review denied 1 action. View the action and why it was denied.");
+  await singular.unmount();
+});
+
+test("denied-count clicks toggle without anchoring and log previous-turn expansion", async () => {
+  let anchorRuns = 0;
+  const originalRect = globalThis.HTMLElement.prototype.getBoundingClientRect;
+  const originalObserver = globalThis.ResizeObserver;
+  globalThis.HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
+    anchorRuns += 1;
+    return { top: 10, bottom: 20, left: 0, right: 0, width: 0, height: 10, x: 0, y: 10, toJSON() {} };
+  };
+  globalThis.ResizeObserver = class { observe() { anchorRuns += 1; } disconnect() {} };
+  let productEvent;
+  const listener = (event) => { productEvent = event.detail; };
+  globalThis.addEventListener("reeve:product-event", listener);
+  try {
+    const view = await renderDivider({ deniedActionCount: 1, turnNumber: 2, totalTurnCount: 4 });
+    const count = [...view.container.querySelectorAll("span")].find((element) => /denied action/.test(textOf(element)));
+    assert.ok(count);
+    anchorRuns = 0;
+    await click(count);
+    assert.equal(anchorRuns, 0);
+    assert.equal(view.container.querySelector("button").getAttribute("aria-expanded"), "true");
+    assert.deepEqual(productEvent, { name: "transcript_turn_expanded", turnNumber: 2, totalTurnCount: 4 });
+    await view.unmount();
+  } finally {
+    globalThis.removeEventListener("reeve:product-event", listener);
+    globalThis.HTMLElement.prototype.getBoundingClientRect = originalRect;
+    globalThis.ResizeObserver = originalObserver;
+  }
+});
+
+test("latest Turn expansion does not log a product event", async () => {
+  let productEvent;
+  const listener = (event) => { productEvent = event.detail; };
+  globalThis.addEventListener("reeve:product-event", listener);
+  try {
+    const view = await renderDivider({ deniedActionCount: 1, turnNumber: 4, totalTurnCount: 4 });
+    const count = [...view.container.querySelectorAll("span")].find((element) => /denied action/.test(textOf(element)));
+    await click(count);
+    assert.equal(productEvent, undefined);
+    await view.unmount();
+  } finally {
+    globalThis.removeEventListener("reeve:product-event", listener);
+  }
 });

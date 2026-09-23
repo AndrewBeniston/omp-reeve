@@ -694,7 +694,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
               };
 
               const rendered: ReactNode[] = [];
-              const renderSection = (items: TranscriptMessageRow[], key: string, live: boolean, phase: TurnPhase, clock: TurnClock) => {
+              const renderSection = (items: TranscriptMessageRow[], key: string, live: boolean, phase: TurnPhase, clock: TurnClock, turnNumber?: number, totalTurnCount?: number, deniedActionCount = 0) => {
                 const assistantPosition = presentationAssistantPosition(items);
                 if (assistantPosition === -1 || live) {
                   for (const item of items) rendered.push(renderMessage(item));
@@ -722,10 +722,10 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                   : null;
 
                 const processCount = visibleProcessItems.length + (finalProcessMessage ? 1 : 0);
-                const divider = dividerPresentation(items, clock);
+                const divider = dividerPresentation(items, clock, deniedActionCount);
                 if (processCount > 0 && divider) {
                   rendered.push(
-                    <Divider key={`divider-${key}`} turnId={key} {...divider}>
+                    <Divider key={`divider-${key}`} turnId={key} turnNumber={turnNumber} totalTurnCount={totalTurnCount} {...divider}>
                       {visibleProcessItems.map((item) => renderMessage(item, { keyPrefix: "process" }))}
                       {finalProcessMessage && renderMessage(finalItem, { keyPrefix: "process-final", messageOverride: finalProcessMessage, showTimestamp: false })}
                     </Divider>,
@@ -759,6 +759,8 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                     : index,
                 -1,
               );
+              const totalTurnCount = transcriptRows.filter((row) => row.kind === "turn").length;
+              let turnNumber = 0;
               transcriptRows.forEach((row, rowIndex) => {
                 if (row.kind === "archived") {
                   rendered.push(
@@ -809,12 +811,13 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                 const turnRenderStart = row.kind === "turn" ? rendered.length : -1;
                 const live = (sessionBusy || streamState.isStreaming) && rowIndex === lastContentRowIndex;
                 const clock = row.kind === "turn" ? row.clock : { status: "worked" as const };
+                if (row.kind === "turn") turnNumber += 1;
                 // A steered user message or compaction remains visible inside
                 // its Turn, even when the surrounding process is collapsed.
                 let start = 0;
                 for (let index = 1; index <= row.items.length; index += 1) {
                   if (index < row.items.length && !isGroupAnchor(row.items[index].message)) continue;
-                  renderSection(row.items.slice(start, index), `${row.id}-${start}`, live && index === row.items.length, row.phase, clock);
+                  renderSection(row.items.slice(start, index), `${row.id}-${start}`, live && index === row.items.length, row.phase, clock, row.kind === "turn" ? turnNumber : undefined, totalTurnCount, row.kind === "turn" ? row.deniedActionCount : 0);
                   start = index;
                 }
                 if (turnRenderStart !== -1) {
