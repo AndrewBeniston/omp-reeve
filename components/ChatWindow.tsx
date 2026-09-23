@@ -47,7 +47,7 @@ import { ActiveTurnResponseSpacer } from "./chat/ActiveTurnResponseSpacer";
 import { SessionLoadingState } from "./chat/SessionLoadingState";
 import { TurnErrorBoundary } from "./chat/TurnErrorBoundary";
 import { HistoryLoadFailureRow } from "./chat/HistoryLoadFailureRow";
-import { buildTranscriptRows, dividerPresentation, finalAnswerPosition, presentationAssistantPosition, CompactionNote, ProviderRetryNote, SessionOriginNote, type TranscriptMessageRow } from "./chat/transcript-rows";
+import { buildTranscriptRows, dividerPresentation, finalAnswerPosition, presentationAssistantPosition, CompactionNote, ProviderRetryNote, SessionOriginNote, UsageLimitNote, type TranscriptMessageRow } from "./chat/transcript-rows";
 import { Divider } from "./chat/Divider";
 import { ActivityHeader } from "./chat/ActivityRow";
 import type { ActivityCall } from "@/lib/transcript/repeat-collapsing";
@@ -844,7 +844,18 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
                   start = index;
                 }
                 if (turnRenderStart !== -1) {
+                  if (row.kind !== "turn") return;
                   const turnContent = rendered.splice(turnRenderStart);
+                  const retryUserMessage = row.retryUserMessage;
+                  if (row.usageLimitMessage && retryUserMessage) {
+                    turnContent.push(
+                      <UsageLimitNote
+                        key={`usage-limit-${row.id}`}
+                        message={row.usageLimitMessage}
+                        onRetry={() => handleEditContent(retryUserMessage)}
+                      />,
+                    );
+                  }
                   rendered.push(
                     <TurnErrorBoundary
                       key={`turn-boundary-${row.id}`}

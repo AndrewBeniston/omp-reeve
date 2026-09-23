@@ -16,6 +16,7 @@ the What's New dialog adds a second page that invites support.
 - Show the live Activity header for the newest unfinished action in a Turn.
 - Show a retry action when earlier Session messages fail to load.
 - Show classified usage-limit failures in the transcript with a timed retry action.
+- Render the classified usage-limit note at the end of its failed Turn.
 - Keep an expanded Turn divider visually still during layout changes for 350 ms.
 - Collapse consecutive identical completed tool calls into counted activity rows.
 - Show a polite loading status above the Composer while a Session loads.
