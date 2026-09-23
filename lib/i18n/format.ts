@@ -9,7 +9,12 @@ type MessagesByLocale = Record<string, Record<string, string>>;
  * @returns 完成参数替换后的消息
  */
 export function interpolateMessage(message: string, params: TranslationParams = {}): string {
-  return message.replace(/\{([\w.-]+)\}/g, (token, name: string) => {
+  const plural = /\{(\w+),\s*plural,\s*one\s*\{([^{}]*)\}\s*other\s*\{([^{}]*)\}\}/g;
+  const withPlurals = message.replace(plural, (_token, name: string, one: string, other: string) => {
+    const count = Number(params[name]);
+    return (count === 1 ? one : other).replace(/#/g, String(count));
+  });
+  return withPlurals.replace(/\{([\w.-]+)\}/g, (token, name: string) => {
     const value = params[name];
     return value === undefined ? token : String(value);
   });

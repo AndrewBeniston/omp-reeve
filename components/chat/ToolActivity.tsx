@@ -5,6 +5,7 @@ import type { ToolCallContent, ToolResultMessage } from "@/lib/types";
 import { TerminalOutput } from "./TerminalOutput";
 import { ToolDiffView, ToolResultView } from "./ToolDiffView";
 import { ToolIcon, type ToolStatus } from "./ToolIcon";
+import { ImageView } from "./ImageView";
 import {
   classifyTool,
   getDiffStats,
@@ -24,6 +25,11 @@ export function ToolActivity({ block, result, duration }: { block: ToolCallConte
   const isError = result?.isError ?? false;
   const status: ToolStatus = isError ? "error" : result ? "success" : "running";
   const terminalCommand = getTerminalCommand(classification, block.input);
+
+  const resultImages = result?.content.filter((item): item is Extract<typeof item, { type: "image" }> => item.type === "image") ?? [];
+  if (classification.kind === "image" && resultImages.length > 0) {
+    return <ImageView images={resultImages} />;
+  }
 
   if (terminalCommand !== null) {
     return (

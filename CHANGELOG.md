@@ -11,6 +11,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Inspected images now appear behind a counted disclosure and open in a keyboard accessible image dialog.
+
 - Assistant responses now announce streaming start, progress, and completion to screen readers through a polite live region.
 
 - Session history loads 50 more messages near the top and keeps the reading position after each page.
