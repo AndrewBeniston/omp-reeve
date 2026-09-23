@@ -13,15 +13,10 @@ the What's New dialog adds a second page that invites support.
 
 - The Goal pill can pause, resume, and clear a Goal. Clearing active work asks first.
   An interruption keeps queued messages.
-
 - The Composer can set a Goal with an optional hard token budget. It confirms replacement and marks the creating message.
-
 - The Goal pill above the Composer shows OMP status, elapsed time, or token progress.
-
 - The Session API now reads and changes OMP Goals, including token budgets.
   A saved active Goal opens paused after a cold Session restart.
-### Added
-
 - Goal mode gives the agent its Goal tool. Pausing, clearing, or completing a
   Goal restores your previous tools. A Session with tools disabled cannot start a Goal.
 - The Session client now restores Goal state and reconciles missed Goal updates.
