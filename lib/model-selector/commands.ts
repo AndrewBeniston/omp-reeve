@@ -52,7 +52,7 @@ export function buildModelCommandSections(
   for (const configuration of recent) {
     const option = models.find((model) => model.provider === configuration.model.provider && model.modelId === configuration.model.modelId);
     if (!option || !matches(option, query)) continue;
-    const id = `model-command:recent:${recentItems.length}`;
+    const id = `model-command:recent:${encodeURIComponent(option.provider)}/${encodeURIComponent(option.modelId)}:${configuration.thinkingLevel}`;
     choices.set(id, configuration);
     recentItems.push({
       id, group: "commands", kind: "command", icon: "model",
@@ -62,8 +62,8 @@ export function buildModelCommandSections(
     });
   }
 
-  const matchingItems: ComposerSuggestion[] = models.filter((option) => matches(option, query)).map((option, index) => {
-    const id = `model-command:catalog:${index}`;
+  const matchingItems: ComposerSuggestion[] = models.filter((option) => matches(option, query)).map((option) => {
+    const id = `model-command:catalog:${encodeURIComponent(option.provider)}/${encodeURIComponent(option.modelId)}`;
     choices.set(id, { model: { provider: option.provider, modelId: option.modelId } });
     return {
       id, group: "commands", kind: "command", icon: "model",

@@ -50,6 +50,7 @@ import { applyCollaborationSnapshot, isCollaborationSnapshot } from "@/lib/colla
 import type { ModelRoleAssignment } from "@/lib/api-types";
 import type { QueuedMessageDraft, QueuedMessageItem, QueuedMessageSnapshot } from "@/lib/queued-message-types";
 import { selectedAttachmentPaths, selectedBrowserUploadIds, type ComposerAttachmentDescriptor } from "@/lib/composer-attachment-state";
+import { previousModelNameForWarning } from "@/lib/model-selector";
 import {
   nextPinnedStateForScrollEvent,
   prefersReducedMotion,
@@ -230,7 +231,7 @@ export interface UseAgentSessionOptions {
   onBranchDataChange?: (tree: SessionTreeNode[], activeLeafId: string | null, onLeafChange: (leafId: string | null) => void) => void;
   onSystemPromptChange?: (prompt: string | null) => void;
   setToolPreset?: (preset: "none" | "default" | "full") => void;
-  translate?: (key: string) => string;
+  translate?: (key: string, params?: Record<string, string | number>) => string;
   /**
    * Compose and deliver a requested review.
    *
@@ -1864,24 +1865,36 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, [loadContext]);
 
   const handleModelChange = useCallback(async (provider: string, modelId: string) => {
+    const target = { provider, modelId };
+    const previousName = previousModelNameForWarning(
+      displayModel,
+      target,
+      !isNew && messages.some((message) => message.role === "user" || message.role === "assistant" || message.role === "custom" && message.customType === "compaction"),
+      modelList,
+    );
     if (isNew) {
-      const selectedModel = { provider, modelId };
+      const selectedModel = target;
+      const previousModel = newSessionModel;
       newSessionModelOverrideRef.current = selectedModel;
       setNewSessionModel(selectedModel);
       setPendingModel(selectedModel);
       const sid = sessionIdRef.current ?? await ensuringNewSessionRef.current;
-      if (!sid) return;
+      if (!sid) return true;
       try {
         const result = await sendAgentCommand<{ fastModeEnabled: boolean }>(sid, { type: "set_model", provider, modelId });
         setFastModeEnabled(result.fastModeEnabled);
+        return true;
       } catch (e) {
         console.error("Failed to set model:", e);
+        newSessionModelOverrideRef.current = previousModel;
+        setNewSessionModel(previousModel);
+        setPendingModel(previousModel);
+        addNotice({ type: "error", message: translate("composer.modelSettings.errorGeneric") });
+        return false;
       }
-      return;
     }
     const sid = sessionIdRef.current;
-    if (!sid || modelSwitchPendingRef.current) return;
-    const target = { provider, modelId };
+    if (!sid || modelSwitchPendingRef.current) return false;
     const previousOverride = currentModelOverride;
     modelSwitchPendingRef.current = true;
     setCurrentModelOverride(target);
@@ -1893,22 +1906,22 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       // the model, thinking level, and active leaf all advance together.
       modelSwitchPendingRef.current = false;
       await loadSession(sid);
+      if (previousName) addNotice({ type: "info", message: translate("composer.modelChangeDuringConversationWarning.v2.toast", { previousModel: previousName }) });
+      return true;
     } catch (e) {
       console.error("Failed to set model:", e);
       modelSwitchPendingRef.current = false;
       setCurrentModelOverride(previousOverride);
-      addNotice({
-        type: "error",
-        message: `Failed to switch model: ${e instanceof Error ? e.message : String(e)}`,
-      });
+      addNotice({ type: "error", message: translate("composer.modelSettings.errorGeneric") });
       // A failed response can still follow a server-side write (for example, a
       // dropped connection), so let the session file settle the displayed model.
       await loadSession(sid);
+      return false;
     } finally {
       modelSwitchPendingRef.current = false;
       setModelSwitching(false);
     }
-  }, [addNotice, currentModelOverride, isNew, loadSession, setNewSessionModel]);
+  }, [addNotice, currentModelOverride, displayModel, isNew, loadSession, messages, modelList, newSessionModel, setNewSessionModel, translate]);
 
   /**
    * Switch the session onto the model configured for one of omp's roles.
@@ -1921,6 +1934,12 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     const assignment = modelRoles.find((candidate) => candidate.role === role);
     const resolved = assignment?.resolved;
     if (!resolved) return;
+    const previousName = previousModelNameForWarning(
+      displayModel,
+      { provider: resolved.provider, modelId: resolved.modelId },
+      !isNew && messages.some((message) => message.role === "user" || message.role === "assistant" || message.role === "custom" && message.customType === "compaction"),
+      modelList,
+    );
 
     if (isNew) {
       const selectedModel = { provider: resolved.provider, modelId: resolved.modelId };
@@ -1941,10 +1960,12 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       const result = await sendAgentCommand<{ fastModeEnabled: boolean }>(sid, { type: "set_role_model", role });
       setFastModeEnabled(result.fastModeEnabled);
       if (!isNew) setCurrentModelOverride({ provider: resolved.provider, modelId: resolved.modelId });
+      if (previousName) addNotice({ type: "info", message: translate("composer.modelChangeDuringConversationWarning.v2.toast", { previousModel: previousName }) });
     } catch (e) {
       console.error("Failed to set role model:", e);
+      addNotice({ type: "error", message: translate("composer.modelSettings.errorGeneric") });
     }
-  }, [isNew, modelRoles, setNewSessionModel]);
+  }, [addNotice, displayModel, isNew, messages, modelList, modelRoles, setNewSessionModel, translate]);
 
   const handleCompact = useCallback(async () => {
     const sid = sessionIdRef.current;
@@ -2398,6 +2419,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   }, [applyQueueSnapshot]);
 
   const handleThinkingLevelChange = useCallback(async (level: ThinkingLevelOption) => {
+    const previousLevel = thinkingLevel;
     setThinkingLevel(level);
     if (isNew && !sessionIdRef.current) {
       thinkingLevelOverrideRef.current = level;
@@ -2408,8 +2430,11 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
       await sendAgentCommand(sid, { type: "set_thinking_level", level });
     } catch (e) {
       console.error("Failed to set thinking level:", e);
+      setThinkingLevel((current) => current === level ? previousLevel : current);
+      if (thinkingLevelOverrideRef.current === level) thinkingLevelOverrideRef.current = previousLevel;
+      addNotice({ type: "error", message: translate("composer.modelSettings.errorGeneric") });
     }
-  }, [isNew]);
+  }, [addNotice, isNew, thinkingLevel, translate]);
 
   const handleCycleThinkingLevel = useCallback(async () => {
     const sid = sessionIdRef.current ?? await ensuringNewSessionRef.current ?? await ensureNewSession();
