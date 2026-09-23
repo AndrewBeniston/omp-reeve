@@ -573,6 +573,8 @@ export const enLocale: LocalePlugin = {
     "transcript.contextManuallyCompacted": "Context compacted",
     "transcript.contextAutomaticallyCompacting": "Context automatically compacting",
     "transcript.contextAutomaticallyCompacted": "Context automatically compacted",
+    "transcript.continuedFromChat": "Continued from chat",
+    "transcript.parentChat": "Parent chat",
     "chat.compactContext": "Compact context",
     "chat.compacting": "Compacting…",
     "chat.compact": "Compact",
