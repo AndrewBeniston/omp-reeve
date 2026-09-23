@@ -507,6 +507,34 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const modelDropdownOpen = modelMenu.open;
   const modelSubmenu = modelMenu.submenu;
   const modelFilter = modelMenu.filter;
+  const [modelStage, setModelStage] = useState<"model" | "effort" | null>("model");
+  const [modelStageTransition, setModelStageTransition] = useState<"enter" | "leave" | null>(null);
+  useEffect(() => {
+    if (!modelDropdownOpen) {
+      setModelStage(null);
+      setModelStageTransition(null);
+      return;
+    }
+    if (modelSubmenu === null) {
+      setModelStage(null);
+      setModelStageTransition("enter");
+      return;
+    }
+    if (modelSubmenu === "speed" || modelSubmenu === "advanced") return;
+    const nextStage = modelSubmenu === "effort" ? "effort" : "model";
+    if (modelStage === nextStage) return;
+    if (modelStage === null) {
+      setModelStage(nextStage);
+      setModelStageTransition("enter");
+      return;
+    }
+    setModelStageTransition("leave");
+    const timer = globalThis.setTimeout(() => {
+      setModelStage(nextStage);
+      setModelStageTransition("enter");
+    }, 336);
+    return () => globalThis.clearTimeout(timer);
+  }, [modelDropdownOpen, modelStage, modelSubmenu]);
   const [attachmentPickerError, setAttachmentPickerError] = useState<string | null>(null);
   const [browserUploadsPending, setBrowserUploadsPending] = useState(0);
   const [localAttachments, setLocalAttachments] = useState<ComposerAttachmentDescriptor[]>(
@@ -1775,7 +1803,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   }, [displayedSlashCommands.length, slashActiveIndex]);
 
   useEffect(() => {
-    if (modelDropdownOpen && modelSubmenu === "model" && showModelFilter) modelFilterRef.current?.focus();
+    if (!modelDropdownOpen || modelSubmenu !== "model" || !showModelFilter) return;
+    const timer = globalThis.setTimeout(() => modelFilterRef.current?.focus(), 0);
+    return () => globalThis.clearTimeout(timer);
   }, [modelDropdownOpen, modelSubmenu, showModelFilter]);
 
   const displayModelName = model
@@ -2129,7 +2159,13 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                         maxHeight={maxHeight}
                         isMobile={isMobile}
                       >
-                      <div ref={modelDropdownPanelRef} className={styles.modelMenuStack} data-mobile={isMobile ? "true" : "false"}>
+                      <div
+                        ref={modelDropdownPanelRef}
+                        className={styles.modelMenuStack}
+                        data-mobile={isMobile ? "true" : "false"}
+                        data-stage={modelStage ?? undefined}
+                        style={Number.isFinite(maxHeight) ? { maxHeight } : undefined}
+                      >
                         <Menu
                           open
                           label={t("chat.modelSettings")}
@@ -2155,6 +2191,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                               if (onRoleModelChange) onRoleModelChange("default");
                               else if (selector.defaultRow && onModelChange) onModelChange(selector.defaultRow.model.provider, selector.defaultRow.model.modelId);
                             }}
+                            stageTransition={modelStageTransition}
                           />
                           {modelMenuRows.map((row) => {
                             return (
@@ -2178,26 +2215,27 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                               </MenuItem>
                             );
                           })}
-                          <div className={styles.modelMenuDivider} />
-                          <MenuItem
-                            ref={advancedRowRef}
-                            data-model-menu-row="advanced"
-                            aria-haspopup="menu"
-                            aria-expanded={modelSubmenu === "advanced"}
-                            disabled={!onToolPresetChange && !onThinkingLevelChange}
-                            onMouseEnter={() => dispatchModelMenu({ type: "submenu", value: "advanced" })}
-                            onClick={() => dispatchModelMenu({ type: "submenu", value: "advanced" })}
-                            className={styles.modelMenuRow}
-                            surface="plain"
-                          >
-                            <span>{t("chat.advanced")}</span>
-                            <svg className={styles.advancedChevron} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                              <path d="m5 9.5 3-3 3 3" />
-                            </svg>
-                          </MenuItem>
+                          <div className={styles.modelMenuFooter}>
+                            <MenuItem
+                              ref={advancedRowRef}
+                              data-model-menu-row="advanced"
+                              aria-haspopup="menu"
+                              aria-expanded={modelSubmenu === "advanced"}
+                              disabled={!onToolPresetChange && !onThinkingLevelChange}
+                              onMouseEnter={() => dispatchModelMenu({ type: "submenu", value: "advanced" })}
+                              onClick={() => dispatchModelMenu({ type: "submenu", value: "advanced" })}
+                              className={styles.modelMenuRow}
+                              surface="plain"
+                            >
+                              <span>{t("chat.advanced")}</span>
+                              <svg className={styles.advancedChevron} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="m5 9.5 3-3 3 3" />
+                              </svg>
+                            </MenuItem>
+                          </div>
                         </Menu>
 
-                        {modelSubmenu === "model" && (
+                        {modelStage === "model" && modelSubmenu !== null && (
                           <Menu open label={t("chat.model")} onClose={() => dispatchModelMenu({ type: "submenu", value: null })} triggerRef={modelRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuModel}`} data-model-submenu="model">
                             <ModelList
                               selector={selector}
@@ -2216,6 +2254,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                                 dispatchModelMenu({ type: "submenu", value: "effort" });
                                 if (!selected) onModelChange(provider, modelId);
                               }}
+                              stageTransition={modelStageTransition}
                             />
                           </Menu>
                         )}

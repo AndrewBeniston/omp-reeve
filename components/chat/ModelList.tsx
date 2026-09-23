@@ -18,6 +18,7 @@ interface Props {
   onFilterChange: (value: string) => void;
   onDefault?: () => void;
   onModel: (provider: string, modelId: string, selected: boolean) => void;
+  stageTransition?: "enter" | "leave" | null;
 }
 
 function SelectionMark({ selected }: { selected: boolean }) {
@@ -38,12 +39,13 @@ export function ModelList({
   onFilterChange,
   onDefault,
   onModel,
+  stageTransition = null,
 }: Props) {
   const { t } = useI18n();
   const { defaultRow, defaultRowSelected, modelRowsByProvider } = selector;
 
   return (
-    <div className={styles.list}>
+    <div data-model-list data-stage-transition={stageTransition ?? undefined} className={styles.list}>
       <div className={styles.heading} data-model-list-heading>{t("chat.selectModel")}</div>
       {showFilter && (
         <div className={styles.filterWrap}>

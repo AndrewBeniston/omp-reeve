@@ -82,6 +82,48 @@ test("the model menu opens on the OMP power steps", async () => {
   await view.unmount();
 });
 
+test("the model menu exposes the stage transition panels", async () => {
+  const view = await mountComposer({
+    ...modelProps,
+    thinkingLevel: "medium",
+    availableThinkingLevels: ["off", "medium", "high"],
+    onThinkingLevelChange() {},
+  });
+
+  await click(triggerFor(view.container, "Model settings"));
+  await settle();
+  const slider = view.container.querySelector("[data-model-power-view]");
+  assert.equal(slider?.getAttribute("data-stage-transition"), "enter");
+  assert.equal(slider?.querySelector("[data-stage-panel='top']")?.getAttribute("data-stage-transition"), "enter");
+  assert.equal(slider?.querySelector("[data-stage-panel='slider']")?.getAttribute("data-stage-transition"), "enter");
+
+  await click(view.container.querySelector("[aria-label='Select model']"));
+  await settle();
+  const list = view.container.querySelector("[data-model-list]");
+  assert.equal(list?.getAttribute("data-stage-transition"), "enter");
+  await view.unmount();
+});
+
+test("the model menu stage CSS records the reference timings", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const [composer, slider, list] = await Promise.all([
+    readFile(new URL("./chat/composer.module.css", import.meta.url), "utf8"),
+    readFile(new URL("./chat/ModelPowerSlider.module.css", import.meta.url), "utf8"),
+    readFile(new URL("./chat/ModelList.module.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(composer, /transition:\s*max-height 0\.32s/);
+  assert.match(composer, /\.modelMenuFooter\s*\{[^}]*border-top:[^;]*;[^}]*padding:\s*8px;/s);
+  assert.match(slider, /animation-duration:\s*0\.32s, 0\.2s/);
+  assert.match(slider, /animation-delay:\s*56ms, 56ms/);
+  assert.match(slider, /data-stage-panel="slider"\]\[data-stage-transition="leave"\][\s\S]*?animation-delay:\s*16ms/);
+  assert.match(slider, /translate[XY]\(-?10px\)/);
+  assert.match(list, /stageListSlideEnter 0\.32s[^;]*40ms/);
+  assert.match(list, /stageListFadeEnter 0\.2s[^;]*40ms/);
+  assert.match(list, /translateX\(-?10px\)/);
+  assert.match(slider, /prefers-reduced-motion:[\s\S]*?animation:\s*none !important/);
+  assert.match(list, /prefers-reduced-motion:[\s\S]*?animation:\s*none !important/);
+});
+
 test("dragging the power thumb previews steps and selects one effort on release", async () => {
   const picked = [];
   const view = await mountComposer({
