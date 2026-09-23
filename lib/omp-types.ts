@@ -6,6 +6,9 @@ import type {
   Theme,
 } from "@oh-my-pi/pi-coding-agent";
 import type { Api, Model } from "@oh-my-pi/pi-ai";
+import type { GoalModeState } from "@oh-my-pi/pi-coding-agent/goals/state";
+import type { GoalRuntime } from "@oh-my-pi/pi-coding-agent/goals/runtime";
+import type { Goal } from "@oh-my-pi/pi-tui/tools/goal";
 import type { ExtensionAskDialogQuestion, ExtensionAskDialogResult } from "./types";
 
 
@@ -13,6 +16,18 @@ export interface ContextUsage {
   percent: number | null;
   contextWindow: number;
   tokens: number | null;
+}
+
+/** Commands accepted by POST /api/agent/[id] for OMP Goal state. */
+export type GoalCommand =
+  | { type: "goal"; op: "get" | "pause" | "resume" | "drop" | "complete" }
+  | { type: "goal"; op: "create" | "replace"; objective: string; tokenBudget?: number }
+  | { type: "goal"; op: "set_objective"; objective: string }
+  | { type: "goal"; op: "set_budget"; tokenBudget?: number | null };
+
+export interface GoalCommandResult {
+  goal: Goal | null;
+  state: GoalModeState | null;
 }
 
 export interface CollaborationParticipant {
@@ -184,6 +199,9 @@ export interface AgentSessionLike {
   };
   readonly sessionManager: SessionManager;
   readonly settings: Settings;
+  readonly goalRuntime: GoalRuntime;
+  getGoalModeState(): GoalModeState | undefined;
+  setGoalModeState(state: GoalModeState | undefined): void;
   readonly agent: { state?: { systemPrompt?: string | string[]; thinkingLevel?: string } };
   readonly extensionRunner: ExtensionRunnerLike | undefined;
   readonly promptTemplates: readonly PromptTemplateLike[];

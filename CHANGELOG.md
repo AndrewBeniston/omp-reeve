@@ -9,6 +9,11 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+### Added
+
+- The Session API now reads and changes OMP Goals, including token budgets.
+  A saved active Goal opens paused after a cold Session restart.
+
 ## [0.8.0] - 2026-09-23
 
 ### Added

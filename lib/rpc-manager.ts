@@ -51,6 +51,7 @@ import { CollaborationAdapter } from "./collaboration-adapter";
 import type { ApprovalMode } from "./approval-mode";
 import type { SlashCommandInfo } from "./omp-types";
 import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from "./omp-types";
+import { GoalApiError, restoreGoalFromSession, runGoalCommand } from "./goal-command";
 import type {
   ExtensionAskDialogResult,
   ExtensionUiRequest,
@@ -332,6 +333,7 @@ export class AgentSessionWrapper {
   private extensionStatuses = new Map<string, string>();
   private extensionWidgets = new Map<string, ExtensionWidgetItem>();
   private promptRunning = false;
+  private goalCommandTail: Promise<void> = Promise.resolve();
   // Set while the handoff RPC is in flight so state polls and the running-set
   // stay honest during the long oneshot generation + session transition.
   private handoffRunning = false;
@@ -1035,6 +1037,12 @@ export class AgentSessionWrapper {
     }
 
     switch (type) {
+      case "goal": {
+        const result = this.goalCommandTail.then(() => runGoalCommand(this.inner, command));
+        this.goalCommandTail = result.then(() => undefined, () => undefined);
+        return result;
+      }
+
       case "prompt": {
         if (this.inner.isBashRunning) {
           throw new Error("Cannot send a prompt while a shell command is running");
@@ -1094,6 +1102,7 @@ export class AgentSessionWrapper {
       case "get_state": {
         const model = this.inner.model;
         const contextUsage = this.inner.getContextUsage();
+        const goalState = this.inner.getGoalModeState?.() ?? null;
         return {
           sessionId: this.inner.sessionId,
           sessionFile: this.inner.sessionFile ?? "",
@@ -1112,6 +1121,8 @@ export class AgentSessionWrapper {
           contextUsage: contextUsage
             ? { percent: contextUsage.percent, contextWindow: contextUsage.contextWindow, tokens: contextUsage.tokens }
             : null,
+          goal: goalState?.goal ?? null,
+          goalState,
           systemPrompt: [this.inner.agent.state?.systemPrompt ?? ""].flat().join("\n"),
           thinkingLevel: this.inner.configuredThinkingLevel() ?? this.inner.agent.state?.thinkingLevel ?? "off",
           ...fastModeState(this.inner, model),
@@ -2301,6 +2312,13 @@ export async function startRpcSession(
       if (persistedPreferences.modelDefaultChanged) invalidateModelsCache();
 
       const session = inner as unknown as AgentSessionLike;
+
+      try {
+        await restoreGoalFromSession(session);
+      } catch (error) {
+        if (!(error instanceof GoalApiError)) throw error;
+        // Preserve ordinary chat even if this Session has an invalid Goal entry.
+      }
 
       // If specific tool names were requested (non-empty), set the active tools to the
       // requested builtin coding tools PLUS all extension/package tools, so installed
