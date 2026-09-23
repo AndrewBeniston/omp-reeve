@@ -20,6 +20,172 @@ function goal(status, updatedAt = 1_200, id = "goal-one", createdAt = 1_000) {
   };
 }
 
+test("pause sends one Goal command and keeps the confirmed Goal until OMP responds", async () => {
+  const originalFetch = globalThis.fetch;
+  const activeGoal = goal("active");
+  const pausedGoal = goal("paused", 1_300);
+  const commands = [];
+  let resolvePause;
+  let client;
+  globalThis.fetch = async (_url, init) => {
+    const command = JSON.parse(init.body);
+    commands.push(command);
+    if (command.op === "pause") return new Promise((resolve) => { resolvePause = resolve; });
+    return response(activeGoal, { enabled: true, mode: "active", goal: activeGoal });
+  };
+  function Harness() {
+    client = useGoalState("session-one");
+    return h("div");
+  }
+  const view = await mount(h(Harness));
+  try {
+    let first;
+    await React.act(async () => {
+      first = client.pause();
+      void client.pause();
+    });
+    assert.deepEqual(commands, [{ type: "goal", op: "get" }, { type: "goal", op: "pause" }]);
+    assert.equal(client.goal.status, "active");
+    assert.equal(client.pendingAction, "pause");
+    await React.act(async () => { resolvePause(response(pausedGoal, { enabled: false, mode: "active", goal: pausedGoal })); await first; });
+    assert.equal(client.goal.status, "paused");
+    assert.equal(client.pendingAction, null);
+  } finally {
+    await view.unmount();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("resume keeps the Goal identity and usage and does not drain queued messages", async () => {
+  const originalFetch = globalThis.fetch;
+  const pausedGoal = goal("paused", 1_300);
+  const resumedGoal = goal("active", 1_400);
+  const commands = [];
+  let client;
+  globalThis.fetch = async (_url, init) => {
+    const command = JSON.parse(init.body);
+    commands.push(command);
+    return response(command.op === "resume" ? resumedGoal : pausedGoal);
+  };
+  function Harness() { client = useGoalState("session-one"); return h("div"); }
+  const view = await mount(h(Harness));
+  try {
+    await React.act(async () => { await client.resume(); });
+    assert.deepEqual(commands, [{ type: "goal", op: "get" }, { type: "goal", op: "resume" }]);
+    assert.equal(client.goal.id, pausedGoal.id);
+    assert.equal(client.goal.tokensUsed, pausedGoal.tokensUsed);
+    assert.equal(client.goal.timeUsedSeconds, pausedGoal.timeUsedSeconds);
+    assert.equal(client.goal.status, "active");
+  } finally {
+    await view.unmount();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a failed Goal action keeps the confirmed Goal and reports an action error", async () => {
+  const originalFetch = globalThis.fetch;
+  const activeGoal = goal("active");
+  let client;
+  globalThis.fetch = async (_url, init) => {
+    const command = JSON.parse(init.body);
+    if (command.op === "pause") return { ok: false, status: 503, async json() { return { error: "Unavailable" }; } };
+    return response(activeGoal);
+  };
+  function Harness() { client = useGoalState("session-one"); return h("div"); }
+  const view = await mount(h(Harness));
+  try {
+    await React.act(async () => { await client.pause(); });
+    assert.equal(client.goal.status, "active");
+    assert.deepEqual(client.actionError, { action: "pause", message: "Unavailable" });
+  } finally {
+    await view.unmount();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("clearing an idle Goal sends one drop and removes it only after OMP confirms", async () => {
+  const originalFetch = globalThis.fetch;
+  const activeGoal = goal("active");
+  const droppedGoal = goal("dropped", 1_300);
+  const commands = [];
+  let resolveDrop;
+  let client;
+  globalThis.fetch = async (_url, init) => {
+    const command = JSON.parse(init.body);
+    commands.push(command);
+    if (command.op === "drop") return new Promise((resolve) => { resolveDrop = resolve; });
+    return response(activeGoal);
+  };
+  function Harness() { client = useGoalState("session-one"); return h("div"); }
+  const view = await mount(h(Harness));
+  try {
+    let pending;
+    await React.act(async () => { pending = client.clear(); void client.clear(); });
+    assert.deepEqual(commands, [{ type: "goal", op: "get" }, { type: "goal", op: "drop" }]);
+    assert.equal(client.goal.status, "active");
+    await React.act(async () => { resolveDrop(response(droppedGoal)); await pending; });
+    assert.equal(client.goal, null);
+  } finally {
+    await view.unmount();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("pausing active work uses an interrupted abort and reads flushed Goal usage", async () => {
+  const originalFetch = globalThis.fetch;
+  const activeGoal = goal("active");
+  const pausedGoal = { ...goal("paused", 1_400), tokensUsed: 900, timeUsedSeconds: 16 };
+  const commands = [];
+  let client;
+  globalThis.fetch = async (_url, init) => {
+    const command = JSON.parse(init.body);
+    commands.push(command);
+    return response(commands.length === 1 ? activeGoal : pausedGoal);
+  };
+  function Harness() { client = useGoalState("session-one"); return h("div"); }
+  const view = await mount(h(Harness));
+  try {
+    await React.act(async () => { await client.pause(true); });
+    assert.deepEqual(commands, [
+      { type: "goal", op: "get" },
+      { type: "abort", goalReason: "interrupted" },
+      { type: "goal", op: "get" },
+    ]);
+    assert.equal(client.goal.status, "paused");
+    assert.equal(client.goal.tokensUsed, 900);
+    assert.equal(client.goal.timeUsedSeconds, 16);
+  } finally {
+    await view.unmount();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("clearing active work aborts internally before dropping the Goal", async () => {
+  const originalFetch = globalThis.fetch;
+  const activeGoal = goal("active");
+  const commands = [];
+  let client;
+  globalThis.fetch = async (_url, init) => {
+    const command = JSON.parse(init.body);
+    commands.push(command);
+    return response(command.op === "drop" ? goal("dropped", 1_400) : activeGoal);
+  };
+  function Harness() { client = useGoalState("session-one"); return h("div"); }
+  const view = await mount(h(Harness));
+  try {
+    await React.act(async () => { await client.clear(true); });
+    assert.deepEqual(commands, [
+      { type: "goal", op: "get" },
+      { type: "abort", goalReason: "internal" },
+      { type: "goal", op: "drop" },
+    ]);
+    assert.equal(client.goal, null);
+  } finally {
+    await view.unmount();
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("an initial Goal read distinguishes loading from no Goal", async () => {
   const originalFetch = globalThis.fetch;
   let resolveRead;
@@ -336,6 +502,44 @@ test("the Session hook receives Goal events from its event stream", async () => 
     });
     assert.equal(client.goalState.goal.id, "goal-one");
     assert.equal(client.goalState.goal.status, "active");
+  } finally {
+    await view.unmount();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("the shared Stop and Escape handler sends an interrupted abort reason", async () => {
+  const originalFetch = globalThis.fetch;
+  const commands = [];
+  let client;
+  globalThis.fetch = async (url, init) => {
+    if (init?.method === "POST") {
+      const command = JSON.parse(init.body);
+      commands.push(command);
+      if (command.type === "goal") return response();
+      return { ok: true, async json() { return { success: true, data: null }; } };
+    }
+    if (String(url).startsWith("/api/sessions/session-one?")) {
+      return { ok: true, async json() { return {
+        sessionId: "session-one", filePath: "", totalActiveMs: 0, tree: [], leafId: null,
+        context: { messages: [], entryIds: [], thinkingLevel: "off", model: null },
+      }; } };
+    }
+    if (String(url) === "/api/sessions/session-one/state") {
+      return { ok: true, async json() { return { running: false }; } };
+    }
+    return { ok: true, async json() { return { models: {}, modelList: [], fields: [] }; } };
+  };
+  function Harness() {
+    client = useAgentSession({ session: { id: "session-one", cwd: "/tmp" }, newSessionCwd: null });
+    return h("div");
+  }
+  const view = await mount(h(Harness));
+  try {
+    await React.act(async () => { await client.handleAbort(); });
+    assert.deepEqual(commands.filter((command) => command.type === "abort"), [
+      { type: "abort", goalReason: "interrupted" },
+    ]);
   } finally {
     await view.unmount();
     globalThis.fetch = originalFetch;

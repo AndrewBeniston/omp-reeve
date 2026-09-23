@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Maximize2, Pause, Play, X } from "lucide-react";
 import type { Goal, GoalStatus } from "@oh-my-pi/pi-tui/tools/goal";
 import { useI18n } from "@/hooks/useI18n";
+import { Button } from "../ui/Button";
+import { Dialog } from "../ui/Dialog";
 import styles from "./goal-pill.module.css";
 
 const COMPLETED_GOAL_DISPLAY_MS = 3_000;
@@ -31,19 +33,44 @@ function formatElapsed(seconds: number, locale: string): string {
 
 interface GoalPillProps {
   goal: Goal | null;
-  onClear?: () => void;
-  onPause?: () => void;
-  onResume?: () => void;
+  isRunning?: boolean;
+  pendingAction?: "pause" | "resume" | "drop" | null;
+  actionError?: { action: "pause" | "resume" | "drop"; message: string } | null;
+  onClear?: () => Promise<boolean> | void;
+  onPause?: () => Promise<boolean> | void;
+  onResume?: () => Promise<boolean> | void;
   onExpand?: () => void;
 }
 
-export function GoalPill({ goal, onClear, onPause, onResume, onExpand }: GoalPillProps) {
+export function GoalPill({ goal, isRunning = false, pendingAction, actionError, onClear, onPause, onResume, onExpand }: GoalPillProps) {
   const { locale, t } = useI18n();
+  const [confirmingClear, setConfirmingClear] = useState(false);
+  const [confirmingResume, setConfirmingResume] = useState(false);
+  const [localBusy, setLocalBusy] = useState(false);
+  const actionInFlight = useRef(false);
+  const confirmClearRef = useRef<HTMLButtonElement>(null);
+  const confirmResumeRef = useRef<HTMLButtonElement>(null);
   const [clock, setClock] = useState<{ key: string; now: number } | null>(null);
   const [completed, setCompleted] = useState<{ key: string; goal: Goal } | null>(null);
   const [expiredCompletionKey, setExpiredCompletionKey] = useState<string | null>(null);
   const completionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clockKey = goal ? `${goal.id}:${goal.updatedAt}` : null;
+  const busy = Boolean(pendingAction) || localBusy;
+
+  async function act(action: (() => Promise<boolean> | void) | undefined, kind?: "clear" | "resume") {
+    if (!action || actionInFlight.current || busy) return;
+    actionInFlight.current = true;
+    setLocalBusy(true);
+    try {
+      const succeeded = await action();
+      if (succeeded !== false && kind === "clear") setConfirmingClear(false);
+      if (succeeded !== false && kind === "resume") setConfirmingResume(false);
+    } finally {
+      actionInFlight.current = false;
+      setLocalBusy(false);
+    }
+  }
+
   useEffect(() => {
     if (!goal) return;
     if (completionTimer.current !== null) clearTimeout(completionTimer.current);
@@ -81,6 +108,7 @@ export function GoalPill({ goal, onClear, onPause, onResume, onExpand }: GoalPil
     ? visibleGoal.timeUsedSeconds + Math.max(0, (clock.now - visibleGoal.updatedAt) / 1_000)
     : visibleGoal.timeUsedSeconds;
   const tokenFormatter = new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 });
+  const errorLabel = actionError?.action === "drop" ? t("composer.threadGoal.clearError") : t("composer.threadGoal.statusUpdateError");
   return (
     <div className={styles.row}>
       <div className={styles.pill} data-status={visibleGoal.status}>
@@ -100,9 +128,9 @@ export function GoalPill({ goal, onClear, onPause, onResume, onExpand }: GoalPil
             type="button"
             className={styles.iconButton}
             aria-label={t("composer.threadGoal.clear")}
-            title={t("composer.threadGoal.clear")}
-            disabled={!onClear}
-            onClick={onClear}
+            title={t("composer.threadGoal.clearTooltip")}
+            disabled={!goal || !onClear || busy}
+            onClick={() => { if (isRunning) setConfirmingClear(true); else void act(onClear, "clear"); }}
           >
             <X size={16} aria-hidden="true" />
           </button>
@@ -111,9 +139,9 @@ export function GoalPill({ goal, onClear, onPause, onResume, onExpand }: GoalPil
               type="button"
               className={styles.iconButton}
               aria-label={t("composer.threadGoal.resume")}
-              title={t("composer.threadGoal.resume")}
-              disabled={!onResume}
-              onClick={onResume}
+              title={t("composer.threadGoal.resumeTooltip")}
+              disabled={!goal || !onResume || busy}
+              onClick={() => setConfirmingResume(true)}
             >
               <Play size={16} aria-hidden="true" />
             </button>
@@ -122,9 +150,9 @@ export function GoalPill({ goal, onClear, onPause, onResume, onExpand }: GoalPil
               type="button"
               className={styles.iconButton}
               aria-label={t("composer.threadGoal.pause")}
-              title={t("composer.threadGoal.pause")}
-              disabled={!onPause || visibleGoal.status === "complete"}
-              onClick={onPause}
+              title={t("composer.threadGoal.pauseTooltip")}
+              disabled={!goal || !onPause || visibleGoal.status === "complete" || busy}
+              onClick={() => void act(onPause)}
             >
               <Pause size={16} aria-hidden="true" />
             </button>
@@ -134,13 +162,56 @@ export function GoalPill({ goal, onClear, onPause, onResume, onExpand }: GoalPil
             className={styles.iconButton}
             aria-label={t("composer.threadGoal.editDialog.title")}
             title={t("composer.threadGoal.editDialog.title")}
-            disabled={!onExpand}
+            disabled={!goal || !onExpand || busy}
             onClick={onExpand}
           >
             <Maximize2 size={16} aria-hidden="true" />
           </button>
         </span>
       </div>
+      {actionError && !confirmingClear && !confirmingResume && <p className={styles.error} role="alert">{errorLabel}: {actionError.message}</p>}
+      {confirmingClear && (
+        <Dialog
+          open
+          title={t("composer.threadGoal.clearConfirmation.title")}
+          description={t("composer.threadGoal.clearConfirmation.subtitle")}
+          initialFocus={confirmClearRef}
+          dismissible={!busy}
+          onOpenChange={(open) => { if (!open && !busy) setConfirmingClear(false); }}
+        >
+          {actionError && <p className={styles.error} role="alert">{errorLabel}: {actionError.message}</p>}
+          <div className={styles.confirmActions}>
+            <Button type="button" disabled={busy} onClick={() => setConfirmingClear(false)}>
+              {t("composer.threadGoal.clearConfirmation.cancel")}
+            </Button>
+            <Button ref={confirmClearRef} type="button" tone="danger" loading={busy}
+              data-action="confirm-clear-goal" onClick={() => void act(onClear, "clear")}>
+              {t("composer.threadGoal.clearConfirmation.confirm")}
+            </Button>
+          </div>
+        </Dialog>
+      )}
+      {confirmingResume && (
+        <Dialog
+          open
+          title={t("composer.threadGoal.resumeConfirmation.title")}
+          description={t("composer.threadGoal.resumeConfirmation.subtitle")}
+          initialFocus={confirmResumeRef}
+          dismissible={!busy}
+          onOpenChange={(open) => { if (!open && !busy) setConfirmingResume(false); }}
+        >
+          {actionError && <p className={styles.error} role="alert">{errorLabel}: {actionError.message}</p>}
+          <div className={styles.confirmActions}>
+            <Button type="button" disabled={busy} onClick={() => setConfirmingResume(false)}>
+              {t("composer.threadGoal.resumeConfirmation.keepPaused")}
+            </Button>
+            <Button ref={confirmResumeRef} type="button" tone="primary" loading={busy}
+              data-action="confirm-resume-goal" onClick={() => void act(onResume, "resume")}>
+              {t("composer.threadGoal.resumeConfirmation.resume")}
+            </Button>
+          </div>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -899,7 +899,15 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
             toolResults={toolResultsMap}
           />
         )}
-        <GoalPill goal={goalState.goal} />
+        <GoalPill
+          goal={goalState.goal}
+          isRunning={sessionBusy}
+          pendingAction={goalState.pendingAction}
+          actionError={goalState.actionError}
+          onClear={() => goalState.clear(sessionBusy)}
+          onPause={() => goalState.pause(sessionBusy)}
+          onResume={goalState.resume}
+        />
         {chatInputElement}
         <ExtensionStatusBar statuses={extensionStatuses} />
       </div>

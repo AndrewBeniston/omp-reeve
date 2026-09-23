@@ -217,7 +217,7 @@ export interface AgentSessionLike {
     streamingBehavior?: "steer" | "followUp";
     userInitiated?: boolean;
   }): Promise<boolean>;
-  abort(options?: { reason?: string }): Promise<void>;
+  abort(options?: { reason?: string; goalReason?: "interrupted" | "internal" }): Promise<void>;
   executeBash(command: string, onChunk?: (chunk: string) => void, options?: { excludeFromContext?: boolean }): Promise<{ output: string; exitCode?: number; cancelled?: boolean; truncated?: boolean; fullOutputPath?: string }>;
   abortBash(): void;
   readonly isBashRunning: boolean;
