@@ -126,6 +126,34 @@ test("exposes model switching as a disabled collapsed running control", () => {
   assert.match(control, /disabled=""/);
 });
 
+test("the footer chip shows the model, effort, and chevron with a marked top step", async () => {
+  const model = { provider: "openai", modelId: "gpt-5.4" };
+  const props = {
+    onModelChange() {},
+    model,
+    modelList: [{ provider: model.provider, id: model.modelId, name: "GPT-5.4" }],
+    availableThinkingLevels: ["medium", "max"],
+  };
+  const normal = buttonFor(renderChatInput({ ...props, thinkingLevel: "medium" }), "Model settings");
+  const top = buttonFor(renderChatInput({ ...props, thinkingLevel: "max" }), "Model settings");
+  const topWithoutLevelMetadata = buttonFor(renderChatInput({ ...props, availableThinkingLevels: [], thinkingLevel: "max" }), "Model settings");
+  const effortOnly = buttonFor(renderChatInput({ ...props, model: null, thinkingLevel: "max" }), "Model settings");
+  const css = await readFile(new URL("./chat/composer.module.css", import.meta.url), "utf8");
+
+  assert.match(normal, /class="[^"]*modelName">GPT-5\.4<\/span>[\s\S]*class="[^"]*reasoningLevel"[^>]*><span class="reasoningCurrent">Medium/);
+  assert.match(normal, /class="modelChevron"/);
+  assert.match(top, /class="[^"]*reasoningLevel"[^>]*data-top-step="true"[^>]*><span class="reasoningCurrent">Max/);
+  assert.match(topWithoutLevelMetadata, /class="[^"]*reasoningLevel"[^>]*data-top-step="true"/);
+  assert.match(effortOnly, /class="[^"]*reasoningLevel"[^>]*data-model-prefix="false"/);
+  assert.doesNotMatch(effortOnly, /class="[^"]*modelName"/);
+  assert.match(css, /\.modelName\s*\{[^}]*font-size:\s*var\(--text-sm\);[^}]*font-weight:\s*var\(--font-weight-medium\);/);
+  assert.match(css, /\.reasoningLevel\s*\{[^}]*color:\s*var\(--ui-text-dim\);/);
+  assert.match(css, /\.reasoningLevel\[data-top-step="true"\]\s*\{[^}]*color:\s*var\(--ui-accent\);/);
+  assert.match(css, /\.reasoningLevel\[data-model-prefix="false"\]\s*\{[^}]*color:\s*var\(--ui-text\);/);
+  assert.match(css, /\.menuTrigger\s*\{[^}]*min-height:\s*36px;[^}]*padding:\s*var\(--space-1\) var\(--space-2\);/);
+  assert.match(css, /\.menuTrigger\s*\{[^}]*max-width:\s*calc\(64 \* var\(--space-1\)\);/);
+});
+
 test("uses a CSS hover seam for composer controls", () => {
   const html = renderChatInput({ contextUsage: { tokens: 10, contextWindow: 100, percent: 10 } });
 
@@ -157,7 +185,7 @@ test("renders only the consolidated desktop toolbar controls", () => {
 
   assert.match(attach, /<svg[^>]+width="20"[^>]+height="20"/);
   assert.match(model, /class="[^"]*modelName">GPT-5\.4<\/span>/);
-  assert.match(model, /class="reasoningLevel">Medium<\/span>/);
+  assert.match(model, /class="reasoningLevel"><span class="reasoningCurrent">Medium<\/span>/);
   assert.match(model, /class="modelChevron"/);
   assert.match(mode, /<svg[^>]+width="16"[^>]+height="16"/);
   assert.match(send, /type="submit"/);
@@ -941,10 +969,10 @@ test("renders the complete semantic composer contract", async () => {
   assert.match(tokensCss, /--leading-ui:\s*20px;/);
   // Codex Electron: --text-base is 14px at the theme root. Only the browser window raises it to 1rem.
   assert.match(tokensCss, /--text-ui:\s*14px;/);
-  // Codex code: every footer control uses size "composer": 28px tall, px-2, 14px text on an 18px line, pill radius.
+  // The model chip uses the compact reference height and padding.
   assert.match(css, /\.attachmentControl\s*\{[^}]*width:\s*var\(--composer-control-size\);[^}]*height:\s*var\(--composer-control-size\);/);
   assert.match(css, /\.contextDonut\s*\{[^}]*width:\s*var\(--composer-control-size\);[^}]*height:\s*var\(--composer-control-size\);/);
-  assert.match(css, /\.menuTrigger\s*\{[^}]*height:\s*var\(--composer-control-size\);[^}]*padding:\s*0 var\(--space-2\);[^}]*border-radius:\s*var\(--radius-round\);[^}]*font-size:\s*var\(--text-base\);[^}]*line-height:\s*18px;/);
+  assert.match(css, /\.menuTrigger\s*\{[^}]*min-height:\s*36px;[^}]*padding:\s*var\(--space-1\) var\(--space-2\);[^}]*border-radius:\s*var\(--radius-round\);[^}]*font-size:\s*var\(--text-base\);[^}]*line-height:\s*18px;/);
   assert.match(approvalCss, /\.trigger\s*\{[^}]*height:\s*var\(--composer-control-size\);/);
   assert.match(tokensCss, /--composer-control-size:\s*28px;/);
   assert.match(tokensCss, /--composer-send-size:\s*var\(--composer-control-size\);/);
@@ -1027,4 +1055,61 @@ test("the Composer exposes a stable image input for the Summary panel", async ()
   const html = renderChatInput({ imageInputId: "quick-chat-images" });
   assert.match(html, /id="quick-chat-images"/);
   assert.doesNotMatch(html, /id="reeve-composer-image-input"/);
+});
+
+test("an effort change measures and animates the chip while reduced motion changes it at once", async () => {
+  const harness = await import("../test/dom-harness.mjs");
+  const prototype = Object.getPrototypeOf(harness.domDocument.createElement("span"));
+  const originalRect = prototype.getBoundingClientRect;
+  const originalAnimate = prototype.animate;
+  const animations = [];
+  let view;
+
+  prototype.getBoundingClientRect = function () {
+    return { width: this.textContent === "Medium" ? 52 : this.textContent === "Max" ? 27 : 100, top: 0, left: 0, height: 18 };
+  };
+  prototype.animate = function (keyframes, options) {
+    const record = { element: this, keyframes, options, finish: null, cancelled: false };
+    animations.push(record);
+    return {
+      addEventListener(type, handler) { if (type === "finish") record.finish = handler; },
+      removeEventListener() {},
+      cancel() { record.cancelled = true; },
+    };
+  };
+
+  const props = {
+    onSend() {}, onAbort() {}, onModelChange() {}, isStreaming: false,
+    model: { provider: "openai", modelId: "gpt-5.4" },
+    modelList: [{ provider: "openai", id: "gpt-5.4", name: "GPT-5.4" }],
+    availableThinkingLevels: ["medium", "max"],
+  };
+  const render = (level) => React.createElement(I18nProvider, null, React.createElement(ChatInput, { ...props, thinkingLevel: level }));
+
+  try {
+    harness.setReducedMotion(false);
+    view = await harness.mount(render("medium"));
+    await view.render(render("max"));
+    const width = animations.find(({ element }) => element.classList.contains("reasoningLevel"));
+    assert.ok(width, "the effort label width animates");
+    assert.deepEqual(width.keyframes, [{ width: "52px" }, { width: "27px" }]);
+    assert.match(width.options.easing, /^linear\(/);
+    assert.ok(animations.some(({ keyframes }) => keyframes.some((frame) => frame.filter === "blur(4px)")));
+
+    await React.act(async () => { width.finish(); });
+    assert.equal(view.container.querySelector(".reasoningOld"), null);
+
+    const count = animations.length;
+    harness.setReducedMotion(true);
+    await view.render(render("medium"));
+    assert.equal(animations.length, count);
+    assert.equal(view.container.querySelector(".reasoningOld"), null);
+  } finally {
+    if (view) await view.unmount();
+    harness.setReducedMotion(false);
+    if (originalRect) prototype.getBoundingClientRect = originalRect;
+    else delete prototype.getBoundingClientRect;
+    if (originalAnimate) prototype.animate = originalAnimate;
+    else delete prototype.animate;
+  }
 });

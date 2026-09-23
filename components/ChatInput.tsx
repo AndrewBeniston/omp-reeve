@@ -1657,6 +1657,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     : null;
   const currentName = displayModelName;
   const currentEffortLabel = selector.currentStep?.effortLabel ?? t(thinkingLevelLabelKey(thinkingLevel ?? "auto"));
+  const modelChipHasPrefix = Boolean(currentName || (modelError && modelOptions.length === 0));
+  const currentEffortIsTopStep = selector.currentStep
+    ? selector.steps.at(-1)?.id === selector.currentStep.id
+    : selector.steps.length === 0 && thinkingLevel === "max";
   const currentSpeedLabel = fastModeEnabled ? t("chat.speedFast") : t("chat.speedStandard");
   const modelMenuRows: Array<{
     id: "speed";
@@ -1953,11 +1957,15 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                         <path d="M21 12a9 9 0 1 1-2.64-6.36" />
                       </svg>
                     ) : <ModelBoltIcon />}
-                    <span className={`${styles.ellipsis} ${styles.modelName}`}>
-                      {currentName ?? (modelOptions.length > 0 ? "Select model" : "No models")}
-                    </span>
                     {currentName && selector.currentRouteLabel && <span className={styles.modelRoute}>{selector.currentRouteLabel}</span>}
-                    <span className={styles.reasoningLevel}>{currentEffortLabel}</span>
+                    {modelChipHasPrefix && <span className={`${styles.ellipsis} ${styles.modelName}`}>
+                      {currentName ?? "No models"}
+                    </span>}
+                    <AnimatedEffortLabel
+                      label={currentEffortLabel}
+                      topStep={currentEffortIsTopStep}
+                      hasModelPrefix={modelChipHasPrefix}
+                    />
                     <svg className={styles.modelChevron} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="m5 6.5 3 3 3-3" />
                     </svg>
@@ -2445,6 +2453,76 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     </>
   );
 });
+
+function AnimatedEffortLabel({ label, topStep, hasModelPrefix }: { label: string; topStep: boolean; hasModelPrefix: boolean }) {
+  const previousLabel = useRef(label);
+  const [outgoingLabel, setOutgoingLabel] = useState<string | null>(null);
+  const wrapperRef = useRef<HTMLSpanElement>(null);
+  const currentRef = useRef<HTMLSpanElement>(null);
+  const outgoingRef = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    const previous = previousLabel.current;
+    previousLabel.current = label;
+    if (previous === label) return;
+    setOutgoingLabel(window.matchMedia("(prefers-reduced-motion: reduce)").matches ? null : previous);
+  }, [label]);
+
+  useLayoutEffect(() => {
+    if (outgoingLabel === null) return;
+    const wrapper = wrapperRef.current;
+    const current = currentRef.current;
+    const outgoing = outgoingRef.current;
+    if (!wrapper || !current || !outgoing || !wrapper.animate) {
+      setOutgoingLabel(null);
+      return;
+    }
+
+    const oldWidth = outgoing.getBoundingClientRect().width;
+    const newWidth = current.getBoundingClientRect().width;
+    if (!oldWidth || !newWidth) {
+      setOutgoingLabel(null);
+      return;
+    }
+
+    const widthAnimation = wrapper.animate(
+      [{ width: `${oldWidth}px` }, { width: `${newWidth}px` }],
+      { duration: 420, easing: "linear(0, .22 10%, .47 20%, .69 30%, .84 40%, .94 50%, .99 60%, 1.01 70%, 1.005 80%, 1)", fill: "both" },
+    );
+    const incomingAnimation = current.animate(
+      [{ opacity: 0, filter: "blur(4px)" }, { opacity: 1, filter: "blur(0px)" }],
+      { duration: 220, easing: "ease-out", fill: "both" },
+    );
+    const outgoingAnimation = outgoing.animate(
+      [{ opacity: 1, filter: "blur(0px)" }, { opacity: 0, filter: "blur(4px)" }],
+      { duration: 180, easing: "ease-in", fill: "both" },
+    );
+    const finish = () => setOutgoingLabel(null);
+    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onMotionChange = (event: MediaQueryListEvent) => { if (event.matches) finish(); };
+    widthAnimation.addEventListener("finish", finish, { once: true });
+    motionPreference.addEventListener?.("change", onMotionChange);
+    return () => {
+      motionPreference.removeEventListener?.("change", onMotionChange);
+      widthAnimation.removeEventListener("finish", finish);
+      widthAnimation.cancel();
+      incomingAnimation.cancel();
+      outgoingAnimation.cancel();
+    };
+  }, [outgoingLabel]);
+
+  return (
+    <span
+      ref={wrapperRef}
+      className={styles.reasoningLevel}
+      data-top-step={topStep ? "true" : undefined}
+      data-model-prefix={hasModelPrefix ? undefined : "false"}
+    >
+      {outgoingLabel !== null && <span ref={outgoingRef} className={styles.reasoningOld} aria-hidden="true">{outgoingLabel}</span>}
+      <span ref={currentRef} className={styles.reasoningCurrent}>{label}</span>
+    </span>
+  );
+}
 
 function ModelBoltIcon() {
   return (
