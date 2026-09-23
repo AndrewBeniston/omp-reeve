@@ -430,7 +430,7 @@ export const enLocale: LocalePlugin = {
     "chat.fileChanged": "{count} file changed",
     "chat.filesChanged": "{count} files changed",
     "chat.loadEarlier": "Scroll up to load earlier messages ({count} hidden)",
-    "chat.scrollToBottom": "Scroll to bottom",
+    "localConversation.scrollToBottomButton": "Scroll to bottom",
     "chat.messageNavigation": "User messages",
     "chat.jumpToMessage": "Jump to user message {position}",
     "chat.extensionRequest": "extension request",

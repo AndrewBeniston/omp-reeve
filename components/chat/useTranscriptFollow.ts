@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import {
   createTranscriptFollowState,
+  distanceFromBottom,
   reduceTranscriptFollow,
+  AUTO_FOLLOW_BOTTOM_THRESHOLD_PX,
   type FollowTurnPhase,
   type TranscriptFollowInput,
   type TranscriptFollowState,
@@ -17,7 +19,9 @@ import {
   type ScrollIntent,
   type ScrollbarPointer,
 } from "./transcript-follow-input";
-import { prefersReducedMotion, resolveScrollBehavior, shouldMoveFollowTail } from "./transcript-follow";
+import { prefersReducedMotion, shouldMoveFollowTail } from "./transcript-follow";
+
+const BUTTON_SCROLL_DURATION_MS = 260;
 
 function metrics(container: HTMLElement) {
   return {
@@ -57,6 +61,7 @@ export function useTranscriptFollow({
   const touchRef = useRef<{ x: number; y: number } | null>(null);
   const pointerRef = useRef<{ id: number; geometry: ScrollbarPointer } | null>(null);
   const programmaticScrollAtRef = useRef(-Infinity);
+  const scrollAnimationRef = useRef<number | null>(null);
   const preworkStartHeightRef = useRef<number | null>(null);
   const initialScrollDoneRef = useRef(false);
   const phaseRef = useRef(phase);
@@ -66,15 +71,22 @@ export function useTranscriptFollow({
   workingRef.current = working;
   heldRef.current = activeTurnHeld;
 
-  const scrollToEnd = useCallback((behavior: ScrollBehavior) => {
+  const cancelScrollAnimation = useCallback(() => {
+    if (scrollAnimationRef.current === null) return;
+    cancelAnimationFrame(scrollAnimationRef.current);
+    scrollAnimationRef.current = null;
+  }, []);
+
+  const scrollToEnd = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
+    cancelScrollAnimation();
     programmaticScrollAtRef.current = Date.now();
     container.scrollTo({
       top: container.scrollHeight,
-      behavior: resolveScrollBehavior(behavior, prefersReducedMotion()),
+      behavior: "instant",
     });
-  }, [scrollContainerRef]);
+  }, [cancelScrollAnimation, scrollContainerRef]);
 
   const observe = useCallback((event: TranscriptFollowInput["event"], now = Date.now()) => {
     const container = scrollContainerRef.current;
@@ -104,17 +116,41 @@ export function useTranscriptFollow({
     if (previousMode !== result.state.mode) setMode(result.state.mode);
     setButton((current) => current.visible === result.button.visible
       && current.workingDots === result.button.workingDots ? current : result.button);
-    if (shouldMoveFollowTail(result.scrollToEndInstantly, heldRef.current)) scrollToEnd("instant");
+    if (shouldMoveFollowTail(result.scrollToEndInstantly, heldRef.current)) scrollToEnd();
   }, [contentRef, scrollContainerRef, scrollToEnd]);
 
   const goToNewest = useCallback(() => {
     onGoToNewest();
     observe("button");
-    scrollToEnd("smooth");
-  }, [observe, onGoToNewest, scrollToEnd]);
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    cancelScrollAnimation();
+    const distance = distanceFromBottom(metrics(container));
+    if (prefersReducedMotion() || distance <= AUTO_FOLLOW_BOTTOM_THRESHOLD_PX) {
+      scrollToEnd();
+      return;
+    }
+    const startTop = container.scrollTop;
+    let startedAt: number | null = null;
+    const move = (now: number) => {
+      if (startedAt === null) startedAt = now;
+      const progress = Math.min(1, (now - startedAt) / BUTTON_SCROLL_DURATION_MS);
+      const eased = 1 - (1 - progress) ** 3;
+      const endTop = Math.max(0, container.scrollHeight - container.clientHeight);
+      programmaticScrollAtRef.current = Date.now();
+      container.scrollTo({ top: startTop + (endTop - startTop) * eased, behavior: "instant" });
+      if (distanceFromBottom(metrics(container)) <= AUTO_FOLLOW_BOTTOM_THRESHOLD_PX || progress === 1) {
+        scrollAnimationRef.current = null;
+        return;
+      }
+      scrollAnimationRef.current = requestAnimationFrame(move);
+    };
+    scrollAnimationRef.current = requestAnimationFrame(move);
+  }, [cancelScrollAnimation, observe, onGoToNewest, scrollContainerRef, scrollToEnd]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
+    cancelScrollAnimation();
     stateRef.current = createTranscriptFollowState(container ? metrics(container) : {
       scrollTop: 0, scrollHeight: 0, clientHeight: 0,
     });
@@ -125,7 +161,9 @@ export function useTranscriptFollow({
     pointerRef.current = null;
     preworkStartHeightRef.current = null;
     initialScrollDoneRef.current = false;
-  }, [scrollContainerRef, sessionKey]);
+  }, [cancelScrollAnimation, scrollContainerRef, sessionKey]);
+
+  useEffect(() => cancelScrollAnimation, [cancelScrollAnimation]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -222,7 +260,7 @@ export function useTranscriptFollow({
     if (!container || messageCount === 0) return;
     if (!initialScrollDoneRef.current) {
       initialScrollDoneRef.current = true;
-      scrollToEnd("instant");
+      scrollToEnd();
       stateRef.current = createTranscriptFollowState({
         scrollTop: Math.max(0, container.scrollHeight - container.clientHeight),
         scrollHeight: container.scrollHeight,
