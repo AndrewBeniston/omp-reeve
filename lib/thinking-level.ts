@@ -1,7 +1,7 @@
 import {
   parseConfiguredThinkingLevel,
   type ConfiguredThinkingLevel,
-} from "@oh-my-pi/pi-coding-agent/thinking";
+} from "@oh-my-pi/pi-tui/thinking";
 
 export function parseRequestedThinkingLevel(value: unknown): ConfiguredThinkingLevel | undefined {
   if (value === undefined) return undefined;

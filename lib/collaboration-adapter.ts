@@ -1,6 +1,7 @@
 import { CollabHost } from "@oh-my-pi/pi-coding-agent/collab/host";
+import { type CollabHostSnapshot, listCollabHosts } from "@oh-my-pi/pi-coding-agent/collab/registry";
 import type { InteractiveModeContext } from "@oh-my-pi/pi-coding-agent/modes/types";
-import { QrCode } from "@oh-my-pi/pi-coding-agent/utils/qrcode";
+import { QrCode } from "@oh-my-pi/pi-tui/chrome/qrcode";
 import type {
   AgentSessionLike,
   CollaborationCommandResult,
@@ -19,6 +20,7 @@ type CollaborationAdapterOptions = {
   eventBus?: unknown;
   createHost?: (context: InteractiveModeContext) => CollaborationHostLike;
   encodeQr?: (url: string) => CollaborationQr;
+  listHosts?: () => Promise<CollabHostSnapshot[]>;
   onChange: (snapshot: CollaborationSnapshot) => void;
   onNotice: (message: string, type: "info" | "warning" | "error") => void;
   onQueueChange: () => void;
@@ -108,12 +110,16 @@ export class CollaborationAdapter {
     const args = argumentsText.trim();
     const [candidate = "", ...restParts] = args.split(/\s+/);
     const verb = candidate.toLowerCase();
-    const knownVerb = verb === "start" || verb === "view" || verb === "status" || verb === "stop";
+    const knownVerb = verb === "start" || verb === "view" || verb === "list" || verb === "status" || verb === "stop";
     if (candidate && !knownVerb && !isRelayArgument(candidate)) {
-      throw new Error("Usage: /collab [start|view|status|stop] [relayUrl]");
+      throw new Error("Usage: /collab [start|view|list|status|stop] [relayUrl]");
     }
 
     if (verb === "stop") return this.stop("host stopped");
+    if (verb === "list") {
+      if (restParts.length > 0) throw new Error("Usage: /collab list");
+      return { message: await this.listHosts(), collaboration: this.snapshot() };
+    }
     if (verb === "status") {
       return {
         message: this.isActive() ? "Collaboration session active" : "Collaboration is not active",
@@ -166,5 +172,16 @@ export class CollaborationAdapter {
 
   private publish(): void {
     this.options.onChange(this.snapshot());
+  }
+
+  private async listHosts(): Promise<string> {
+    const hosts = await (this.options.listHosts ?? listCollabHosts)();
+    if (hosts.length === 0) return "No active Collab hosts";
+    const lines = hosts.map((host) => {
+      const guests = host.participants - 1;
+      const name = host.sessionName ? `${host.sessionName} (${host.sessionId})` : host.sessionId;
+      return `- ${name}: ${guests} guest${guests === 1 ? "" : "s"}, ${host.access}, ${host.cwd}`;
+    });
+    return [`${hosts.length} active local Collab host${hosts.length === 1 ? "" : "s"}`, ...lines].join("\n");
   }
 }
