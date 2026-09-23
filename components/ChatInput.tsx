@@ -111,6 +111,10 @@ export function resolveStreamingSubmissionMode(queueingEnabled: boolean, useOppo
   return defaultMode === "followUp" ? "steer" : "followUp";
 }
 
+export function hasUnsentComposerInput(value: string, imageCount: number, localAttachmentCount: number): boolean {
+  return value.trim().length > 0 || imageCount > 0 || localAttachmentCount > 0;
+}
+
 export function shouldConfirmPausedQueueSubmission(queue: QueuedMessages | null | undefined, isStreaming: boolean): boolean {
   return !isStreaming && Boolean(queue?.paused && queue.items.length > 0);
 }
@@ -539,6 +543,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const worktreeControlRef = useRef<ComposerWorktreeControlHandle>(null);
   const projectControlRef = useRef<ComposerProjectControlHandle>(null);
   const [pendingProjectPath, setPendingProjectPath] = useState<string | null>(null);
+  const [pendingWorktreePath, setPendingWorktreePath] = useState<string | null>(null);
   const isMobile = useIsMobile();
   useEffect(() => {
     onRegisterWorktreeCommand?.(() => {
@@ -2577,11 +2582,14 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               ref={projectControlRef}
               selectedPath={cwd}
               onSelect={(path) => {
-                if (value.trim() || attachedImages.length || localAttachments.length) setPendingProjectPath(path);
+                if (hasUnsentComposerInput(value, attachedImages.length, localAttachments.length)) setPendingProjectPath(path);
                 else onSelectProject(path);
               }}
             />}
-            {cwd && onSelectWorktree && <ComposerWorktreeControl ref={worktreeControlRef} cwd={cwd} onSelect={onSelectWorktree} />}
+            {cwd && onSelectWorktree && <ComposerWorktreeControl ref={worktreeControlRef} cwd={cwd} onSelect={(path) => {
+              if (hasUnsentComposerInput(value, attachedImages.length, localAttachments.length)) setPendingWorktreePath(path);
+              else onSelectWorktree(path);
+            }} />}
             {commandActionError && <span role="alert">{commandActionError}</span>}
             <ComposerAddMenu
               loading={Boolean(slashCommandsLoading || composerResourcesLoading)}
@@ -2782,17 +2790,19 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         }}
       />
       <Dialog
-        open={pendingProjectPath !== null}
-        title={t("composer.project.confirmTitle")}
+        open={pendingProjectPath !== null || pendingWorktreePath !== null}
+        title={t(pendingWorktreePath !== null ? "composer.worktree.confirmTitle" : "composer.project.confirmTitle")}
         size="sm"
-        onOpenChange={(open) => { if (!open) setPendingProjectPath(null); }}
+        onOpenChange={(open) => { if (!open) { setPendingProjectPath(null); setPendingWorktreePath(null); } }}
       >
-        <p>{t("composer.project.confirmBody")}</p>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-          <Button type="button" size="sm" tone="ghost" onClick={() => setPendingProjectPath(null)}>{t("trust.cancel")}</Button>
+        <p>{t(pendingWorktreePath !== null ? "composer.worktree.confirmBody" : "composer.project.confirmBody")}</p>
+        <div className={styles.workspaceConfirmActions}>
+          <Button type="button" size="sm" tone="ghost" onClick={() => { setPendingProjectPath(null); setPendingWorktreePath(null); }}>{t("trust.cancel")}</Button>
           <Button type="button" size="sm" tone="primary" onClick={() => {
-            if (pendingProjectPath) onSelectProject?.(pendingProjectPath);
+            if (pendingWorktreePath) onSelectWorktree?.(pendingWorktreePath);
+            else if (pendingProjectPath) onSelectProject?.(pendingProjectPath);
             setPendingProjectPath(null);
+            setPendingWorktreePath(null);
           }}>{t("composer.project.confirmAction")}</Button>
         </div>
       </Dialog>

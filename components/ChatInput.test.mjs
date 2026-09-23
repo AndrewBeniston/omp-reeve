@@ -21,6 +21,7 @@ const {
   filterModelOptions,
   getAcceptedImageFiles,
   getComposerTextareaHeight,
+  hasUnsentComposerInput,
   getUserMessageText,
   getUserMessageDraftImages,
   resolveStreamingSubmissionMode,
@@ -1144,6 +1145,70 @@ test("the session Composer offers the worktree control while it loads", () => {
   assert.match(html, /aria-label="Switch branch"/);
   assert.match(html, /Loading branch/);
   assert.match(html, /Session worktree/);
+});
+
+test("workspace changes confirm only when the Composer has unsent input", () => {
+  assert.equal(hasUnsentComposerInput("", 0, 0), false);
+  assert.equal(hasUnsentComposerInput("draft", 0, 0), true);
+  assert.equal(hasUnsentComposerInput("   ", 1, 0), true);
+  assert.equal(hasUnsentComposerInput("   ", 0, 1), true);
+});
+
+test("Cancel keeps the draft when a worktree change needs confirmation", async (t) => {
+  const harness = await import("../test/dom-harness.mjs");
+  const previousFetch = globalThis.fetch;
+  const draftKey = "t546-worktree-confirmation";
+  let openWorktree;
+  let selected;
+  setDraft(draftKey, { value: "keep this draft", images: [] });
+  globalThis.fetch = async (url, options) => {
+    if (String(url).startsWith("/api/worktrees?") && options?.method === undefined) {
+      return { ok: true, status: 200, json: async () => ({
+        isGit: true,
+        isTopLevel: true,
+        worktrees: [
+          { path: "/repo", branch: "main", isMain: true, isDetached: false, isDirty: false },
+          { path: "/repo-worktrees/feature", branch: "feature", isMain: false, isDetached: false, isDirty: false },
+        ],
+      }) };
+    }
+    if (String(url) === "/api/worktrees" && options?.method === "POST") {
+      return { ok: true, status: 200, json: async () => ({ path: "/repo-worktrees/feature" }) };
+    }
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    clearDraft(draftKey);
+  });
+
+  const view = await harness.mount(React.createElement(I18nProvider, null, React.createElement(ChatInput, {
+    onSend() {},
+    onAbort() {},
+    isStreaming: false,
+    cwd: "/repo",
+    draftKey,
+    onRegisterWorktreeCommand(open) { openWorktree = open; },
+    onSelectWorktree(path) { selected = path; },
+  })));
+  await harness.settle();
+  openWorktree();
+  await harness.settle();
+  const item = Array.from(view.container.querySelectorAll("[role='menuitemradio']"))
+    .find((candidate) => harness.textOf(candidate) === "feature");
+  assert.ok(item);
+  await harness.click(item);
+  await harness.settle();
+
+  const dialog = document.querySelector("[role='dialog']");
+  assert.ok(dialog);
+  assert.match(harness.textOf(dialog), /Replace this worktree\?/);
+  assert.equal(selected, undefined);
+  await harness.click(Array.from(dialog.querySelectorAll("button")).find((button) => harness.textOf(button) === "Cancel"));
+  await harness.settle();
+  assert.equal(selected, undefined);
+  assert.equal(getDraft(draftKey)?.value, "keep this draft");
+  await view.unmount();
 });
 
 test("an effort change measures and animates the chip while reduced motion changes it at once", async () => {

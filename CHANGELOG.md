@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The Composer starting-state control selects the base branch for a new worktree, and worktree changes confirm before replacing unsent input.
 - The new-Session Composer can select a Reeve project and keeps unavailable cloud and remote locations visible with reasons.
 - The Composer now shows OMP dictation states, including transcription cancellation, retry, and recording access.
 - A session live API now exposes OMP realtime voice state and lifecycle control.
