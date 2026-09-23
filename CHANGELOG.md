@@ -9,6 +9,8 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+- The model selector now calls OMP's max effort Max and keeps model and effort choices in one state model.
+
 ## [0.8.0] - 2026-09-23
 
 ### Added

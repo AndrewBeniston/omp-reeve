@@ -491,6 +491,11 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
       isStreaming={sessionBusy}
       model={displayModelValue}
       isAutoModelSelection={isAutoModelSelection}
+      explicitModelOverride={isNew ? !isAutoModelSelection : Boolean(displayModelValue && modelRoles.some((role) => (
+        role.role === "default" && role.resolved && (
+          role.resolved.provider !== displayModelValue.provider || role.resolved.modelId !== displayModelValue.modelId
+        )
+      )))}
       modelNames={modelNames}
       modelList={modelList}
       modelError={modelError}
@@ -513,6 +518,7 @@ export function ChatWindow({ compactHome, registerGlobalAbort = true, newDraftKe
       fastModeAvailable={fastModeAvailable}
       onFastModeChange={session || isNew ? handleFastModeChange : undefined}
       availableThinkingLevels={availableThinkingLevels}
+      modelThinkingLevels={modelThinkingLevels}
       thinkingLevelMap={currentThinkingLevelMap}
       retryInfo={retryInfo}
       queuedMessages={queuedMessages}
