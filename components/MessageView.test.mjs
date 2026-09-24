@@ -177,6 +177,18 @@ test("keeps unknown custom messages in the generic message card", () => {
   assert.doesNotMatch(html, /Sent by/);
 });
 
+test("removes 24-bit ANSI colour codes from custom message text", () => {
+  const html = renderMessage({
+    role: "custom",
+    customType: "usage",
+    content: "\x1b[38;2;125;207;255mSession: \x1b[39mplain text",
+    display: true,
+  });
+
+  assert.match(html, /Session: plain text/);
+  assert.doesNotMatch(html, /38;2;125;207;255/);
+});
+
 test("streaming metrics use clear compact labels", () => {
   assert.equal(STREAMING_METRIC_FPS, 1);
   assert.equal(formatStreamingTokens(101.4), "101 tokens");
