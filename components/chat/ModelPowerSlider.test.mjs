@@ -155,6 +155,30 @@ test("the Power control stays disabled when effort cannot change", async () => {
   }
 });
 
+test("the model effort list keeps Auto selectable when the selector has no current step", async () => {
+  const view = await renderSlider({
+    steps: [],
+    modelSteps: steps,
+    currentStepId: undefined,
+    effortLabel: "Auto",
+  });
+  try {
+    const power = view.container.querySelector("[data-model-power-view]");
+    assert.ok(power);
+    assert.ok(power.querySelector("[data-slider-row]"));
+    assert.equal(power.querySelector("[data-power-thumb]"), null);
+    assert.deepEqual(
+      Array.from(power.querySelectorAll("[data-power-dot]"), (dot) => dot.getAttribute("data-effort")),
+      ["minimal", "medium", "max"],
+    );
+
+    await press(power.querySelector("[aria-label='Power']"), "ArrowRight");
+    assert.deepEqual(view.selections, ["minimal"]);
+  } finally {
+    await view.unmount();
+  }
+});
+
 test("a new model with fewer steps replaces a keyboard preview", async () => {
   const view = await renderSlider();
   try {
@@ -245,17 +269,24 @@ test("the reset control appears for an effort override and restores automatic ef
 
 test("the effort popup restores automatic effort for the selected model", async () => {
   const efforts = [];
-  const view = await mount(h(I18nProvider, null, h(ChatInput, {
-    onSend() {},
-    onAbort() {},
-    isStreaming: false,
-    model: { provider: "test", modelId: "model" },
-    modelList: [{ provider: "test", id: "model", name: "Model" }],
-    availableThinkingLevels: ["medium", "high"],
-    onModelChange() {},
-    thinkingLevel: "high",
-    onThinkingLevelChange(level) { efforts.push(level); },
-  })));
+  function ControlledChatInput() {
+    const [thinkingLevel, setThinkingLevel] = React.useState("high");
+    return h(ChatInput, {
+      onSend() {},
+      onAbort() {},
+      isStreaming: false,
+      model: { provider: "test", modelId: "model" },
+      modelList: [{ provider: "test", id: "model", name: "Model" }],
+      modelThinkingLevels: { "test:model": ["low", "medium", "high"] },
+      onModelChange() {},
+      thinkingLevel,
+      onThinkingLevelChange(level) {
+        efforts.push(level);
+        setThinkingLevel(level);
+      },
+    });
+  }
+  const view = await mount(h(I18nProvider, null, h(ControlledChatInput)));
   try {
     const trigger = view.container.querySelector("[aria-label='Model settings']");
     assert.ok(trigger);
@@ -267,6 +298,12 @@ test("the effort popup restores automatic effort for the selected model", async 
     assert.ok(reset);
     await click(reset);
     assert.deepEqual(efforts, ["auto"]);
+
+    const power = document.body.querySelector("[data-model-power-view]");
+    assert.ok(power.querySelector("[data-slider-row]"));
+    assert.equal(textOf(power).includes("This model does not support effort levels"), false);
+    await press(power.querySelector("[aria-label='Power']"), "ArrowRight");
+    assert.deepEqual(efforts, ["auto", "low"]);
   } finally {
     await view.unmount();
   }

@@ -10,6 +10,7 @@ import styles from "./ModelPowerSlider.module.css";
 
 interface Props {
   steps: readonly PowerSelection[];
+  modelSteps?: readonly PowerSelection[];
   currentStepId?: string;
   effortLabel: string;
   modelName: string | null;
@@ -29,6 +30,7 @@ interface Props {
 
 export function ModelPowerSlider({
   steps,
+  modelSteps,
   currentStepId,
   effortLabel,
   modelName,
@@ -47,15 +49,16 @@ export function ModelPowerSlider({
 }: Props) {
   const { t } = useI18n();
   const instructionsId = useId();
-  const currentIndex = steps.findIndex((step) => step.id === currentStepId);
+  const visibleSteps = modelSteps ?? steps;
+  const currentIndex = visibleSteps.findIndex((step) => step.id === currentStepId);
   const [previewStepId, setPreviewStepId] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const activePointer = useRef<number | null>(null);
-  const previewIndex = steps.findIndex((step) => step.id === previewStepId);
+  const previewIndex = visibleSteps.findIndex((step) => step.id === previewStepId);
   const visibleIndex = previewIndex >= 0 ? previewIndex : currentIndex;
-  const isTopStep = visibleIndex >= 0 && steps[visibleIndex]?.thinkingLevel === "max";
+  const isTopStep = visibleIndex >= 0 && visibleSteps[visibleIndex]?.thinkingLevel === "max";
   const showResetControl = explicitModelOverride || effortOverride;
-  const progress = steps.length === 1 ? 50 : visibleIndex < 0 ? 0 : (visibleIndex / (steps.length - 1)) * 100;
+  const progress = visibleSteps.length === 1 ? 50 : visibleIndex < 0 ? 0 : (visibleIndex / (visibleSteps.length - 1)) * 100;
 
   useEffect(() => {
     setPreviewStepId(null);
@@ -65,15 +68,15 @@ export function ModelPowerSlider({
     if (!canChangeEffort || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
     event.preventDefault();
     event.stopPropagation();
-    if (steps.length === 0) return;
+    if (visibleSteps.length === 0) return;
     const direction = event.key === "ArrowLeft" ? -1 : 1;
     const from = visibleIndex >= 0 ? visibleIndex : direction === 1 ? -1 : 0;
-    const nextIndex = (from + direction + steps.length) % steps.length;
-    const step = steps[nextIndex];
+    const nextIndex = (from + direction + visibleSteps.length) % visibleSteps.length;
+    const step = visibleSteps[nextIndex];
     if (nextIndex === visibleIndex) return;
     setPreviewStepId(step.id);
     const value = `${modelName ?? step.model.modelId} ${step.sliderLabel}`;
-    const status = t("chat.powerKeyboardValue", { value, position: nextIndex + 1, total: steps.length });
+    const status = t("chat.powerKeyboardValue", { value, position: nextIndex + 1, total: visibleSteps.length });
     const isStepMax = step.thinkingLevel === "max";
     setAnnouncement(isStepMax ? `${status} ${t("chat.ultraUsageWarning")}` : status);
     onSelectEffort(step.thinkingLevel);
@@ -81,9 +84,9 @@ export function ModelPowerSlider({
 
   const indexAt = (event: PointerEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
-    if (steps.length === 1 || bounds.width <= 20) return 0;
+    if (visibleSteps.length === 1 || bounds.width <= 20) return 0;
     const fraction = (event.clientX - bounds.left - 10) / (bounds.width - 20);
-    return Math.max(0, Math.min(steps.length - 1, Math.round(fraction * (steps.length - 1))));
+    return Math.max(0, Math.min(visibleSteps.length - 1, Math.round(fraction * (visibleSteps.length - 1))));
   };
 
   const cancelDrag = (event: PointerEvent<HTMLDivElement>) => {
@@ -110,7 +113,7 @@ export function ModelPowerSlider({
           surface="plain"
         >
           {effortStage && <span className={styles.visuallyHidden} data-model-effort-placeholder="true">{t("chat.selectEffort")}</span>}
-          <span className={styles.effortLabel} data-model-effort-label>{steps[visibleIndex]?.sliderLabel ?? effortLabel}</span>
+          <span className={styles.effortLabel} data-model-effort-label>{visibleSteps[visibleIndex]?.sliderLabel ?? effortLabel}</span>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="m6.5 5 3 3-3 3" />
           </svg>
@@ -149,7 +152,7 @@ export function ModelPowerSlider({
           )}
         </div>
       </div>
-      {steps.length > 0 ? (
+      {visibleSteps.length > 0 ? (
         <div data-slider-row data-stage-panel="slider" data-stage-transition={stageTransition ?? undefined} className={styles.sliderRow}>
           <div
             className={styles.track}
@@ -160,19 +163,19 @@ export function ModelPowerSlider({
               if (event.button !== 0 || !canChangeEffort || activePointer.current !== null) return;
               const index = indexAt(event);
               activePointer.current = event.pointerId;
-              setPreviewStepId(steps[index].id);
+              setPreviewStepId(visibleSteps[index].id);
               event.currentTarget.setPointerCapture?.(event.pointerId);
             }}
             onPointerMove={(event) => {
               if (activePointer.current !== event.pointerId) return;
               const index = indexAt(event);
-              setPreviewStepId(steps[index].id);
+              setPreviewStepId(visibleSteps[index].id);
             }}
             onPointerUp={(event) => {
               if (activePointer.current !== event.pointerId) return;
               const index = indexAt(event);
               cancelDrag(event);
-              if (steps[index].id !== currentStepId) onSelectEffort(steps[index].thinkingLevel);
+              if (visibleSteps[index].id !== currentStepId) onSelectEffort(visibleSteps[index].thinkingLevel);
             }}
             onPointerCancel={cancelDrag}
             onLostPointerCapture={cancelDrag}
@@ -190,8 +193,8 @@ export function ModelPowerSlider({
               {t("chat.powerKeyboardInstructions")}
             </span>
             <DynamicStyleVars className={styles.rail} variables={{ "--ui-power-progress": `${progress}%` }}>
-              {steps.map((step, index) => {
-                const position = steps.length === 1 ? 50 : (index / (steps.length - 1)) * 100;
+              {visibleSteps.map((step, index) => {
+                const position = visibleSteps.length === 1 ? 50 : (index / (visibleSteps.length - 1)) * 100;
                 return <DynamicStyleVars
                   as="span"
                   key={step.id}
@@ -206,7 +209,7 @@ export function ModelPowerSlider({
                 as="span"
                 className={styles.thumb}
                 data-power-thumb
-                data-step={steps[visibleIndex].thinkingLevel}
+                data-step={visibleSteps[visibleIndex].thinkingLevel}
                 variables={{ "--ui-power-position": `${progress}%` }}
               />}
             </DynamicStyleVars>
