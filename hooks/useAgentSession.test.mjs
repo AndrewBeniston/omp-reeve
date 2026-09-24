@@ -530,3 +530,71 @@ test("rehydrates handoff as busy without misreporting compaction", () => {
     /agentState\.state\?\.isStreaming[\s\S]*?agentState\.state\?\.isPromptRunning[\s\S]*?agentState\.state\?\.isHandoffRunning/,
   );
 });
+async function mountLiveSession(savedMessages = [], savedEntryIds = []) {
+  const originalFetch = globalThis.fetch;
+  let client;
+  let saved = { messages: savedMessages, entryIds: savedEntryIds };
+  globalThis.fetch = async (url) => {
+    if (String(url).startsWith("/api/sessions/session-one?")) {
+      return { ok: true, async json() {
+        return {
+          sessionId: "session-one", filePath: "", totalActiveMs: 0, tree: [], leafId: null,
+          context: { ...saved, thinkingLevel: "off", model: null },
+        };
+      } };
+    }
+    if (String(url) === "/api/sessions/session-one/state") {
+      return { ok: true, async json() { return { running: false }; } };
+    }
+    return { ok: true, async json() { return { models: {}, modelList: [], fields: [] }; } };
+  };
+  function Harness() {
+    client = useAgentSession({ session: { id: "session-one", cwd: "/tmp" }, newSessionCwd: null });
+    return h("div");
+  }
+  const view = await mount(h(Harness));
+  return {
+    get client() { return client; },
+    setSaved(next) { saved = next; },
+    async unmount() { await view.unmount(); globalThis.fetch = originalFetch; },
+  };
+}
+
+test("a delivered user message after a reload shows once", async () => {
+  const live = await mountLiveSession();
+  const user = { role: "user", content: "Run the check", timestamp: 10 };
+  try {
+    await React.act(async () => { live.client.handleAgentEventRef.current({ type: "agent_start" }); });
+    live.setSaved({ messages: [user], entryIds: ["u1"] });
+    await React.act(async () => { await live.client.handleAgentEventRef.current({ type: "prompt_done" }); });
+    await React.act(async () => { live.client.handleAgentEventRef.current({ type: "agent_start" }); });
+    await React.act(async () => {
+      live.client.handleAgentEventRef.current({ type: "message_end", message: user });
+    });
+    assert.deepEqual(live.client.messages.map((message) => message.role), ["user"]);
+  } finally {
+    await live.unmount();
+  }
+});
+
+test("a completed tool call that a reload already holds shows once", async () => {
+  const live = await mountLiveSession();
+  const user = { role: "user", content: "Run the check", timestamp: 10 };
+  const call = {
+    role: "assistant", timestamp: 20, model: "m", provider: "p",
+    content: [{ type: "toolCall", id: "call-1", name: "bash", arguments: { command: "sleep 1" } }],
+  };
+  try {
+    await React.act(async () => { live.client.handleAgentEventRef.current({ type: "agent_start" }); });
+    live.setSaved({ messages: [user, call], entryIds: ["u1", "a1"] });
+    await React.act(async () => { await live.client.handleAgentEventRef.current({ type: "agent_end" }); });
+    await React.act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    await React.act(async () => { live.client.handleAgentEventRef.current({ type: "agent_start" }); });
+    await React.act(async () => {
+      live.client.handleAgentEventRef.current({ type: "message_end", message: call });
+    });
+    assert.deepEqual(live.client.messages.map((message) => message.role), ["user", "assistant"]);
+  } finally {
+    await live.unmount();
+  }
+});

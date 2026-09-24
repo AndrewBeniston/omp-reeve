@@ -49,6 +49,7 @@ import { buildTranscriptRows, dividerPresentation, finalAnswerPosition, presenta
 import { Divider } from "./chat/Divider";
 import { ActivityHeader } from "./chat/ActivityRow";
 import type { ActivityCall } from "@/lib/transcript/repeat-collapsing";
+import { selectLiveActivityHeader } from "@/lib/transcript/live-activity-header";
 import { ArchivedSessionCard } from "./chat/ArchivedSessionCard";
 import {
   TranscriptNavigationRail,
@@ -803,9 +804,12 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                       }
                     }
                   }
+                  const headerInput = { calls: activityCalls, closed: !live, inProgress: live, latestVisible: live, exploring: live };
+                  // The open Divider already shows the running call as its own Activity row.
+                  const headerRepeatsRow = selectLiveActivityHeader(headerInput).kind === "activity";
                   rendered.push(
                     <Divider key={`process-group-${key}`} turnId={key} turnNumber={turnNumber} totalTurnCount={totalTurnCount} forceExpanded={!finalAnswerMessage} {...divider}>
-                      <ActivityHeader input={{ calls: activityCalls, closed: !live, inProgress: live, latestVisible: live, exploring: live }} />
+                      {headerRepeatsRow ? null : <ActivityHeader input={headerInput} />}
                       {visibleProcessItems.map((item) => renderMessage(item, { keyPrefix: "process" }))}
                       {finalProcessMessage && renderMessage(finalItem, { keyPrefix: "process-final", messageOverride: finalProcessMessage, showTimestamp: false })}
                     </Divider>,
