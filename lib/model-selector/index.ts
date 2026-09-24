@@ -90,11 +90,6 @@ export function thinkingLevelLabelKey(level: ThinkingStep | "auto"): string {
   return level === "auto" ? "chat.effortAuto" : EFFORT_LABEL_KEYS[level];
 }
 
-const SLIDER_LABEL_KEYS: Partial<Record<ThinkingStep, string>> = {
-  medium: "chat.effortStandard",
-  high: "chat.effortExtended",
-};
-
 const MODEL_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 function modelKey(model: ModelRef): string {
@@ -180,7 +175,7 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
         thinkingLevel,
         effort,
         effortLabel,
-        sliderLabel: label(SLIDER_LABEL_KEYS[thinkingLevel] ?? EFFORT_LABEL_KEYS[thinkingLevel]),
+        sliderLabel: label(EFFORT_LABEL_KEYS[thinkingLevel]),
       });
     }
   }

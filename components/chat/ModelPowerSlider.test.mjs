@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createJiti } from "jiti";
-import { React, focused, mount, press, textOf } from "../../test/dom-harness.mjs";
+import { DomEvent, React, click, focused, mount, press, textOf } from "../../test/dom-harness.mjs";
 
 const jiti = createJiti(import.meta.url, { jsx: { runtime: "automatic" }, tsconfigPaths: true });
 const { ModelPowerSlider } = await jiti.import("./ModelPowerSlider.tsx");
@@ -12,7 +12,7 @@ const h = React.createElement;
 
 const steps = [
   { id: "model:minimal", model: { provider: "test", modelId: "model" }, thinkingLevel: "minimal", effort: "minimal", effortLabel: "Minimal", sliderLabel: "Minimal" },
-  { id: "model:medium", model: { provider: "test", modelId: "model" }, thinkingLevel: "medium", effort: "medium", effortLabel: "Medium", sliderLabel: "Standard" },
+  { id: "model:medium", model: { provider: "test", modelId: "model" }, thinkingLevel: "medium", effort: "medium", effortLabel: "Medium", sliderLabel: "Medium" },
   { id: "model:max", model: { provider: "test", modelId: "model" }, thinkingLevel: "max", effort: "max", effortLabel: "Max", sliderLabel: "Max" },
 ];
 
@@ -58,6 +58,34 @@ test("the menu reaches a hidden Power control with arrow instructions", async ()
   }
 });
 
+test("the effort header centers the effort and model name and owns the model trigger", async () => {
+  let opened = false;
+  const view = await renderSlider({ onOpenModels() { opened = true; } });
+  try {
+    const header = view.container.querySelector("[data-model-effort-header]");
+    assert.ok(header);
+    const modelTrigger = header.querySelector("[data-model-menu-row='model']");
+    assert.equal(modelTrigger.getAttribute("aria-label"), "Select model");
+    assert.equal(textOf(header.querySelector("[data-model-effort-label]")), "Minimal");
+    assert.equal(textOf(header.querySelector("[data-model-effort-name]")), "Model");
+    assert.ok(modelTrigger.querySelector("svg"));
+    await click(modelTrigger);
+    assert.equal(opened, true);
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("the CSS uses the reference pill, fill, dot, and thumb geometry", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const powerCss = await readFile(new URL("./ModelPowerSlider.module.css", import.meta.url), "utf8");
+  assert.match(powerCss, /\.track\s*\{[^}]*height:\s*44px;/);
+  assert.match(powerCss, /\.rail\s*\{[^}]*height:\s*44px;[^}]*border-radius:\s*999px;[^}]*color-mix\(in srgb, var\(--ui-text\) 8%, transparent\);/);
+  assert.match(powerCss, /\.rail::before\s*\{[^}]*width:\s*clamp\(20px, var\(--ui-power-progress, 0%\), calc\(100% - 20px\)\);[^}]*background:\s*var\(--ui-accent\);/);
+  assert.match(powerCss, /\.dot\s*\{[^}]*width:\s*6px;[^}]*height:\s*6px;/);
+  assert.match(powerCss, /\.thumb\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px;[^}]*background:\s*#fff;/);
+});
+
 test("the Power arrows wrap and announce the selected model and effort", async () => {
   const view = await renderSlider();
   try {
@@ -81,8 +109,24 @@ test("the Power announcement uses a one-based position for a middle step", async
   try {
     await press(view.container.querySelector("[aria-label='Power']"), "ArrowRight");
     assert.deepEqual(view.selections, ["medium"]);
-    assert.equal(textOf(view.container.querySelector("[role='status']")), "Model Standard, 2 of 3.");
+    assert.equal(textOf(view.container.querySelector("[role='status']")), "Model Medium, 2 of 3.");
     assert.equal(view.container.querySelector("[role='status']").getAttribute("aria-live"), "polite");
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("the slider selects a step from a pointer release", async () => {
+  const view = await renderSlider();
+  try {
+    const track = view.container.querySelector("[data-power-track]");
+    assert.ok(track);
+    track.getBoundingClientRect = () => ({ left: 100, width: 200 });
+    await React.act(async () => {
+      track.dispatchEvent(new DomEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, pointerId: 9, clientX: 200 }));
+      track.dispatchEvent(new DomEvent("pointerup", { bubbles: true, cancelable: true, button: 0, pointerId: 9, clientX: 200 }));
+    });
+    assert.deepEqual(view.selections, ["medium"]);
   } finally {
     await view.unmount();
   }
@@ -148,11 +192,7 @@ test("the reset control shows for an explicit override, measures 32 px, and carr
     assert.equal(reset.getAttribute("aria-label"), "Reset to default");
     assert.equal(reset.getAttribute("title"), "Reset to default");
 
-    const sliderRow = view.container.querySelector("[data-slider-row]");
-    assert.ok(sliderRow);
-    assert.ok(sliderRow.contains(reset));
-
-    const sliderStart = view.container.querySelector("[data-slider-start]");
+    const sliderStart = view.container.querySelector("[data-model-effort-header]");
     assert.ok(sliderStart);
     assert.ok(sliderStart.contains(reset));
 

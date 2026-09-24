@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Match the Composer effort popup to the reference header and pill slider, and use OMP effort names.
 - Show agent identity, role, model tooltips, and overflow-only prompt tooltips in multi-agent transcript rows.
 
 - Multi-agent transcript actions now show one row per agent with action-specific text and optional input.
