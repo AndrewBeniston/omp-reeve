@@ -249,7 +249,7 @@ export function ModelPowerSlider({
                   className={styles.dot}
                   data-power-dot
                   data-step-id={step.id}
-                  data-effort={step.effort}
+                  data-effort={step.id === "auto" ? "auto" : step.effort}
                   data-filled={index < visibleIndex ? "true" : "false"}
                   variables={{ "--ui-power-position": String(position) }}
                 />

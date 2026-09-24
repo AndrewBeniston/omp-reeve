@@ -100,8 +100,9 @@ test("the model menu opens on the OMP power steps", async () => {
   assert.equal(menu.querySelector("[data-model-menu-row='effort']"), null);
   assert.equal(menu.querySelector("[aria-label='Select model']")?.getAttribute("aria-haspopup"), "menu");
   const dots = menu.querySelectorAll("[data-power-dot]");
-  assert.deepEqual(dots.map((dot) => dot.getAttribute("data-effort")), ["none", "medium", "high", "max"]);
-  assert.deepEqual(dots.map((dot) => dot.getAttribute("data-filled")), ["true", "true", "false", "false"]);
+  // The first position is Auto. It lets OMP pick the effort.
+    assert.deepEqual(dots.map((dot) => dot.getAttribute("data-effort")), ["auto", "none", "medium", "high", "max"]);
+  assert.deepEqual(dots.map((dot) => dot.getAttribute("data-filled")), ["true", "true", "true", "false", "false"]);
   assert.equal(menu.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "high");
   await click(menu.querySelector("[aria-label='Select model']"));
   await settle();
@@ -184,7 +185,7 @@ test("dragging the power thumb previews steps and selects one effort on release"
   assert.equal(document.body.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "max");
   assert.deepEqual(
     document.body.querySelectorAll("[data-power-dot]").map((dot) => dot.getAttribute("data-filled")),
-    ["true", "true", "true", "true", "false"],
+    ["true", "true", "true", "true", "true", "false"],
   );
   await pointer("pointerup", 280);
   await pointer("pointerup", 280);
@@ -533,7 +534,7 @@ test("the model menu shows supported power steps beside Speed and Advanced", asy
     ["menu", "menu", "menu"],
   );
   assert.equal(menu.querySelector("[data-model-menu-row='effort']"), null);
-  assert.deepEqual(menu.querySelectorAll("[data-power-dot]").map((dot) => dot.getAttribute("data-effort")), ["low", "medium", "high", "xhigh", "max"]);
+  assert.deepEqual(menu.querySelectorAll("[data-power-dot]").map((dot) => dot.getAttribute("data-effort")), ["auto", "low", "medium", "high", "xhigh", "max"]);
   assert.equal(menu.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "high");
   await view.unmount();
 });
@@ -730,8 +731,9 @@ test("an automatic effort stays labelled while the slider has no current thumb",
   await settle();
   const power = document.body.querySelector("[data-model-power-view]");
   assert.ok(power);
-  assert.equal(power.querySelectorAll("[data-power-dot]").length, 2);
-  assert.equal(power.querySelector("[data-power-thumb]"), null);
+  // Auto is the first slider position, and the thumb rests on it.
+  assert.equal(power.querySelectorAll("[data-power-dot]").length, 3);
+  assert.equal(power.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "auto");
   assert.match(textOf(power), /Auto/);
   await view.unmount();
 });
@@ -748,8 +750,9 @@ test("the power slider excludes a current level that the selected model does not
   await settle();
   const power = document.body.querySelector("[data-model-power-view]");
   assert.ok(power);
-  assert.deepEqual(power.querySelectorAll("[data-power-dot]").map((dot) => dot.getAttribute("data-effort")), ["low", "high"]);
-  assert.equal(power.querySelector("[data-power-thumb]"), null);
+  assert.deepEqual(power.querySelectorAll("[data-power-dot]").map((dot) => dot.getAttribute("data-effort")), ["auto", "low", "high"]);
+  // An unreported level has no position, so the thumb rests on Auto.
+  assert.equal(power.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "auto");
   await view.unmount();
 });
 
@@ -837,6 +840,39 @@ test("the Advanced menu preserves OMP's Auto and Off effort modes", async () => 
   await settle();
 
   assert.deepEqual(picked, ["auto"]);
+  await view.unmount();
+});
+
+test("the Advanced icon opens its menu on click only, and a second click closes it", async () => {
+  const view = await mountComposer({
+    ...modelProps,
+    thinkingLevel: "high",
+    availableThinkingLevels: ["low", "medium", "high"],
+    onThinkingLevelChange() {},
+    onToolPresetChange() {},
+  });
+
+  await click(triggerFor(view.container, "Model settings"));
+  await settle();
+  const icon = document.body.querySelector("[data-model-power-view]").querySelector("[data-model-menu-row='advanced']");
+  assert.ok(icon, "the Advanced icon sits inside the effort popup");
+  assert.equal(icon.getAttribute("aria-label"), "Advanced");
+  await React.act(async () => {
+    icon.dispatchEvent(new DomEvent("mouseover", { bubbles: true }));
+    icon.dispatchEvent(new DomEvent("mouseenter", { bubbles: false }));
+    icon.dispatchEvent(new DomEvent("pointerenter", { bubbles: false }));
+  });
+  await settle();
+  assert.equal(document.body.querySelector("[data-model-submenu='advanced']"), null, "hover opens nothing");
+
+  await click(icon);
+  await settle();
+  assert.ok(document.body.querySelector("[data-model-submenu='advanced']"), "click opens the menu");
+  assert.equal(icon.getAttribute("aria-expanded"), "true");
+
+  await click(document.body.querySelector("[data-model-power-view]").querySelector("[data-model-menu-row='advanced']"));
+  await settle();
+  assert.equal(document.body.querySelector("[data-model-submenu='advanced']"), null, "a second click closes the menu");
   await view.unmount();
 });
 
