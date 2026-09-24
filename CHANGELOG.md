@@ -11,6 +11,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Show agent identity, role, model tooltips, and overflow-only prompt tooltips in multi-agent transcript rows.
+
 - Multi-agent transcript actions now show one row per agent with action-specific text and optional input.
 - Classify usage-limit failures on the server so saved and live notes keep their retry timing.
 - Show grouped pasted-text attachment rows on sent user messages.

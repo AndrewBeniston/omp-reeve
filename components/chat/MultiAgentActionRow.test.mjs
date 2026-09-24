@@ -17,9 +17,57 @@ const agent = (id, name, status = "running") => ({
   lastUpdate: 0,
 });
 
-function rows(actions, agents = []) {
-  return h(I18nProvider, null, h(MultiAgentActionRows, { actions, agents }));
+function rows(actions, agents = [], modelList = []) {
+  return h(I18nProvider, null, h(MultiAgentActionRows, { actions, agents, modelList }));
 }
+
+test("the agent chip removes one leading at sign", async () => {
+  const view = await mount(rows([{ kind: "spawn", state: "completed", receiverThreadIds: ["agent-a"], agentName: "@Alpha" }]));
+  assert.equal(view.container.querySelector("[data-agent-chip]")?.textContent, "Alpha");
+  await view.unmount();
+});
+
+test("a non-default agent role appears in parentheses", async () => {
+  const view = await mount(rows([{ kind: "spawn", state: "completed", receiverThreadIds: ["agent-a"], agentName: "Alpha", role: "reviewer" }]));
+  assert.equal(view.container.querySelector("[data-agent-chip]")?.textContent, "Alpha (reviewer)");
+  await view.unmount();
+});
+
+test("a known agent model supplies its model tooltip", async () => {
+  const view = await mount(rows([{ kind: "spawn", state: "completed", receiverThreadIds: ["agent-a"], agentName: "Alpha", model: "gpt-4o" }], [], [{ id: "gpt-4o", name: "GPT-4o", provider: "openai" }]));
+  assert.equal(view.container.querySelector("[data-agent-chip]")?.textContent, "Alpha");
+  assert.equal(view.container.querySelector("[role='tooltip']")?.textContent, "GPT-4o");
+  await view.unmount();
+});
+
+test("an unknown agent model supplies no tooltip", async () => {
+  const view = await mount(rows([{ kind: "spawn", state: "completed", receiverThreadIds: ["agent-a"], agentName: "Alpha", model: "missing" }], [], [{ id: "gpt-4o", name: "GPT-4o", provider: "openai" }]));
+  assert.equal(view.container.querySelector("[role='tooltip']"), null);
+  await view.unmount();
+});
+
+test("prompt text stays on one line", async () => {
+  const view = await mount(rows([{ kind: "interrupt", state: "inProgress", receiverThreadIds: ["agent-a"], prompt: "A long prompt" }]));
+  const input = view.container.querySelector("[data-multi-agent-action-text='input']");
+  assert.ok(input);
+  assert.equal(input.getAttribute("data-overflow"), "false");
+  await view.unmount();
+});
+
+test("the prompt tooltip opens only when the text overflows", async () => {
+  const view = await mount(rows([{ kind: "interrupt", state: "inProgress", receiverThreadIds: ["agent-a"], prompt: "A long prompt" }]));
+  const input = view.container.querySelector("[data-multi-agent-action-text='input']");
+  assert.ok(input);
+  assert.equal(view.container.querySelector("[role='tooltip']"), null);
+  Object.defineProperty(input, "scrollWidth", { configurable: true, value: 200 });
+  Object.defineProperty(input, "clientWidth", { configurable: true, value: 100 });
+  await view.render(rows([{ kind: "interrupt", state: "inProgress", receiverThreadIds: ["agent-a"], prompt: "A different prompt" }]));
+  const updatedInput = view.container.querySelector("[data-multi-agent-action-text='input']");
+  assert.ok(updatedInput);
+  assert.equal(updatedInput.getAttribute("data-overflow"), "true");
+  assert.equal(view.container.querySelector("[role='tooltip']")?.textContent, "Input: A different prompt");
+  await view.unmount();
+});
 
 test("renders a per-agent state and message from the action state map", async () => {
   const view = await mount(h(I18nProvider, null, h(MultiAgentActionRows, {

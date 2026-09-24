@@ -13,7 +13,8 @@ import { composeActivitySummary } from "@/lib/transcript/activity-summary";
 import type { SubagentSnapshot } from "@/lib/types";
 import { SubagentActivityRow, SubagentGroupSummary, visibleSubagentRows } from "./SubagentActivityRow";
 import { MultiAgentActionHeader } from "./MultiAgentActionHeader";
-import { MultiAgentActionRows, multiAgentActionPrompt, multiAgentAgentMessage, multiAgentPerAgentState, multiAgentPerAgentStates } from "./MultiAgentActionRow";
+import { MultiAgentActionRows, multiAgentActionPrompt, multiAgentAgentMessage, multiAgentAgentModel, multiAgentAgentName, multiAgentAgentRole, multiAgentPerAgentState, multiAgentPerAgentStates } from "./MultiAgentActionRow";
+import type { AgentChipModel } from "./AgentChip";
 import { multiAgentActionIds, multiAgentActionKind, multiAgentActionState } from "@/lib/transcript/multi-agent-action-header";
 import styles from "./activity-row.module.css";
 
@@ -107,7 +108,7 @@ export function ActivityHeader({ input }: ActivityHeaderProps) {
   );
 }
 
-export function ActivityRow({ block, result, interrupted = false, groupedCalls, subagents = [], onOpenSubagent }: { block: ToolCallContent; result?: ToolResultMessage; interrupted?: boolean; groupedCalls?: ActivityCall[]; subagents?: SubagentSnapshot[]; onOpenSubagent?: (id: string) => void }) {
+export function ActivityRow({ block, result, interrupted = false, groupedCalls, subagents = [], modelList, onOpenSubagent }: { block: ToolCallContent; result?: ToolResultMessage; interrupted?: boolean; groupedCalls?: ActivityCall[]; subagents?: SubagentSnapshot[]; modelList?: readonly AgentChipModel[]; onOpenSubagent?: (id: string) => void }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const group = groupedCalls ? activityCallGroups(groupedCalls).find((candidate) => candidate.repeated) : undefined;
@@ -118,6 +119,9 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls, 
     kind: actionKind,
     state: multiAgentActionState(call.result?.isError, Boolean(call.result), call.result?.details),
     prompt: multiAgentActionPrompt(call.block.input),
+    agentName: multiAgentAgentName(call.block.input),
+    role: multiAgentAgentRole(call.block.input),
+    model: multiAgentAgentModel(call.block.input),
     agentState: multiAgentPerAgentState(call.block.input),
     agentMessage: multiAgentAgentMessage(call.block.input),
     perAgentStates: multiAgentPerAgentStates(call.block.input),
@@ -143,7 +147,7 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls, 
   const agentStates = new Map(parentSubagents.map((snapshot) => [snapshot.id, snapshot.status === "failed" ? "failed" as const : snapshot.status === "aborted" || (snapshot.status as string) === "cancelled" ? "interrupted" as const : snapshot.status === "completed" ? "completed" as const : "inProgress" as const]));
   const multiAgentHeader = actionKind ? <MultiAgentActionHeader input={{ actions: actionCalls, agentStates, actionCount: calls.length }} /> : null;
   const perAgentStates = new Map(actionCalls.flatMap((action) => [...(action.perAgentStates ?? [])]));
-  const multiAgentRows = actionKind ? <MultiAgentActionRows actions={actionCalls} agents={subagents} perAgentStates={perAgentStates} /> : null;
+  const multiAgentRows = actionKind ? <MultiAgentActionRows actions={actionCalls} agents={subagents} perAgentStates={perAgentStates} modelList={modelList} /> : null;
   if (group) {
     return (
       <div data-activity-repeats-group>

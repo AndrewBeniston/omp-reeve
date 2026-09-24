@@ -2,9 +2,11 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { UserRound } from "lucide-react";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { useI18n } from "@/hooks/useI18n";
 import type { SubagentSnapshot } from "@/lib/types";
 import type { MultiAgentActionState } from "@/lib/transcript/multi-agent-action-header";
+import { AgentChip, type AgentChipModel } from "./AgentChip";
 import styles from "./multi-agent-action-row.module.css";
 
 export type MultiAgentPerAgentActionState = "pendingInit" | "running" | "completed" | "errored" | "interrupted" | "shutdown" | "notFound";
@@ -22,6 +24,9 @@ export interface MultiAgentPerAgentAction {
   prompt?: string;
   agentState?: MultiAgentPerAgentActionState;
   agentMessage?: string;
+  agentName?: string;
+  role?: string;
+  model?: string;
   perAgentStates?: ReadonlyMap<string, MultiAgentPerAgentState>;
 }
 
@@ -43,6 +48,24 @@ export function multiAgentAgentMessage(input: Record<string, unknown>): string |
   return text(input.agentMessage) ?? text(input.agent_message);
 }
 
+export function multiAgentAgentName(input: Record<string, unknown>): string | undefined {
+  return text(input.agentName) ?? text(input.agent_name);
+}
+
+export function multiAgentAgentRole(input: Record<string, unknown>): string | undefined {
+  return text(input.agentRole) ?? text(input.agent_role) ?? text(input.role);
+}
+
+export function multiAgentAgentModel(input: Record<string, unknown>): string | undefined {
+  const value = input.model ?? input.modelId ?? input.model_id;
+  if (typeof value === "string") return text(value);
+  if (value && typeof value === "object") {
+    const model = value as { id?: unknown; modelId?: unknown };
+    return text(model.id) ?? text(model.modelId);
+  }
+  return undefined;
+}
+
 export function multiAgentPerAgentStates(input: Record<string, unknown>): Map<string, MultiAgentPerAgentState> {
   const value = input.agentStates ?? input.agent_states;
   const entries = value && typeof value === "object" && !Array.isArray(value) ? Object.entries(value) : [];
@@ -61,6 +84,16 @@ function agentName(agentId: string, agents: readonly SubagentSnapshot[]): string
   const agent = agents.find((candidate) => candidate.id === agentId);
   const name = agent?.agent.trim();
   return name && name !== agentId ? name : undefined;
+}
+
+function agentRole(agentId: string, agents: readonly SubagentSnapshot[]): string | undefined {
+  const value = (agents.find((candidate) => candidate.id === agentId) as (SubagentSnapshot & { role?: unknown }) | undefined)?.role;
+  return typeof value === "string" ? value : undefined;
+}
+
+function agentModel(agentId: string, agents: readonly SubagentSnapshot[]): string | undefined {
+  const value = (agents.find((candidate) => candidate.id === agentId) as (SubagentSnapshot & { model?: unknown }) | undefined)?.model;
+  return typeof value === "string" ? value : undefined;
 }
 
 function snapshotState(agentId: string, agents: readonly SubagentSnapshot[]): MultiAgentPerAgentActionState | undefined {
@@ -86,25 +119,37 @@ function stateSuffix(action: MultiAgentPerAgentAction, t: (key: string, params?:
   return action.agentMessage ? ` (${state}: ${action.agentMessage})` : ` (${state})`;
 }
 
-function rowText(action: MultiAgentPerAgentAction, agent: string, t: (key: string, params?: Record<string, string | number>) => string): { label: string; showInput: boolean } {
+const AGENT_PLACEHOLDER = "\u0000agent\u0000";
+
+function splitAgentLabel(label: string): { before: string; after: string } {
+  const index = label.indexOf(AGENT_PLACEHOLDER);
+  if (index < 0) return { before: label, after: "" };
+  return { before: label.slice(0, index), after: label.slice(index + AGENT_PLACEHOLDER.length) };
+}
+
+function rowText(action: MultiAgentPerAgentAction, agent: string, t: (key: string, params?: Record<string, string | number>) => string): { labelBefore: string; labelAfter: string; showInput: boolean } {
   const prompt = action.prompt;
   const sendInputWithPrompt = action.kind === "sendInput" && prompt !== undefined;
   const labelKey = actionKey(action, sendInputWithPrompt);
   if (agent && action.kind === "spawn" && action.state === "completed" && prompt) {
-    return { label: t("transcript.multiAgentAction.row.spawn.createdWithInstructions", { agent, instructions: prompt }), showInput: false };
+    const split = splitAgentLabel(t("transcript.multiAgentAction.row.spawn.createdWithInstructions", { agent: AGENT_PLACEHOLDER, instructions: prompt }));
+    return { labelBefore: split.before, labelAfter: split.after, showInput: false };
   }
   if (agent && action.kind === "sendInput" && prompt) {
-    return { label: t("transcript.multiAgentAction.row.sendInput.messagedWithPrompt", { action: t(labelKey), agent, prompt }), showInput: false };
+    const split = splitAgentLabel(t("transcript.multiAgentAction.row.sendInput.messagedWithPrompt", { action: t(labelKey), agent: AGENT_PLACEHOLDER, prompt }));
+    return { labelBefore: split.before, labelAfter: split.after, showInput: false };
   }
   const actionText = t(labelKey);
-  if (!agent) return { label: t("transcript.multiAgentAction.row.generic", { action: actionText }), showInput: Boolean(action.prompt) };
-  return { label: t("transcript.multiAgentAction.row.agent", { action: actionText, agent, stateSuffix: stateSuffix(action, t) }), showInput: Boolean(action.prompt) };
+  if (!agent) return { labelBefore: t("transcript.multiAgentAction.row.generic", { action: actionText }), labelAfter: "", showInput: Boolean(action.prompt) };
+  const split = splitAgentLabel(t("transcript.multiAgentAction.row.agent", { action: actionText, agent: AGENT_PLACEHOLDER, stateSuffix: stateSuffix(action, t) }));
+  return { labelBefore: split.before, labelAfter: split.after, showInput: Boolean(action.prompt) };
 }
 
-export function MultiAgentActionRows({ actions, agents, perAgentStates }: {
+export function MultiAgentActionRows({ actions, agents, perAgentStates, modelList }: {
   actions: readonly MultiAgentPerAgentAction[];
   agents?: readonly SubagentSnapshot[];
   perAgentStates?: ReadonlyMap<string, MultiAgentPerAgentState>;
+  modelList?: readonly AgentChipModel[];
 }) {
   const { t } = useI18n();
   const ids = [...new Set(actions.flatMap((action) => [...(action.receiverThreadIds ?? []), ...(action.agentIds ?? [])]).filter(Boolean))].sort();
@@ -112,25 +157,38 @@ export function MultiAgentActionRows({ actions, agents, perAgentStates }: {
     const action = actions[0];
     if (!action) return null;
     const content = rowText(action, "", t);
-    return <MultiAgentActionRow label={content.label} input={content.showInput ? action.prompt : undefined} />;
+    return <MultiAgentActionRow labelBefore={content.labelBefore} labelAfter={content.labelAfter} input={content.showInput ? action.prompt : undefined} />;
   }
   return <>{ids.map((id) => {
     const action = actions.find((candidate) => candidate.receiverThreadIds?.includes(id) || candidate.agentIds?.includes(id)) ?? actions[0]!;
     const knownAgents = agents ?? [];
     const perAgentState = perAgentStates?.get(id);
     const rowAction = perAgentState ? { ...action, agentState: perAgentState.state, agentMessage: perAgentState.message } : action.agentState ? action : { ...action, agentState: snapshotState(id, knownAgents) };
-    const content = rowText(rowAction, agentName(id, knownAgents) ?? "", t);
-    return <MultiAgentActionRow key={id} label={content.label} input={content.showInput ? action.prompt : undefined} />;
+    const content = rowText(rowAction, agentName(id, knownAgents) ?? action.agentName ?? "", t);
+    return <MultiAgentActionRow
+      key={id}
+      labelBefore={content.labelBefore}
+      labelAfter={content.labelAfter}
+      agent={agentName(id, knownAgents) ?? action.agentName}
+      role={action.role ?? agentRole(id, knownAgents)}
+      model={action.model ?? agentModel(id, knownAgents)}
+      modelList={modelList}
+      input={content.showInput ? action.prompt : undefined}
+    />;
   })}</>;
 }
 
-function MultiAgentActionRow({ label, input }: { label: string; input?: string }) {
+function MultiAgentActionRow({ labelBefore, labelAfter, agent, role, model, modelList, input }: { labelBefore: string; labelAfter: string; agent?: string; role?: string; model?: string; modelList?: readonly AgentChipModel[]; input?: string }) {
   const { t } = useI18n();
   return (
     <div className={styles.row} data-multi-agent-action-row>
       <span className={styles.icon}><UserRound aria-hidden="true" /></span>
       <span className={styles.copy}>
-        <OverflowText className={styles.label} text={label} label="label" />
+        <span className={styles.label} data-multi-agent-action-text="label">
+          <span>{labelBefore}</span>
+          {agent ? <AgentChip name={agent} role={role} model={model} modelList={modelList} /> : null}
+          <span>{labelAfter}</span>
+        </span>
         {input ? <OverflowText className={styles.input} text={t("transcript.multiAgentAction.meta.prompt", { prompt: input })} label="input" /> : null}
       </span>
     </div>
@@ -139,10 +197,12 @@ function MultiAgentActionRow({ label, input }: { label: string; input?: string }
 
 function OverflowText({ className, text, label }: { className: string; text: string; label: "label" | "input" }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const [title, setTitle] = useState<string>();
-  useLayoutEffect(() => {
+  const [overflowing, setOverflowing] = useState(false);
+  const checkOverflow = () => {
     const element = ref.current;
-    setTitle(element && element.scrollWidth > element.clientWidth ? text : undefined);
-  }, [text]);
-  return <span ref={ref} className={className} title={title} data-multi-agent-action-text={label}>{text}</span>;
+    setOverflowing(Boolean(element && element.scrollWidth > element.clientWidth));
+  };
+  useLayoutEffect(checkOverflow, [text]);
+  const content = <span ref={ref} className={className} data-multi-agent-action-text={label} data-overflow={overflowing} onMouseEnter={checkOverflow} onFocusCapture={checkOverflow}>{text}</span>;
+  return overflowing ? <Tooltip content={text}>{content}</Tooltip> : content;
 }
