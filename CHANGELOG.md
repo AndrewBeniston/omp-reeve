@@ -12,6 +12,7 @@ the What's New dialog adds a second page that invites support.
 ### Added
 
 - Goal editors can update the objective and token budget, open a Goal tab, and confirm Goal replacement and resume.
+- Existing Sessions can now move to another project from the Composer.
 - Goal objectives can now be edited without resetting the Goal identity or accounting.
 - Goal continuations wait for an idle Session and stop while a draft or attachment is pending.
 - Show interrupted process turns with their activity, elapsed time, and saved error after reload.
@@ -48,6 +49,8 @@ the What's New dialog adds a second page that invites support.
 - The fork action on user messages now opens a destination dialog to fork into the current workspace, same worktree, or a new worktree.
 - The queue persists failed message sends with safe error summaries, reload and reconnect reconciliation, and a Retry command.
 ### Fixed
+
+- The Full access note above the Composer reads on one line instead of one word per line.
 
 - The Composer footer stays on one row at every width. The model name shortens instead of pushing the controls onto a second line.
 - The model chip is as tall as the Send button, keeps a gap before it, and reads Select effort while its popup is open.

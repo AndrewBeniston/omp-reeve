@@ -28,6 +28,7 @@ import { useAgentSession, type AgentPhase, type NoticeItem } from "@/hooks/useAg
 import { useDragDrop } from "@/hooks/useDragDrop";
 import { getSecureAttachmentPicker } from "@/lib/desktop-attachments";
 import type { ProjectTrustStatus } from "@/lib/api-types";
+import type { SessionRelocationResult } from "@/lib/session-relocation";
 import type { AgentControlReply, AgentControlRequestEvent } from "@/lib/agent-control/types";
 import type { ReviewSlashOutcome, ReviewSlashRequest } from "@/lib/review-slash-entries";
 import type { SessionStatsInfo } from "@/lib/omp-types";
@@ -133,6 +134,7 @@ interface Props {
   onHomeProjectlessSelected?: () => void;
   onSelectWorktree?: (path: string) => void;
   onRegisterProjectCommand?: (open: () => void) => void;
+  onWorkspaceRelocated?: (result: SessionRelocationResult) => void;
   /**
    * Compose and deliver a review the human asked for, bound to the Review
    * this Session owns. Absent when it owns none.
@@ -202,7 +204,7 @@ function withAssistantBlocks(
   return next;
 }
 
-export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFooterPosition = true, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onOpenSession = () => {}, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onGoalTabState, onSubagentsChange, onOpenSubagent, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onSelectWorktree, onRegisterProjectCommand, onRequestReview, onListReviewBranches, reviewGate, historyLoadFailure }: Props) {
+export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFooterPosition = true, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onOpenSession = () => {}, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onGoalTabState, onSubagentsChange, onOpenSubagent, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onSelectWorktree, onRegisterProjectCommand, onWorkspaceRelocated, onRequestReview, onListReviewBranches, reviewGate, historyLoadFailure }: Props) {
   const { t } = useI18n();
 
   // Wrap onAgentEnd to play the completion sound. This is more reliable than
@@ -242,7 +244,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     handleReorderQueuedMessages, handleRetryQueuedMessage, handleSendQueuedMessageNow, handleResumeQueuedMessages, handleResolvePausedQueueSubmission,
     releaseActiveTurnHold,
     handleBuiltinSlashCommand,
-    handleToolPresetChange, handleApprovalModeChange, handleThinkingLevelChange, handleCycleThinkingLevel, handleFastModeChange, loadSlashCommands, ensureNewSession,
+    handleToolPresetChange, handleApprovalModeChange, handleThinkingLevelChange, handleCycleThinkingLevel, handleFastModeChange, loadTools, loadSlashCommands, ensureNewSession,
   } = useAgentSession({
     session, newSessionCwd, onAgentEnd: wrappedOnAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, onSessionNameChanged,
     onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onRequestReview, translate: t,
@@ -255,6 +257,10 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     if (!onGoalTabState || !session?.id) return;
     onGoalTabState(session.id, goalState.goal, goalState.update, false);
   }, [goalState.goal, goalState.update, onGoalTabState, session?.id]);
+  const handleWorkspaceRelocated = useCallback((result: SessionRelocationResult) => {
+    void loadTools(result.sessionId);
+    onWorkspaceRelocated?.(result);
+  }, [loadTools, onWorkspaceRelocated]);
   const handleEditContent = useCallback((message: UserMessage) => {
     chatInputRef?.current?.replaceMessage(message);
   }, [chatInputRef]);
@@ -593,6 +599,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
       onSelectWorktree={onSelectWorktree}
       onSelectProject={onHomeProjectSelected}
       onRegisterProjectCommand={onRegisterProjectCommand}
+      onWorkspaceRelocated={session ? handleWorkspaceRelocated : undefined}
       footerMode={isEmptyNew ? "home" : "session"}
     />
   );
