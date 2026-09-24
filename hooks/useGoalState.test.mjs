@@ -311,6 +311,39 @@ test("the initial Goal read uses the read-only Session GET route", async () => {
   }
 });
 
+test("the Goal client reads pending continuation from the live Wrapper state", async () => {
+  const originalFetch = globalThis.fetch;
+  const activeGoal = goal("active");
+  let pending = true;
+  globalThis.fetch = async () => ({
+    ok: true,
+    async json() {
+      return {
+        running: true,
+        state: { goalContinuationPending: pending },
+        goal: activeGoal,
+        goalState: { enabled: true, mode: "active", goal: activeGoal },
+      };
+    },
+  });
+  let client;
+  function Harness() {
+    client = useGoalState("session-one");
+    return h("div");
+  }
+  const view = await mount(h(Harness));
+  try {
+    await settle();
+    assert.equal(client.continuationPending, true);
+    pending = false;
+    await React.act(async () => { await client.refresh(); });
+    assert.equal(client.continuationPending, false);
+  } finally {
+    await view.unmount();
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("a new Session without an id has no Goal and makes no request", async () => {
   const originalFetch = globalThis.fetch;
   let client;
