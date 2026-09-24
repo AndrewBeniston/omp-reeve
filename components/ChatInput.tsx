@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useReducer, useCallback, useEffect, useLayoutEffect, useImperativeHandle, useMemo, forwardRef } from "react";
+import { ArrowUp } from "lucide-react";
 import type { BuiltinSlashCommandResult, CompactResultInfo, QueuedMessages } from "@/hooks/useAgentSession";
 import type { ModelRoleAssignment, PluginPackageInfo, PluginsResponse, ProjectTrustStatus, SkillInfo, SkillsResponse } from "@/lib/api-types";
 import type { ContextUsage, SessionStatsInfo, SlashCommandInfo } from "@/lib/omp-types";
@@ -74,7 +75,6 @@ import {
   ComposerFrame,
 } from "./chat/ComposerFrame";
 import { ComposerAutocomplete } from "./chat/ComposerAutocomplete";
-import { GoalEntryButton } from "./chat/GoalEntryButton";
 import { ComposerAddMenu } from "./chat/ComposerAddMenu";
 import { CommandArgumentsDialog } from "./chat/CommandArgumentsDialog";
 import { ComposerEditor, type ComposerEditorHandle } from "./chat/ComposerEditor";
@@ -87,7 +87,7 @@ import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
 import { DictationControl, type DictationAction, type DictationError, type DictationState } from "./chat/DictationControl";
 import { ApprovalModeSelector } from "./chat/ApprovalModeSelector";
-import { SendArrowIcon, StopSquareIcon } from "./navigation/CodexIcons";
+import { StopSquareIcon } from "./navigation/CodexIcons";
 import { Menu, MenuItem } from "./ui/Menu";
 import { Tooltip } from "./ui/Tooltip";
 import cssModule from "./chat/composer.module.css";
@@ -2396,6 +2396,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                     aria-busy={modelSwitching || undefined}
                     aria-expanded={modelDropdownOpen}
                     className={`${styles.stateControl} ${styles.menuTrigger}`}
+                    data-composer-icon="model"
                     data-state={modelSwitching ? "running" : "idle"}
                     data-streaming={isStreaming ? "true" : "false"}
                     data-mobile={isMobile ? "true" : "false"}
@@ -2405,8 +2406,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className={styles.spinner} aria-hidden="true">
                         <path d="M21 12a9 9 0 1 1-2.64-6.36" />
                       </svg>
-                    ) : <ModelBoltIcon />}
-                    {currentName && selector.currentRouteLabel && <span className={styles.modelRoute}>{selector.currentRouteLabel}</span>}
+                    ) : null}
                     {modelChipHasPrefix && <span className={`${styles.ellipsis} ${styles.modelName}`}>
                       {currentName ?? "No models"}
                     </span>}
@@ -2601,12 +2601,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 else onSelectProject(path);
               }}
             />}
-            {cwd && onSelectWorktree && <ComposerWorktreeControl ref={worktreeControlRef} cwd={cwd} onSelect={(path) => {
-              if (hasUnsentComposerInput(value, attachedImages.length, localAttachments.length)) setPendingWorktreePath(path);
-              else onSelectWorktree(path);
-            }} />}
             {commandActionError && <span role="alert">{commandActionError}</span>}
-            {onOpenGoal && <GoalEntryButton onOpen={() => onOpenGoal("")} disabled={isStreaming} />}
             <ComposerAddMenu
               loading={Boolean(slashCommandsLoading || composerResourcesLoading)}
               onOpen={() => {
@@ -2759,7 +2754,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 aria-label={queueingEnabled ? t("chat.queueMessage") : t("chat.steerMessage")}
                 className={styles.sendAction}
               >
-                <SendArrowIcon />
+                <ArrowUp size={16} strokeWidth={1.75} data-composer-icon="send-arrow" aria-hidden="true" />
               </button>
             </Tooltip>
           )}
@@ -2789,7 +2784,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             aria-label={t("chat.send")}
             className={styles.sendAction}
           >
-            <SendArrowIcon />
+            <ArrowUp size={16} strokeWidth={1.75} data-composer-icon="send-arrow" aria-hidden="true" />
           </button>
         </Tooltip>
       )}
@@ -3057,14 +3052,6 @@ function AnimatedEffortLabel({ label, topStep, hasModelPrefix }: { label: string
       {outgoingLabel !== null && <span ref={outgoingRef} className={styles.reasoningOld} aria-hidden="true">{outgoingLabel}</span>}
       <span ref={currentRef} className={styles.reasoningCurrent}>{label}</span>
     </span>
-  );
-}
-
-function ModelBoltIcon() {
-  return (
-    <svg data-composer-icon="model" className={styles.modelIcon} width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-      <path d="M9.2 1.5 3.8 8.6h3.8l-.8 5.9 5.4-7.1H8.4z" />
-    </svg>
   );
 }
 
