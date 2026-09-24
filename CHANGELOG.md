@@ -156,6 +156,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Fixed
 
+- Agent sessions now start in desktop builds after Next installs its server require hook.
+
 - Goal tests now ignore asynchronously discovered MCP tools when checking tool restoration.
 
 - `/collab list` now shows the active local collaboration hosts. OMP added
