@@ -47,6 +47,8 @@ the What's New dialog adds a second page that invites support.
 - The fork action on user messages now opens a destination dialog to fork into the current workspace, same worktree, or a new worktree.
 - The queue persists failed message sends with safe error summaries, reload and reconnect reconciliation, and a Retry command.
 ### Fixed
+
+- The Composer footer stays on one row at every width. The model name shortens instead of pushing the controls onto a second line.
 - The model chip is as tall as the Send button, keeps a gap before it, and reads Select effort while its popup is open.
 - The empty Composer is compact again. The placeholder sits 14 px from the top, and the footer controls are 28 px tall.
 - The effort popup uses a grid header, so a long effort name no longer moves the model name or the Advanced icon. The slider thumb slides between steps, and the reset button is gone.

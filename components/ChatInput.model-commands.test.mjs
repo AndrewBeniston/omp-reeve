@@ -109,7 +109,7 @@ test("the compact Add menu omits model commands and preserves a message draft", 
   try {
     view.container.querySelector("form").getBoundingClientRect = () => ({ top: 500, left: 20, width: 600, height: 120 });
     await React.act(async () => { ref.current.insertText("Keep this draft"); });
-    await click(view.container.querySelector("[aria-label='Add']"));
+    await click(view.container.querySelector("[aria-label='Add files and more']"));
     const command = (prefix) => Array.from(domWindow.document.body.querySelectorAll("[role='menuitem']"))
       .find((item) => textOf(item).startsWith(prefix));
     assert.equal(command("Model"), undefined);

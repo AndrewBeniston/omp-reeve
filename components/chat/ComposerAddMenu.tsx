@@ -92,7 +92,8 @@ export function ComposerAddMenu({
   const visibleSections = (parent ? childrenFor?.(parent) ?? [] : sections)
     .map(section => ({
       ...section,
-      items: section.items.filter(item => item.raw !== "/plan" && !parkedAction.test(item.label)),
+      // Plan mode has its own row. Model and effort live in the model chip.
+      items: section.items.filter(item => !["/plan", "/model", "/reasoning"].includes(item.raw ?? "") && !parkedAction.test(item.label)),
     }))
     .filter(section => section.items.length > 0);
   const folderDisabled = Boolean(folderDisabledReason || !onBrowseFolder);

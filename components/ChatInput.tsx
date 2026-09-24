@@ -2682,6 +2682,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               childrenFor={item => {
                 if (item.raw === "/model") return allModelCommands.sections;
                 if (item.raw === "/reasoning") return allReasoningCommands.sections;
+                // Goal opens its own objective dialog, not a subcommand list.
+                if (item.raw === "/goal") return [];
                 const command = availableSlashCommands.find(command => item.raw === `/${command.name}`);
                 return command?.subcommands?.length ? buildSlashSubcommandSections(command, "") : [];
               }}
