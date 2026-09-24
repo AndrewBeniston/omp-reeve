@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { isUsageLimit } from "@oh-my-pi/pi-ai/error";
-import { extractProviderRetryHint } from "@oh-my-pi/pi-ai/utils/retry-after";
 import { AlertTriangle } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
 import type { AssistantMessage } from "@/lib/types";
@@ -17,13 +15,13 @@ export function UsageLimitNote({ message, onRetry }: UsageLimitNoteProps) {
   const { t, locale } = useI18n();
   const startedAt = useRef(Date.now());
   const [deadline] = useState(() => {
-    const retryAfterMs = extractProviderRetryHint(message.provider, message.errorMessage);
+    const retryAfterMs = message.usageLimit?.retryAfterMs;
     return retryAfterMs === undefined ? undefined : startedAt.current + retryAfterMs;
   });
   const [remainingMs, setRemainingMs] = useState(() => Math.max(0, (deadline ?? 0) - Date.now()));
   const cancelledRetry = useRef(false);
   const automaticRetryFired = useRef(false);
-  const classifiedUsageLimit = message.stopReason === "error" && isUsageLimit(message);
+  const classifiedUsageLimit = message.stopReason === "error" && message.usageLimit !== undefined;
 
   useEffect(() => {
     if (deadline === undefined) return;

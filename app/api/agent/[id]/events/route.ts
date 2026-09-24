@@ -1,4 +1,4 @@
-import { resolveSessionPath } from "@/lib/session-reader";
+import { classifyMessageEventUsageLimit, resolveSessionPath } from "@/lib/session-reader";
 import {
   getRpcSession,
   startRpcSession,
@@ -18,6 +18,7 @@ function toClientEvent(event: AgentEvent): AgentEvent | null {
     delete clientEvent.assistantMessageEvent;
     return clientEvent;
   }
+  if (event.type === "message_end") return classifyMessageEventUsageLimit(event);
   if (event.type === "agent_end") return { type: "agent_end" };
   return event;
 }

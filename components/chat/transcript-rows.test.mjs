@@ -26,7 +26,7 @@ test("a saved Session renders one row per message in Turn order", () => {
 test("a classified usage-limit failure is attached to the end of its Turn", () => {
   const messages = [
     { role: "user", content: "Question" },
-    { role: "assistant", content: [], model: "test", provider: "test", stopReason: "error", errorMessage: "Usage limit reached retry-after-ms=2000" },
+    { role: "assistant", content: [], model: "test", provider: "test", stopReason: "error", errorMessage: "Usage limit reached retry-after-ms=2000", usageLimit: { retryAfterMs: 2000 } },
   ];
 
   const rows = buildTranscriptRows(messages, ["u1", "a1"], null, false);

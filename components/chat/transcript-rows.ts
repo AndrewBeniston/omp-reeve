@@ -1,6 +1,5 @@
 import type { AgentMessage, FallbackRouteNote, ModelChangeNote } from "@/lib/types";
 import type { AssistantMessage, UserMessage } from "@/lib/types";
-import { isUsageLimit } from "@oh-my-pi/pi-ai/error";
 import { getAssistantErrorMessage, getDisplayableAssistantBlocks, splitFinalAssistantBlocks } from "@/lib/message-display";
 import { foldTurns, type TranscriptRecord, type TurnClock, type TurnPhase, type TurnTextPhase } from "@/lib/transcript/turn-folder";
 import { classifyActivityTool, type ActivityClassification } from "@/lib/transcript/activity-classifier";
@@ -199,7 +198,7 @@ export function buildTranscriptRows(
     const lastItem = items[items.length - 1].message;
     const usageLimitMessage = lastItem.role === "assistant"
       && lastItem.stopReason === "error"
-      && isUsageLimit(lastItem)
+      && lastItem.usageLimit !== undefined
       ? lastItem
       : undefined;
     const retryUserMessage = usageLimitMessage ? items[0].message as UserMessage : undefined;
