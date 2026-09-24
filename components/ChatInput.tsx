@@ -47,10 +47,17 @@ import {
   buildSlashSections,
   buildSlashSubcommandSections,
   extractSlashQuery,
+  formatSessionTranscriptContext,
   flattenSuggestionSections,
+  rankComposerSessionSources,
   resolveAutocompleteSelection,
   type ComposerSuggestion,
+  type ComposerMcpSource,
+  type ComposerSessionSource,
+  type ComposerTabSource,
+  type ComposerAgentSource,
 } from "@/lib/composer-intelligence";
+import type { ComposerSourceResponse } from "@/lib/composer-mention-types";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { selectComposerPlaceholder } from "./composer-placeholder";
 import { getSecureAttachmentPicker } from "@/lib/desktop-attachments";
@@ -77,6 +84,7 @@ import {
   ComposerFrame,
 } from "./chat/ComposerFrame";
 import { ComposerAutocomplete } from "./chat/ComposerAutocomplete";
+import { ComposerSourceMenu } from "./chat/ComposerSourceMenu";
 import { ComposerAddMenu } from "./chat/ComposerAddMenu";
 import { CommandArgumentsDialog } from "./chat/CommandArgumentsDialog";
 import { ComposerEditor, type ComposerEditorHandle } from "./chat/ComposerEditor";
@@ -649,9 +657,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const bashExcluded = bashMode && trimmedValue.startsWith("!!");
   const [slashMenuOpen, setSlashMenuOpen] = useState(false);
   const [slashActiveIndex, setSlashActiveIndex] = useState(0);
+  const [slashSearchQuery, setSlashSearchQuery] = useState("");
   const [atQuery, setAtQuery] = useState<AtQueryMatch | null>(null);
   const [atMenuOpen, setAtMenuOpen] = useState(false);
   const [atActiveIndex, setAtActiveIndex] = useState(0);
+  const [atFileQuery, setAtFileQuery] = useState("");
+  const [atConnectedQuery, setAtConnectedQuery] = useState("");
   const [historyMenuOpen, setHistoryMenuOpen] = useState(false);
   const [historyActiveIndex, setHistoryActiveIndex] = useState(0);
   const [textareaHeight, setTextareaHeight] = useState("auto");
@@ -663,6 +674,16 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     loading: boolean;
     skills: SkillInfo[];
     plugins: PluginPackageInfo[];
+  } | null>(null);
+  const [composerSourcesState, setComposerSourcesState] = useState<{
+    cwd: string;
+    loading: boolean;
+    sources: ComposerSourceResponse;
+  } | null>(null);
+  const [composerSessionContexts, setComposerSessionContexts] = useState<{
+    cwd: string;
+    query: string;
+    contexts: Record<string, string>;
   } | null>(null);
   const composerSkills = useMemo(
     () => cwd && composerResourcesState?.cwd === cwd ? composerResourcesState.skills : [],
@@ -677,6 +698,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     [composerPlugins, toolPreset],
   );
   const composerResourcesLoading = Boolean(cwd && composerResourcesState?.cwd === cwd && composerResourcesState.loading);
+  const composerSources = composerSourcesState && composerSourcesState.cwd === cwd ? composerSourcesState.sources : null;
+  const composerSourcesLoading = Boolean(cwd && composerSourcesState && composerSourcesState.cwd === cwd && composerSourcesState.loading);
 
   const textareaRef = useRef<ComposerEditorHandle>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -1531,7 +1554,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       return buildSlashSubcommandSections(slashContext.parentCommand, slashContext.query);
     }
     return buildSlashSections({
-      query: slashContext.query,
+      query: slashSearchQuery,
       commands: availableSlashCommands,
       skills: composerSkills,
       disabledCommands: reviewEnabled ? undefined : REVIEW_DISABLED_COMMANDS,
@@ -1556,9 +1579,28 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const atQueryText = atQuery?.query ?? null;
   const atLocalMatches: FileIndexEntry[] = React.useMemo(() => (
     atQueryText !== null && fileIndex && fileIndex.cwd === cwd
-      ? filterFileEntries(fileIndex.entries, atQueryText)
+      ? filterFileEntries(fileIndex.entries, atFileQuery)
       : []
-  ), [atQueryText, fileIndex, cwd]);
+  ), [atQueryText, atFileQuery, fileIndex, cwd]);
+
+  useEffect(() => {
+    if (atQueryText === null) {
+      setAtFileQuery("");
+      setAtConnectedQuery("");
+      return;
+    }
+    if (!atQueryText) {
+      setAtFileQuery("");
+      setAtConnectedQuery("");
+      return;
+    }
+    const fileTimer = setTimeout(() => setAtFileQuery(atQueryText), 100);
+    const connectedTimer = setTimeout(() => setAtConnectedQuery(atQueryText), 300);
+    return () => {
+      clearTimeout(fileTimer);
+      clearTimeout(connectedTimer);
+    };
+  }, [atQueryText]);
 
   // When the client index is truncated (repo larger than the index cap),
   // local filtering cannot see deep files, so queries are also ranked
@@ -1589,13 +1631,31 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     && atServerResult.cwd === cwd
     && atServerResult.query === atQueryText;
   const atMatches: FileIndexEntry[] = serverResultInUse ? atServerResult.matches : atLocalMatches;
+  const composerSessionSources = useMemo<ComposerSessionSource[]>(() => {
+    if (!composerSources || atQueryText === null) return [];
+    const contexts = composerSessionContexts && composerSessionContexts.cwd === cwd && composerSessionContexts.query === atFileQuery
+      ? composerSessionContexts.contexts
+      : {};
+    return rankComposerSessionSources(
+      composerSources.sessions.map((session) => ({ ...session, context: contexts[session.id] })),
+      atFileQuery,
+      5,
+    );
+  }, [composerSources, composerSessionContexts, atFileQuery, atQueryText, cwd]);
+
   const atSections = useMemo(() => atQueryText === null ? [] : buildAtMentionSections({
     query: atQueryText,
+    fileQuery: atFileQuery,
+    connectedQuery: atConnectedQuery,
     files: atMatches,
     skills: composerSkills,
     plugins: mentionablePlugins,
+    sessions: composerSessionSources,
+    tabs: composerSources?.tabs as ComposerTabSource[] | undefined,
+    agents: composerSources?.agents as ComposerAgentSource[] | undefined,
+    mcpServers: composerSources?.mcpServers as ComposerMcpSource[] | undefined,
     subagents,
-  }), [atMatches, atQueryText, composerSkills, mentionablePlugins, subagents]);
+  }), [atMatches, atQueryText, atFileQuery, atConnectedQuery, composerSkills, composerSessionSources, composerSources, mentionablePlugins, subagents]);
   const displayedAtSuggestions = useMemo(
     () => flattenSuggestionSections(atSections),
     [atSections],
