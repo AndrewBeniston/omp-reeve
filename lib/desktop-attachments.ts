@@ -1,3 +1,5 @@
+import type { PickerAttachment } from "./composer-attachment-state";
+
 export function getAttachmentPicker(): (() => Promise<string[]>) | undefined {
   const bridge = (globalThis as unknown as {
     ompDesktop?: { selectAttachments?: () => Promise<string[]> };
@@ -5,10 +7,21 @@ export function getAttachmentPicker(): (() => Promise<string[]>) | undefined {
   return bridge?.selectAttachments;
 }
 
-export function getSecureAttachmentPicker(): (() => Promise<PickerAttachment[]>) | undefined {
+export type SecureAttachmentPicker = ((kind?: "file" | "folder") => Promise<PickerAttachment[]>) & {
+  selectFiles?: () => Promise<PickerAttachment[]>;
+  selectFolder?: () => Promise<PickerAttachment[]>;
+};
+
+export function getSecureAttachmentPicker(): SecureAttachmentPicker | undefined {
   const bridge = (globalThis as unknown as {
-    ompDesktop?: { selectAttachmentsWithCapabilities?: () => Promise<PickerAttachment[]> };
+    ompDesktop?: {
+      selectAttachmentsWithCapabilities?: (kind?: "file" | "folder") => Promise<PickerAttachment[]>;
+    };
   }).ompDesktop;
-  return bridge?.selectAttachmentsWithCapabilities;
+  const selectAttachments = bridge?.selectAttachmentsWithCapabilities;
+  if (!selectAttachments) return undefined;
+  const picker = selectAttachments as SecureAttachmentPicker;
+  picker.selectFiles = () => selectAttachments("file");
+  picker.selectFolder = () => selectAttachments("folder");
+  return picker;
 }
-import type { PickerAttachment } from "./composer-attachment-state";

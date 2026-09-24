@@ -82,7 +82,7 @@ export function Menu({
     onClickCapture?.(event);
     const target = event.target instanceof Element ? event.target : null;
     const item = target?.closest(ITEM_SELECTOR);
-    if (item && item.getAttribute("aria-haspopup") !== "menu" && menuRef.current?.contains(item)) restoreTriggerAfterClose();
+    if (item && item.getAttribute("aria-disabled") !== "true" && item.getAttribute("aria-haspopup") !== "menu" && menuRef.current?.contains(item)) restoreTriggerAfterClose();
   };
 
   const moveTo = (item: HTMLElement | undefined) => {
@@ -170,6 +170,7 @@ export const MenuItem = forwardRef<HTMLButtonElement, MenuItemProps>(function Me
   surface = "default",
   className,
   disabled,
+  "aria-disabled": ariaDisabled,
   type = "button",
   children,
   ...props
@@ -181,7 +182,7 @@ export const MenuItem = forwardRef<HTMLButtonElement, MenuItemProps>(function Me
       type={type}
       role={role}
       disabled={disabled}
-      aria-disabled={disabled || undefined}
+      aria-disabled={ariaDisabled ?? (disabled || undefined)}
       aria-checked={role === "menuitemradio" || role === "menuitemcheckbox" ? Boolean(checked) : undefined}
       className={cx(
         ui("menuItem", { tone }),

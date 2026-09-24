@@ -113,7 +113,7 @@ test("opens a ready attachment and reveals saved uploaded content", async () => 
   }
 });
 
-test("renders one persisted live-delegation origin row with safe fallbacks", () => {
+test("renders persisted hook and live-delegation origin rows from OMP roles", () => {
   const entries = [
     {
       type: "message",
@@ -132,36 +132,38 @@ test("renders one persisted live-delegation origin row with safe fallbacks", () 
       display: true,
       details: { appName: "Nexus" },
     },
+    {
+      type: "message",
+      id: "hook-1",
+      parentId: "origin-1",
+      timestamp: "2026-01-01T00:00:02.000Z",
+      message: {
+        role: "hookMessage",
+        customType: "hook-feedback",
+        content: "The hook added feedback.",
+        display: true,
+        details: { blocked: true },
+      },
+    },
   ];
   const loaded = buildSessionContext(entries);
   const reconnected = buildSessionContext(entries);
   const flattenRows = (messages, entryIds) => buildTranscriptRows(messages, entryIds, null, false)
     .flatMap((row) => row.kind === "turn" || row.kind === "compaction" ? row.items : [row.item])
     .filter((item) => item.message.role === "custom" && item.message.customType === "live-delegation");
+  const hookRows = buildTranscriptRows(loaded.messages, loaded.entryIds, null, false)
+    .flatMap((row) => row.kind === "turn" || row.kind === "compaction" ? row.items : [row.item])
+    .filter((item) => item.message.role === "hookMessage");
 
   const reloadedRows = flattenRows(loaded.messages, loaded.entryIds);
   const reconnectedRows = flattenRows(reconnected.messages, reconnected.entryIds);
   assert.equal(reloadedRows.length, 1);
   assert.equal(reconnectedRows.length, 1);
-  assert.match(renderMessage(reloadedRows[0].message), /Sent by Nexus from another task/);
-
-  const unsafeHtml = renderMessage({
-    role: "custom",
-    customType: "live-delegation",
-    content: "",
-    display: true,
-    details: { appName: '<img src=x onerror="alert(1)">' },
-  });
-  assert.match(unsafeHtml, /Sent by &lt;img/);
-  assert.doesNotMatch(unsafeHtml, /<img/);
-
-  const missingDetails = renderMessage({
-    role: "custom",
-    customType: "live-delegation",
-    content: "",
-    display: true,
-  });
-  assert.match(missingDetails, /Sent by another app from another task/);
+  assert.equal(hookRows.length, 1);
+  const liveHtml = renderMessage(reloadedRows[0].message);
+  assert.match(liveHtml, /Sent by the live voice model from another task/);
+  assert.doesNotMatch(liveHtml, /Nexus/);
+  assert.match(renderMessage(hookRows[0].message), /Hook feedback/);
 });
 
 test("keeps unknown custom messages in the generic message card", () => {

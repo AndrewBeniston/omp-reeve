@@ -17,6 +17,7 @@ import { ActivityRow } from "./chat/ActivityRow";
 import type { AgentChipModel } from "./chat/AgentChip";
 import { activityCallGroups } from "./chat/transcript-rows";
 import type { ActivityCall } from "@/lib/transcript/repeat-collapsing";
+import { messageOrigin, type MessageOriginKind } from "@/lib/transcript/message-origin";
 import { CompactionNote } from "./chat/CompactionNote";
 import { CollaborationCard, isCollaborationSnapshot } from "./chat/CollaborationCard";
 import { AssistantResponseAnnouncer } from "./chat/AssistantResponseAnnouncer";
@@ -345,6 +346,10 @@ function haveSameRelevantToolResults(
 }
 
 export const MessageView = memo(function MessageView({ message, isStreaming, toolResults, modelNames, modelList, cwd, onOpenFile, entryId, onFork, forking, onNavigate, prevAssistantEntryId, onEditSubmit, onEditFailure, showTimestamp, prevTimestamp, sessionId, writtenFiles, subagents, onOpenSubagent, interrupted = false }: Props) {
+  const origin = messageOrigin(message);
+  if (origin) {
+    return <MessageOrigin kind={origin} />;
+  }
   if (message.role === "user") {
     return <UserMessageView message={message as UserMessage} cwd={cwd} onOpenFile={onOpenFile} entryId={entryId} onFork={onFork} forking={forking} onNavigate={onNavigate} prevAssistantEntryId={prevAssistantEntryId} onEditSubmit={onEditSubmit} onEditFailure={onEditFailure} />;
   }
@@ -390,6 +395,15 @@ export const MessageView = memo(function MessageView({ message, isStreaming, too
     && prev.onOpenSubagent === next.onOpenSubagent
     && prev.interrupted === next.interrupted;
 });
+
+function MessageOrigin({ kind }: { kind: MessageOriginKind }) {
+  const { t } = useI18n();
+  return (
+    <MessageOriginRow>
+      {t(kind === "hook-feedback" ? "transcript.origin.hookFeedback" : "transcript.origin.liveVoice")}
+    </MessageOriginRow>
+  );
+}
 
 function UserMessageView({ message, cwd, onOpenFile, entryId, onFork, forking, onNavigate, prevAssistantEntryId, onEditSubmit, onEditFailure }: {
   message: UserMessage;
@@ -802,15 +816,6 @@ function CustomMessageView({ message, cwd, onOpenFile }: { message: CustomMessag
     ? message.details
     : null;
 
-  if (message.customType === "live-delegation") {
-    const appName = getLiveDelegationAppName(message.details) ?? t("transcript.origin.unknownApp");
-    return (
-      <MessageOriginRow>
-        {t("transcript.origin.liveDelegation", { appName })}
-      </MessageOriginRow>
-    );
-  }
-
   if (collaboration) {
     return (
       <MessageTurn
@@ -881,13 +886,6 @@ function CustomMessageView({ message, cwd, onOpenFile }: { message: CustomMessag
       )}
     </MessageTurn>
   );
-}
-
-function getLiveDelegationAppName(details: unknown): string | undefined {
-  if (typeof details !== "object" || details === null || Array.isArray(details) || !("appName" in details)) return undefined;
-  const appName = details.appName;
-  if (typeof appName !== "string" || appName.trim() === "") return undefined;
-  return appName.trim();
 }
 
 function getMessageText(content: CustomMessage["content"] | UserMessage["content"]): string {

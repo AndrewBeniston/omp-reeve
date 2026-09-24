@@ -353,9 +353,15 @@ function registerAttachmentPickerHandler() {
     }
     const window = BrowserWindow.fromWebContents(event.sender);
     if (!window) throw new Error("The attachment-picker request has no application window.");
+    const folderOnly = options?.kind === "folder";
+    const fileOnly = options?.kind === "file";
     let title = "Add files and folders";
-    let properties = ["openFile", "openDirectory", "multiSelections"];
-    if (process.platform !== "darwin") {
+    let properties = folderOnly
+      ? ["openDirectory", "multiSelections"]
+      : fileOnly
+        ? ["openFile", "multiSelections"]
+        : ["openFile", "openDirectory", "multiSelections"];
+    if (!folderOnly && !fileOnly && process.platform !== "darwin") {
       // Electron cannot combine file and folder selection on Windows or Linux.
       const { response } = await dialog.showMessageBox(window, {
         type: "question",
