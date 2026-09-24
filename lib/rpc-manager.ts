@@ -57,6 +57,7 @@ import {
   clearSessionQueueFailures,
   readSessionQueueFailures,
   recordQueueFailure,
+  removeDeliveredQueueFailure,
   removeQueueFailure,
   sanitizeErrorSummary,
   writeSessionQueueFailures,
@@ -612,6 +613,9 @@ export class AgentSessionWrapper {
       // else's. Recorded beside the span; it can only ever no-op on failure.
       const toolEvent = turnToolEventForAgentEvent(event);
       if (toolEvent) void this.noteTurn(toolEvent);
+      if (event.type === "message_start") {
+        this.removeDeliveredQueueFailure(event.message);
+      }
       if (IDLE_RESET_EVENT_TYPES.has(event.type)) this.resetIdleTimer();
       this.emit(event);
       if (event.type === "message_start" || event.type === "agent_end" || event.type === "agent_settled") {
@@ -810,6 +814,38 @@ export class AgentSessionWrapper {
     return this.queuedAttachmentContext;
   }
 
+  private removeDeliveredQueueFailure(message: unknown): void {
+    if (!message || typeof message !== "object" || !("role" in message) || !("content" in message)) return;
+    if ((message as { role?: unknown }).role !== "user") return;
+    const content = (message as { content?: unknown }).content;
+    const timestamp = (message as { timestamp?: unknown }).timestamp;
+    const messageTimestamp = typeof timestamp === "number" ? timestamp : undefined;
+    if (typeof content === "string") {
+      const removedId = removeDeliveredQueueFailure(this.inner.sessionId, { text: content, timestamp: messageTimestamp });
+      if (removedId && readSessionQueueFailures(this.inner.sessionId).length === 0) this.queuePaused = false;
+      return;
+    }
+    if (!Array.isArray(content)) return;
+    const text = content.find((part) => (
+      part && typeof part === "object" && "type" in part && part.type === "text"
+    )) as { text?: unknown } | undefined;
+    const images = content.filter((part) => (
+      part && typeof part === "object" && "type" in part && part.type === "image"
+    )).map((part) => ({
+      type: "image" as const,
+      data: (part as { data?: unknown }).data,
+      mimeType: (part as { mimeType?: unknown }).mimeType,
+    })).filter((image): image is { type: "image"; data: string; mimeType: string } => (
+      typeof image.data === "string" && typeof image.mimeType === "string"
+    ));
+    const removedId = removeDeliveredQueueFailure(this.inner.sessionId, {
+      text: typeof text?.text === "string" ? text.text : undefined,
+      images: images.length ? images : undefined,
+      timestamp: messageTimestamp,
+    });
+    if (removedId && readSessionQueueFailures(this.inner.sessionId).length === 0) this.queuePaused = false;
+  }
+
   private async sendQueueItemNow(id: string): Promise<QueuedMessageSnapshot> {
     if (!this.queuePaused || this.inner.isStreaming) {
       if (!this.queuedMessageEditor.moveToSteering(id)) throw new Error("Queued message not found");
@@ -840,6 +876,8 @@ export class AgentSessionWrapper {
         kind: removed.kind,
         text: draft.text,
         images: draft.images,
+        files,
+        messageTimestamp: removed.token.message.timestamp,
         position: removed.tokenIndex,
         errorSummary: safeError,
       });
@@ -852,7 +890,7 @@ export class AgentSessionWrapper {
     const failures = readSessionQueueFailures(this.inner.sessionId);
     if (failures.length === 0) return;
     for (const failure of failures) {
-      this.queuedMessageEditor.restoreUserItem({
+      const restored = this.queuedMessageEditor.restoreUserItem({
         id: failure.id,
         kind: failure.kind,
         text: failure.text,
@@ -861,7 +899,14 @@ export class AgentSessionWrapper {
         status: "failed",
         errorSummary: failure.errorSummary,
       });
+      if (restored || failure.messageTimestamp === undefined) {
+        const removed = this.queuedMessageEditor.remove(failure.id);
+        if (!removed) continue;
+        failure.messageTimestamp = removed.token.message.timestamp;
+        this.queuedMessageEditor.restore(removed);
+      }
     }
+    writeSessionQueueFailures(this.inner.sessionId, failures);
     this.queuePaused = true;
   }
 
@@ -874,10 +919,9 @@ export class AgentSessionWrapper {
     }
     this.retryingQueueItems.add(id);
     try {
+      const failure = readSessionQueueFailures(this.inner.sessionId).find((item) => item.id === id);
       let removed = this.queuedMessageEditor.remove(id);
       if (!removed) {
-        const failures = readSessionQueueFailures(this.inner.sessionId);
-        const failure = failures.find((item) => item.id === id);
         if (failure) {
           this.queuedMessageEditor.restoreUserItem({
             id: failure.id,
@@ -894,9 +938,14 @@ export class AgentSessionWrapper {
       if (!removed) throw new Error("Queued message not found");
 
       const draft = this.queuedMessageEditor.draft(removed);
+      const files = failure?.files
+        ?? this.queuedAttachmentContext?.forMessage(removed.token.message)
+        ?? [];
       this.queuePaused = false;
       try {
-        await this.inner.steer(draft.text, draft.images?.length ? draft.images : undefined);
+        const send = () => this.inner.steer(draft.text, draft.images?.length ? draft.images : undefined);
+        if (files.length) await this.attachmentQueue().run(files, send);
+        else await send();
         this.queuedMessageEditor.adoptNewest("steer", removed.id);
         this.queuedMessageEditor.clearFailed(removed.id);
         removeQueueFailure(this.inner.sessionId, removed.id);
@@ -912,6 +961,8 @@ export class AgentSessionWrapper {
           kind: removed.kind,
           text: draft.text,
           images: draft.images,
+          files,
+          messageTimestamp: removed.token.message.timestamp,
           position: removed.tokenIndex,
           errorSummary: safeError,
         });

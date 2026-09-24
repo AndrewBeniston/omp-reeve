@@ -40,6 +40,8 @@ the What's New dialog adds a second page that invites support.
 - Slow browser uploads no longer lock other upload or Session metadata operations.
 - Starting a Goal with /goal no longer deletes files you attached in the Composer. They stay in the Composer.
 - Session startup failures now dispose their AgentSession, rejected browser uploads remain deletable, and Session teardown closes its live controller bridge.
+- A queued message that reaches OMP normally no longer returns as a failed item after a restart.
+- Retry now keeps file and folder attachments with a recovered queued message.
 - File mentions now appear on the user message that received them.
 - Screen readers now announce streamed assistant text at regular intervals.
 - The worktree switcher now remains available when Git cannot inspect one worktree or lacks newer worktree-list support.
