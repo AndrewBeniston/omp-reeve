@@ -36,6 +36,7 @@ the What's New dialog adds a second page that invites support.
 - The fork action on user messages now opens a destination dialog to fork into the current workspace, same worktree, or a new worktree.
 - The queue persists failed message sends with safe error summaries, reload and reconnect reconciliation, and a Retry command.
 ### Fixed
+- Session startup failures now dispose their AgentSession, rejected browser uploads remain deletable, and Session teardown closes its live controller bridge.
 - File mentions now appear on the user message that received them.
 - Screen readers now announce streamed assistant text at regular intervals.
 - The worktree switcher now remains available when Git cannot inspect one worktree or lacks newer worktree-list support.
