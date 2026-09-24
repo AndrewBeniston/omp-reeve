@@ -193,7 +193,7 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
         unique.push(registry.get(key)?.option ?? {
           provider: model.provider,
           modelId: model.modelId,
-          name: ("name" in model ? model.name : undefined) ?? model.modelId,
+          name: ("name" in model && typeof model.name === "string" ? model.name : undefined) ?? model.modelId,
         });
         return unique;
       }, [])
