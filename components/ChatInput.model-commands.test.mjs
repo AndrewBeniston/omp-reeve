@@ -92,7 +92,7 @@ test("the model and reasoning commands update the Composer chip", async () => {
   }
 });
 
-test("the Add menu uses the model command without clearing a message draft", async () => {
+test("the compact Add menu omits model commands and preserves a message draft", async () => {
   domWindow.localStorage.removeItem("reeve-recent-model-configurations");
   const ref = React.createRef();
   const picks = [];
@@ -110,13 +110,10 @@ test("the Add menu uses the model command without clearing a message draft", asy
     view.container.querySelector("form").getBoundingClientRect = () => ({ top: 500, left: 20, width: 600, height: 120 });
     await React.act(async () => { ref.current.insertText("Keep this draft"); });
     await click(view.container.querySelector("[aria-label='Add']"));
-    const command = (prefix) => Array.from(view.container.querySelectorAll("[role='menuitem']"))
+    const command = (prefix) => Array.from(domWindow.document.body.querySelectorAll("[role='menuitem']"))
       .find((item) => textOf(item).startsWith(prefix));
-    await click(command("More commands"));
-    await click(command("Model"));
-    assert.match(textOf(view.container), /Recent configurations.*Matching models/s);
-    await click(command("Second Model"));
-    assert.deepEqual(picks, ["beta/second"]);
+    assert.equal(command("Model"), undefined);
+    assert.deepEqual(picks, []);
     await React.act(async () => {
       view.container.querySelector("form").dispatchEvent(new DomEvent("submit", { bubbles: true, cancelable: true }));
     });
