@@ -757,6 +757,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                     writtenFiles={options.writtenFiles}
                     subagents={subagents}
                     onOpenSubagent={onOpenSubagent}
+                    interrupted={item.interrupted}
                   />
                 );
               };

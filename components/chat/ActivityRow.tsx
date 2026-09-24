@@ -128,6 +128,7 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls, 
     ...multiAgentActionIds(call.block.input),
   })) : [];
   const content = activityRowContent(first.block, first.result, interrupted);
+  const rowInterrupted = content.state === "interrupted";
   const text = rowText(content, first.block.toolName, t);
   const resultText = getResultText(first.result);
   const isError = first.result?.isError ?? false;
@@ -162,7 +163,7 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls, 
           <span className={styles.action}>{header}</span>
           <span className={styles.detail} data-activity-count>{countText}</span>
         </button>
-        {expanded ? calls.map((call) => <div data-activity-instance className={styles.repeatInstance} key={call.block.toolCallId}><ActivityRow block={call.block} result={call.result} subagents={subagents} onOpenSubagent={onOpenSubagent} /></div>) : null}
+        {expanded ? calls.map((call) => <div data-activity-instance className={styles.repeatInstance} key={call.block.toolCallId}><ActivityRow block={call.block} result={call.result} interrupted={interrupted} subagents={subagents} onOpenSubagent={onOpenSubagent} /></div>) : null}
         {multiAgentHeader}
         {multiAgentRows}
         {childRows}
@@ -177,7 +178,7 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls, 
         {text.detail ? <span className={styles.detail} data-activity-slot="detail" title={text.detail}>{text.detail}</span> : null}
       </div>
       {isTerminalCommand ? (
-        <TerminalOutput command={text.detail ?? ""} output={resultText ?? ""} pending={!result} isError={isError} />
+        <TerminalOutput command={text.detail ?? ""} output={resultText ?? ""} pending={!result && !rowInterrupted} interrupted={rowInterrupted} isError={isError} />
       ) : null}
       {multiAgentHeader}
       {multiAgentRows}

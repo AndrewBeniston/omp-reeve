@@ -9,10 +9,11 @@ function UnstyledCodeTag({ children, className }: ComponentPropsWithoutRef<"span
   return <span className={className}>{children}</span>;
 }
 
-export function TerminalOutput({ command, output, pending, isError, duration, local }: {
+export function TerminalOutput({ command, output, pending, interrupted = false, isError, duration, local }: {
   command: string;
   output: string;
   pending: boolean;
+  interrupted?: boolean;
   isError: boolean;
   duration?: number;
   local?: boolean;
@@ -20,7 +21,11 @@ export function TerminalOutput({ command, output, pending, isError, duration, lo
   const { t } = useI18n();
   const normalizedLines = normalizeCustomPanelLines(output.split(/\r?\n/));
   const outputLines = normalizedLines.length === 1 && normalizedLines[0] === "" ? [] : normalizedLines;
-  const statusLabel = pending ? t("chat.runningCommand") : isError ? "failed" : "";
+  const statusLabel = pending
+    ? t("chat.runningCommand")
+    : interrupted
+      ? t("transcript.activity.command.interrupted")
+      : isError ? "failed" : "";
 
   return (
     <div className="shell-output-preview">
@@ -35,7 +40,7 @@ export function TerminalOutput({ command, output, pending, isError, duration, lo
         <div className={styles.outputPanel}>
           <div className={styles.outputDivider}>
             <span className={styles.outputLabel}>Output</span>
-            {statusLabel && <span className={styles.outputStatus} data-state={isError ? "error" : pending ? "pending" : undefined}>{statusLabel}</span>}
+            {statusLabel && <span className={styles.outputStatus} data-state={isError ? "error" : pending ? "pending" : interrupted ? "interrupted" : undefined}>{statusLabel}</span>}
           </div>
           <div className={styles.outputBody} aria-live={pending ? "polite" : undefined}>
             {outputLines.length === 0 && !pending && <span className={styles.outputEmpty}>{t("i18n.noOutput")}</span>}

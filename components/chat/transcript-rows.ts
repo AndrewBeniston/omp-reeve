@@ -12,6 +12,7 @@ export interface TranscriptMessageRow {
   entryId?: string;
   textPhases?: (TurnTextPhase | undefined)[];
   streaming: boolean;
+  interrupted?: boolean;
 }
 
 export type ActivityRowState = "running" | "completed" | "interrupted";
@@ -57,7 +58,8 @@ export function activityRowContent(
   result?: ToolResultMessage,
   interrupted = false,
 ): ActivityRowContent {
-  const state: ActivityRowState = interrupted ? "interrupted" : toolResultState(result);
+  const resultState = toolResultState(result);
+  const state: ActivityRowState = interrupted && !result ? "interrupted" : resultState;
   const classification = classifyActivityTool(block.toolName, block.input, { interrupted: state === "interrupted" });
   let detail: string | undefined;
   if (classification.kind === "command") detail = classification.command;
@@ -192,6 +194,7 @@ export function buildTranscriptRows(
         entryId: item.entryId,
         textPhases: item.textPhases,
         streaming: index === messages.length,
+        interrupted: turn.status === "stopped",
       }];
     });
     if (items.length === 0) return;

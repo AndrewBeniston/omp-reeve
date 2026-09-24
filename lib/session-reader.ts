@@ -760,6 +760,15 @@ function entryToUiMessage(
         details: entry.details,
         timestamp: parseEntryTimestamp(entry.timestamp),
       };
+    case "custom":
+      return {
+        role: "custom",
+        customType: entry.customType,
+        content: "",
+        display: false,
+        details: entry.data,
+        timestamp: parseEntryTimestamp(entry.timestamp),
+      };
     default:
       return null;
   }

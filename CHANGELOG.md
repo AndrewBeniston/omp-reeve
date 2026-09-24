@@ -10,6 +10,7 @@ the What's New dialog adds a second page that invites support.
 ## [Unreleased]
 
 - Show interrupted process turns with their activity, elapsed time, and saved error after reload.
+- Stop unfinished command rows when a process exits, and end the Turn clock at the saved process-exit entry.
 
 ### Added
 

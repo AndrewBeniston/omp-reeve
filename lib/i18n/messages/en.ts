@@ -143,6 +143,7 @@ export const enLocale: LocalePlugin = {
     "transcript.divider.workedFor": "Worked for {time}",
     "transcript.divider.userStoppedAfter": "You stopped after {time}",
     "transcript.divider.processStoppedAfter": "The process stopped after {time}",
+    "transcript.divider.processStopped": "The process stopped",
     "transcript.stoppedTurn.error": "Process stopped: {message}",
     "transcript.stoppedTurn.errorFallback": "The process stopped before completing the turn.",
     "transcript.divider.previousMessage.one": "{count} previous message",
