@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { getAgentDir } from "@/lib/session-reader";
+import type { FileMentionMessage } from "@oh-my-pi/pi-coding-agent/session/messages";
 import type { QueuedMessageKind, QueuedMessageStatus } from "./queued-message-types";
 
 export interface PersistedFailedQueueItem {
@@ -9,6 +10,8 @@ export interface PersistedFailedQueueItem {
   kind: QueuedMessageKind;
   text: string;
   images?: Array<{ type: "image"; data: string; mimeType: string }>;
+  files?: FileMentionMessage[];
+  messageTimestamp?: number;
   status: "failed";
   errorSummary: string;
   position: number;
@@ -92,6 +95,8 @@ export interface RecordQueueFailureInput {
   kind: QueuedMessageKind;
   text: string;
   images?: Array<{ type: "image"; data: string; mimeType: string }>;
+  files?: FileMentionMessage[];
+  messageTimestamp?: number;
   position: number;
   errorSummary: string;
   status?: "failed";
@@ -109,6 +114,8 @@ export function recordQueueFailure(
     kind: input.kind,
     text: input.text,
     images: input.images?.length ? input.images : undefined,
+    files: input.files?.length ? input.files : undefined,
+    messageTimestamp: input.messageTimestamp,
     status: "failed",
     errorSummary: sanitizeErrorSummary(input.errorSummary),
     position: input.position >= 0 ? input.position : 0,
@@ -137,6 +144,29 @@ export function removeQueueFailure(
   if (next.length === current.length) return false;
   writeSessionQueueFailures(sessionId, next, agentDir);
   return true;
+}
+
+export function removeDeliveredQueueFailure(
+  sessionId: string,
+  message: { text?: string; images?: Array<{ type: "image"; data: string; mimeType: string }>; timestamp?: number },
+  agentDir = getAgentDir(),
+): string | null {
+  const current = readSessionQueueFailures(sessionId, agentDir);
+  const existingIndex = current.findIndex((item) => {
+    if (message.timestamp !== undefined && item.messageTimestamp !== undefined && item.messageTimestamp !== message.timestamp) return false;
+    if (message.text !== undefined && item.text !== message.text) return false;
+    if (message.text === undefined && !message.images?.length) return false;
+    if (!message.images?.length) return true;
+    if ((item.images?.length ?? 0) !== message.images.length) return false;
+    return message.images.every((image, index) => {
+      const saved = item.images?.[index];
+      return saved?.type === image.type && saved.data === image.data && saved.mimeType === image.mimeType;
+    });
+  });
+  if (existingIndex < 0) return null;
+  const [removed] = current.splice(existingIndex, 1);
+  writeSessionQueueFailures(sessionId, current, agentDir);
+  return removed?.id ?? null;
 }
 
 export function clearSessionQueueFailures(sessionId: string, agentDir = getAgentDir()): void {
