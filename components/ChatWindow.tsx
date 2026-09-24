@@ -59,6 +59,7 @@ import { followPhaseFromRows, prefersReducedMotion, resolveScrollBehavior } from
 import { useTranscriptHeightRestoration } from "./chat/useTranscriptHeightRestoration";
 import { useTranscriptFollow } from "./chat/useTranscriptFollow";
 import { DynamicStyleVars } from "./ui/DynamicStyleVars";
+import { stripAnsi } from "@/lib/ansi";
 import { useTranscriptHistory } from "./chat/useTranscriptHistory";
 import styles from "./chat/chat-window.module.css";
 
@@ -1056,7 +1057,7 @@ function ExtensionWidgets({ widgets }: { widgets: Array<{ key: string; lines: st
             {widget.key}
           </div>
           <pre className={styles.extensionWidgetBody}>
-            {widget.lines.join("\n")}
+            {stripAnsi(widget.lines.join("\n"))}
           </pre>
         </div>
       ))}
