@@ -269,6 +269,30 @@ test("the model list starts with Default and selects OMP's default role", async 
   await view.unmount();
 });
 
+test("Default uses the configured model when no role callback is available", async () => {
+  const picked = [];
+  const view = await mountComposer({
+    model: { provider: "openai", modelId: "gpt-example" },
+    modelList: [
+      { provider: "openai", id: "gpt-example", name: "GPT Example" },
+      { provider: "anthropic", id: "claude-example", name: "Claude Example" },
+    ],
+    modelRoles: [{
+      role: "default", name: "Default", hidden: false,
+      resolved: { provider: "anthropic", modelId: "claude-example" },
+    }],
+    onModelChange: (provider, modelId) => picked.push({ provider, modelId }),
+  });
+
+  await click(triggerFor(view.container, "Model settings"));
+  await click(document.body.querySelector("[data-model-menu-row='model']"));
+  await settle();
+  await click(itemsOf(document.body.querySelector("[data-model-submenu='model']"))[0]);
+
+  assert.deepEqual(picked, [{ provider: "anthropic", modelId: "claude-example" }]);
+  await view.unmount();
+});
+
 test("the model list check follows provider, model id, and effort", async () => {
   const props = {
     model: { provider: "openai-codex", modelId: "gpt-example" },

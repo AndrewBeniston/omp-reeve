@@ -15,6 +15,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The model list keeps Default as the first row and uses the configured default model when no role callback is available.
 - Completed transcript turns now use one persistent Worked for disclosure.
 - Show OMP approval-denial counts on each transcript Turn.
 - New chats now stay unassigned until the user selects a project, and the Composer blocks sending before then.
