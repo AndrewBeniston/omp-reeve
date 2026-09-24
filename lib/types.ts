@@ -109,6 +109,15 @@ export interface CustomMessage {
   timestamp?: number;
 }
 
+export interface HookMessage {
+  role: "hookMessage";
+  customType: string;
+  content: string | (TextContent | ImageContent)[];
+  display: boolean;
+  details?: unknown;
+  timestamp?: number;
+}
+
 export interface BashExecutionMessage {
   role: "bashExecution";
   command: string;
@@ -121,7 +130,7 @@ export interface BashExecutionMessage {
   timestamp?: number;
 }
 
-export type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage | CustomMessage | BashExecutionMessage;
+export type AgentMessage = UserMessage | AssistantMessage | ToolResultMessage | CustomMessage | HookMessage | BashExecutionMessage;
 export interface ExtensionAskDialogOption {
   label: string;
   description?: string;
