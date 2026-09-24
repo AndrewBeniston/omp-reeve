@@ -36,7 +36,7 @@ export function sanitizeErrorSummary(error: unknown): string {
     .replace(/\/Users\/[^/\s]+/g, "[user]")
     .replace(/\/home\/[^/\s]+/g, "[user]")
     .replace(/Bearer\s+[A-Za-z0-9._~+/-]+/gi, "Bearer [redacted]")
-    .replace(/(?:key|token|secret|password)\s*[:=]\s*['"]?[A-Za-z0-9._~+/-]+['"]?/gi, "$1=[redacted]")
+    .replace(/(key|token|secret|password)\s*[:=]\s*['"]?[A-Za-z0-9._~+/-]+['"]?/gi, "$1=[redacted]")
     .replace(/\s+/g, " ")
     .trim();
 

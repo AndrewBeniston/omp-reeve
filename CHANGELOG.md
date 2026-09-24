@@ -9,10 +9,9 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
-- Completed transcript turns now use one persistent Worked for disclosure.
-
 ### Added
 
+- Completed transcript turns now use one persistent Worked for disclosure.
 - Show OMP approval-denial counts on each transcript Turn.
 - New chats now stay unassigned until the user selects a project, and the Composer blocks sending before then.
 - Keep same-name models from different providers distinct in model list names and Composer tooltips.
@@ -40,6 +39,7 @@ the What's New dialog adds a second page that invites support.
 - File mentions now appear on the user message that received them.
 - Screen readers now announce streamed assistant text at regular intervals.
 - The worktree switcher now remains available when Git cannot inspect one worktree or lacks newer worktree-list support.
+- Redacted queue error summaries no longer expose a literal `$1` placeholder.
 - Strip ANSI colour codes from extension and notice text in the transcript.
 - Session history loads 50 more messages near the top and keeps the reading position after each page.
 - Assistant Markdown images now show loading and failure states, and inline videos use native playback controls.
