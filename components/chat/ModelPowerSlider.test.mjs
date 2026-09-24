@@ -83,7 +83,7 @@ test("the CSS uses the reference pill, fill, dot, and thumb geometry", async () 
   assert.match(powerCss, /\.rail\s*\{[^}]*height:\s*44px;[^}]*border-radius:\s*999px;[^}]*color-mix\(in srgb, var\(--ui-text\) 8%, transparent\);/);
   assert.match(powerCss, /\.rail::before\s*\{[^}]*width:\s*clamp\(20px, var\(--ui-power-progress, 0%\), calc\(100% - 20px\)\);[^}]*background:\s*var\(--ui-accent\);/);
   assert.match(powerCss, /\.dot\s*\{[^}]*width:\s*6px;[^}]*height:\s*6px;/);
-  assert.match(powerCss, /\.thumb\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px;[^}]*background:\s*#fff;/);
+  assert.match(powerCss, /\.thumb\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px;[^}]*background:\s*var\(--ui-composer-primary\);/);
 });
 
 test("the Power arrows wrap and announce the selected model and effort", async () => {
