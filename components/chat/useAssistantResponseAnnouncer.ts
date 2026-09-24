@@ -277,7 +277,7 @@ export function useAssistantResponseAnnouncer(props: AssistantResponseAnnouncerP
 
     if (shouldAnnounceCompletion) {
       clearResponseTimer(record);
-      const fullText = resolvedPlainText.trimEnd();
+      const fullText = propsRef.current.resolvedPlainText.trimEnd();
       const remaining = fullText.slice(record.cursor).trim();
 
       let completionText = "";
@@ -296,7 +296,7 @@ export function useAssistantResponseAnnouncer(props: AssistantResponseAnnouncerP
     } else if (isCompletedNow && !record.completed && !props.announceOnMount && !record.started) {
       // Historical item mounted already complete without announceOnMount: mark completed quietly
       record.completed = true;
-      record.cursor = resolvedPlainText.length;
+      record.cursor = propsRef.current.resolvedPlainText.length;
     }
 
     return () => {
@@ -309,7 +309,6 @@ export function useAssistantResponseAnnouncer(props: AssistantResponseAnnouncerP
     props.superseded,
     props.announceOnMount,
     intervalMs,
-    resolvedPlainText,
     t,
   ]);
 
