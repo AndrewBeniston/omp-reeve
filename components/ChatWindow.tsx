@@ -63,6 +63,8 @@ import { stripAnsi } from "@/lib/ansi";
 import { useTranscriptHistory } from "./chat/useTranscriptHistory";
 import styles from "./chat/chat-window.module.css";
 
+const SHOW_EXTENSION_WIDGETS = false;
+
 const QUESTION_DEBUG_REQUEST: QuestionRequest = {
   type: "extension_ui_request",
   id: "question-debug",
@@ -588,8 +590,11 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     />
   );
 
-  const aboveEditorWidgets = extensionWidgets.filter((widget) => widget.placement !== "belowEditor");
-  const belowEditorWidgets = extensionWidgets.filter((widget) => widget.placement === "belowEditor");
+  // Extension widgets (for example the usage line) are hidden for now.
+  // Set SHOW_EXTENSION_WIDGETS to true to show them again.
+  const visibleWidgets = SHOW_EXTENSION_WIDGETS ? extensionWidgets : [];
+  const aboveEditorWidgets = visibleWidgets.filter((widget) => widget.placement !== "belowEditor");
+  const belowEditorWidgets = visibleWidgets.filter((widget) => widget.placement === "belowEditor");
 
   if (error) {
     return (

@@ -9,6 +9,10 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+### Changed
+
+- The transcript no longer shows hidden extension messages or extension widgets such as the usage line.
+
 ### Added
 
 - Completed transcript turns now use one persistent Worked for disclosure.

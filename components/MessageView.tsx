@@ -39,6 +39,8 @@ import type {
   SubagentSnapshot,
 } from "@/lib/types";
 
+const SHOW_HIDDEN_EXTENSION_MESSAGES = false;
+
 // CJK chars ~1 token each (GLM/DeepSeek/GPT-o200k); other chars ~4 chars/token.
 const CJK_PATTERN = /[\u3000-\u30ff\u3400-\u9fff\uf900-\ufaff\u{20000}-\u{2fa1f}\uac00-\ud7af]/u;
 function estimateTokens(text: string): number {
@@ -356,6 +358,9 @@ export const MessageView = memo(function MessageView({ message, isStreaming, too
     if ((message as CustomMessage).customType === "compaction") {
       return <CompactionMessageView message={message as CustomMessage} />;
     }
+    // Hidden extension messages (display: false) are context for the model.
+    // The OMP terminal does not show them, so the transcript does not either.
+    if (!SHOW_HIDDEN_EXTENSION_MESSAGES && (message as CustomMessage).display === false) return null;
     return <CustomMessageView message={message as CustomMessage} cwd={cwd} onOpenFile={onOpenFile} />;
   }
   if (message.role === "bashExecution") {
