@@ -9,6 +9,8 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+- Show interrupted process turns with their activity, elapsed time, and saved error after reload.
+
 ### Added
 
 - The effort popup shows a Reset to default control when you change the effort, and the control restores the model default effort.

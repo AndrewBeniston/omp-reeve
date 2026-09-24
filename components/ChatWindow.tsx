@@ -774,6 +774,9 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                   .filter((item) => hasDisplayableProcessMessage(item.message));
                 const finalItem = items[assistantPosition];
                 const finalAssistant = finalItem.message as AssistantMessage;
+                const stoppedError = finalAssistant.stopReason === "aborted"
+                  ? finalAssistant.errorMessage?.trim() || t("transcript.stoppedTurn.errorFallback")
+                  : null;
                 const finalSplit = splitFinalAssistantBlocks(finalAssistant);
                 const hasFinalAnswer = finalAnswerPosition(items) === assistantPosition && (
                   phase === "final-answer"
@@ -791,7 +794,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
 
                 const processCount = visibleProcessItems.length + (finalProcessMessage ? 1 : 0);
                 const divider = dividerPresentation(items, clock, deniedActionCount)
-                  ?? (clock.status === "working" && processCount > 0
+                  ?? ((clock.status === "working" || clock.status === "stopped") && processCount > 0
                     ? { ...clock, previousMessageCount: processCount, deniedActionCount }
                     : null);
                 if (processCount > 0 && divider) {
@@ -808,13 +811,15 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                   // The open Divider already shows the running call as its own Activity row.
                   const headerRepeatsRow = selectLiveActivityHeader(headerInput).kind === "activity";
                   rendered.push(
-                    <Divider key={`process-group-${key}`} turnId={key} turnNumber={turnNumber} totalTurnCount={totalTurnCount} forceExpanded={!finalAnswerMessage} {...divider}>
+                    <Divider key={`process-group-${key}`} turnId={key} turnNumber={turnNumber} totalTurnCount={totalTurnCount} forceExpanded={!finalAnswerMessage} {...divider} stopSource={stoppedError ? "process" : "user"}>
                       {headerRepeatsRow ? null : <ActivityHeader input={headerInput} />}
                       {visibleProcessItems.map((item) => renderMessage(item, { keyPrefix: "process" }))}
                       {finalProcessMessage && renderMessage(finalItem, { keyPrefix: "process-final", messageOverride: finalProcessMessage, showTimestamp: false })}
                     </Divider>,
                   );
                 }
+
+                if (stoppedError) rendered.push(<div key={`${key}-stopped-error`} role="alert" data-transcript-error>{t("transcript.stoppedTurn.error", { message: stoppedError })}</div>);
 
                 if (finalAnswerMessage) {
                   // Each tool call is stored as its own assistant entry, so the

@@ -8,6 +8,7 @@ export interface TurnClock {
   status: TurnStatus;
   startedAt?: number;
   completedAt?: number;
+  stopSource?: "user" | "process";
 }
 
 export function getTurnElapsedMs(
@@ -52,6 +53,12 @@ export interface Turn<Message extends { role: string }> extends TurnClock {
   settled: boolean;
   /** Approval denials recorded in this Turn. */
   deniedActionCount: number;
+}
+
+function isSavedInterruptedAssistant<Message extends { role: string }>(message: Message): boolean {
+  if (message.role !== "assistant") return false;
+  const candidate = message as Message & { stopReason?: unknown };
+  return candidate.stopReason === "aborted";
 }
 
 const APPROVAL_DENIAL_PREFIXES = [
@@ -188,6 +195,7 @@ export function foldTurns<Message extends { role: string; steering?: boolean; co
       if (activeTurn) {
         activeTurn.settled = true;
         activeTurn.status = "stopped";
+        activeTurn.stopSource = "user";
         activeTurn.completedAt = timestampToMs(record.timestamp) ?? activeTurn.completedAt;
       }
       continue;
@@ -266,6 +274,12 @@ export function foldTurns<Message extends { role: string; steering?: boolean; co
       activeTurn.deniedActionCount += 1;
     }
     foldAssistantContent(activeTurn, item, seenTypes);
+    if (isSavedInterruptedAssistant(message)) {
+      activeTurn.settled = true;
+      activeTurn.status = "stopped";
+      activeTurn.stopSource = "process";
+      activeTurn.completedAt = timestampToMs(record.timestamp) ?? activeTurn.completedAt;
+    }
     if (record.type === "message" && !runActive) {
       activeTurn.settled = true;
       if (activeTurn.status !== "stopped") {

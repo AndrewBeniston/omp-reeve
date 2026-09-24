@@ -34,7 +34,7 @@ function writeStoredChoice(turnId: string, expanded: boolean): void {
   try { globalThis.localStorage?.setItem(storageKey(turnId), String(expanded)); } catch { /* The disclosure still works. */ }
 }
 
-export function Divider({ turnId, status, startedAt, completedAt, previousMessageCount, deniedActionCount = 0, turnNumber, totalTurnCount, forceExpanded = false, now: suppliedNow, children }: DividerProps) {
+export function Divider({ turnId, status, startedAt, completedAt, previousMessageCount, deniedActionCount = 0, stopSource = "user", turnNumber, totalTurnCount, forceExpanded = false, now: suppliedNow, children }: DividerProps) {
   const { locale, t } = useI18n();
   const [expandedPreference, setExpandedPreference] = useState<boolean | undefined>(() => readStoredChoice(turnId));
   const [now, setNow] = useState(() => suppliedNow ?? Date.now());
@@ -57,7 +57,7 @@ export function Divider({ turnId, status, startedAt, completedAt, previousMessag
   const label = status === "working"
     ? elapsed < TURN_CLOCK_INTERVAL_MS ? t("transcript.divider.working") : t("transcript.divider.workingFor", { time: duration })
     : status === "stopped"
-      ? t("transcript.divider.userStoppedAfter", { time: duration })
+      ? t(stopSource === "process" ? "transcript.divider.processStoppedAfter" : "transcript.divider.userStoppedAfter", { time: duration })
       : startedAt !== undefined && completedAt !== undefined
         ? t("transcript.divider.workedFor", { time: duration })
         : t(previousMessageCount === 1 ? "transcript.divider.previousMessage.one" : "transcript.divider.previousMessage.other", { count: previousMessageCount });

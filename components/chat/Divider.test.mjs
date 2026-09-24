@@ -36,6 +36,10 @@ test("renders each live and complete divider label", async () => {
   const stopped = await renderDivider({ status: "stopped" });
   assert.match(textOf(stopped.container), /You stopped after 1m 5s/);
   await stopped.unmount();
+
+  const processStopped = await renderDivider({ status: "stopped", stopSource: "process" });
+  assert.match(textOf(processStopped.container), /The process stopped after 1m 5s/);
+  await processStopped.unmount();
 });
 
 test("a live Divider clock ticks each second and freezes when complete", async () => {
