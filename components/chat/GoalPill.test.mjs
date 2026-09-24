@@ -222,6 +222,26 @@ test("the budget editor rejects zero, fractions, text, and unsafe integers", asy
   } finally { await view.unmount(); }
 });
 
+test("Expand opens the combined Goal editor", async () => {
+  const updates = [];
+  const view = await mount(React.createElement(I18nProvider, null, React.createElement(GoalPill, {
+    goal: makeGoal("active", { tokenBudget: 1_000 }),
+    onUpdateGoal: async (...args) => { updates.push(args); return true; },
+    onExpand() {},
+  })));
+  try {
+    const root = view.container.ownerDocument.body;
+    await click(view.container.querySelector('button[aria-label="Edit goal"]'));
+    const dialog = root.querySelectorAll('[role="dialog"]').at(-1);
+    assert.ok(dialog);
+    assert.match(dialog.textContent, /Edit goal/);
+    assert.equal(dialog.querySelector("#goal-budget-edit").value, "1000");
+    await typeInto(dialog.querySelector("#goal-objective-edit"), "Finish the final film");
+    await React.act(async () => { dialog.querySelector("form").dispatchEvent(new DomEvent("submit", { bubbles: true, cancelable: true })); });
+    assert.deepEqual(updates, [["Finish the final film", 1000]]);
+  } finally { await view.unmount(); }
+});
+
 test("a failed budget change keeps the editor open and shows OMP's error", async () => {
   const goal = makeGoal("active", { tokenBudget: 1_000 });
   const save = async () => false;
@@ -280,6 +300,7 @@ test("the paused Goal asks before resume and labels the keyboard control", async
     await click(control);
     assert.equal(resumes, 0);
     assert.match(root.textContent, /Resume paused goal\?/);
+    assert.match(root.textContent, /Finish the film/);
     const confirm = root.querySelector('button[data-action="confirm-resume-goal"]');
     assert.equal(focused(), confirm);
     await click(confirm);

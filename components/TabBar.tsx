@@ -1,6 +1,7 @@
 "use client";
 
 import { IconButton } from "@/components/ui/IconButton";
+import { Target } from "lucide-react";
 import { Surface } from "@/components/ui/Surface";
 import { getFileIcon } from "./FileIcons";
 import { useI18n } from "@/hooks/useI18n";
@@ -8,6 +9,7 @@ import type { SummarySource } from "@/lib/session-summary";
 import type { ReviewSelection } from "@/lib/review-selection";
 import type { ReviewOwner } from "@/lib/review-owner";
 import type { FileReviewOrigin } from "@/lib/file-review-origin";
+import type { Goal } from "@oh-my-pi/pi-tui/tools/goal";
 import { NewTabLauncher } from "./tabs/NewTabLauncher";
 import type { LauncherAction } from "./tabs/Launcher";
 import styles from "./navigation/navigation.module.css";
@@ -92,7 +94,14 @@ export interface ReviewTab extends TabBase {
   selection?: ReviewSelection;
 }
 
-export type Tab = FileTab | SourcesTab | BrowserTab | TerminalTab | ReviewTab;
+export interface GoalTab extends TabBase {
+  kind: "goal";
+  sessionId: string;
+  goal: Goal;
+  onSave: (objective: string, tokenBudget: number | null) => Promise<boolean>;
+}
+
+export type Tab = FileTab | SourcesTab | BrowserTab | TerminalTab | ReviewTab | GoalTab;
 
 /**
  * Refuse to compile when a Tab kind is unhandled.
@@ -126,6 +135,8 @@ function TabIcon({ tab }: { tab: Tab }) {
       return getFileIcon(tab.label, 13);
     case "terminal":
       return <TerminalIcon />;
+    case "goal":
+      return <Target size={14} aria-hidden="true" />;
   }
 }
 
@@ -145,6 +156,8 @@ function tabTitle(tab: Tab): string {
       return tab.cwd;
     case "sources":
       return tab.label;
+    case "goal":
+      return tab.goal.objective;
   }
 }
 

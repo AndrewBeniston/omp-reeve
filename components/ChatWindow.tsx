@@ -31,6 +31,7 @@ import type { ProjectTrustStatus } from "@/lib/api-types";
 import type { AgentControlReply, AgentControlRequestEvent } from "@/lib/agent-control/types";
 import type { ReviewSlashOutcome, ReviewSlashRequest } from "@/lib/review-slash-entries";
 import type { SessionStatsInfo } from "@/lib/omp-types";
+import type { Goal } from "@oh-my-pi/pi-tui/tools/goal";
 import { getVisibleRenderWindow } from "@/lib/chat-lazy-load";
 import { ExtensionCustomPanel, ExtensionDialog } from "./chat/ExtensionDialogs";
 import { ApprovalNudge } from "./chat/ApprovalNudge";
@@ -114,6 +115,7 @@ interface Props {
   onSystemPromptChange?: (prompt: string | null) => void;
   onSessionStatsChange?: (stats: SessionStatsInfo | null) => void;
   onSummarySourcesChange?: (sources: SummarySource[]) => void;
+  onGoalTabState?: (sessionId: string, goal: Goal | null, onSave: (objective: string, tokenBudget: number | null) => Promise<boolean>, open: boolean) => void;
   onOpenFile?: (filePath: string) => void;
   onSubagentsChange?: (subagents: SubagentSnapshot[]) => void;
   onOpenSubagent?: (id: string) => void;
@@ -200,7 +202,7 @@ function withAssistantBlocks(
   return next;
 }
 
-export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFooterPosition = true, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onOpenSession = () => {}, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenSubagent, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onSelectWorktree, onRegisterProjectCommand, onRequestReview, onListReviewBranches, reviewGate, historyLoadFailure }: Props) {
+export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFooterPosition = true, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onOpenSession = () => {}, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onGoalTabState, onSubagentsChange, onOpenSubagent, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onSelectWorktree, onRegisterProjectCommand, onRequestReview, onListReviewBranches, reviewGate, historyLoadFailure }: Props) {
   const { t } = useI18n();
 
   // Wrap onAgentEnd to play the completion sound. This is more reliable than
@@ -249,6 +251,10 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const footerRef = useRef<HTMLDivElement | null>(null);
   const sessionBusy = agentRunning || bashRunning;
+  useEffect(() => {
+    if (!onGoalTabState || !session?.id) return;
+    onGoalTabState(session.id, goalState.goal, goalState.update, false);
+  }, [goalState.goal, goalState.update, onGoalTabState, session?.id]);
   const handleEditContent = useCallback((message: UserMessage) => {
     chatInputRef?.current?.replaceMessage(message);
   }, [chatInputRef]);
@@ -1055,6 +1061,8 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
           onPause={() => goalState.pause(sessionBusy)}
           onResume={goalState.resume}
           onEditBudget={goalState.setBudget}
+          onUpdateGoal={goalState.update}
+          onExpand={onGoalTabState && session?.id ? () => onGoalTabState(session.id, goalState.goal, goalState.update, true) : undefined}
         />
         {chatInputElement}
         <ExtensionStatusBar statuses={extensionStatuses} />

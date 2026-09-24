@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Goal editors can update the objective and token budget, open a Goal tab, and confirm Goal replacement and resume.
 - Goal objectives can now be edited without resetting the Goal identity or accounting.
 - Goal continuations wait for an idle Session and stop while a draft or attachment is pending.
 - Show interrupted process turns with their activity, elapsed time, and saved error after reload.

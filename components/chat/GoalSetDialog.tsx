@@ -118,10 +118,6 @@ export function GoalSetDialog({ existingGoal, initialObjective = "", initialAtta
           if (busyRef.current) return;
           const next = validatedInput();
           if (!next) return;
-          if (existingGoal?.status === "paused") {
-            setSubmitError(t("composer.goal.pausedReplaceError"));
-            return;
-          }
           if (existingGoal && existingGoal.status !== "complete" && existingGoal.status !== "dropped") {
             setConfirming(true);
           } else {

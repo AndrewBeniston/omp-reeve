@@ -8,6 +8,7 @@ import type { GoalAction } from "@/hooks/useGoalState";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { GoalBudgetDialog } from "./GoalBudgetDialog";
+import { GoalEditorDialog } from "./GoalEditorDialog";
 import styles from "./goal-pill.module.css";
 
 const COMPLETED_GOAL_DISPLAY_MS = 3_000;
@@ -42,14 +43,16 @@ interface GoalPillProps {
   onPause?: () => Promise<boolean> | void;
   onResume?: () => Promise<boolean> | void;
   onEditBudget?: (tokenBudget: number | null) => Promise<boolean>;
+  onUpdateGoal?: (objective: string, tokenBudget: number | null) => Promise<boolean>;
   onExpand?: () => void;
 }
 
-export function GoalPill({ goal, isRunning = false, pendingAction, actionError, onClear, onPause, onResume, onEditBudget, onExpand }: GoalPillProps) {
+export function GoalPill({ goal, isRunning = false, pendingAction, actionError, onClear, onPause, onResume, onEditBudget, onUpdateGoal, onExpand }: GoalPillProps) {
   const { locale, t } = useI18n();
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [confirmingResume, setConfirmingResume] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+  const [editingObjective, setEditingObjective] = useState(false);
   const [localBusy, setLocalBusy] = useState(false);
   const actionInFlight = useRef(false);
   const confirmClearRef = useRef<HTMLButtonElement>(null);
@@ -177,14 +180,14 @@ export function GoalPill({ goal, isRunning = false, pendingAction, actionError, 
             className={styles.iconButton}
             aria-label={t("composer.threadGoal.editDialog.title")}
             title={t("composer.threadGoal.editDialog.title")}
-            disabled={!goal || !onExpand || busy}
-            onClick={onExpand}
+            disabled={!goal || !onUpdateGoal || busy}
+            onClick={() => { setEditingObjective(true); onExpand?.(); }}
           >
             <Maximize2 size={16} aria-hidden="true" />
           </button>
         </span>
       </div>
-      {actionError && !confirmingClear && !confirmingResume && editingGoalId !== goal?.id && <p className={styles.error} role="alert">{errorLabel}: {actionError.message}</p>}
+      {actionError && !confirmingClear && !confirmingResume && editingGoalId !== goal?.id && !editingObjective && <p className={styles.error} role="alert">{errorLabel}: {actionError.message}</p>}
       {editingGoalId === goal?.id && goal && canEditBudget && onEditBudget && (
         <GoalBudgetDialog
           key={goal.id}
@@ -193,6 +196,14 @@ export function GoalPill({ goal, isRunning = false, pendingAction, actionError, 
           onSave={onEditBudget}
           onClose={() => setEditingGoalId(null)}
           error={actionError?.action === "budget" ? actionError.message : null}
+        />
+      )}
+      {editingObjective && goal && onUpdateGoal && (
+        <GoalEditorDialog
+          goal={goal}
+          onSave={onUpdateGoal}
+          onClose={() => setEditingObjective(false)}
+          error={actionError?.action === "objective" || actionError?.action === "budget" ? actionError.message : null}
         />
       )}
       {confirmingClear && (
@@ -204,6 +215,7 @@ export function GoalPill({ goal, isRunning = false, pendingAction, actionError, 
           dismissible={!busy}
           onOpenChange={(open) => { if (!open && !busy) setConfirmingClear(false); }}
         >
+          {goal && <p className={styles.objectivePreview}>{goal.objective}</p>}
           {actionError && <p className={styles.error} role="alert">{errorLabel}: {actionError.message}</p>}
           <div className={styles.confirmActions}>
             <Button type="button" disabled={busy} onClick={() => setConfirmingClear(false)}>

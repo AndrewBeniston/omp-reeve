@@ -1,0 +1,60 @@
+.panel {
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font-family: var(--font-sans);
+}
+
+.editor {
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  resize: none;
+  border: 0;
+  padding: var(--space-2);
+  background: transparent;
+  color: var(--ui-text);
+  font: inherit;
+  line-height: 1.6;
+}
+
+.editor:focus-visible {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.footer {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--ui-border);
+}
+
+.saved {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-text-dim);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-1);
+}
+
+.error {
+  margin: 0;
+  color: var(--ui-danger);
+  font-size: var(--text-sm);
+}

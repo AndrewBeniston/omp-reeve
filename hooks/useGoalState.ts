@@ -19,7 +19,7 @@ export interface GoalUpdateEvent {
   state?: GoalModeState;
 }
 
-export type GoalAction = "pause" | "resume" | "drop" | "budget";
+export type GoalAction = "pause" | "resume" | "drop" | "budget" | "objective";
 
 const INITIAL_STATE: GoalClientState = {
   status: "loading",
@@ -60,6 +60,7 @@ export function useGoalState(sessionId: string | null) {
   const readIdRef = useRef(0);
   const lastGoalRef = useRef<Goal | null>(null);
   const pendingActionRef = useRef<GoalAction | null>(null);
+  const actionErrorRef = useRef<{ action: GoalAction; message: string } | null>(null);
   const actionIdRef = useRef(0);
   const [pendingAction, setPendingAction] = useState<GoalAction | null>(null);
   const [actionError, setActionError] = useState<{ action: GoalAction; message: string } | null>(null);
@@ -105,10 +106,11 @@ export function useGoalState(sessionId: string | null) {
       : current);
   }, []);
 
-  const runAction = useCallback(async (action: GoalAction, interrupt = false, budget?: number | null): Promise<boolean> => {
+  const runAction = useCallback(async (action: GoalAction, interrupt = false, budget?: number | null, objective?: string): Promise<boolean> => {
     if (!sessionId || sessionRef.current !== sessionId || pendingActionRef.current) return false;
     const actionId = ++actionIdRef.current;
     pendingActionRef.current = action;
+    actionErrorRef.current = null;
     setPendingAction(action);
     setActionError(null);
     try {
@@ -120,6 +122,8 @@ export function useGoalState(sessionId: string | null) {
       }
       const command = action === "budget"
         ? { type: "goal", op: "set_budget", tokenBudget: budget }
+        : action === "objective"
+          ? { type: "goal", op: "set_objective", objective }
         : { type: "goal", op: action === "pause" && interrupt ? "get" : action };
       const result = await sendAgentCommand<GoalCommandResult>(sessionId, command);
       if (sessionRef.current !== sessionId) return false;
@@ -135,8 +139,10 @@ export function useGoalState(sessionId: string | null) {
       });
       return true;
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      actionErrorRef.current = { action, message };
       if (sessionRef.current === sessionId) {
-        setActionError({ action, message: error instanceof Error ? error.message : String(error) });
+        setActionError({ action, message });
       }
       return false;
     } finally {
@@ -147,12 +153,26 @@ export function useGoalState(sessionId: string | null) {
     }
   }, [sessionId]);
 
+  const update = useCallback(async (objective: string, tokenBudget: number | null): Promise<boolean> => {
+    const current = lastGoalRef.current;
+    if (!current) return false;
+    if (current.objective !== objective && !await runAction("objective", false, undefined, objective)) {
+      throw new Error(actionErrorRef.current?.message ?? "The Session has no Goal that can change its objective.");
+    }
+    const nextBudget = tokenBudget ?? undefined;
+    if (current.tokenBudget !== nextBudget && !await runAction("budget", false, tokenBudget)) {
+      throw new Error(actionErrorRef.current?.message ?? "The Session has no Goal that can change its budget.");
+    }
+    return true;
+  }, [runAction]);
+
   useEffect(() => {
     sessionRef.current = sessionId;
     lastGoalRef.current = null;
     eventRevisionRef.current = 0;
     readIdRef.current += 1;
     pendingActionRef.current = null;
+    actionErrorRef.current = null;
     actionIdRef.current += 1;
     setPendingAction(null);
     setActionError(null);
@@ -168,5 +188,7 @@ export function useGoalState(sessionId: string | null) {
     resume: () => runAction("resume"),
     clear: (interrupt = false) => runAction("drop", interrupt),
     setBudget: (budget: number | null) => runAction("budget", false, budget),
+    setObjective: (objective: string) => runAction("objective", false, undefined, objective),
+    update,
   };
 }
