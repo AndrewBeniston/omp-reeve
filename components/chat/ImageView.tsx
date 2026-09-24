@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ImageContent } from "@/lib/types";
 import { useI18n } from "@/hooks/useI18n";
 import { ToolIcon } from "./ToolIcon";
+import { DynamicStyleVars } from "../ui/DynamicStyleVars";
 import styles from "./image-view.module.css";
 
 function imageSource(image: ImageContent): string {
@@ -117,7 +118,7 @@ export function ImageView({ images }: { images: ImageContent[] }) {
               {failed.has(openIndex!) ? (
                 <span className={styles.unavailable} role="img" aria-label="Image unavailable">{t("localConversation.imageView.unavailable")}</span>
               ) : (
-                <img src={imageSource(activeImage)} alt={t("localConversation.imageView.previewAlt")} style={{ transform: `scale(${zoom})` }} onError={() => setFailed((current) => new Set(current).add(openIndex!))} />
+                <DynamicStyleVars className={styles.dialogImageMedia} variables={{ "--ui-image-zoom": zoom }}><img src={imageSource(activeImage)} alt={t("localConversation.imageView.previewAlt")} onError={() => setFailed((current) => new Set(current).add(openIndex!))} /></DynamicStyleVars>
               )}
             </div>
             <div className={styles.dialogControls} aria-label="Image zoom controls">

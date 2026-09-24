@@ -7,7 +7,7 @@
 .action[data-state="copied"] { color: var(--ui-accent); }
 .action:disabled { cursor: not-allowed; opacity: var(--ui-disabled-opacity); }
 .slot { display: none; }
-.spinner { display: none; width: 12px; height: 12px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: assistantActionSpin 700ms linear infinite; }
+.spinner { display: none; width: 12px; height: 12px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; corner-shape: var(--corner-round); animation: assistantActionSpin 700ms linear infinite; }
 .spinner[data-visible="true"] { display: block; }
 .action[data-state="running"] > svg { display: none; }
 @keyframes assistantActionSpin { to { transform: rotate(360deg); } }

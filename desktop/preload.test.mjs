@@ -48,14 +48,18 @@ test("the preload exposes only the protected external-link command", async () =>
   onDomReady();
   assert.equal(document.documentElement.dataset.ompDesktop, "darwin");
   assert.equal(document.documentElement.dataset.ompMenu, "native");
-  assert.deepEqual(Object.keys(exposed.value), ["openExternal", "selectDirectory", "selectAttachments", "showProjectMenu", "showBrowserTabMenu", "showReviewMenu", "showSessionMenu", "showApplicationMenu", "onMenuAction", "updater", "browser", "terminal", "clearBrowsingData", "agentBrowser"]);
+  assert.deepEqual(Object.keys(exposed.value), ["openExternal", "openMicrophoneSettings", "selectDirectory", "selectAttachments", "saveAudioCopy", "selectAttachmentsWithCapabilities", "showProjectMenu", "showBrowserTabMenu", "showReviewMenu", "showSessionMenu", "showApplicationMenu", "onMenuAction", "updater", "browser", "terminal", "clearBrowsingData", "agentBrowser"]);
   assert.deepEqual(Object.keys(exposed.value.updater), ["getState", "check", "install", "onState"]);
   assert.deepEqual(Object.keys(exposed.value.terminal), ["open", "write", "resize", "close", "onData", "onExit"]);
   assert.deepEqual(Object.keys(exposed.value.browser), ["open", "setBounds", "setVisible", "navigate", "command", "close", "onNavigated", "onTitle", "onFavicon"]);
   assert.deepEqual(Object.keys(exposed.value.agentBrowser), ["getState", "set"]);
   await exposed.value.openExternal("https://example.com/login");
+  await exposed.value.openMicrophoneSettings();
   await exposed.value.selectDirectory();
   await exposed.value.selectAttachments();
+  const audioBytes = new Uint8Array();
+  await exposed.value.saveAudioCopy("recording.webm", audioBytes);
+  await exposed.value.selectAttachmentsWithCapabilities();
   await exposed.value.showProjectMenu({ archiveEnabled: true, worktrees: [] });
   await exposed.value.showBrowserTabMenu({ hasUrl: true });
   await exposed.value.showReviewMenu({ hasSelection: true });
@@ -80,10 +84,14 @@ test("the preload exposes only the protected external-link command", async () =>
     ["on", "omp-desktop:menu-action"],
     ["off", "omp-desktop:menu-action"],
   ]);
-  assert.deepEqual(invocations, [
+  assert.equal(invocations[4][2], audioBytes);
+  assert.equal(JSON.stringify(invocations.map((args) => args.map((arg) => arg === audioBytes ? "<audio bytes>" : arg))), JSON.stringify([
     ["omp-desktop:open-external", "https://example.com/login"],
+    ["omp-desktop:open-microphone-settings"],
     ["omp-desktop:select-directory"],
     ["omp-desktop:select-attachments"],
+    ["omp-desktop:save-audio-copy", "recording.webm", "<audio bytes>"],
+    ["omp-desktop:select-attachments", { secure: true }],
     ["omp-desktop:show-project-menu", { archiveEnabled: true, worktrees: [] }],
     ["omp-desktop:show-browser-tab-menu", { hasUrl: true }],
     ["omp-desktop:show-review-menu", { hasSelection: true }],
@@ -92,7 +100,7 @@ test("the preload exposes only the protected external-link command", async () =>
     ["omp-desktop:update-get-state"],
     ["omp-desktop:update-check"],
     ["omp-desktop:update-install"],
-  ]);
+  ]));
 });
 
 test("the preload's terminal speaks only to its own Terminal", async () => {

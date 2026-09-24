@@ -10,13 +10,14 @@
 .thumbnailButton { flex: 0 0 auto; width: 112px; height: 84px; overflow: hidden; border: 1px solid var(--ui-border); border-radius: var(--radius-sm); padding: 0; background: var(--ui-surface-inset); cursor: zoom-in; }
 .thumbnail { display: block; width: 100%; height: 100%; object-fit: contain; }
 .unavailable { display: grid; width: 100%; height: 100%; place-items: center; padding: var(--space-1); color: var(--ui-text-dim); font-size: var(--text-2xs); text-align: center; }
-.backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: var(--space-4); background: rgb(0 0 0 / 70%); }
+.backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: var(--space-4); background: var(--ui-backdrop); }
 .dialog { display: flex; width: min(900px, 100%); max-height: 90vh; flex-direction: column; gap: var(--space-2); border: 1px solid var(--ui-border); border-radius: var(--radius-lg); padding: var(--space-3); background: var(--ui-surface); box-shadow: var(--shadow-xl); }
 .dialogHeader, .dialogControls { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); color: var(--ui-text-muted); font-size: var(--text-sm); }
 .dialogImage { display: grid; min-height: 240px; flex: 1; place-items: center; overflow: auto; background: var(--ui-surface-inset); }
-.dialogImage img { max-width: 100%; max-height: 70vh; object-fit: contain; transition: transform var(--duration-fast) var(--ease-standard); }
+.dialogImageMedia { display: grid; place-items: center; transform: scale(var(--ui-image-zoom, 1)); transition: transform var(--duration-fast) var(--ease-standard); }
+.dialogImageMedia img { max-width: 100%; max-height: 70vh; object-fit: contain; }
 .dialogButton { border: 1px solid var(--ui-border); border-radius: var(--radius-sm); padding: var(--space-1) var(--space-2); background: var(--ui-surface-inset); color: var(--ui-text); cursor: pointer; font: inherit; }
 .dialogControls { justify-content: center; }
 @media (prefers-reduced-motion: reduce) {
-  .marker, .dialogImage img { transition: none; }
+  .marker, .dialogImageMedia { transition: none; }
 }

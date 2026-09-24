@@ -83,7 +83,8 @@ test("uses the existing font variable and a draining progress fill", () => {
   const css = readFileSync(new URL("./usage-limit-note.module.css", import.meta.url), "utf8");
   const source = readFileSync(new URL("./UsageLimitNote.tsx", import.meta.url), "utf8");
   assert.match(css, /font-family:\s*var\(--font-sans\)/);
-  assert.match(source, /transform:\s*`scaleX\(\$\{progress\}\)`/);
+  assert.match(source, /--ui-progress/);
+  assert.match(css, /width:\s*var\(--ui-progress/);
 });
 
 test("stores all usage-limit strings in both locales and re-exports the note", async () => {

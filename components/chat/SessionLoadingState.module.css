@@ -14,7 +14,7 @@
   flex: 0 0 auto;
   border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
   border-top-color: currentColor;
-  border-radius: 50%;
+  border-radius: 50%; corner-shape: var(--corner-round);
   animation: sessionLoadingSpin 700ms linear infinite;
 }
 

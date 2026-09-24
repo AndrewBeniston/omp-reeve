@@ -3,7 +3,7 @@
 .trigger:hover:not(:disabled), .trigger[aria-expanded="true"] { background: var(--ui-control-hover); color: var(--ui-text); }
 .trigger:disabled { cursor: default; opacity: .65; }
 .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dirty { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: var(--ui-warning); }
+.dirty { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; corner-shape: var(--corner-round); background: var(--ui-warning); }
 .menu { position: absolute; z-index: 80; bottom: calc(100% + 6px); left: 0; min-width: 260px; max-width: min(420px, calc(100vw - 24px)); }
 .menuLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .createRow { display: grid; gap: 6px; padding: 6px; }

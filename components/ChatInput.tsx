@@ -1471,10 +1471,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     ...(onOpenGoal && !isStreaming ? [{ name: "goal", description: t("composer.goalSlashCommand.setDescription"), icon: "prompt", source: "builtin" as const }] : []),
     ...(slashCommands ?? []).filter((command) => !(onOpenGoal && command.name === "goal")),
   ], [composerHoldsOnlyCommand, isStreaming, onOpenGoal, reviewEnabled, reviewGate?.reason, reviewSubcommands, slashCommands, t]);
-  const slashContext = useMemo(
-    () => extractSlashQuery(value, availableSlashCommands),
-    [availableSlashCommands, value],
-  );
+  const slashContext = extractSlashQuery(value, availableSlashCommands);
   const slashQuery = slashContext?.query ?? null;
   const modelCommand = buildModelCommandSections(modelOptions, recentConfigurations, slashQuery ?? "", t);
   const allModelCommands = buildModelCommandSections(modelOptions, recentConfigurations, "", t);
@@ -1484,7 +1481,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const allReasoningCommands = buildReasoningCommandSections(
     availableThinkingLevels ?? selector.steps.map((step) => step.thinkingLevel), "", t,
   );
-  const slashSections = useMemo(() => {
+  const slashSections = (() => {
     if (!slashContext) return [];
     if (slashContext.parentCommand) {
       if (slashContext.parentCommand.name === "model") return modelCommand.sections;
@@ -1497,11 +1494,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       skills: composerSkills,
       disabledCommands: reviewEnabled ? undefined : REVIEW_DISABLED_COMMANDS,
     });
-  }, [availableSlashCommands, composerSkills, modelCommand.sections, reasoningCommand.sections, reviewEnabled, slashContext]);
-  const displayedSlashCommands = useMemo(
-    () => flattenSuggestionSections(slashSections),
-    [slashSections],
-  );
+  })();
+  const displayedSlashCommands = flattenSuggestionSections(slashSections);
   const hasInputText = Boolean(value.trim());
   const canQueueStreamingMessage = hasInputText || attachedImages.length > 0 || localAttachments.length > 0;
 
@@ -1687,7 +1681,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       return true;
     }
     return false;
-  }, [allModelCommands.choices, allReasoningCommands.choices, clearInput, model, modelCommand.choices, onModelChange, onThinkingLevelChange, reasoningCommand.choices, thinkingLevel]);
+  }, [allModelCommands, clearInput, model, modelCommand, onModelChange, onThinkingLevelChange, reasoningCommand, thinkingLevel]);
 
   const applySlashCommand = useCallback((suggestion: ComposerSuggestion) => {
     if (suggestion.disabled) return;
@@ -1727,7 +1721,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     });
   }, [value, attachedImages, localAttachments, onPromptWithStreamingBehavior, onSteer, onFollowUp, clearInput, onAudioUnlock, t]);
 
-  const getNextSlashIndex = useCallback((direction: "up" | "down") => {
+  function getNextSlashIndex(direction: "up" | "down") {
     const lastIndex = displayedSlashCommands.length - 1;
     if (lastIndex < 0) return 0;
     // A disabled entry is listed but never landed on, so the keyboard walks
@@ -1739,7 +1733,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     return displayedSlashCommands[slashActiveIndex]?.disabled
       ? Math.max(0, displayedSlashCommands.findIndex((item) => !item.disabled))
       : slashActiveIndex;
-  }, [displayedSlashCommands, slashActiveIndex]);
+  }
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -1963,7 +1957,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     return true;
   }, [processImageFiles]);
 
-  const handlePasteText = useCallback((text: string) => {
+  function handlePasteText(text: string) {
     if (text.length <= PASTED_TEXT_THRESHOLD) return false;
     const [pending] = addPastedTextAttachment(localAttachmentsRef.current, text);
     const withPending = [...localAttachmentsRef.current, pending];
@@ -1997,7 +1991,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       }
     })();
     return true;
-  }, [onEnsureSession, t]);
+  }
 
   useEffect(() => {
     if (slashQuery === null) {
@@ -2240,13 +2234,13 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           )}
     </>
   );
-  const recognizedMentions = useMemo(() => buildRecognizedComposerMentions({
+  const recognizedMentions = buildRecognizedComposerMentions({
     skills: composerSkills,
     plugins: mentionablePlugins,
     commands: availableSlashCommands,
     files: fileIndex && fileIndex.cwd === cwd ? fileIndex.entries : [],
     subagents,
-  }), [availableSlashCommands, composerSkills, cwd, fileIndex, mentionablePlugins, subagents]);
+  });
   const hasStreamingSubmissionHandler = Boolean(onSteer || onFollowUp || onPromptWithStreamingBehavior);
   const placeholder = selectComposerPlaceholder({
     working: () => isStreaming && !hasStreamingSubmissionHandler

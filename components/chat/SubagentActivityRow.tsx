@@ -1,10 +1,10 @@
 "use client";
 
-import type { CSSProperties } from "react";
 import { useI18n } from "@/hooks/useI18n";
 import type { SubagentSnapshot } from "@/lib/types";
 import { composeSubagentSummaryParts, type SubagentGroupState, type SubagentSummaryPart, type SubagentSummaryRow } from "@/lib/transcript/subagent-group-summary";
 import styles from "./subagent-activity-row.module.css";
+import { DynamicStyleVars } from "../ui/DynamicStyleVars";
 
 type RowState = "active" | "updated" | "interrupted" | "completed";
 
@@ -38,10 +38,6 @@ function hashText(value: string): number {
   return hash >>> 0;
 }
 
-function avatarStyle(id: string): CSSProperties {
-  return { "--subagent-avatar-hue": String(hashText(id) % 360) } as CSSProperties;
-}
-
 function initial(name: string): string {
   return Array.from(name.trim())[0]?.toLocaleUpperCase() ?? "?";
 }
@@ -68,7 +64,7 @@ export function SubagentGroupSummary({ subagents, fallbackName, onOpen, onOpenAl
   return (
     <div className={styles.group} data-subagent-summary aria-live="polite">
       <span className={styles.avatars} aria-hidden="true">
-        {subagents.slice(0, 4).map((subagent) => <span key={subagent.id} className={styles.avatar} data-avatar-seed={subagent.id} style={avatarStyle(subagent.id)}>{initial(displayName(subagent, fallbackName))}</span>)}
+        {subagents.slice(0, 4).map((subagent) => <span key={subagent.id} className={styles.avatar} data-avatar-seed={subagent.id}><DynamicStyleVars variables={{ "--subagent-avatar-hue": hashText(subagent.id) % 360 }}>{initial(displayName(subagent, fallbackName))}</DynamicStyleVars></span>)}
       </span>
       <span className={styles.summary} data-subagent-summary-sentence>
         {summary.parts.map((part, index) => {
@@ -107,7 +103,7 @@ export function SubagentActivityRow({ subagent, displayName: name, onOpen }: {
   const label = t(`transcript.activity.subAgent.activity.${state}`, { displayName: name });
   const content = (
     <>
-      <span className={styles.avatar} data-avatar-seed={subagent.id} style={avatarStyle(subagent.id)} aria-hidden="true">{initial(name)}</span>
+      <span className={styles.avatar} data-avatar-seed={subagent.id} aria-hidden="true"><DynamicStyleVars variables={{ "--subagent-avatar-hue": hashText(subagent.id) % 360 }}>{initial(name)}</DynamicStyleVars></span>
       <span className={styles.label}>{label}</span>
     </>
   );
