@@ -84,7 +84,7 @@ test("the CSS uses the reference track, fill, tick, and thumb geometry", async (
   assert.match(powerCss, /\.rail::before\s*\{[^}]*width:\s*calc\(var\(--power-thumb\) \/ 2 \+ \(100% - var\(--power-thumb\)\) \* var\(--ui-power-progress, 0\)\);[^}]*transition:\s*width var\(--power-motion\);/);
   assert.match(powerCss, /\.dot,\s*\.thumb\s*\{[^}]*left:\s*calc\(var\(--power-thumb\) \/ 2 \+ \(100% - var\(--power-thumb\)\) \* var\(--ui-power-position, 0\.5\)\);/);
   assert.match(powerCss, /\.dot\s*\{[^}]*width:\s*4px;[^}]*height:\s*4px;/);
-  assert.match(powerCss, /\.thumb\s*\{[^}]*width:\s*var\(--power-thumb\);[^}]*background:\s*#fff;[^}]*transition:\s*left var\(--power-motion\)/);
+  assert.match(powerCss, /\.thumb\s*\{[^}]*width:\s*var\(--power-thumb\);[^}]*background:\s*var\(--ui-power-thumb\);[^}]*transition:\s*left var\(--power-motion\)/);
   assert.match(powerCss, /\.sliderHeader\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*36px minmax\(0, 1fr\) 36px;/);
 });
 

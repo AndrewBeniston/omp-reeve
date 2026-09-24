@@ -2450,14 +2450,21 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                         <path d="M21 12a9 9 0 1 1-2.64-6.36" />
                       </svg>
                     ) : null}
-                    {modelChipHasPrefix && <span className={`${styles.ellipsis} ${styles.modelName}`}>
-                      {currentName ?? "No models"}
-                    </span>}
-                    <AnimatedEffortLabel
-                      label={currentEffortLabel}
-                      topStep={currentEffortIsTopStep}
-                      hasModelPrefix={modelChipHasPrefix}
-                    />
+                    {modelDropdownOpen ? (
+                      // While the popup is open, the chip asks for the choice, as the reference does.
+                      <span className={`${styles.ellipsis} ${styles.modelChipPrompt}`} data-model-chip-prompt>{t("chat.selectEffort")}</span>
+                    ) : (
+                      <>
+                        {modelChipHasPrefix && <span className={`${styles.ellipsis} ${styles.modelName}`}>
+                          {currentName ?? "No models"}
+                        </span>}
+                        <AnimatedEffortLabel
+                          label={currentEffortLabel}
+                          topStep={currentEffortIsTopStep}
+                          hasModelPrefix={modelChipHasPrefix}
+                        />
+                      </>
+                    )}
                     <svg className={styles.modelChevron} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="m5 6.5 3 3 3-3" />
                     </svg>

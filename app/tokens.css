@@ -163,6 +163,10 @@
   --composer-editor-gap: var(--space-1);
   /* Codex size "composer": every footer control is 28px tall. Uniform ones are 28px square. */
   --composer-control-size: 28px;
+  /* The effort slider thumb stays white in both themes, as in the reference. */
+  --ui-power-thumb: color-mix(in srgb, var(--accent) 0%, white);
+  --ui-power-tick-filled: color-mix(in srgb, color-mix(in srgb, var(--accent) 0%, white) 30%, transparent);
+  --shadow-power-thumb: 0 0 2px color-mix(in srgb, black 10%, transparent), 0 1px 3px color-mix(in srgb, black 12%, transparent);
   --composer-send-size: var(--composer-control-size);
 
   --shadow-composer:

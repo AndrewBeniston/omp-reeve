@@ -151,7 +151,7 @@ test("the footer chip shows the model, effort, and chevron with a marked top ste
   assert.match(css, /\.reasoningLevel\s*\{[^}]*color:\s*var\(--ui-text-dim\);/);
   assert.match(css, /\.reasoningLevel\[data-top-step="true"\]\s*\{[^}]*color:\s*var\(--ui-accent\);/);
   assert.match(css, /\.reasoningLevel\[data-model-prefix="false"\]\s*\{[^}]*color:\s*var\(--ui-text\);/);
-  assert.match(css, /\.menuTrigger\s*\{[^}]*min-height:\s*var\(--composer-control-size, 28px\);[^}]*padding:\s*0 var\(--space-2\);/);
+  assert.match(css, /\.menuTrigger\s*\{[^}]*min-height:\s*var\(--composer-send-size\);[^}]*padding:\s*0 10px 0 12px;/);
   assert.match(css, /\.menuTrigger\s*\{[^}]*max-width:\s*calc\(64 \* var\(--space-1\)\);/);
 });
 
@@ -452,7 +452,8 @@ test("filters model options by name and id", () => {
 
   assert.deepEqual(filterModelOptions(options, "QWEN"), [options[0]]);
   assert.deepEqual(filterModelOptions(options, "claude-sonnet"), [options[1]]);
-  assert.equal(filterModelOptions(options, "OpenAI").length, 0);
+  // Search also matches the provider, so "OpenAI" finds the OpenAI model.
+  assert.equal(filterModelOptions(options, "OpenAI").length, 1);
   assert.equal(filterModelOptions(options, "anthropic/claude").length, 0);
   assert.equal(filterModelOptions(options, "missing").length, 0);
   assert.equal(filterModelOptions(options, "  "), options);
@@ -1051,7 +1052,7 @@ test("renders the complete semantic composer contract", async () => {
   // The model chip uses the compact reference height and padding.
   assert.match(css, /\.attachmentControl\s*\{[^}]*width:\s*var\(--composer-control-size\);[^}]*height:\s*var\(--composer-control-size\);/);
   assert.match(css, /\.contextDonut\s*\{[^}]*width:\s*var\(--composer-control-size\);[^}]*height:\s*var\(--composer-control-size\);/);
-  assert.match(css, /\.menuTrigger\s*\{[^}]*min-height:\s*var\(--composer-control-size, 28px\);[^}]*padding:\s*0 var\(--space-2\);[^}]*border-radius:\s*var\(--radius-round\);[^}]*font-size:\s*var\(--text-base\);[^}]*line-height:\s*18px;/);
+  assert.match(css, /\.menuTrigger\s*\{[^}]*min-height:\s*var\(--composer-send-size\);[^}]*padding:\s*0 10px 0 12px;[^}]*border-radius:\s*var\(--radius-round\);[^}]*font-size:\s*var\(--text-base\);[^}]*line-height:\s*18px;/);
   assert.match(approvalCss, /\.trigger\s*\{[^}]*height:\s*var\(--composer-control-size\);/);
   assert.match(tokensCss, /--composer-control-size:\s*28px;/);
   assert.match(tokensCss, /--composer-send-size:\s*var\(--composer-control-size\);/);
