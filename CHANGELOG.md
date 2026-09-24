@@ -33,9 +33,7 @@ the What's New dialog adds a second page that invites support.
 - Assistant responses now announce streaming start, progress, and completion to screen readers through a polite live region.
 - The fork action on user messages now opens a destination dialog to fork into the current workspace, same worktree, or a new worktree.
 - The queue persists failed message sends with safe error summaries, reload and reconnect reconciliation, and a Retry command.
-
 ### Fixed
-
 - Strip ANSI colour codes from extension and notice text in the transcript.
 - Session history loads 50 more messages near the top and keeps the reading position after each page.
 - Assistant Markdown images now show loading and failure states, and inline videos use native playback controls.
@@ -138,10 +136,8 @@ the What's New dialog adds a second page that invites support.
 - The Session client now restores Goal state and reconciles missed Goal updates.
   A failed initial read offers a retry action.
 - The Session wrapper lifecycle regression test now includes the Goal state read used by wrapped sessions.
-
-### Fixed
-
 - The Composer Add menu is now a compact popup with Plugins and Skills submenus and capped scrolling.
+- The Composer no longer shows a dictation error before dictation starts.
 - The model menu in the Composer now appears when you click the model name. It was drawn behind the new-chat screen and the transcript, so it looked as if nothing opened. It now opens above the whole window.
 - The Composer footer now stays inside the Composer at mobile widths and truncates long model names.
 

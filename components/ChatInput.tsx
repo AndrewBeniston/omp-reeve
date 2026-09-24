@@ -715,13 +715,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/speech`);
         if (!response.ok) return;
         const availability = await response.json() as { enabled?: boolean };
-        if (active) {
-          setDictationAvailable(Boolean(availability.enabled));
-          if (!availability.enabled) {
-            setDictationError({ kind: "start", message: t("chat.dictationUnsupported") });
-            setAttachmentPickerError(t("chat.dictationUnsupported"));
-          }
-        }
+        if (active) setDictationAvailable(Boolean(availability.enabled));
         const stream = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/speech?events`);
         if (!stream.ok || !stream.body || !active) return;
         const reader = stream.body.getReader();
@@ -752,7 +746,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           }
         }
       } catch {
-        if (active) setDictationError({ kind: "start", message: t("chat.dictationUnavailable") });
+        // Availability probing must not create a resting error.
       }
     });
     return () => { active = false; };
@@ -760,15 +754,20 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
 
   const dictationAction = useCallback(async (action: DictationAction) => {
     if (action === "none") return;
-    const sessionId = await onEnsureSession?.();
-    if (!sessionId) return;
     setDictationError(null);
+    if (action === "start") {
+      setDictationAvailable(true);
+      setDictationState("starting");
+    }
     try {
+      const sessionId = await onEnsureSession?.();
+      if (!sessionId) throw new Error("Speech session unavailable");
       const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/speech`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }),
       });
       if (!response.ok) throw new Error("Speech request failed");
     } catch {
+      setDictationState("failed");
       setDictationError({ kind: "start", message: t("chat.dictationStartError") });
     }
   }, [onEnsureSession, t]);
@@ -1869,17 +1868,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       }
       if (defaultCommand === "composer.startDictation") {
         e.preventDefault();
-        if (!onEnsureSession) return;
-        void onEnsureSession().then((sessionId) => {
-          if (!sessionId) return;
-          return fetch(`/api/sessions/${encodeURIComponent(sessionId)}/speech`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "start" }),
-          }).then((response) => {
-            if (!response.ok) throw new Error(`Speech request failed: ${response.status}`);
-          }).catch(() => setAttachmentPickerError(t("chat.dictationUnavailable")));
-        });
+        void dictationAction("start");
         return;
       }
 
@@ -1960,7 +1949,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         }
       }
     },
-    [isStreaming, onSteer, onFollowUp, onAbort, onCycleThinkingLevel, onThinkingLevelChange, thinkingLevel, clearInput, slashMenuOpen, slashQuery, displayedSlashCommands, slashActiveIndex, applySlashCommand, sendQueued, requestIdleSubmission, getNextSlashIndex, atMenuOpen, atQuery, displayedAtSuggestions, atActiveIndex, applyAtCompletion, historyMenuOpen, inputHistory, historyActiveIndex, applyHistoryInput, value, lastQueueUndoToken, undoDeletedQueuedMessage, editingQueuedMessage, cancelQueuedMessageEdit, completeQueuedMessageEdit, queueingEnabled]
+    [isStreaming, onSteer, onFollowUp, onAbort, onCycleThinkingLevel, onThinkingLevelChange, thinkingLevel, clearInput, slashMenuOpen, slashQuery, displayedSlashCommands, slashActiveIndex, applySlashCommand, sendQueued, requestIdleSubmission, getNextSlashIndex, atMenuOpen, atQuery, displayedAtSuggestions, atActiveIndex, applyAtCompletion, historyMenuOpen, inputHistory, historyActiveIndex, applyHistoryInput, value, lastQueueUndoToken, undoDeletedQueuedMessage, editingQueuedMessage, cancelQueuedMessageEdit, completeQueuedMessageEdit, queueingEnabled, dictationAction]
   );
 
   const handlePasteImages = useCallback((files: File[]) => {
@@ -2267,6 +2256,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       onChange={(nextValue) => {
       valueRef.current = nextValue;
       setValue(nextValue);
+      setDictationError(null);
       setSessionCommandStatus(null);
       setHistoryMenuOpen(false);
       }}
@@ -2941,6 +2931,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         failedView: t("chat.dictationViewRecording"), startError: t("chat.dictationStartError"),
         transcribeError: t("chat.dictationTranscribeError"), unsupported: t("chat.dictationUnsupported"),
         permissionDenied: t("chat.dictationPermissionDenied"), openMicrophoneSettings: t("chat.dictationOpenMicrophoneSettings"),
+        dismiss: t("chat.dictationDismiss"),
       }} onAction={dictationAction} onViewRecording={() => void (async () => {
         const sessionId = await onEnsureSession?.();
         if (!sessionId) return;
@@ -2951,7 +2942,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         anchor.click();
       })()} onOpenMicrophoneSettings={() => {
         void (globalThis as { ompDesktop?: { openMicrophoneSettings?: () => Promise<unknown> } }).ompDesktop?.openMicrophoneSettings?.();
-      }} />}
+      }} onDismissError={() => setDictationError(null)} />}
       toolbarEndRef={controlsMenuRef}
       isMobile={isMobile}
       plainTextMode={composerDisplayPreferences.plainTextMode}

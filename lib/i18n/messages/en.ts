@@ -189,6 +189,7 @@ export const enLocale: LocalePlugin = {
     "chat.dictationUnsupported": "Dictation is not available on this device",
     "chat.dictationPermissionDenied": "Microphone permission denied",
     "chat.dictationOpenMicrophoneSettings": "Open microphone settings",
+    "chat.dictationDismiss": "Dismiss error",
     "settings.review.automatic": "Automatic code review",
     "chat.commandRunning": "Running that command…",
     "settings.review.automaticDescription": "Let Reeve start a review itself when you do the thing you chose below. Off until you turn it on.",
