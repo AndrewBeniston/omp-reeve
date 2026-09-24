@@ -1960,8 +1960,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
 
   function handlePasteText(text: string) {
     if (text.length <= PASTED_TEXT_THRESHOLD) return false;
-    const [pending] = addPastedTextAttachment(localAttachmentsRef.current, text);
-    const withPending = [...localAttachmentsRef.current, pending];
+    // addPastedTextAttachment returns the whole list with the new item last.
+    const withPending = addPastedTextAttachment(localAttachmentsRef.current, text);
+    const pending = withPending[withPending.length - 1];
     localAttachmentsRef.current = withPending;
     setLocalAttachments(withPending);
     browserUploadsPendingRef.current += 1;
