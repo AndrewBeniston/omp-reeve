@@ -21,6 +21,7 @@ const labels = {
   unsupported: "Dictation is not available on this device",
   permissionDenied: "Microphone permission denied",
   openMicrophoneSettings: "Open microphone settings",
+  dismiss: "Dismiss error",
 };
 
 test("maps bridge states to the shipped control actions", () => {
@@ -77,5 +78,24 @@ test("shows start and transcription failures as toasts", () => {
     }));
     assert.match(html, /role="status"/);
     assert.match(html, new RegExp(message));
+  }
+});
+
+test("lets the person dismiss a dictation error", async () => {
+  const { click, mount } = await import("../../test/dom-harness.mjs");
+  let dismissed = 0;
+  const view = await mount(React.createElement(DictationControl, {
+    state: "failed",
+    error: { kind: "start", message: labels.startError },
+    labels,
+    onAction() {},
+    onViewRecording() {},
+    onDismissError() { dismissed += 1; },
+  }));
+  try {
+    await click(view.container.querySelector("[data-dictation-dismiss]"));
+    assert.equal(dismissed, 1);
+  } finally {
+    await view.unmount();
   }
 });

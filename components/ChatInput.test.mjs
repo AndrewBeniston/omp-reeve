@@ -1146,6 +1146,36 @@ test("the session Composer keeps workspace controls out of the footer", () => {
   assert.doesNotMatch(html, /Session worktree/);
 });
 
+test("the Composer keeps unavailable dictation quiet at rest", async (t) => {
+  const harness = await import("../test/dom-harness.mjs");
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const path = String(url);
+    if (path.endsWith("/speech")) return { ok: true, json: async () => ({ enabled: false }) };
+    if (path.includes("/speech?events")) return { ok: false, status: 404 };
+    if (path.startsWith("/api/skills?")) return { ok: true, json: async () => ({ skills: [] }) };
+    if (path.startsWith("/api/plugins?")) return { ok: true, json: async () => ({ packages: [] }) };
+    throw new Error(`Unexpected fetch: ${path}`);
+  };
+  t.after(() => { globalThis.fetch = previousFetch; });
+
+  const view = await harness.mount(React.createElement(I18nProvider, null, React.createElement(ChatInput, {
+    onSend() {},
+    onAbort() {},
+    isStreaming: false,
+    cwd: "/repo",
+    onEnsureSession: async () => "session-570",
+  })));
+  try {
+    await harness.settle();
+    assert.equal(view.container.querySelector("[role='alert']"), null);
+    assert.doesNotMatch(view.container.textContent, /Dictation is not available/);
+    assert.equal(view.container.querySelector("[aria-label='Dictate']"), null);
+  } finally {
+    await view.unmount();
+  }
+});
+
 test("workspace changes confirm only when the Composer has unsent input", () => {
   assert.equal(hasUnsentComposerInput("", 0, 0), false);
   assert.equal(hasUnsentComposerInput("draft", 0, 0), true);
