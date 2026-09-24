@@ -1151,6 +1151,41 @@
 }
 
 @media (max-width: 640px) {
+  .toolbar {
+    width: 100%;
+    margin-right: 0;
+    margin-left: 0;
+  }
+
+  .toolbarRight {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+
+  .toolbarLeft {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
+  .toolbarModelArea,
+  .modelSelector {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .modelName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .toolbar[data-footer-mode="home"] {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    mask-image: none;
+  }
+
   .menuTrigger {
     max-width: 100%;
   }
