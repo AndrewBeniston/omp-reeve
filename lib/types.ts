@@ -71,6 +71,9 @@ export interface AssistantMessage {
   provider: string;
   stopReason?: string;
   errorMessage?: string;
+  usageLimit?: {
+    retryAfterMs?: number;
+  };
   timestamp?: number;
   usage?: {
     input: number;

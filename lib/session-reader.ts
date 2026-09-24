@@ -6,6 +6,8 @@ import {
 import { Tokenizer } from "@oh-my-pi/pi-agent-core";
 import type { AgentMessage as OmpAgentMessage } from "@oh-my-pi/pi-agent-core";
 import { calculatePromptTokens, hasContextTokenUsage } from "@oh-my-pi/pi-agent-core/compaction";
+import { isUsageLimit } from "@oh-my-pi/pi-ai/error";
+import { extractProviderRetryHint } from "@oh-my-pi/pi-ai/utils/retry-after";
 import { closeSync, existsSync, openSync, readSync } from "fs";
 import { normalize as normalizePath } from "path";
 import type { AgentMessage, ModelChangeNote, SessionEntry, SessionHeader, SessionInfo, SessionContext, UserMessage, UserMessageAttachment } from "./types";
@@ -17,6 +19,20 @@ import { sessionPathKey } from "./session-path";
 import { resolveProject, type ProjectInfo } from "./worktree";
 
 export { getAgentDir };
+
+export function classifyUsageLimit(message: { provider?: string; errorMessage?: string; stopReason?: string }): { retryAfterMs?: number } | undefined {
+  if (message.stopReason !== "error" || !isUsageLimit(message)) return undefined;
+  const retryAfterMs = extractProviderRetryHint(message.provider, message.errorMessage);
+  return retryAfterMs === undefined ? {} : { retryAfterMs };
+}
+
+export function classifyMessageEventUsageLimit<T extends { type: string; message?: unknown }>(event: T): T {
+  if (event.type !== "message_end" || !event.message || typeof event.message !== "object") return event;
+  const message = event.message as { role?: string; provider?: string; errorMessage?: string; stopReason?: string };
+  if (message.role !== "assistant") return event;
+  const usageLimit = classifyUsageLimit(message);
+  return usageLimit ? { ...event, message: { ...message, usageLimit } } : event;
+}
 
 export async function attachSessionProjectInfo(sessions: SessionInfo[]): Promise<SessionInfo[]> {
   const uniqueCwds = [...new Set(sessions.map((s) => s.cwd).filter(Boolean))];
@@ -701,8 +717,7 @@ function entryToUiMessage(
       const message = options.deferToolResultImages
         ? omitToolResultBase64Images(normalizeToolCalls(entry.message))
         : normalizeToolCalls(entry.message);
-      if (!options.deferThinking || message.role !== "assistant") return message;
-      return {
+      const displayMessage = !options.deferThinking || message.role !== "assistant" ? message : {
         ...message,
         content: message.content.map((block) => (
           block.type === "thinking" && block.thinking.trim() !== ""
@@ -710,6 +725,11 @@ function entryToUiMessage(
             : block
         )),
       };
+      if (displayMessage.role === "assistant") {
+        const usageLimit = classifyUsageLimit(displayMessage);
+        if (usageLimit) return { ...displayMessage, usageLimit };
+      }
+      return displayMessage;
     }
     case "compaction":
       return {

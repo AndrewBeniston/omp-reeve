@@ -11,6 +11,7 @@ const jiti = createJiti(import.meta.url, {
   moduleCache: false,
 });
 const { GET: getAgentEvents } = await jiti.import("./[id]/events/route.ts");
+const { classifyMessageEventUsageLimit } = await jiti.import("../../../lib/session-reader.ts");
 const { AgentSessionWrapper } = await jiti.import("../../../lib/rpc-manager.ts");
 const { cacheSessionPath } = await jiti.import("../../../lib/session-reader.ts");
 
@@ -167,6 +168,20 @@ test("agent SSE projects SDK events onto the fields consumed by the web client",
   assert.match(agentEventsSource, /delete clientEvent\.assistantMessageEvent/);
   assert.match(agentEventsSource, /event\.type === "agent_end"\) return \{ type: "agent_end" \}/);
   assert.match(agentEventsSource, /const clientEvent = toClientEvent\(event\)/);
+});
+
+test("agent SSE attaches server-classified usage-limit data", () => {
+  const event = classifyMessageEventUsageLimit({
+    type: "message_end",
+    message: {
+      role: "assistant",
+      provider: "test",
+      stopReason: "error",
+      errorMessage: "Usage limit reached retry-after-ms=2000",
+    },
+  });
+
+  assert.deepEqual(event.message.usageLimit, { retryAfterMs: 2000 });
 });
 
 test("SSE routes reuse one TextEncoder per stream", () => {

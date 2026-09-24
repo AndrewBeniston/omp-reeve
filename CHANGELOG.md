@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Classify usage-limit failures on the server so saved and live notes keep their retry timing.
 - Show grouped pasted-text attachment rows on sent user messages.
 - Preserve pasted-text attachment rows on queued, steered, follow-up, and edited user messages.
 - Added copy-path and save-copy actions to inline audio players.

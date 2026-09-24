@@ -11,8 +11,8 @@ const { enLocale } = await jiti.import("../../lib/i18n/messages/en.ts");
 const { zhCNLocale } = await jiti.import("../../lib/i18n/messages/zh-CN.ts");
 const h = React.createElement;
 
-function failedMessage(errorMessage) {
-  return { role: "assistant", content: [], model: "test", provider: "test", stopReason: "error", errorMessage };
+function failedMessage(errorMessage, usageLimit) {
+  return { role: "assistant", content: [], model: "test", provider: "test", stopReason: "error", errorMessage, usageLimit };
 }
 
 async function renderNote(props) {
@@ -20,7 +20,7 @@ async function renderNote(props) {
 }
 
 test("shows a retry action for an OMP-classified usage limit with a known deadline", async () => {
-  const view = await renderNote({ message: failedMessage("Usage limit reached retry-after-ms=2000"), onRetry: () => {} });
+  const view = await renderNote({ message: failedMessage("Usage limit reached retry-after-ms=2000", { retryAfterMs: 2000 }), onRetry: () => {} });
   const note = view.container.querySelector('[data-transcript-note="usage-limit"]');
 
   assert.ok(note);
@@ -32,7 +32,7 @@ test("shows a retry action for an OMP-classified usage limit with a known deadli
 
 test("updates the countdown each second, stops at zero, and retries automatically once", async () => {
   const retries = [];
-  const view = await renderNote({ message: failedMessage("Usage limit reached retry-after-ms=1000"), onRetry: (automatic) => retries.push(automatic) });
+  const view = await renderNote({ message: failedMessage("Usage limit reached retry-after-ms=1000", { retryAfterMs: 1000 }), onRetry: (automatic) => retries.push(automatic) });
   const button = view.container.querySelector("button");
 
   assert.equal(textOf(button), "Retry in 1s");
@@ -46,7 +46,7 @@ test("updates the countdown each second, stops at zero, and retries automaticall
 
 test("manual retry cancels the pending automatic retry", async () => {
   const retries = [];
-  const view = await renderNote({ message: failedMessage("Usage limit reached retry-after-ms=1000"), onRetry: (automatic) => retries.push(automatic) });
+  const view = await renderNote({ message: failedMessage("Usage limit reached retry-after-ms=1000", { retryAfterMs: 1000 }), onRetry: (automatic) => retries.push(automatic) });
 
   await click(view.container.querySelector("button"));
   assert.deepEqual(retries, [false]);
@@ -57,7 +57,7 @@ test("manual retry cancels the pending automatic retry", async () => {
 
 test("shows a plain retry when OMP supplies no timing", async () => {
   const retries = [];
-  const view = await renderNote({ message: failedMessage("Usage limit reached"), onRetry: (automatic) => retries.push(automatic) });
+  const view = await renderNote({ message: failedMessage("Usage limit reached", {}), onRetry: (automatic) => retries.push(automatic) });
   const note = view.container.querySelector('[data-transcript-note="usage-limit"]');
 
   assert.equal(textOf(note), "You've hit your usage limit. Try again later.Retry");
