@@ -58,6 +58,7 @@ import {
 import { followPhaseFromRows, prefersReducedMotion, resolveScrollBehavior } from "./chat/transcript-follow";
 import { useTranscriptHeightRestoration } from "./chat/useTranscriptHeightRestoration";
 import { useTranscriptFollow } from "./chat/useTranscriptFollow";
+import { DynamicStyleVars } from "./ui/DynamicStyleVars";
 import { useTranscriptHistory } from "./chat/useTranscriptHistory";
 import styles from "./chat/chat-window.module.css";
 
@@ -734,7 +735,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
             <NoticeShelf notices={notices} floating align="right" />
           </div>
         </div>
-        <div ref={scrollContainerRef} className={`chat-session-scroll ${styles.transcriptScroll}`}>
+        <DynamicStyleVars elementRef={scrollContainerRef} className={`chat-session-scroll ${styles.transcriptScroll}`} variables={{ "--ui-transcript-scroll-padding-bottom": `${transcriptFollow.scrollPaddingBottom}px` }}>
           <div className={styles.transcriptGutter}>
             <div ref={transcriptContentRef} className={styles.transcriptMeasure} data-transcript-navigation-content>
               <ExtensionWidgets widgets={aboveEditorWidgets} />
@@ -1029,7 +1030,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
             <div ref={messagesEndRef} />
             </div>
           </div>
-        </div>
+        </DynamicStyleVars>
         <TranscriptNavigationRail
           items={transcriptNavigationItems}
           scrollContainerRef={scrollContainerRef}

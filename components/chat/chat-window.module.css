@@ -202,7 +202,7 @@
 
 .transcriptScroll {
   overflow-anchor: none;
-  scroll-padding-bottom: var(--transcript-scroll-padding-bottom, 0px);
+  scroll-padding-bottom: var(--ui-transcript-scroll-padding-bottom, 0px);
   overscroll-behavior: contain;
   min-width: 0;
   flex: 1;

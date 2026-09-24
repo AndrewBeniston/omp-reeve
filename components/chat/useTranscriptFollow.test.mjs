@@ -55,6 +55,7 @@ function Transcript({
       },
     }, React.createElement("textarea")),
     React.createElement("span", { "data-mode": follow.mode }),
+    React.createElement("span", { "data-scroll-padding": follow.scrollPaddingBottom }),
   );
 }
 
@@ -300,8 +301,8 @@ test("footer padding uses the measured height in default and compact presentatio
     try {
       standard = await mount(React.createElement(Transcript));
       compact = await mount(React.createElement(Transcript, { sessionId: "session-b", compact: true }));
-      assert.equal(standard.container.querySelector("[data-scroll]").style["--transcript-scroll-padding-bottom"], "96px");
-      assert.equal(compact.container.querySelector("[data-scroll]").style["--transcript-scroll-padding-bottom"], "80px");
+      assert.equal(standard.container.querySelector("[data-scroll-padding]").getAttribute("data-scroll-padding"), "96");
+      assert.equal(compact.container.querySelector("[data-scroll-padding]").getAttribute("data-scroll-padding"), "80");
     } finally {
       await standard?.unmount();
       await compact?.unmount();
@@ -314,13 +315,12 @@ test("focus inside the footer sets scroll padding to zero", async () => {
     let view;
     try {
       view = await mount(React.createElement(Transcript));
-      const scroll = view.container.querySelector("[data-scroll]");
       const input = view.container.querySelector("textarea");
       await React.act(async () => { input.focus(); });
-      assert.equal(scroll.style["--transcript-scroll-padding-bottom"], "0px");
+      assert.equal(view.container.querySelector("[data-scroll-padding]").getAttribute("data-scroll-padding"), "0");
       await React.act(async () => { input.blur(); });
       await settle(3);
-      assert.equal(scroll.style["--transcript-scroll-padding-bottom"], "96px");
+      assert.equal(view.container.querySelector("[data-scroll-padding]").getAttribute("data-scroll-padding"), "96");
     } finally {
       await view?.unmount();
     }
@@ -338,7 +338,7 @@ test("footer growth preserves a detached reading position", async () => {
       await view.render(React.createElement(Transcript, { footerHeight: 120, clientHeight: 360 }));
       await React.act(async () => { notify(view.container.querySelector("[data-footer]")); });
       assert.equal(scroll.scrollTop, 940);
-      assert.equal(scroll.style["--transcript-scroll-padding-bottom"], "136px");
+      assert.equal(view.container.querySelector("[data-scroll-padding]").getAttribute("data-scroll-padding"), "136");
     } finally {
       await view?.unmount();
     }

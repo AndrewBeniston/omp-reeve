@@ -63,8 +63,8 @@
   margin-top: 12px;
   padding: 8px 12px;
   border-radius: var(--radius-sm, 6px);
-  background: var(--color-danger-subtle, var(--danger-subtle, rgba(239, 68, 68, 0.1)));
-  border: 1px solid var(--color-danger, var(--danger, rgba(239, 68, 68, 0.2)));
+  background: color-mix(in srgb, var(--ui-danger) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ui-danger) 20%, transparent);
   color: var(--color-danger, var(--danger));
   font-size: var(--text-xs, 13px);
   line-height: 1.4;

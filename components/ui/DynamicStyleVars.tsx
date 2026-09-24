@@ -22,6 +22,10 @@ const DYNAMIC_STYLE_VARIABLES = [
   "--ui-project-translate-y",
   "--ui-project-transition",
   "--ui-response-spacer-height",
+  "--ui-image-zoom",
+  "--ui-power-position",
+  "--ui-transcript-scroll-padding-bottom",
+  "--subagent-avatar-hue",
 ] as const;
 
 export type DynamicStyleVariable = (typeof DYNAMIC_STYLE_VARIABLES)[number];
@@ -31,9 +35,10 @@ const ALLOWED_VARIABLES = new Set<string>(DYNAMIC_STYLE_VARIABLES);
 export interface DynamicStyleVarsProps extends Omit<HTMLAttributes<HTMLDivElement>, "style"> {
   variables: Partial<Record<DynamicStyleVariable, string | number>>;
   elementRef?: Ref<HTMLDivElement>;
+  as?: "div" | "span";
 }
 
-export function DynamicStyleVars({ variables, className, elementRef, ...props }: DynamicStyleVarsProps) {
+export function DynamicStyleVars({ variables, className, elementRef, as: Element = "div", ...props }: DynamicStyleVarsProps) {
   // Static CSS cannot know measured geometry, scroll positions, or progress values.
   const style: Record<string, string | number> = {};
   for (const [name, value] of Object.entries(variables)) {
@@ -44,7 +49,7 @@ export function DynamicStyleVars({ variables, className, elementRef, ...props }:
   }
 
   return (
-    <div
+    <Element
       {...props}
       ref={elementRef}
       className={cx(ui("dynamicStyleVars"), className)}

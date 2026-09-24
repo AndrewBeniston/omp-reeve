@@ -15,7 +15,7 @@
       "no-inline-style-attribute": 1
     },
     "components/ui/DynamicStyleVars.tsx": {
-      "no-inline-style-attribute": 1
+      "no-inline-style-attribute": 0
     },
     "components/MermaidBlock.tsx": {
       "no-react-syntax-highlighter-style-map": {

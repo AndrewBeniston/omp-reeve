@@ -169,6 +169,8 @@
   position: absolute;
   top: 50%;
   border-radius: 50%;
+  corner-shape: var(--corner-round);
+  left: var(--ui-power-position, 50%);
   transform: translate(-50%, -50%);
 }
 
@@ -187,7 +189,7 @@
   height: 16px;
   border: 2px solid var(--ui-accent);
   background: var(--ui-surface-elevated);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
+  box-shadow: 0 1px 3px var(--ui-backdrop);
 }
 
 .empty {
@@ -222,6 +224,7 @@
   margin: 0;
   border: 0;
   border-radius: 50%;
+  corner-shape: var(--corner-round);
   background: transparent;
   color: var(--ui-text-dim);
   cursor: pointer;

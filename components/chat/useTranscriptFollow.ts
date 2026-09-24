@@ -88,6 +88,7 @@ export function useTranscriptFollow({
   const pendingSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionIdRef = useRef(sessionId);
   const [initialReady, setInitialReady] = useState(false);
+  const [scrollPaddingBottom, setScrollPaddingBottom] = useState(0);
   const phaseRef = useRef(phase);
   const workingRef = useRef(working);
   const heldRef = useRef(activeTurnHeld);
@@ -219,7 +220,7 @@ export function useTranscriptFollow({
     let focused = footer.contains(document.activeElement);
     const publishPadding = (height: number) => {
       const padding = focused ? 0 : height + (compactPresentation ? 0 : 16);
-      container.style.setProperty("--transcript-scroll-padding-bottom", `${padding}px`);
+      setScrollPaddingBottom(padding);
     };
     const readHeight = () => Math.max(0, footer.getBoundingClientRect().height);
     const onResize = () => {
@@ -431,5 +432,5 @@ export function useTranscriptFollow({
     return () => observer.disconnect();
   }, [contentRef, messageCount, observe, scrollContainerRef]);
 
-  return { mode, button, goToNewest };
+  return { mode, button, goToNewest, scrollPaddingBottom };
 }

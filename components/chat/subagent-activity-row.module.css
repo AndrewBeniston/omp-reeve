@@ -24,8 +24,10 @@ button.row { cursor: pointer; }
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: hsl(var(--subagent-avatar-hue) 58% 42%);
-  color: white;
+  corner-shape: var(--corner-round);
+  background: var(--ui-accent);
+  filter: hue-rotate(var(--subagent-avatar-hue, 0deg));
+  color: var(--ui-text);
   font-size: 10px;
   font-weight: 600;
   line-height: 1;

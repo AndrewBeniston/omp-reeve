@@ -72,7 +72,7 @@
   width: 20px;
   height: 20px;
   place-items: center;
-  border-radius: 50%;
+  border-radius: 50%; corner-shape: var(--corner-round);
   background: var(--ui-main);
   color: var(--ui-text);
   font: inherit;

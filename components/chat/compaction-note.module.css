@@ -67,9 +67,9 @@
   align-items: center;
   padding: 6px 10px;
   border-radius: var(--radius-sm, 4px);
-  background: color-mix(in srgb, var(--ui-error, #ef4444) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--ui-error, #ef4444) 30%, transparent);
-  color: var(--ui-error, #ef4444);
+  background: color-mix(in srgb, var(--ui-danger) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ui-danger) 30%, transparent);
+  color: var(--ui-danger);
   font-size: var(--text-xs, 12px);
   line-height: var(--leading-xs, 16px);
 }

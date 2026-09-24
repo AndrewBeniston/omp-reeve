@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEve
 import type { PowerSelection, ThinkingStep } from "@/lib/model-selector";
 import { useI18n } from "@/hooks/useI18n";
 import { MenuItem } from "@/components/ui/Menu";
+import { DynamicStyleVars } from "../ui/DynamicStyleVars";
 import styles from "./ModelPowerSlider.module.css";
 
 interface Props {
@@ -194,15 +195,13 @@ export function ModelPowerSlider({
                   data-power-dot
                   data-effort={step.effort}
                   data-filled={index < visibleIndex ? "true" : "false"}
-                  style={{ left: `${position}%` }}
-                />;
+                  ><DynamicStyleVars variables={{ "--ui-power-position": `${position}%` }} /></span>
               })}
               {visibleIndex >= 0 && <span
                 className={styles.thumb}
                 data-power-thumb
                 data-step={steps[visibleIndex].thinkingLevel}
-                style={{ left: `${steps.length === 1 ? 50 : (visibleIndex / (steps.length - 1)) * 100}%` }}
-              />}
+                ><DynamicStyleVars variables={{ "--ui-power-position": `${steps.length === 1 ? 50 : (visibleIndex / (steps.length - 1)) * 100}%` }} /></span>}
             </div>
           </div>
           <span role="status" aria-live="polite" aria-atomic="true" className={styles.visuallyHidden}>

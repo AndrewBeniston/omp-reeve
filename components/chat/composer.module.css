@@ -212,7 +212,7 @@
   width: var(--composer-control-size);
   height: var(--composer-control-size);
   border: 0;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-round); corner-shape: var(--corner-round);
   background: transparent;
   color: var(--ui-text-dim);
   cursor: pointer;
@@ -256,7 +256,7 @@
   height: 32px;
   padding: 0;
   justify-content: center;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-round); corner-shape: var(--corner-round);
 }
 
 .composer[data-attachment-layout="icon"] .localAttachmentDetails,
@@ -288,7 +288,7 @@
   justify-content: center;
   width: 16px;
   height: 16px;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-round); corner-shape: var(--corner-round);
   corner-shape: var(--corner-round);
   background: var(--ui-backdrop);
   color: var(--ui-text);
@@ -442,7 +442,7 @@
   width: var(--composer-send-size);
   height: var(--composer-send-size);
   padding: 2px;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-round); corner-shape: var(--corner-round);
   corner-shape: var(--corner-round);
   border: none;
   background: var(--ui-composer-primary);
@@ -487,7 +487,7 @@
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-round); corner-shape: var(--corner-round);
   corner-shape: var(--corner-round);
   padding: 0;
   background: transparent;
@@ -687,7 +687,7 @@
   height: var(--composer-control-size);
   padding: 0;
   border: 0;
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-round); corner-shape: var(--corner-round);
   corner-shape: var(--corner-round);
   background: transparent;
   color: var(--ui-text-muted);
@@ -744,7 +744,7 @@
   justify-content: center;
   width: var(--composer-control-size);
   height: var(--composer-control-size);
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-round); corner-shape: var(--corner-round);
   corner-shape: var(--corner-round);
   background: transparent;
   color: var(--ui-text-muted);
@@ -791,7 +791,7 @@
   box-sizing: border-box;
   border: 0;
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-round);
+  border-radius: var(--radius-round); corner-shape: var(--corner-round);
   corner-shape: var(--corner-round);
   background: transparent;
   color: var(--ui-text);
