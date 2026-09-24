@@ -29,6 +29,7 @@ export function ComposerAddMenu({ sections, onSelect, onAttachImages, onBrowseFi
     if (!open || !trigger.current) return;
     const anchor = trigger.current;
     const measure = () => {
+      if (typeof anchor.getBoundingClientRect !== "function") return;
       const rect = anchor.getBoundingClientRect();
       const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
       const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
