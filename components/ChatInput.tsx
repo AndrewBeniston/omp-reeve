@@ -1154,6 +1154,18 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     setTextareaHeight("auto");
   }, [clearImages, draftKey]);
 
+  // The Goal dialog carries the objective and the images. Other attachments
+  // stay in the Composer with their uploads, so /goal never deletes a file
+  // the person attached.
+  const clearForGoalHandover = useCallback(() => {
+    valueRef.current = "";
+    setValue("");
+    setAtQuery(null);
+    setHistoryMenuOpen(false);
+    clearImages();
+    setTextareaHeight("auto");
+  }, [clearImages]);
+
   const restoreBeforeQueuedEdit = useCallback(() => {
     const previous = beforeQueuedEditRef.current;
     beforeQueuedEditRef.current = null;
@@ -1304,7 +1316,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     if (goalCommand && onOpenGoal) {
       if (pendingImageCountRef.current > 0) return;
       onOpenGoal(goalCommand[1]?.trim() ?? "", attachedImages);
-      clearInput();
+      clearForGoalHandover();
       return;
     }
     setBuiltinCommandPending(true);
@@ -1332,7 +1344,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     } finally {
       setBuiltinCommandPending(false);
     }
-  }, [builtinCommandPending, value, attachedImages, localAttachments, isStreaming, onBuiltinCommand, onOpenGoal, onSend, clearInput, onAudioUnlock, contextUsage, projectRequired, t]);
+  }, [builtinCommandPending, value, attachedImages, localAttachments, isStreaming, onBuiltinCommand, onOpenGoal, onSend, clearInput, clearForGoalHandover, onAudioUnlock, contextUsage, projectRequired, t]);
 
   const requestIdleSubmission = useCallback(() => {
     // The command already running is the one the human asked for; a second
@@ -1710,7 +1722,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     if (suggestion.disabled) return;
     if (suggestion.raw === "/goal" && onOpenGoal) {
       onOpenGoal("", attachedImages);
-      clearInput();
+      clearForGoalHandover();
       setSlashMenuOpen(false);
       return;
     }
@@ -1723,7 +1735,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     }, true);
     setSlashMenuOpen(false);
     setSlashActiveIndex(0);
-  }, [attachedImages, clearInput, onOpenGoal, selectSelectorCommand]);
+  }, [attachedImages, clearInput, clearForGoalHandover, onOpenGoal, selectSelectorCommand]);
 
   const sendQueued = useCallback((mode: "steer" | "followUp") => {
     if (browserUploadsPendingRef.current > 0) {
