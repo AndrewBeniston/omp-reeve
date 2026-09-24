@@ -189,9 +189,6 @@ export function AppShell() {
   // When user clicks +, we only store the cwd — no fake session id
   const [newSessionCwd, setNewSessionCwd] = useState<string | null>(null);
   const [newSessionKind, setNewSessionKind] = useState<"project" | "chat" | null>(null);
-  const [projectlessStartStatus, setProjectlessStartStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [projectlessStartError, setProjectlessStartError] = useState<string | null>(null);
-  const projectlessStartRef = useRef<Promise<void> | null>(null);
   const [initialCwdStatus, setInitialCwdStatus] = useState<"idle" | "validating" | "ready" | "error">(
     () => initialNavigation.requestedCwd ? "validating" : "idle",
   );
@@ -648,29 +645,24 @@ export function AppShell() {
     beginNewSession(cwd, "project");
   }, [beginNewSession]);
 
-  const handleNewProjectlessSession = useCallback(async () => {
-    if (newSessionKind === "chat" && newSessionCwd) return;
-    if (projectlessStartRef.current) return projectlessStartRef.current;
+  const beginUnassignedSession = useCallback(() => {
+    invalidateWorkspaceRestore();
+    setSelectedSession(null);
+    setNewSessionCwd(null);
+    setNewSessionKind("chat");
+    setActiveCwd(null);
+    setSessionKey((key) => key + 1);
+    setBranchTree([]);
+    setBranchActiveLeafId(null);
+    setSystemPrompt(null);
+    setActiveTopPanel(null);
+    if (isMobile) setSidebarOpen(false);
+    router.replace("/", { scroll: false });
+  }, [invalidateWorkspaceRestore, isMobile, router]);
 
-    const request = (async () => {
-      setProjectlessStartStatus("loading");
-      setProjectlessStartError(null);
-      try {
-        const response = await fetch("/api/default-cwd", { method: "POST" });
-        const data = await response.json() as { cwd?: string; error?: string };
-        if (!response.ok || !data.cwd) throw new Error(data.error ?? `HTTP ${response.status}`);
-        beginNewSession(data.cwd, "chat");
-        setProjectlessStartStatus("idle");
-      } catch (error) {
-        setProjectlessStartError(error instanceof Error ? error.message : String(error));
-        setProjectlessStartStatus("error");
-      } finally {
-        projectlessStartRef.current = null;
-      }
-    })();
-    projectlessStartRef.current = request;
-    return request;
-  }, [beginNewSession, newSessionCwd, newSessionKind]);
+  const handleNewProjectlessSession = useCallback(() => {
+    beginUnassignedSession();
+  }, [beginUnassignedSession]);
 
   // Global keyboard shortcuts (handles Esc, Ctrl+Alt+N etc.)
   useGlobalKeyboardShortcuts({
@@ -1271,7 +1263,9 @@ export function AppShell() {
   }, [selectedSession]);
 
   // Show chat area if a session is selected, or if we have a cwd to start a new session in
-  const effectiveNewSessionCwd = newSessionCwd ?? (selectedSession === null && activeCwd ? activeCwd : null);
+  const effectiveNewSessionCwd = newSessionKind === "chat"
+    ? null
+    : newSessionCwd ?? (selectedSession === null ? activeCwd : null);
   const summaryCwd = selectedSession?.cwd ?? effectiveNewSessionCwd;
   const [summaryGitStatus, setSummaryGitStatus] = useState<GitStatusResponse | null>(null);
 
@@ -1296,16 +1290,15 @@ export function AppShell() {
       });
     return () => controller.abort();
   }, [summaryCwd]);
-  const showChat = selectedSession !== null || effectiveNewSessionCwd !== null;
+  const showChat = selectedSession !== null || newSessionKind !== null || effectiveNewSessionCwd !== null;
   const showSubagentPanel = !isMobile && selectedSession !== null && subagents.length > 0;
   const projectTrustCwd = selectedSession?.cwd ?? effectiveNewSessionCwd;
   // While restoring initial session from URL, don't show the placeholder
   const showPlaceholder = initialSessionRestored && !showChat;
 
   useEffect(() => {
-    if (!showPlaceholder || activeCwd || projectlessStartStatus !== "idle") return;
-    void handleNewProjectlessSession();
-  }, [activeCwd, handleNewProjectlessSession, projectlessStartStatus, showPlaceholder]);
+    if (showPlaceholder) beginUnassignedSession();
+  }, [beginUnassignedSession, showPlaceholder]);
 
   useEffect(() => {
     setProjectTrust(null);
@@ -2047,7 +2040,7 @@ export function AppShell() {
         optimisticSession={selectedSession}
         onSelectSession={handleSelectSession}
         onNewSession={handleNewSession}
-        onNewProjectlessSession={() => void handleNewProjectlessSession()}
+        onNewProjectlessSession={handleNewProjectlessSession}
         onQuickChat={() => setQuickChatOpen(true)}
         onSearch={() => { setPaletteFiles(false); setCommandPaletteOpen(true); }}
         initialSessionId={initialSessionId}
@@ -2207,7 +2200,6 @@ export function AppShell() {
                  if (activeCwd && !isManagedChatCwd(activeCwd)) handleNewSession(`header-${Date.now()}`, activeCwd);
                  else void handleNewProjectlessSession();
                }}
-               disabled={projectlessStartStatus === "loading"}
                title={activeCwd && !isManagedChatCwd(activeCwd)
                  ? translate("sidebar.newSessionTitle", { path: activeCwd })
                  : translate("workspace.newChat")}
@@ -2258,6 +2250,7 @@ export function AppShell() {
               key={sessionKey}
               session={selectedSession}
               newSessionCwd={effectiveNewSessionCwd}
+              newDraftKey={newSessionKind === "chat" ? "new:unassigned" : undefined}
               onAgentEnd={handleAgentEnd}
               onAttentionNeeded={handleAttentionNeeded}
               onSessionCreated={handleSessionCreated}
@@ -2299,7 +2292,7 @@ export function AppShell() {
               onSelectWorktree={(path) => beginNewSession(path, "project")}
               onRegisterProjectCommand={() => {}}
               onHomeProjectSelected={(path) => handleNewSession(`home-${Date.now()}`, path)}
-              onHomeProjectlessSelected={() => void handleNewProjectlessSession()}
+              onHomeProjectlessSelected={handleNewProjectlessSession}
             />
           ) : initialCwdStatus === "validating" ? (
             <div
@@ -2321,20 +2314,6 @@ export function AppShell() {
                 {initialNavigation.requestedCwd}
               </div>
               <div className={shellStyles.workspaceError}>{initialCwdError}</div>
-            </div>
-          ) : projectlessStartStatus === "loading" ? (
-            <div role="status" className={shellStyles.workspaceState}>
-              <div className={shellStyles.workspaceStateTitle}>{translate("workspace.preparingChat")}</div>
-            </div>
-          ) : projectlessStartStatus === "error" ? (
-            <div role="alert" className={shellStyles.workspaceState}>
-              <div data-error="true" className={shellStyles.workspaceStateTitle}>{translate("workspace.chatUnavailable")}</div>
-              <div className={shellStyles.workspaceError}>{projectlessStartError}</div>
-              <button type="button" className={shellStyles.workspaceRetry} onClick={() => {
-                setProjectlessStartStatus("idle");
-              }}>
-                {translate("workspace.retry")}
-              </button>
             </div>
           ) : showPlaceholder ? (
             <div role="status" className={shellStyles.workspaceState}>
@@ -2429,6 +2408,7 @@ export function AppShell() {
         }}
       />
     {quickChatOpen && !quickChatConflictsWithMain && <QuickChat initialSession={quickChatSession}
+      initialCwd={selectedSession?.cwd ?? effectiveNewSessionCwd ?? activeCwd}
       mainSessionId={selectedSession?.id ?? null} onSessionChange={setQuickChatSession}
       onResourcesChanged={() => {
         setModelsRefreshKey(key => key + 1);
@@ -2461,7 +2441,7 @@ export function AppShell() {
       actions={[
         { id: "new", label: translate("sidebar.newChat"), group: translate("commandMenu.quickActions"), icon: "edit", shortcut: shortcutLabel("N"), run: () => {
           if (activeCwd) handleNewSession(`palette:${Date.now()}`, activeCwd);
-          else void handleNewProjectlessSession();
+          else handleNewProjectlessSession();
         } },
         { id: "folder", label: translate("commandMenu.openFolder"), group: translate("commandMenu.quickActions"), icon: "folder", shortcut: shortcutLabel("O"), run: () => setOpenProjectPicker(true) },
         ...(activeCwd ? [{ id: "files", label: translate("commandMenu.files"), group: translate("commandMenu.quickActions"), icon: "search", shortcut: shortcutLabel("P"), run: () => { setPaletteFiles(true); setCommandPaletteOpen(true); } }] : []),

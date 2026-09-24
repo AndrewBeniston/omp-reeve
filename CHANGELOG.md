@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- New chats now stay unassigned until the user selects a project, and the Composer blocks sending before then.
 - Keep same-name models from different providers distinct in model list names and Composer tooltips.
 - Match the Composer footer to the reference one-row control order and simplify its model and Send controls.
 - Match the Composer effort popup to the reference header and pill slider, and use OMP effort names.

@@ -12,10 +12,11 @@ import { useI18n } from "@/hooks/useI18n";
 import { quickChatDate } from "@/lib/quick-chat-date";
 import styles from "./quick-chat.module.css";
 
-export function QuickChat({ initialSession = null, mainSessionId, onSessionChange, onOpenMain, onOpenFile, onSessionForked, onResourcesChanged, onClose }: {
+export function QuickChat({ initialSession = null, initialCwd = null, mainSessionId, onSessionChange, onOpenMain, onOpenFile, onSessionForked, onResourcesChanged, onClose }: {
   onResourcesChanged: () => void;
   mainSessionId: string | null;
   initialSession?: SessionInfo | null;
+  initialCwd?: string | null;
   onSessionChange: (session: SessionInfo | null) => void;
   onOpenMain: (session: SessionInfo) => void;
   onOpenFile: (path: string, session: SessionInfo | null) => void;
@@ -23,15 +24,13 @@ export function QuickChat({ initialSession = null, mainSessionId, onSessionChang
   onClose: () => void;
 }) {
   const { t, locale } = useI18n();
-  const [cwd, setCwd] = useState<string | null>(null);
+  const [cwd] = useState<string | null>(initialSession?.cwd ?? initialCwd);
   const [session, setSession] = useState<SessionInfo | null>(initialSession);
   const composer = useRef<ChatInputHandle | null>(null);
   const pendingTitle = useRef<{ id: string; name: string } | null>(null);
   const panel = useRef<HTMLElement | null>(null);
   const previousFocus = useRef<HTMLElement | null>(typeof document === "undefined" ? null : document.activeElement as HTMLElement);
   const [minimized, setMinimized] = useState(false);
-  const [error, setError] = useState(false);
-  const [attempt, setAttempt] = useState(0);
   const [recent, setRecent] = useState<SessionInfo[]>([]);
   const [recentLoading, setRecentLoading] = useState(true);
   const [recentError, setRecentError] = useState(false);
@@ -90,18 +89,6 @@ export function QuickChat({ initialSession = null, mainSessionId, onSessionChang
       .finally(() => { if (!controller.signal.aborted) setRecentLoading(false); });
     return () => controller.abort();
   }, [recentAttempt]);
-  useEffect(() => {
-    const controller = new AbortController();
-    setError(false);
-    fetch("/api/default-cwd", { method: "POST", signal: controller.signal })
-      .then(async response => {
-        const data = await response.json();
-        if (!response.ok || !data.cwd) throw new Error("No chat directory");
-        if (!controller.signal.aborted) setCwd(data.cwd);
-      })
-      .catch(() => { if (!controller.signal.aborted) setError(true); });
-    return () => controller.abort();
-  }, [attempt]);
   return <section ref={panel} className={styles.panel} data-minimized={minimized} aria-label={t("quickChat.title")}
     onKeyDown={event => { if (event.key === "Escape") event.stopPropagation(); }}>
     <header className={styles.header}>
@@ -115,8 +102,7 @@ export function QuickChat({ initialSession = null, mainSessionId, onSessionChang
     </header>
     <div className={styles.body} hidden={minimized}>
       {trustError && !trustOpen && <p role="alert">{trustError}</p>}
-      {error ? <div role="alert">{t("quickChat.startError")} <button type="button" onClick={() => setAttempt(value => value + 1)}>{t("quickChat.retry")}</button></div>
-        : cwd ? <ChatWindow key={chatKey} session={session} newSessionCwd={cwd} chatInputRef={composer}
+      {cwd ? <ChatWindow key={chatKey} session={session} newSessionCwd={cwd} chatInputRef={composer}
           onOpenFile={path => { onOpenFile(path, session); onClose(); }}
           onSessionForked={id => { onSessionForked(id, session); onClose(); }}
           projectTrust={trust} onProjectTrustClick={() => { setTrustError(null); setTrustOpen(true); }}
@@ -151,8 +137,8 @@ export function QuickChat({ initialSession = null, mainSessionId, onSessionChang
             </button>)}
             {recent.length > 3 && <button type="button" onClick={() => setShowAll(!showAll)}>{t(showAll ? "quickChat.less" : "quickChat.more")}</button>}
           </div>}
-          newDraftKey="quick-chat:draft" registerGlobalAbort={false} homeProjectless homeContextLabel={t("workspace.chats")} />
-          : <p role="status">{t("quickChat.starting")}</p>}
+          newDraftKey="quick-chat:draft" registerGlobalAbort={false} homeContextLabel={t("workspace.chats")} />
+          : <div role="alert">{t("quickChat.startError")}</div>}
     </div>
     {trustOpen && activeCwd && <ProjectTrustDialog cwd={activeCwd} busy={trustBusy} error={trustError}
       onCancel={() => { if (!trustBusy) setTrustOpen(false); }}
