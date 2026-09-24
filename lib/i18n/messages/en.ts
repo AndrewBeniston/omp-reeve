@@ -25,6 +25,7 @@ export const enLocale: LocalePlugin = {
     "composer.threadGoal.replaceConfirmation.cancel": "Cancel",
     "codex.userMessage.goal": "Sent as goal",
     "composer.threadGoal.summary.active": "Pursuing goal",
+    "composer.threadGoal.summary.continuing": "Continuing goal…",
     "composer.threadGoal.summary.paused": "Paused goal",
     "composer.threadGoal.summary.budgetLimited": "Goal limited",
     "composer.threadGoal.summary.complete": "Goal achieved",

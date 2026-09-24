@@ -17,6 +17,7 @@ the What's New dialog adds a second page that invites support.
 - Existing Sessions can now move to another project from the Composer.
 - Goal objectives can now be edited without resetting the Goal identity or accounting.
 - Goal continuations wait for an idle Session and stop while a draft or attachment is pending.
+- The Composer shows “Continuing goal…” and disables ordinary Send while a Goal continuation is pending.
 - Show interrupted process turns with their activity, elapsed time, and saved error after reload.
 - Stop unfinished command rows when a process exits, and end the Turn clock at the saved process-exit entry.
 - The Composer Add menu now offers photos, files, and desktop folder selection with clear unavailable states.
