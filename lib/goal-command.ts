@@ -169,13 +169,13 @@ export async function runGoalCommand(
     if (!current || current.goal.status === "complete" || current.goal.status === "dropped") {
       throw new GoalApiError("goal_invalid_transition", "This Session has no Goal that can change its objective.", 409);
     }
-    const runtime = session.goalRuntime as typeof session.goalRuntime & {
-      updateObjective?: (objective: string) => Promise<GoalModeState>;
-    };
-    if (typeof runtime.updateObjective !== "function") {
-      throw new GoalApiError("goal_unsupported", "The installed OMP SDK does not support Goal objective mutation.", 501);
-    }
-    await runtime.updateObjective(nextObjective);
+    session.setGoalModeState({
+      ...current,
+      goal: { ...current.goal, objective: nextObjective },
+    });
+    // The installed OMP SDK has no objective-specific runtime method. Its
+    // budget mutation path emits goal_updated and persists the current Goal.
+    await session.goalRuntime.onBudgetMutated(current.goal.tokenBudget);
   } else if (command.op === "pause") {
     requireGoalCapability(session, "pauseGoal");
     const current = session.getGoalModeState();
