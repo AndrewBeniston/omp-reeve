@@ -1,6 +1,7 @@
 import type { AgentSessionLike, GoalCommandResult } from "./omp-types";
 import type { Goal } from "@oh-my-pi/pi-tui/tools/goal";
 import type { GoalModeState } from "@oh-my-pi/pi-coding-agent/goals/state";
+import type { SessionManager } from "@oh-my-pi/pi-coding-agent";
 
 const GOAL_STATUSES = new Set(["active", "paused", "budget-limited", "complete", "dropped"]);
 
@@ -47,9 +48,9 @@ function requireGoalCapability(session: AgentSessionLike, method?: string): void
   }
 }
 
-/** Validate OMP's persisted mode entry before handing its Goal back to OMP. */
-export function readPersistedGoal(session: AgentSessionLike): Goal | null {
-  const { mode, modeData } = session.sessionManager.buildSessionContext();
+type GoalContext = { mode: string; modeData?: Record<string, unknown> };
+
+function readGoalFromContext({ mode, modeData }: GoalContext): Goal | null {
   if (mode !== "goal" && mode !== "goal_paused") return null;
   const candidate = modeData?.goal;
   const value = candidate && typeof candidate === "object" && !Array.isArray(candidate)
@@ -72,6 +73,25 @@ export function readPersistedGoal(session: AgentSessionLike): Goal | null {
   if (mode === "goal_paused" && value.status !== "paused") invalid("status");
   if (mode === "goal" && (value.status === "paused" || value.status === "dropped")) invalid("status");
   return candidate as Goal;
+}
+
+/** Validate OMP's persisted mode entry before handing its Goal back to OMP. */
+export function readPersistedGoal(session: AgentSessionLike): Goal | null {
+  return readGoalFromContext(session.sessionManager.buildSessionContext());
+}
+
+/** Read Goal state from a Session file without creating an AgentSession. */
+export function readPersistedGoalState(
+  sessionManager: Pick<SessionManager, "buildSessionContext">,
+): GoalCommandResult {
+  const context = sessionManager.buildSessionContext();
+  const { mode } = context;
+  const goal = readGoalFromContext(context);
+  if (!goal) return { goal: null, state: null };
+  return {
+    goal,
+    state: { enabled: mode === "goal", mode: "active", goal },
+  };
 }
 
 export async function restoreGoalFromSession(
@@ -98,7 +118,20 @@ export async function runGoalCommand(
   beforeActivation?: () => Promise<void>,
 ): Promise<GoalCommandResult> {
   requireGoalCapability(session);
-  readPersistedGoal(session);
+  try {
+    readPersistedGoal(session);
+  } catch (error) {
+    if (!(error instanceof GoalApiError) || error.code !== "goal_invalid_snapshot") throw error;
+    if (command.op === "get") return { goal: null, state: null };
+    if (command.op !== "drop") throw error;
+    if (session.settings.get("goal.enabled") !== true) {
+      throw new GoalApiError("goal_disabled", "Goal mode is disabled in OMP settings.", 403);
+    }
+    session.goalRuntime.clearAccounting();
+    session.setGoalModeState(undefined);
+    session.sessionManager.appendModeChange("none");
+    return { goal: null, state: null };
+  }
   if (command.op !== "get" && session.settings.get("goal.enabled") !== true) {
     throw new GoalApiError("goal_disabled", "Goal mode is disabled in OMP settings.", 403);
   }

@@ -29,6 +29,24 @@ const INITIAL_STATE: GoalClientState = {
 };
 const EMPTY_STATE: GoalClientState = { ...INITIAL_STATE, status: "ready" };
 
+async function readGoalState(sessionId: string): Promise<GoalCommandResult> {
+  const res = await fetch(`/api/agent/${encodeURIComponent(sessionId)}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+  const body = await res.json().catch(() => ({})) as {
+    goalState?: GoalModeState | null;
+    data?: GoalCommandResult;
+    goal?: GoalCommandResult["goal"];
+    error?: string;
+  };
+  if (!res.ok || body.error) throw new Error(body.error ?? `HTTP ${res.status}`);
+  return {
+    goal: body.goal ?? body.data?.goal ?? body.goalState?.goal ?? null,
+    state: body.goalState ?? body.data?.state ?? null,
+  };
+}
+
 function isOlderGoal(incoming: Goal, last: Goal, source: "read" | "event"): boolean {
   if (incoming.createdAt !== last.createdAt) return incoming.createdAt < last.createdAt;
   if (incoming.id !== last.id) return source === "event" && incoming.updatedAt <= last.updatedAt;
@@ -52,7 +70,7 @@ export function useGoalState(sessionId: string | null) {
     const eventRevision = eventRevisionRef.current;
     setState((current) => current.status === "error" ? { ...current, status: "loading", error: null } : current);
     try {
-      const result = await sendAgentCommand<GoalCommandResult>(sessionId, { type: "goal", op: "get" });
+      const result = await readGoalState(sessionId);
       if (sessionRef.current !== sessionId || readIdRef.current !== readId || eventRevisionRef.current !== eventRevision) return;
       if (result.goal && lastGoalRef.current && isOlderGoal(result.goal, lastGoalRef.current, "read")) return;
       if (result.goal) lastGoalRef.current = result.goal;

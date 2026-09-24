@@ -11,6 +11,7 @@ export const zhCNLocale: LocalePlugin = {
     "composer.goal.tokenBudget": "令牌预算",
     "composer.goal.noLimit": "不设上限",
     "composer.goal.invalidBudget": "请输入正整数令牌数。",
+    "composer.goal.pausedReplaceError": "请先继续目标，再替换它。",
     "composer.goal.budgetHelp": "此上限是 OMP 目标的硬性令牌预算，不是上下文窗口。",
     "composer.goal.submit": "设定目标",
     "composer.goal.attachmentPreparationFailed": "准备目标附件失败",

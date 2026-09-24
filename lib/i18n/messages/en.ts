@@ -11,6 +11,7 @@ export const enLocale: LocalePlugin = {
     "composer.goal.tokenBudget": "Token budget",
     "composer.goal.noLimit": "No limit",
     "composer.goal.invalidBudget": "Enter a positive whole number of tokens.",
+    "composer.goal.pausedReplaceError": "Resume this Goal before replacing it.",
     "composer.goal.budgetHelp": "This limit is a hard OMP Goal budget, not the context window.",
     "composer.goal.submit": "Set goal",
     "composer.goal.attachmentPreparationFailed": "Failed to prepare goal attachments",

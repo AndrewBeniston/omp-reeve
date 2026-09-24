@@ -42,6 +42,7 @@ the What's New dialog adds a second page that invites support.
 - Redacted queue error summaries no longer expose a literal `$1` placeholder.
 - Pasting a long block of text into the Composer no longer replaces an attachment that was already there.
 - Changing chats no longer leaves the dictation connection open. Opening a new chat no longer starts it on the server before you type.
+- Goal reads from saved Sessions no longer start an AgentSession or change the saved file. Invalid saved Goals can now be cleared. Paused Goals cannot be replaced until they resume.
 - Strip ANSI colour codes from extension and notice text in the transcript.
 - Session history loads 50 more messages near the top and keeps the reading position after each page.
 - Assistant Markdown images now show loading and failure states, and inline videos use native playback controls.
