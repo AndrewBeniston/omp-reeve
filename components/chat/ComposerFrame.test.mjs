@@ -291,8 +291,8 @@ test("uses the reference frame geometry across default, large, compact, and mobi
 
 test("uses the measured gaps for the two desktop footer groups", async () => {
   const css = await readFile(new URL("./composer.module.css", import.meta.url), "utf8");
-  const leftGroup = css.match(/\.toolbarLeft\s*\{[^}]*\}/);
-  const rightGroup = css.match(/\.toolbarRight\s*\{[^}]*\}/);
+  const leftGroup = css.match(/^\.toolbarLeft\s*\{[^}]*\}/m);
+  const rightGroup = css.match(/^\.toolbarRight\s*\{[^}]*\}/m);
   const modelArea = css.match(/\.toolbarModelArea\s*\{[^}]*\}/);
   const trailingCluster = css.match(/\.toolbarTrailing\s*\{[^}]*\}/);
   const dictateControl = css.match(/\.dictateControl\s*\{[^}]*\}/);
