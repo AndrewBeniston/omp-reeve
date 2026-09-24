@@ -9,6 +9,8 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+- Completed transcript turns now use one persistent Worked for disclosure.
+
 ### Added
 
 - Show OMP approval-denial counts on each transcript Turn.

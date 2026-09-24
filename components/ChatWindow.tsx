@@ -14,7 +14,7 @@ import type {
   ToolResultMessage,
   UserMessage,
 } from "@/lib/types";
-import { countToolCallBlocks, getAssistantErrorMessage, getDisplayableAssistantBlocks, splitFinalAssistantBlocks } from "@/lib/message-display";
+import { getAssistantErrorMessage, getDisplayableAssistantBlocks, splitFinalAssistantBlocks } from "@/lib/message-display";
 import { extractTurnWrittenFiles, type WrittenFile } from "@/lib/turn-written-files";
 import type { TurnClock, TurnPhase } from "@/lib/transcript/turn-folder";
 import { collectSessionSummarySources, type SummarySource } from "@/lib/session-summary";
@@ -166,16 +166,6 @@ function getUserInputText(message: AgentMessage): string | null {
   return text.length > 0 ? text : null;
 }
 
-function countToolCalls(items: TranscriptMessageRow[]): number {
-  let count = 0;
-  for (const item of items) {
-    const msg = item.message;
-    if (msg?.role !== "assistant") continue;
-    count += countToolCallBlocks(getDisplayableAssistantBlocks(msg as AssistantMessage));
-  }
-  return count;
-}
-
 function hasDisplayableProcessMessage(message: AgentMessage): boolean {
   if (message.role === "assistant") {
     return getDisplayableAssistantBlocks(message as AssistantMessage).length > 0;
@@ -185,8 +175,8 @@ function hasDisplayableProcessMessage(message: AgentMessage): boolean {
 
 // A user message normally anchors a turn (user prompt → process → final
 // answer), and the process messages in between get folded into a collapsed
-// ProcessDetailsGroup. When compaction fires mid-turn, omp drops the original
-// user prompt and inserts a compaction summary (role "custom", customType
+// Divider. When compaction fires mid-turn, omp drops the original user prompt
+// and inserts a compaction summary (role "custom", customType
 // "compaction") in its place; the agent then keeps producing tool calls and a
 // final answer with no user message left to anchor them. Treat a compaction
 // summary as an anchor too, otherwise every post-compaction message renders
@@ -204,36 +194,6 @@ function withAssistantBlocks(
   const next = { ...message, content };
   if (options.omitUsage) next.usage = undefined;
   return next;
-}
-
-function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = false, children, t }: { messageCount: number; toolCallCount: number; defaultExpanded?: boolean; children: ReactNode; t: (key: string, params?: Record<string, string | number>) => string }) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
-  const parts = [t("chat.processDetails"), `${messageCount} ${t(messageCount === 1 ? "chat.message" : "chat.messages")}`];
-  if (toolCallCount > 0) parts.push(`${toolCallCount} ${t(toolCallCount === 1 ? "chat.toolCall" : "chat.toolCalls")}`);
-
-  return (
-    <div className={styles.processDetails}>
-      <button
-        type="button"
-        aria-expanded={expanded}
-        onClick={() => setExpanded((v) => !v)}
-        className={styles.processDetailsTrigger}
-        title={expanded ? t("chat.collapseProcess") : t("chat.expandProcess")}
-      >
-        <svg className={styles.processDetailsMarker} data-expanded={expanded} width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="4 2.5 7.5 6 4 9.5" />
-        </svg>
-        <span className={styles.processDetailsLabel}>
-          {parts.join(" · ")}
-        </span>
-      </button>
-      {expanded && (
-        <div className={styles.processDetailsPanel}>
-          {children}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFooterPosition = true, registerGlobalAbort = true, newDraftKey, session, newSessionCwd, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionRestored, onSessionForked, onOpenSession = () => {}, onSessionNameChanged, onAgentControlRequest, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSessionStatsChange, onSummarySourcesChange, onSubagentsChange, onOpenSubagent, onOpenFile, soundEnabled = true, playDoneSound = () => {}, unlockAudio, projectTrust, onProjectTrustClick, homeContextLabel = "Chats", homeProjectless = false, homeProjectPath = null, onHomeProjectSelected = () => {}, onHomeProjectlessSelected = () => {}, onSelectWorktree, onRegisterProjectCommand, onRequestReview, onListReviewBranches, reviewGate, historyLoadFailure }: Props) {
@@ -834,19 +794,11 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                     }
                   }
                   rendered.push(
-                    <ProcessDetailsGroup
-                      key={`process-group-${key}`}
-                      messageCount={processCount}
-                      toolCallCount={activityCalls.length}
-                      defaultExpanded={!finalAnswerMessage}
-                      t={t}
-                    >
-                      <Divider turnId={key} turnNumber={turnNumber} totalTurnCount={totalTurnCount} {...divider}>
-                        <ActivityHeader input={{ calls: activityCalls, closed: true, inProgress: false, latestVisible: true, exploring: false }} />
-                        {visibleProcessItems.map((item) => renderMessage(item, { keyPrefix: "process" }))}
-                        {finalProcessMessage && renderMessage(finalItem, { keyPrefix: "process-final", messageOverride: finalProcessMessage, showTimestamp: false })}
-                      </Divider>
-                    </ProcessDetailsGroup>,
+                    <Divider key={`process-group-${key}`} turnId={key} turnNumber={turnNumber} totalTurnCount={totalTurnCount} forceExpanded={!finalAnswerMessage} {...divider}>
+                      <ActivityHeader input={{ calls: activityCalls, closed: true, inProgress: false, latestVisible: true, exploring: false }} />
+                      {visibleProcessItems.map((item) => renderMessage(item, { keyPrefix: "process" }))}
+                      {finalProcessMessage && renderMessage(finalItem, { keyPrefix: "process-final", messageOverride: finalProcessMessage, showTimestamp: false })}
+                    </Divider>,
                   );
                 }
 
