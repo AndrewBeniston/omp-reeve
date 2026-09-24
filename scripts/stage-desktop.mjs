@@ -144,7 +144,7 @@ function stageDesktop() {
   rmSync(staging, { recursive: true, force: true });
   mkdirSync(staging, { recursive: true });
 
-  for (const entry of ["bin", "public", "next.config.ts", "package.json", "CHANGELOG.md", "bun.lock"]) {
+  for (const entry of ["bin", "public", "patches", "next.config.ts", "package.json", "CHANGELOG.md", "bun.lock"]) {
     cpSync(join(root, entry), join(staging, entry), { recursive: true });
   }
 

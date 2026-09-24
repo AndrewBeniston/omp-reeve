@@ -1,0 +1,13 @@
+diff --git a/src/tools/browser.ts b/src/tools/browser.ts
+index df04d5bf52b4aef67e957a6892fe21ad275de52a..0754a54bc814c610d876aff7f5c2beda7fa0d968 100644
+--- a/src/tools/browser.ts
++++ b/src/tools/browser.ts
+@@ -192,7 +192,7 @@ function resolveBrowserKind(params: BrowserParams, session: ToolSession): Browse
+ export function createBrowserPrelude(session: ToolSession): EvalPreludeDefinition {
+ 	// Eval-first-use boundary: source/declaration assets stay unloaded until a
+ 	// JavaScript or Python kernel actually asks for its enabled preludes.
+-	const { createBrowserPreludeDefinition } = require("./browser/prelude-definition");
++	const { createBrowserPreludeDefinition } = require(Bun.resolveSync("./browser/prelude-definition", import.meta.dir));
+ 	return createBrowserPreludeDefinition(session, {
+ 		invoke: (parameters: unknown, context: EvalPreludeContext) => invokeBrowser(session, parameters, context),
+ 		status: describeBrowserCall,
