@@ -22,5 +22,6 @@
 .chevron[data-expanded="true"] { transform: rotate(90deg); }
 .denied { justify-self: end; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .content { margin-top: var(--space-2); }
+@media (max-width: 640px) { .trigger { min-height: var(--ui-control-touch); } }
 @media (pointer: coarse) { .trigger { min-height: var(--ui-control-touch); } }
 @media (prefers-reduced-motion: reduce) { .chevron { transition: none; } }
