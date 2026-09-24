@@ -579,6 +579,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
       onAudioUnlock={unlockAudio}
       draftKey={session?.id ?? newDraftKey ?? (newSessionCwd ? `new:${newSessionCwd}` : undefined)}
       onEnsureSession={ensureNewSession}
+      existingSessionId={session?.id}
       cwd={session?.cwd ?? newSessionCwd}
       onSelectWorktree={onSelectWorktree}
       onSelectProject={onHomeProjectSelected}

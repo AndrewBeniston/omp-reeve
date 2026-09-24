@@ -194,6 +194,7 @@ interface Props {
   onOpenGoal?: (objective: string, images?: AttachedImage[]) => void;
   draftKey?: string;
   onEnsureSession?: () => Promise<string | null>;
+  existingSessionId?: string;
   imageInputId?: string;
   /** Session working directory — enables the @ file autocomplete menu */
   cwd?: string | null;
@@ -528,6 +529,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   onPromptWithStreamingBehavior,
   draftKey,
   onEnsureSession,
+  existingSessionId,
   cwd,
   onSelectWorktree,
   onRegisterWorktreeCommand,
@@ -707,18 +709,23 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   editingQueuedMessageRef.current = editingQueuedMessage;
 
   useEffect(() => {
-    if (!cwd) return;
+    if (!existingSessionId) return;
     let active = true;
-    void onEnsureSession?.().then(async (sessionId) => {
-      if (!active || !sessionId) return;
+    const controller = new AbortController();
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    void (async () => {
       try {
-        const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/speech`);
+        const response = await fetch(`/api/sessions/${encodeURIComponent(existingSessionId)}/speech`, {
+          signal: controller.signal,
+        });
         if (!response.ok) return;
         const availability = await response.json() as { enabled?: boolean };
         if (active) setDictationAvailable(Boolean(availability.enabled));
-        const stream = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/speech?events`);
+        const stream = await fetch(`/api/sessions/${encodeURIComponent(existingSessionId)}/speech?events`, {
+          signal: controller.signal,
+        });
         if (!stream.ok || !stream.body || !active) return;
-        const reader = stream.body.getReader();
+        reader = stream.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
         while (active) {
@@ -745,12 +752,17 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             }
           }
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         // Availability probing must not create a resting error.
       }
-    });
-    return () => { active = false; };
-  }, [cwd, onEnsureSession, t]);
+    })();
+    return () => {
+      active = false;
+      controller.abort();
+      void reader?.cancel().catch(() => {});
+    };
+  }, [existingSessionId, t]);
 
   const dictationAction = useCallback(async (action: DictationAction) => {
     if (action === "none") return;
