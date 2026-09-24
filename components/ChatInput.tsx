@@ -201,6 +201,7 @@ interface Props {
   onRegisterWorktreeCommand?: (open: () => void) => void;
   onSelectProject?: (path: string) => void;
   onRegisterProjectCommand?: (open: () => void) => void;
+  projectRequired?: boolean;
   footerMode?: "home" | "session";
   contextUsage?: ContextUsage | null;
   sessionStats?: SessionStatsInfo | null;
@@ -533,6 +534,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   onSelectProject,
   onRegisterProjectCommand,
   footerMode = "session",
+  projectRequired = footerMode === "home" && !cwd,
   contextUsage,
   sessionStats,
   projectTrust,
@@ -900,6 +902,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     submitText(text: string): "sent" | "busy" | "ignored" {
       if (!text.trim()) return "ignored";
       if (isStreaming) return "busy";
+      if (projectRequired) {
+        setCommandActionError(`${t("composer.sendErrorTitle")} ${t("composer.projectRequiredError")}`);
+        return "ignored";
+      }
       onAudioUnlock?.();
       onSend(text);
       return "sent";
@@ -1274,6 +1280,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   }, []);
 
   const handleSend = useCallback(async () => {
+    if (projectRequired) {
+      setCommandActionError(`${t("composer.sendErrorTitle")} ${t("composer.projectRequiredError")}`);
+      return;
+    }
     if (browserUploadsPendingRef.current > 0) {
       setAttachmentPickerError(t("composer.browserUploading"));
       return;
@@ -1311,7 +1321,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     } finally {
       setBuiltinCommandPending(false);
     }
-  }, [builtinCommandPending, value, attachedImages, localAttachments, isStreaming, onBuiltinCommand, onOpenGoal, onSend, clearInput, onAudioUnlock, contextUsage, t]);
+  }, [builtinCommandPending, value, attachedImages, localAttachments, isStreaming, onBuiltinCommand, onOpenGoal, onSend, clearInput, onAudioUnlock, contextUsage, projectRequired, t]);
 
   const requestIdleSubmission = useCallback(() => {
     // The command already running is the one the human asked for; a second

@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- New chats now stay unassigned until the user selects a project, and the Composer blocks sending before then.
 - Keep same-name models from different providers distinct in model list names and Composer tooltips.
 - Show only configured role models in the Composer when no model scope is set.
 - Match the Composer footer to the reference one-row control order and simplify its model and Send controls.
