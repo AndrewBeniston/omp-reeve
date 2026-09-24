@@ -150,6 +150,34 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
     registry.set(key, entry);
   }
 
+  if (registry.size === 0) {
+    for (const role of input.roles) {
+      const model = role.resolved;
+      if (!model) continue;
+      const key = modelKey(model);
+      if (registry.has(key)) continue;
+      const levels = new Set<string>();
+      if (model.thinkingLevel) levels.add(model.thinkingLevel);
+      registry.set(key, {
+        option: { provider: model.provider, modelId: model.modelId, name: model.name ?? model.modelId },
+        levels,
+      });
+    }
+    if (input.currentModel) {
+      const currentKey = modelKey(input.currentModel);
+      const currentEntry = registry.get(currentKey);
+      if (currentEntry && input.currentThinkingLevel) currentEntry.levels.add(input.currentThinkingLevel);
+      else if (!currentEntry) {
+        const levels = new Set<string>();
+        if (input.currentThinkingLevel) levels.add(input.currentThinkingLevel);
+        registry.set(currentKey, {
+          option: { provider: input.currentModel.provider, modelId: input.currentModel.modelId, name: input.currentModel.modelId },
+          levels,
+        });
+      }
+    }
+  }
+
   const models = [...registry.values()].map((entry) => entry.option).sort((a, b) => (
     MODEL_COLLATOR.compare(a.name || a.modelId, b.name || b.modelId)
       || MODEL_COLLATOR.compare(a.provider, b.provider)

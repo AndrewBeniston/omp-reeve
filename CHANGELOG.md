@@ -14,6 +14,7 @@ the What's New dialog adds a second page that invites support.
 - Match the Composer footer to the reference one-row control order and simplify its model and Send controls.
 - Match the Composer effort popup to the reference header and pill slider, and use OMP effort names.
 - Show agent identity, role, model tooltips, and overflow-only prompt tooltips in multi-agent transcript rows.
+- Show the model selector as one flat list with a right-side selection check and no filter box.
 - Multi-agent transcript actions now show one row per agent with action-specific text and optional input.
 - Classify usage-limit failures on the server so saved and live notes keep their retry timing.
 - Show grouped pasted-text attachment rows on sent user messages.
