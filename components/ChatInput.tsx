@@ -85,7 +85,6 @@ import {
   ComposerFloatingGeometry,
   ComposerFrame,
 } from "./chat/ComposerFrame";
-import { ComposerAutocomplete } from "./chat/ComposerAutocomplete";
 import { ComposerSourceMenu } from "./chat/ComposerSourceMenu";
 import { ComposerAddMenu } from "./chat/ComposerAddMenu";
 import { CommandArgumentsDialog } from "./chat/CommandArgumentsDialog";
@@ -1539,10 +1538,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   ], [composerHoldsOnlyCommand, isStreaming, onOpenGoal, reviewEnabled, reviewGate?.reason, reviewSubcommands, slashCommands, t]);
   const slashContext = extractSlashQuery(value, availableSlashCommands);
   const slashQuery = slashContext?.query ?? null;
-  const modelCommand = buildModelCommandSections(modelOptions, recentConfigurations, slashQuery ?? "", t);
+  const slashFilterQuery = slashSearchQuery.trim() || slashQuery || "";
+  const modelCommand = buildModelCommandSections(modelOptions, recentConfigurations, slashFilterQuery, t);
   const allModelCommands = buildModelCommandSections(modelOptions, recentConfigurations, "", t);
   const reasoningCommand = buildReasoningCommandSections(
-    availableThinkingLevels ?? selector.steps.map((step) => step.thinkingLevel), slashQuery ?? "", t,
+    availableThinkingLevels ?? selector.steps.map((step) => step.thinkingLevel), slashFilterQuery, t,
   );
   const allReasoningCommands = buildReasoningCommandSections(
     availableThinkingLevels ?? selector.steps.map((step) => step.thinkingLevel), "", t,
@@ -1552,7 +1552,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     if (slashContext.parentCommand) {
       if (slashContext.parentCommand.name === "model") return modelCommand.sections;
       if (slashContext.parentCommand.name === "reasoning") return reasoningCommand.sections;
-      return buildSlashSubcommandSections(slashContext.parentCommand, slashContext.query);
+      return buildSlashSubcommandSections(slashContext.parentCommand, slashSearchQuery.trim() || slashContext.query);
     }
     return buildSlashSections({
       query: slashSearchQuery,
@@ -1562,6 +1562,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     });
   })();
   const displayedSlashCommands = flattenSuggestionSections(slashSections);
+  const slashLoadingGroups: ComposerSuggestionGroup[] = [];
+  if (slashCommandsLoading) slashLoadingGroups.push("commands");
+  if (composerResourcesLoading) slashLoadingGroups.push("skills");
   const hasInputText = Boolean(value.trim());
   const canQueueStreamingMessage = hasInputText || attachedImages.length > 0 || localAttachments.length > 0;
 
@@ -1873,6 +1876,33 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       : slashActiveIndex;
   }
 
+  const handleSlashSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing || isComposingRef.current) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSlashActiveIndex(() => getNextSlashIndex("down"));
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setSlashActiveIndex(() => getNextSlashIndex("up"));
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setSlashMenuOpen(false);
+      setSlashActiveIndex(0);
+      setSlashSearchQuery("");
+      textareaRef.current?.focus();
+      return;
+    }
+    const selection = resolveAutocompleteSelection(event.key, event.shiftKey, displayedSlashCommands, slashActiveIndex);
+    if (selection.captured) {
+      event.preventDefault();
+      if (selection.item) applySlashCommand(selection.item);
+    }
+  };
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       const recentlyComposed = Date.now() - lastCompositionEndAtRef.current < COMPOSITION_END_ENTER_GRACE_MS;
@@ -2126,10 +2156,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     if (slashQuery === null) {
       setSlashMenuOpen(false);
       setSlashActiveIndex(0);
+      setSlashSearchQuery("");
       return;
     }
     setSlashMenuOpen(true);
     setSlashActiveIndex(0);
+    setSlashSearchQuery("");
   }, [slashQuery]);
 
   useEffect(() => {
@@ -2362,16 +2394,25 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             </div>
           )}
           {slashMenuOpen && slashQuery !== null && (
-            <ComposerAutocomplete
+            <ComposerSourceMenu
+              variant="slash"
               sections={slashSections}
               activeIndex={slashActiveIndex}
-              loading={Boolean(slashCommandsLoading || composerResourcesLoading)}
-              label={t("composer.autocomplete.slashCommands")}
-              emptyText={t("composer.autocomplete.noCommands")}
+              loadingGroups={slashLoadingGroups}
+              label={t("composer.slashCommands.dialogTitle")}
+              description={t("composer.slashCommands.dialogDescription")}
+              searchQuery={slashSearchQuery}
+              searchPlaceholder={t("composer.slashCommands.inputPlaceholder")}
+              emptyText={t("composer.slashCommands.noResults")}
               groupLabels={composerGroupLabels}
               loadingText={t("composer.autocomplete.loading")}
               onActiveIndexChange={setSlashActiveIndex}
               onSelect={applySlashCommand}
+              onSearchQueryChange={(query) => {
+                setSlashSearchQuery(query);
+                setSlashActiveIndex(0);
+              }}
+              onSearchKeyDown={handleSlashSearchKeyDown}
             />
           )}
           {atMenuOpen && atQuery !== null && (

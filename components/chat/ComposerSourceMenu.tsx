@@ -16,6 +16,7 @@ const styles = new Proxy(cssModule as Record<string, string>, {
 });
 
 const SOURCE_ORDER: ComposerSuggestionGroup[] = [
+  "commands",
   "mcp",
   "plugins",
   "agents",

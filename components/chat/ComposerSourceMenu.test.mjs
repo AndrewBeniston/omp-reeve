@@ -81,3 +81,18 @@ test("uses the four slash strings", () => {
   assert.match(html, /data-menu-search="true"[^>]*placeholder="Search"/);
   assert.match(html, /No commands/);
 });
+
+test("shows a command loading section before OMP commands arrive", () => {
+  const html = renderMenu({
+    variant: "slash",
+    loadingGroups: ["commands"],
+    label: "Slash commands",
+    description: "Search and run slash commands",
+    searchQuery: "",
+    searchPlaceholder: "Search",
+    emptyText: "No commands",
+  });
+
+  assert.match(html, /aria-label="Commands"/);
+  assert.match(html, /data-menu-loading="true"/);
+});
