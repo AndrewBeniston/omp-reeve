@@ -1,6 +1,7 @@
 "use client";
 
-import React, { type ChangeEvent, type ReactNode, type Ref } from "react";
+import React, { useSyncExternalStore, type ChangeEvent, type ReactNode, type Ref } from "react";
+import { createPortal } from "react-dom";
 import { DynamicStyleVars } from "../ui/DynamicStyleVars";
 import { Tooltip } from "../ui/Tooltip";
 import { QueuedMessageList, type QueuedMessageListProps } from "./QueuedMessageList";
@@ -139,7 +140,12 @@ export function ComposerFloatingGeometry({
   isMobile: boolean;
   children: ReactNode;
 }) {
-  return (
+  // The popup is drawn on the top layer of the page, like the reference's
+  // dropdowns. Inside the Composer it shared the Composer's stacking context,
+  // so the new-chat hero and the transcript could paint over it, and any
+  // clipping ancestor could cut it off.
+  const onClient = useSyncExternalStore(noSubscription, () => true, () => false);
+  const popup = (
     <DynamicStyleVars
       variables={{
         "--ui-animation-origin-x": `${left}px`,
@@ -152,7 +158,10 @@ export function ComposerFloatingGeometry({
       {children}
     </DynamicStyleVars>
   );
+  return onClient ? createPortal(popup, document.body) : popup;
 }
+
+const noSubscription = () => () => {};
 
 export function ComposerFrame({
   requestPending = false,

@@ -84,7 +84,7 @@ test("the model menu opens on the OMP power steps", async () => {
   await click(triggerFor(view.container, "Model settings"));
   await settle();
 
-  const menu = view.container.querySelector("[role='menu'][aria-label='Model settings']");
+  const menu = document.body.querySelector("[role='menu'][aria-label='Model settings']");
   assert.ok(menu);
   assert.equal(menu.querySelector("[data-model-menu-row='effort']"), null);
   assert.equal(menu.querySelector("[aria-label='Select model']")?.getAttribute("aria-haspopup"), "menu");
@@ -94,7 +94,7 @@ test("the model menu opens on the OMP power steps", async () => {
   assert.equal(menu.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "high");
   await click(menu.querySelector("[aria-label='Select model']"));
   await settle();
-  assert.ok(view.container.querySelector("[data-model-submenu='model']"));
+  assert.ok(document.body.querySelector("[data-model-submenu='model']"));
 
   await view.unmount();
 });
@@ -109,14 +109,14 @@ test("the model menu switches between the power and flat model stages", async ()
 
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  const power = view.container.querySelector("[data-model-power-view]");
+  const power = document.body.querySelector("[data-model-power-view]");
   assert.ok(power);
   assert.equal(power.querySelector("[data-stage-panel='top']"), null);
   assert.equal(power.querySelector("[data-stage-panel='slider']")?.getAttribute("data-stage-transition"), "enter");
 
-  await click(view.container.querySelector("[aria-label='Select model']"));
+  await click(document.body.querySelector("[aria-label='Select model']"));
   await settle();
-  const list = view.container.querySelector("[data-model-list]");
+  const list = document.body.querySelector("[data-model-list]");
   assert.equal(list?.getAttribute("data-stage-transition"), "enter");
   await view.unmount();
 });
@@ -152,7 +152,7 @@ test("dragging the power thumb previews steps and selects one effort on release"
 
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  const track = view.container.querySelector("[data-power-track]");
+  const track = document.body.querySelector("[data-power-track]");
   assert.ok(track);
   track.getBoundingClientRect = () => ({ left: 100, width: 200 });
   const pointer = async (type, clientX) => React.act(async () => {
@@ -167,12 +167,12 @@ test("dragging the power thumb previews steps and selects one effort on release"
 
   await pointer("pointerdown", 150);
   await pointer("pointermove", 260);
-  assert.equal(view.container.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "high");
+  assert.equal(document.body.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "high");
   await pointer("pointermove", 280);
   assert.deepEqual(picked, []);
-  assert.equal(view.container.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "max");
+  assert.equal(document.body.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "max");
   assert.deepEqual(
-    view.container.querySelectorAll("[data-power-dot]").map((dot) => dot.getAttribute("data-filled")),
+    document.body.querySelectorAll("[data-power-dot]").map((dot) => dot.getAttribute("data-filled")),
     ["true", "true", "true", "true", "false"],
   );
   await pointer("pointerup", 280);
@@ -205,9 +205,9 @@ test("the model control preserves the route when providers share a model name", 
 
   await click(trigger);
   await settle();
-  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await click(document.body.querySelector("[data-model-menu-row='model']"));
   await settle();
-  const menu = view.container.querySelector("[data-model-submenu='model']");
+  const menu = document.body.querySelector("[data-model-submenu='model']");
   assert.equal(menu.querySelector("[data-model-provider]"), null);
   assert.deepEqual(itemsOf(menu).map(textOf), ["GPT Example", "GPT Example Pro", "GPT Example"]);
   const api = itemsOf(menu).find((item) => item.getAttribute("data-selection-id") === "openai/gpt-example:medium");
@@ -246,9 +246,9 @@ test("the model list starts with Default and selects OMP's default role", async 
   });
 
   await click(triggerFor(view.container, "Model settings"));
-  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await click(document.body.querySelector("[data-model-menu-row='model']"));
   await settle();
-  const menu = view.container.querySelector("[data-model-submenu='model']");
+  const menu = document.body.querySelector("[data-model-submenu='model']");
   assert.ok(menu);
   assert.equal(textOf(menu.querySelector("[data-model-list-heading]")), "Select model");
   const first = itemsOf(menu)[0];
@@ -274,9 +274,9 @@ test("the model list check follows provider, model id, and effort", async () => 
   };
   const view = await mountComposer(props);
   await click(triggerFor(view.container, "Model settings"));
-  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await click(document.body.querySelector("[data-model-menu-row='model']"));
   await settle();
-  const menu = view.container.querySelector("[data-model-submenu='model']");
+  const menu = document.body.querySelector("[data-model-submenu='model']");
   const api = itemsOf(menu).find((item) => item.getAttribute("data-selection-id") === "openai/gpt-example:high");
   const subscription = itemsOf(menu).find((item) => item.getAttribute("data-selection-id") === "openai-codex/gpt-example:high");
   assert.equal(api.getAttribute("aria-checked"), "false");
@@ -287,7 +287,7 @@ test("the model list check follows provider, model id, and effort", async () => 
     ...props, thinkingLevel: "auto",
   })));
   await settle();
-  assert.equal(itemsOf(view.container.querySelector("[data-model-submenu='model']"))[1].getAttribute("aria-checked"), "false");
+  assert.equal(itemsOf(document.body.querySelector("[data-model-submenu='model']"))[1].getAttribute("aria-checked"), "false");
   await view.unmount();
 });
 
@@ -303,9 +303,9 @@ test("the model control preserves provider-qualified names when the model list i
   });
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await click(document.body.querySelector("[data-model-menu-row='model']"));
   await settle();
-  const api = itemsOf(view.container.querySelector("[data-model-submenu='model']"))[0];
+  const api = itemsOf(document.body.querySelector("[data-model-submenu='model']"))[0];
   await click(api);
   assert.deepEqual(picked, [{ provider: "openai", modelId: "gpt-example" }]);
   await view.unmount();
@@ -319,7 +319,7 @@ test("the Add menu collects command arguments separately from the existing draft
   });
   await React.act(async () => { ref.current.insertText("Keep this draft"); });
   await click(triggerFor(view.container, "Add"));
-  const goal = Array.from(view.container.querySelectorAll("[role='menuitem']"))
+  const goal = Array.from(document.body.querySelectorAll("[role='menuitem']"))
     .find(button => textOf(button).startsWith("Goal"));
   assert.ok(goal);
   await click(goal);
@@ -357,8 +357,8 @@ test("Add executes Compact without sending or clearing the existing draft", asyn
   });
   await React.act(async () => { ref.current.insertText("Keep this unfinished message"); });
   await click(triggerFor(view.container, "Add"));
-  await click(Array.from(view.container.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("More commands")));
-  await click(Array.from(view.container.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("Compact")));
+  await click(Array.from(document.body.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("More commands")));
+  await click(Array.from(document.body.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("Compact")));
   await settle();
   assert.deepEqual(commands, ["/compact"]);
   assert.deepEqual(sent, []);
@@ -381,8 +381,8 @@ test("Name retries its own arguments without consuming the message draft", async
   });
   await React.act(async () => { ref.current.insertText("Explain this failure"); });
   await click(triggerFor(view.container, "Add"));
-  await click(Array.from(view.container.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("More commands")));
-  await click(Array.from(view.container.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("Name")));
+  await click(Array.from(document.body.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("More commands")));
+  await click(Array.from(document.body.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("Name")));
   const dialog = domDocument.querySelector("[role='dialog']");
   await typeInto(dialog.querySelector("input"), "Dedicated title");
   const submit = async () => React.act(async () => { dialog.querySelector("form").dispatchEvent(new DomEvent("submit", { bubbles: true, cancelable: true })); });
@@ -403,8 +403,8 @@ test("Files and folders returns keyboard focus to the composer", async () => {
   try {
     view = await mountComposer({ cwd: "/tmp", onLoadSlashCommands: async () => [] });
     await click(triggerFor(view.container, "Add"));
-    await click(Array.from(view.container.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("Files and folders")));
-    const files = Array.from(view.container.querySelectorAll("[role='menuitem']"))
+    await click(Array.from(document.body.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("Files and folders")));
+    const files = Array.from(document.body.querySelectorAll("[role='menuitem']"))
       .find(button => textOf(button) === "Files and folders");
     await click(files);
     await settle();
@@ -430,10 +430,10 @@ test("native attachment selection adds every chosen path as a row and preserves 
     await React.act(async () => { ref.current.insertText("See these"); });
     await settle();
     await click(triggerFor(view.container, "Add"));
-    await click(Array.from(view.container.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("Files and folders")));
-    await click(Array.from(view.container.querySelectorAll("[role='menuitem']")).find(button => textOf(button) === "Files and folders"));
+    await click(Array.from(document.body.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("Files and folders")));
+    await click(Array.from(document.body.querySelectorAll("[role='menuitem']")).find(button => textOf(button) === "Files and folders"));
     await settle();
-    const rows = view.container.querySelector("[role='list'][aria-label='Local attachments']")?.querySelectorAll("[role='listitem']") ?? [];
+    const rows = document.body.querySelector("[role='list'][aria-label='Local attachments']")?.querySelectorAll("[role='listitem']") ?? [];
     assert.equal(rows.length, 2);
     assert.match(textOf(rows[0]), /notes\.md.*File/);
     assert.match(textOf(rows[1]), /folder with space.*Folder/);
@@ -457,10 +457,10 @@ test("the Add menu opens command submenus before inserting a complete command", 
   });
   await React.act(async () => { ref.current.insertText("Please use "); });
   await click(triggerFor(view.container, "Add"));
-  await click(Array.from(view.container.querySelectorAll("[role='menuitem']"))
+  await click(Array.from(document.body.querySelectorAll("[role='menuitem']"))
     .find(button => textOf(button).startsWith("Goal")));
   assert.equal(sent.length, 0);
-  const status = Array.from(view.container.querySelectorAll("[role='menuitem']"))
+  const status = Array.from(document.body.querySelectorAll("[role='menuitem']"))
     .find(button => textOf(button).startsWith("Status"));
   assert.ok(status);
   await click(status);
@@ -489,7 +489,7 @@ test("the model menu shows supported power steps beside Speed and Advanced", asy
   await click(trigger);
   await settle();
 
-  const menu = view.container.querySelector("[role='menu']");
+  const menu = document.body.querySelector("[role='menu']");
   assert.ok(menu, "the model menu mounts");
   assert.equal(menu.getAttribute("aria-label"), "Model settings");
   assert.deepEqual(
@@ -518,11 +518,11 @@ test("a large model menu renders a flat list without a filter", async () => {
   });
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await click(document.body.querySelector("[data-model-menu-row='model']"));
   await settle();
-  assert.equal(itemsOf(view.container.querySelector("[data-model-list-scroller]")).length, 9);
-  assert.equal(view.container.querySelector("input[aria-label='Filter models…']"), null);
-  assert.equal(view.container.querySelector("[data-model-provider]"), null);
+  assert.equal(itemsOf(document.body.querySelector("[data-model-list-scroller]")).length, 9);
+  assert.equal(document.body.querySelector("input[aria-label='Filter models…']"), null);
+  assert.equal(document.body.querySelector("[data-model-provider]"), null);
   await view.unmount();
 });
 
@@ -532,13 +532,13 @@ test("the model list uses the available menu height before the 316 px list cap",
   try {
     const view = await mountComposer({ ...modelProps });
     await click(triggerFor(view.container, "Model settings"));
-    const menu = view.container.querySelector("[role='menu'][aria-label='Model settings']");
+    const menu = document.body.querySelector("[role='menu'][aria-label='Model settings']");
     const geometry = menu.parentNode.parentNode;
     const styleChanges = [];
     geometry.style.setProperty = (name, value) => styleChanges.push({ name, value });
-    await click(view.container.querySelector("[data-model-menu-row='model']"));
+    await click(document.body.querySelector("[data-model-menu-row='model']"));
     await settle();
-    const submenu = view.container.querySelector("[data-model-submenu='model']");
+    const submenu = document.body.querySelector("[data-model-submenu='model']");
     assert.ok(submenu);
     assert.deepEqual(styleChanges.find((change) => change.name === "--ui-scroll-offset"), {
       name: "--ui-scroll-offset", value: "492px",
@@ -565,9 +565,9 @@ test("choosing a model opens the effort stage with the model under its effort la
   };
   const view = await mountComposer(props);
   await click(triggerFor(view.container, "Model settings"));
-  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await click(document.body.querySelector("[data-model-menu-row='model']"));
   await settle();
-  const next = itemsOf(view.container.querySelector("[data-model-submenu='model']"))
+  const next = itemsOf(document.body.querySelector("[data-model-submenu='model']"))
     .find((item) => textOf(item) === "GPT New");
   await click(next);
   assert.deepEqual(models, [{ provider: "openai", modelId: "gpt-new" }]);
@@ -575,7 +575,7 @@ test("choosing a model opens the effort stage with the model under its effort la
     ...props, model: { provider: "openai", modelId: "gpt-new" },
   })));
   await settle();
-  const power = view.container.querySelector("[data-model-power-view]");
+  const power = document.body.querySelector("[data-model-power-view]");
   assert.ok(power);
   assert.equal(textOf(power.querySelector("[data-model-effort-placeholder]")), "Select effort");
   assert.equal(textOf(power.querySelector("[data-model-effort-name]")), "GPT New");
@@ -600,15 +600,15 @@ test("choosing the current model opens effort without repeating the model change
     onThinkingLevelChange() {},
   });
   await click(triggerFor(view.container, "Model settings"));
-  await click(view.container.querySelector("[data-model-menu-row='model']"));
+  await click(document.body.querySelector("[data-model-menu-row='model']"));
   await settle();
-  const selected = itemsOf(view.container.querySelector("[data-model-submenu='model']"))[0];
+  const selected = itemsOf(document.body.querySelector("[data-model-submenu='model']"))[0];
   assert.equal(selected.getAttribute("aria-checked"), "true");
   await click(selected);
   await settle();
 
   assert.deepEqual(models, []);
-  assert.equal(textOf(view.container.querySelector("[data-model-effort-placeholder]")), "Select effort");
+  assert.equal(textOf(document.body.querySelector("[data-model-effort-placeholder]")), "Select effort");
   await view.unmount();
 });
 
@@ -623,10 +623,10 @@ test("the Codex Speed submenu switches between Standard and Fast", async () => {
 
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  await click(view.container.querySelector("[data-model-menu-row='speed']"));
+  await click(document.body.querySelector("[data-model-menu-row='speed']"));
   await settle();
 
-  const submenu = view.container.querySelector("[data-model-submenu='speed']");
+  const submenu = document.body.querySelector("[data-model-submenu='speed']");
   assert.ok(submenu);
   const items = itemsOf(submenu);
   assert.deepEqual(items.map(textOf), ["Standard", "Fast1.5x speed, more usage"]);
@@ -635,7 +635,7 @@ test("the Codex Speed submenu switches between Standard and Fast", async () => {
   await settle();
 
   assert.deepEqual(picked, [true]);
-  assert.equal(view.container.querySelector("[role='menu']"), null);
+  assert.equal(document.body.querySelector("[role='menu']"), null);
   await view.unmount();
 });
 
@@ -649,7 +649,7 @@ test("the model menu hides Speed when the selected model has no fast mode", asyn
   await click(triggerFor(view.container, "Model settings"));
   await settle();
 
-  assert.equal(view.container.querySelector("[data-model-menu-row='speed']"), null);
+  assert.equal(document.body.querySelector("[data-model-menu-row='speed']"), null);
   await view.unmount();
 });
 
@@ -663,7 +663,7 @@ test("an empty effort capability list reports that the model has no effort level
 
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  const power = view.container.querySelector("[data-model-power-view]");
+  const power = document.body.querySelector("[data-model-power-view]");
   assert.ok(power);
   assert.equal(power.querySelectorAll("[data-power-dot]").length, 0);
   assert.equal(textOf(power).includes("This model does not support effort levels"), true);
@@ -680,7 +680,7 @@ test("missing effort capability data does not invent effort choices", async () =
 
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  const power = view.container.querySelector("[data-model-power-view]");
+  const power = document.body.querySelector("[data-model-power-view]");
   assert.ok(power);
   assert.equal(power.querySelectorAll("[data-power-dot]").length, 0);
   await view.unmount();
@@ -696,7 +696,7 @@ test("an automatic effort stays labelled while the slider has no current thumb",
 
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  const power = view.container.querySelector("[data-model-power-view]");
+  const power = document.body.querySelector("[data-model-power-view]");
   assert.ok(power);
   assert.equal(power.querySelectorAll("[data-power-dot]").length, 2);
   assert.equal(power.querySelector("[data-power-thumb]"), null);
@@ -714,7 +714,7 @@ test("the power slider excludes a current level that the selected model does not
 
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  const power = view.container.querySelector("[data-model-power-view]");
+  const power = document.body.querySelector("[data-model-power-view]");
   assert.ok(power);
   assert.deepEqual(power.querySelectorAll("[data-power-dot]").map((dot) => dot.getAttribute("data-effort")), ["low", "high"]);
   assert.equal(power.querySelector("[data-power-thumb]"), null);
@@ -732,16 +732,16 @@ test("Escape from a nested menu returns focus to its parent row", async () => {
 
   await click(trigger);
   await settle();
-  const modelRow = view.container.querySelector("[data-model-menu-row='model']");
+  const modelRow = document.body.querySelector("[data-model-menu-row='model']");
   await click(modelRow);
   await settle();
-  const modelMenu = view.container.querySelector("[data-model-submenu='model']");
+  const modelMenu = document.body.querySelector("[data-model-submenu='model']");
   const activeItem = itemsOf(modelMenu).find((item) => item.getAttribute("aria-checked") === "true");
   await press(activeItem, "Escape");
   await settle();
 
-  assert.equal(view.container.querySelector("[role='menu'][aria-label='Model settings']"), null);
-  assert.equal(view.container.querySelector("[data-model-submenu='model']"), null);
+  assert.equal(document.body.querySelector("[role='menu'][aria-label='Model settings']"), null);
+  assert.equal(document.body.querySelector("[data-model-submenu='model']"), null);
   assert.equal(domDocument.activeElement, trigger);
   await view.unmount();
 });
@@ -759,14 +759,14 @@ test("the model pill menu contains tool presets and keeps its callback", async (
   await click(trigger);
   await settle();
 
-  const menu = view.container.querySelector("[role='menu']");
+  const menu = document.body.querySelector("[role='menu']");
   assert.ok(menu, "the model menu mounts");
   assert.equal(menu.getAttribute("aria-label"), "Model settings");
 
   await click(menu.querySelector("[data-model-menu-row='advanced']"));
   await settle();
 
-  const advanced = view.container.querySelector("[data-model-submenu='advanced']");
+  const advanced = document.body.querySelector("[data-model-submenu='advanced']");
   const section = advanced?.querySelector("[data-menu-section='tools']");
   assert.ok(section, "the model menu contains tool presets");
   const items = itemsOf(section);
@@ -776,7 +776,7 @@ test("the model pill menu contains tool presets and keeps its callback", async (
   await settle();
 
   assert.deepEqual(presets, ["full"]);
-  assert.equal(view.container.querySelector("[role='menu']"), null);
+  assert.equal(document.body.querySelector("[role='menu']"), null);
   assert.equal(domDocument.activeElement, trigger);
   await view.unmount();
 });
@@ -793,10 +793,10 @@ test("the Advanced menu preserves OMP's Auto and Off effort modes", async () => 
 
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  await click(view.container.querySelector("[data-model-menu-row='advanced']"));
+  await click(document.body.querySelector("[data-model-menu-row='advanced']"));
   await settle();
 
-  const advanced = view.container.querySelector("[data-model-submenu='advanced']");
+  const advanced = document.body.querySelector("[data-model-submenu='advanced']");
   const modes = advanced?.querySelector("[data-menu-section='effort-modes']");
   assert.ok(modes);
   const items = itemsOf(modes);
@@ -821,16 +821,16 @@ test("the model pill menu keeps the selected tool preset when it is chosen again
   await click(trigger);
   await settle();
 
-  await click(view.container.querySelector("[data-model-menu-row='advanced']"));
+  await click(document.body.querySelector("[data-model-menu-row='advanced']"));
   await settle();
 
-  const advanced = view.container.querySelector("[data-model-submenu='advanced']");
+  const advanced = document.body.querySelector("[data-model-submenu='advanced']");
   const items = itemsOf(advanced?.querySelector("[data-menu-section='tools']"));
   await click(items[1]);
   await settle();
 
   assert.deepEqual(presets, []);
-  assert.equal(view.container.querySelector("[role='menu']"), null);
+  assert.equal(document.body.querySelector("[role='menu']"), null);
   assert.equal(domDocument.activeElement, trigger);
   await view.unmount();
 });
@@ -855,7 +855,7 @@ test("the Session menu contains metrics and Compact without completion sound", a
   const trigger = triggerFor(view.container, "Context donut: 6%");
   await click(trigger);
   await settle();
-  const menu = view.container.querySelector("[role='menu'][aria-label='Session menu']");
+  const menu = document.body.querySelector("[role='menu'][aria-label='Session menu']");
   assert.ok(menu);
   for (const value of ["Input 1,200", "Output 340", "Cache Read 5,600", "Cache Write 70", "Cost $0.0123"]) {
     assert.equal(textOf(menu).includes(value), true, value);
@@ -886,7 +886,7 @@ test("the /session action opens the Session menu through ChatInput", async () =>
   await submitCommand(view, composerRef, "/session");
 
   assert.deepEqual(commands, ["/session"]);
-  assert.ok(view.container.querySelector("[role='menu'][aria-label='Session menu']"));
+  assert.ok(document.body.querySelector("[role='menu'][aria-label='Session menu']"));
   await view.unmount();
 });
 
@@ -900,10 +900,10 @@ test("the /session action reports missing context usage before the first reply",
   await submitCommand(view, composerRef, "/session");
 
   assert.equal(
-    view.container.querySelectorAll("[aria-label]").find((element) => element.getAttribute("aria-label").startsWith("Context donut")),
+    document.body.querySelectorAll("[aria-label]").find((element) => element.getAttribute("aria-label").startsWith("Context donut")),
     undefined,
   );
-  const status = view.container.querySelector("[role='status']");
+  const status = document.body.querySelector("[role='status']");
   assert.ok(status);
   assert.equal(textOf(status), "No context usage yet");
   await view.unmount();
@@ -922,7 +922,7 @@ test("the /session status clears when the Context donut becomes available", asyn
   await settle();
 
   await submitCommand(view, composerRef, "/session");
-  assert.equal(textOf(view.container.querySelector("[role='status']")), "No context usage yet");
+  assert.equal(textOf(document.body.querySelector("[role='status']")), "No context usage yet");
 
   await view.render(h(I18nProvider, null, h(ChatInput, {
     ...props,
@@ -930,8 +930,8 @@ test("the /session status clears when the Context donut becomes available", asyn
   })));
   await settle();
 
-  assert.equal(view.container.querySelector("[role='status']"), null);
-  assert.ok(view.container.querySelector("[aria-label='Context donut: 6%']"));
+  assert.equal(document.body.querySelector("[role='status']"), null);
+  assert.ok(document.body.querySelector("[aria-label='Context donut: 6%']"));
   await view.unmount();
 });
 
@@ -943,7 +943,7 @@ test("the Context donut disables Compact during an active run", async () => {
   });
   await click(triggerFor(view.container, "Context donut: 6%"));
   await settle();
-  const compactItem = itemsOf(view.container.querySelector("[role='menu'][aria-label='Session menu']"))
+  const compactItem = itemsOf(document.body.querySelector("[role='menu'][aria-label='Session menu']"))
     .find((item) => textOf(item).includes("Compact"));
   assert.ok(compactItem);
   assert.equal(compactItem.hasAttribute("disabled"), true);

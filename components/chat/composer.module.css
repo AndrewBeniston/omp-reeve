@@ -871,7 +871,7 @@
   position: fixed;
   bottom: var(--ui-animation-origin-y, auto);
   left: var(--ui-animation-origin-x, auto);
-  z-index: 100;
+  z-index: 1000;
 }
 
 .modelMenu {
