@@ -683,6 +683,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     loading: boolean;
     sources: ComposerSourceResponse;
   } | null>(null);
+  const composerSourcesCacheRef = useRef(new Map<string, ComposerSourceResponse>());
   const [composerSessionContexts, setComposerSessionContexts] = useState<{
     cwd: string;
     query: string;
@@ -2158,25 +2159,33 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   // Sessions, Browser tabs, agents and MCP servers for the @ menu. Loaded when
   // the @ menu first opens in a folder, then reused while the folder stays.
   const atMenuActive = atQueryText !== null;
-  const composerSourcesCwd = composerSourcesState?.cwd;
   useEffect(() => {
-    if (!atMenuActive || !cwd || composerSourcesCwd === cwd) return;
+    if (!atMenuActive || !cwd) return;
     const requestCwd = cwd;
-    let cancelled = false;
+    const cachedSources = composerSourcesCacheRef.current.get(requestCwd);
+    if (cachedSources) {
+      setComposerSourcesState({ cwd: requestCwd, loading: false, sources: cachedSources });
+      return;
+    }
+    const controller = new AbortController();
     setComposerSourcesState({ cwd: requestCwd, loading: true, sources: { sessions: [], tabs: [], agents: [], mcpServers: [] } });
-    fetch(`/api/composer/sources?cwd=${encodeURIComponent(requestCwd)}`)
+    fetch(`/api/composer/sources?cwd=${encodeURIComponent(requestCwd)}`, { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error(`sources fetch failed: ${response.status}`);
         return response.json() as Promise<ComposerSourceResponse>;
       })
       .then((sources) => {
-        if (!cancelled) setComposerSourcesState({ cwd: requestCwd, loading: false, sources });
+        if (controller.signal.aborted) return;
+        composerSourcesCacheRef.current.set(requestCwd, sources);
+        setComposerSourcesState({ cwd: requestCwd, loading: false, sources });
       })
       .catch(() => {
-        if (!cancelled) setComposerSourcesState({ cwd: requestCwd, loading: false, sources: { sessions: [], tabs: [], agents: [], mcpServers: [] } });
+        if (!controller.signal.aborted) {
+          setComposerSourcesState({ cwd: requestCwd, loading: false, sources: { sessions: [], tabs: [], agents: [], mcpServers: [] } });
+        }
       });
-    return () => { cancelled = true; };
-  }, [atMenuActive, cwd, composerSourcesCwd]);
+    return () => controller.abort();
+  }, [atMenuActive, cwd]);
 
   const displayModelName = model
     ? modelDisplayName({
