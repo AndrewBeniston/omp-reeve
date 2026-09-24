@@ -264,19 +264,65 @@ test("cold restoration honors a disabled Goal setting", { timeout: 60_000 }, asy
   }
 });
 
-test("objective mutation names the missing OMP capability without replacing the Goal", { timeout: 60_000 }, async () => {
+test("objective mutation preserves Goal accounting and lifecycle state", { timeout: 60_000 }, async () => {
   const cwd = await mkdtemp(join(root, "project-"));
   const { session, realSessionId } = await startRpcSession("new", "", cwd);
+  const events = [];
+  const unsubscribe = session.onEvent((event) => {
+    if (event.type === "goal_updated") events.push(event);
+  });
   try {
-    const created = await request(realSessionId, { type: "goal", op: "create", objective: "Original" });
+    const created = await request(realSessionId, { type: "goal", op: "create", objective: "Original", tokenBudget: 1000 });
+    const original = created.body.data.goal;
+    session.inner.setGoalModeState({
+      ...created.body.data.state,
+      goal: { ...original, tokensUsed: 37, timeUsedSeconds: 42 },
+    });
+    events.length = 0;
+
     const edit = await request(realSessionId, { type: "goal", op: "set_objective", objective: "Edited" });
-    assert.equal(edit.status, 501);
-    assert.equal(edit.body.code, "goal_unsupported");
-    assert.match(edit.body.error, /objective mutation/i);
-    const current = await request(realSessionId, { type: "goal", op: "get" });
-    assert.deepEqual(current.body.data.goal, created.body.data.goal);
+    assert.equal(edit.status, 200);
+    assert.equal(edit.body.data.goal.objective, "Edited");
+    assert.equal(edit.body.data.goal.id, original.id);
+    assert.equal(edit.body.data.goal.status, original.status);
+    assert.equal(edit.body.data.goal.tokenBudget, original.tokenBudget);
+    assert.equal(edit.body.data.goal.tokensUsed, 37);
+    assert.equal(edit.body.data.goal.timeUsedSeconds, 42);
+    assert.equal(edit.body.data.goal.createdAt, original.createdAt);
+    assert.ok(edit.body.data.goal.updatedAt >= original.updatedAt);
+    assert.equal(events.length, 1);
+    assert.equal(events[0].goal.objective, "Edited");
+    assert.equal(
+      session.inner.sessionManager.getEntries().filter((entry) => (
+        entry.type === "mode_change" && entry.mode === "goal" && entry.data?.goal?.objective === "Edited"
+      )).length,
+      1,
+    );
+
+    const invalid = await request(realSessionId, { type: "goal", op: "set_objective", objective: " " });
+    assert.equal(invalid.status, 400);
+    assert.equal(invalid.body.code, "goal_invalid_input");
+    assert.equal((await request(realSessionId, { type: "goal", op: "get" })).body.data.goal.objective, "Edited");
   } finally {
+    unsubscribe();
     session.destroy();
+  }
+});
+
+test("objective mutation rejects complete and dropped Goals", { timeout: 60_000 }, async () => {
+  for (const status of ["complete", "dropped"]) {
+    const cwd = await mkdtemp(join(root, "project-"));
+    const { session, realSessionId } = await startRpcSession("new", "", cwd);
+    try {
+      const created = await request(realSessionId, { type: "goal", op: "create", objective: "Original" });
+      const goal = created.body.data.goal;
+      session.inner.setGoalModeState({ ...created.body.data.state, goal: { ...goal, status } });
+      const edit = await request(realSessionId, { type: "goal", op: "set_objective", objective: "Edited" });
+      assert.equal(edit.status, 409);
+      assert.equal(edit.body.code, "goal_invalid_transition");
+    } finally {
+      session.destroy();
+    }
   }
 });
 

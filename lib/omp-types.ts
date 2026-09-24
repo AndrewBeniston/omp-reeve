@@ -188,6 +188,7 @@ export interface AgentSessionLike {
   readonly sessionFile: string | undefined;
   readonly isStreaming: boolean;
   readonly isCompacting: boolean;
+  readonly hasPostPromptWork: boolean;
   readonly autoCompactionEnabled: boolean;
   readonly autoRetryEnabled: boolean;
   readonly model: ModelLike | undefined;
@@ -216,6 +217,11 @@ export interface AgentSessionLike {
     images?: Array<{ type: "image"; data: string; mimeType: string }>;
     streamingBehavior?: "steer" | "followUp";
     userInitiated?: boolean;
+  }): Promise<boolean>;
+  promptCustomMessage(message: {
+    customType: string;
+    content: string;
+    display: boolean;
   }): Promise<boolean>;
   abort(options?: { reason?: string; goalReason?: "interrupted" | "internal" }): Promise<void>;
   executeBash(command: string, onChunk?: (chunk: string) => void, options?: { excludeFromContext?: boolean }): Promise<{ output: string; exitCode?: number; cancelled?: boolean; truncated?: boolean; fullOutputPath?: string }>;

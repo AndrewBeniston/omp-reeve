@@ -28,6 +28,7 @@ import {
   mergeRestoredSubmissionText,
   rekeyDraft as rekeyStoredDraft,
   setDraft,
+  setDraftPending,
   type ChatDraft,
   type ChatDraftImage,
 } from "@/lib/draft-store";
@@ -840,6 +841,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     );
     if (imageFiles.length === 0) return;
     pendingImageCountRef.current += imageFiles.length;
+    setDraftPending(draftKeyRef.current, true);
     try {
       const newImages = await Promise.all(
         imageFiles.map(
@@ -865,6 +867,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       });
     } finally {
       pendingImageCountRef.current -= imageFiles.length;
+      setDraftPending(draftKeyRef.current, pendingImageCountRef.current > 0);
     }
   }, []);
 
@@ -875,6 +878,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       return;
     }
     browserUploadsPendingRef.current += files.length;
+    setDraftPending(draftKeyRef.current, true);
     setBrowserUploadsPending(browserUploadsPendingRef.current);
     setAttachmentPickerError(null);
     try {
@@ -902,6 +906,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       setAttachmentPickerError(error instanceof Error ? error.message : t("composer.browserUploadFailed"));
       browserUploadsPendingRef.current -= files.length;
       setBrowserUploadsPending(browserUploadsPendingRef.current);
+    } finally {
+      setDraftPending(draftKeyRef.current, browserUploadsPendingRef.current > 0);
     }
   }, [onEnsureSession, t]);
 

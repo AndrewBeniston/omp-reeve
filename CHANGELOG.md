@@ -9,11 +9,12 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
-- Show interrupted process turns with their activity, elapsed time, and saved error after reload.
-- Stop unfinished command rows when a process exits, and end the Turn clock at the saved process-exit entry.
-
 ### Added
 
+- Goal objectives can now be edited without resetting the Goal identity or accounting.
+- Goal continuations wait for an idle Session and stop while a draft or attachment is pending.
+- Show interrupted process turns with their activity, elapsed time, and saved error after reload.
+- Stop unfinished command rows when a process exits, and end the Turn clock at the saved process-exit entry.
 - The Composer Add menu now offers photos, files, and desktop folder selection with clear unavailable states.
 - The model list shows every available model in provider groups, with friendly names and search.
 - The effort popup shows a Reset to default control when you change the effort, and the control restores the model default effort.
@@ -46,12 +47,9 @@ the What's New dialog adds a second page that invites support.
 - The fork action on user messages now opens a destination dialog to fork into the current workspace, same worktree, or a new worktree.
 - The queue persists failed message sends with safe error summaries, reload and reconnect reconciliation, and a Retry command.
 ### Fixed
-
 - The model chip is as tall as the Send button, keeps a gap before it, and reads Select effort while its popup is open.
-
 - The empty Composer is compact again. The placeholder sits 14 px from the top, and the footer controls are 28 px tall.
 - The effort popup uses a grid header, so a long effort name no longer moves the model name or the Advanced icon. The slider thumb slides between steps, and the reset button is gone.
-
 - The model picker now lists models that OMP found online in every project folder, so their effort slider shows.
 - Expanded transcript dividers stay anchored inside the transcript at high zoom.
 - Keep the effort slider available after Reset returns the effort to Auto.
