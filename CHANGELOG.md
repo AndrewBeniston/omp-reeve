@@ -41,6 +41,7 @@ the What's New dialog adds a second page that invites support.
 - The queue persists failed message sends with safe error summaries, reload and reconnect reconciliation, and a Retry command.
 ### Fixed
 - Browser upload recovery now removes damaged records without blocking later uploads or server startup.
+- Show a live Composer prompt and its tool call once while the Turn runs.
 - Slow browser uploads no longer lock other upload or Session metadata operations.
 - Starting a Goal with /goal no longer deletes files you attached in the Composer. They stay in the Composer.
 - Session startup failures now dispose their AgentSession, rejected browser uploads remain deletable, and Session teardown closes its live controller bridge.

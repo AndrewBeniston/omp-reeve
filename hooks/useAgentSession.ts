@@ -384,6 +384,29 @@ function userMessageKey(message: Partial<AgentMessage>): string {
   });
 }
 
+function completedMessageSignature(message: AgentMessage): string {
+  if (message.role === "user") return userMessageKey(message);
+  if (message.role === "assistant") {
+    const toolCallIds = (message.content ?? [])
+      .flatMap((block) => block.type === "toolCall" ? [block.toolCallId] : []);
+    return JSON.stringify({ text: extractMessageText(message), toolCallIds });
+  }
+  if (message.role === "toolResult") return JSON.stringify({ toolCallId: message.toolCallId });
+  return JSON.stringify({ text: extractMessageText(message) });
+}
+
+/**
+ * A session reload during a run can load a message before its message_end
+ * event arrives. OMP gives the saved and the streamed copy one timestamp.
+ */
+function hasCompletedMessage(messages: readonly AgentMessage[], completed: AgentMessage): boolean {
+  if (typeof completed.timestamp !== "number") return false;
+  const signature = completedMessageSignature(completed);
+  return messages.some((message) => message.role === completed.role
+    && message.timestamp === completed.timestamp
+    && completedMessageSignature(normalizeToolCalls(message)) === signature);
+}
+
 interface FileMentionMessage {
   role: "fileMention";
   files: Array<{
@@ -1536,6 +1559,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           const optimisticKey = optimisticUserMessageKeyRef.current;
           optimisticUserMessageKeyRef.current = null;
           setMessages((prev) => {
+            if (hasCompletedMessage(prev, deliveredWithAttachments)) return prev;
             const last = prev[prev.length - 1];
             if (optimisticKey && last?.role === "user" && userMessageKey(last) === optimisticKey) {
               return optimisticKey === deliveredKey
@@ -1547,7 +1571,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
             return [...prev, deliveredWithAttachments];
           });
         } else if (completed) {
-          setMessages((prev) => [...prev, normalizeToolCalls(completed)]);
+          const normalized = normalizeToolCalls(completed);
+          setMessages((prev) => hasCompletedMessage(prev, normalized) ? prev : [...prev, normalized]);
         }
         const sid = sessionIdRef.current;
         if (sid) void refreshContextUsage(sid);

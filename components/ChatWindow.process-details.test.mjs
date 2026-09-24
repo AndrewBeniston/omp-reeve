@@ -12,3 +12,8 @@ test("uses the Divider as the only completed-turn disclosure", () => {
     /rendered\.push\(\s*<Divider[\s\S]*?forceExpanded=\{!finalAnswerMessage\}[\s\S]*?<ActivityHeader/,
   );
 });
+
+test("a live Activity header never repeats the running Activity row", () => {
+  assert.match(source, /const headerRepeatsRow = selectLiveActivityHeader\(headerInput\)\.kind === "activity"/);
+  assert.match(source, /\{headerRepeatsRow \? null : <ActivityHeader input=\{headerInput\} \/>\}/);
+});
