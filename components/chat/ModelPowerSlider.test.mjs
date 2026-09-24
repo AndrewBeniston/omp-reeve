@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createJiti } from "jiti";
-import { DomEvent, React, click, focused, mount, press, textOf } from "../../test/dom-harness.mjs";
+import { DomEvent, React, click, focused, mount, press, settle, textOf } from "../../test/dom-harness.mjs";
 
 const jiti = createJiti(import.meta.url, { jsx: { runtime: "automatic" }, tsconfigPaths: true });
 const { ModelPowerSlider } = await jiti.import("./ModelPowerSlider.tsx");
-const { shouldCycleComposerEffort } = await jiti.import("../ChatInput.tsx");
+const { ChatInput, shouldCycleComposerEffort } = await jiti.import("../ChatInput.tsx");
 const { Menu } = await jiti.import("../ui/Menu.tsx");
 const { I18nProvider } = await jiti.import("../../hooks/useI18n.tsx");
 const h = React.createElement;
@@ -238,6 +238,35 @@ test("the reset control appears for an effort override and restores automatic ef
     assert.ok(reset);
     await click(reset);
     assert.equal(resetEffortCalled, true);
+  } finally {
+    await view.unmount();
+  }
+});
+
+test("the effort popup restores automatic effort for the selected model", async () => {
+  const efforts = [];
+  const view = await mount(h(I18nProvider, null, h(ChatInput, {
+    onSend() {},
+    onAbort() {},
+    isStreaming: false,
+    model: { provider: "test", modelId: "model" },
+    modelList: [{ provider: "test", id: "model", name: "Model" }],
+    availableThinkingLevels: ["medium", "high"],
+    onModelChange() {},
+    thinkingLevel: "high",
+    onThinkingLevelChange(level) { efforts.push(level); },
+  })));
+  try {
+    const trigger = view.container.querySelector("[aria-label='Model settings']");
+    assert.ok(trigger);
+    trigger.getBoundingClientRect = () => ({ top: 500, left: 20, width: 180, height: 24 });
+    await click(trigger);
+    await settle();
+
+    const reset = document.body.querySelector("[aria-label='Reset to default']");
+    assert.ok(reset);
+    await click(reset);
+    assert.deepEqual(efforts, ["auto"]);
   } finally {
     await view.unmount();
   }

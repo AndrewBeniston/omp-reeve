@@ -2090,6 +2090,14 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     : null;
   const currentName = displayModelName;
   const currentEffortLabel = selector.currentStep?.effortLabel ?? t(thinkingLevelLabelKey(thinkingLevel ?? "auto"));
+  // "auto" lets OMP apply the selected model's default effort, so any other
+  // explicit level that differs from the default role's level is an override.
+  const defaultRoleModel = modelRoles?.find((role) => role.role === "default")?.resolved;
+  const modelDefaultEffort = model && defaultRoleModel
+    && defaultRoleModel.provider === model.provider && defaultRoleModel.modelId === model.modelId
+    ? defaultRoleModel.thinkingLevel
+    : undefined;
+  const effortOverride = Boolean(thinkingLevel && thinkingLevel !== "auto" && thinkingLevel !== modelDefaultEffort);
   const modelChipHasPrefix = Boolean(currentName || (modelError && modelOptions.length === 0));
   const currentEffortIsTopStep = selector.currentStep
     ? selector.steps.at(-1)?.id === selector.currentStep.id
@@ -2506,6 +2514,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                                 onOpenModels={() => dispatchModelMenu({ type: "submenu", value: "model" })}
                                 onSelectEffort={(level) => onThinkingLevelChange?.(level)}
                                 explicitModelOverride={explicitModelOverride}
+                                effortOverride={effortOverride && Boolean(onThinkingLevelChange)}
+                                onResetEffort={() => onThinkingLevelChange?.("auto")}
                                 onResetToDefault={() => {
                                   if (onRoleModelChange) onRoleModelChange("default");
                                   else if (selector.defaultRow && onModelChange) onModelChange(selector.defaultRow.model.provider, selector.defaultRow.model.modelId);
