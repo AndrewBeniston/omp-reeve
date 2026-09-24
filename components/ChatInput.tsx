@@ -2155,6 +2155,29 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     }
   }, [displayedSlashCommands.length, slashActiveIndex]);
 
+  // Sessions, Browser tabs, agents and MCP servers for the @ menu. Loaded when
+  // the @ menu first opens in a folder, then reused while the folder stays.
+  const atMenuActive = atQueryText !== null;
+  const composerSourcesCwd = composerSourcesState?.cwd;
+  useEffect(() => {
+    if (!atMenuActive || !cwd || composerSourcesCwd === cwd) return;
+    const requestCwd = cwd;
+    let cancelled = false;
+    setComposerSourcesState({ cwd: requestCwd, loading: true, sources: { sessions: [], tabs: [], agents: [], mcpServers: [] } });
+    fetch(`/api/composer/sources?cwd=${encodeURIComponent(requestCwd)}`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`sources fetch failed: ${response.status}`);
+        return response.json() as Promise<ComposerSourceResponse>;
+      })
+      .then((sources) => {
+        if (!cancelled) setComposerSourcesState({ cwd: requestCwd, loading: false, sources });
+      })
+      .catch(() => {
+        if (!cancelled) setComposerSourcesState({ cwd: requestCwd, loading: false, sources: { sessions: [], tabs: [], agents: [], mcpServers: [] } });
+      });
+    return () => { cancelled = true; };
+  }, [atMenuActive, cwd, composerSourcesCwd]);
+
   const displayModelName = model
     ? modelDisplayName({
       id: model.modelId,
