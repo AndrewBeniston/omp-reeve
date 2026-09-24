@@ -40,6 +40,7 @@ the What's New dialog adds a second page that invites support.
 - The fork action on user messages now opens a destination dialog to fork into the current workspace, same worktree, or a new worktree.
 - The queue persists failed message sends with safe error summaries, reload and reconnect reconciliation, and a Retry command.
 ### Fixed
+- Expanded transcript dividers stay anchored inside the transcript at high zoom.
 - Browser upload recovery now removes damaged records without blocking later uploads or server startup.
 - Slow browser uploads no longer lock other upload or Session metadata operations.
 - Starting a Goal with /goal no longer deletes files you attached in the Composer. They stay in the Composer.

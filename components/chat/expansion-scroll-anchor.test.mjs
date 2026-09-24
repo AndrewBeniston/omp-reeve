@@ -26,6 +26,7 @@ function createHarness() {
   globalThis.setTimeout = (callback, delay) => { timeout = { callback, delay }; return 2; };
   globalThis.clearTimeout = () => { timeout = null; };
   globalThis.document = { addEventListener: (name, listener) => { events[name] = listener; }, removeEventListener: (name) => { delete events[name]; } };
+  globalThis.getComputedStyle = () => ({ overflowY: "visible" });
   globalThis.window = {
     scrollBy: (x, y) => scrolled.push([x, y]),
     requestAnimationFrame: globalThis.requestAnimationFrame,
@@ -78,4 +79,18 @@ test("abandons correction immediately for any listed user input", () => {
       assert.deepEqual(h.scrolled, []);
     } finally { h.restore(); }
   }
+});
+
+test("corrects the nearest scrolling transcript container", () => {
+  const h = createHarness();
+  const transcript = { scrollTop: 40, parentElement: null, overflowY: "auto" };
+  h.row.parentElement = transcript;
+  globalThis.getComputedStyle = (element) => element === transcript ? { overflowY: "auto" } : { overflowY: "visible" };
+  try {
+    startExpansionScrollAnchor(h.row, h.turn);
+    h.setTop(180);
+    h.runFrame();
+    assert.equal(transcript.scrollTop, 120);
+    assert.deepEqual(h.scrolled, []);
+  } finally { h.restore(); }
 });
