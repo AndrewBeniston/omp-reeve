@@ -493,7 +493,8 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     translate = (key) => key,
   } = opts;
 
-  const isNew = session === null && newSessionCwd !== null;
+  // A draft with no project yet is still a new session: there is nothing to load.
+  const isNew = session === null;
 
   const [data, setData] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(!isNew);
