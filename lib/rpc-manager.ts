@@ -28,7 +28,8 @@ import { resolve } from "path";
 import { validateAgentImages } from "./image-attachments";
 import { resolveProject } from "./worktree";
 import { AttachmentPathError, prepareAttachmentPathMessages, QueuedAttachmentContext } from "./attachment-paths";
-import { prepareBrowserUploadMessages } from "./upload-store";
+import { prepareBrowserUploadMessages, retainBrowserUploads } from "./upload-store";
+import { closeLiveControllerSession } from "./live-controller-bridge";
 import type { FileMentionMessage } from "@oh-my-pi/pi-coding-agent/session/messages";
 import type { AgentControlChannel } from "./agent-control/channel";
 import { startSessionControlHost } from "./agent-control/host";
@@ -1210,6 +1211,7 @@ export class AgentSessionWrapper {
             ? this.inner.steer(command.message as string, promptImages)
             : this.inner.followUp(command.message as string, promptImages);
           await this.attachmentQueue().run(attachmentMessages, send);
+          if (hasUploads) await retainBrowserUploads({ sessionId: this.inner.sessionId, ids: command.uploads as string[] });
           return this.emitQueueUpdate();
         }
         if (!streamingBehavior) this.queuePaused = false;
@@ -1238,7 +1240,8 @@ export class AgentSessionWrapper {
           ...(promptImages?.length ? { images: promptImages } : {}),
           ...(streamingBehavior ? { streamingBehavior } : {}),
           userInitiated: true,
-        }).then(() => {
+        }).then(async (accepted) => {
+          if (accepted && hasUploads) await retainBrowserUploads({ sessionId: this.inner.sessionId, ids: command.uploads as string[] });
           this.promptRunning = false;
           this.resetIdleTimer();
           if (streamingBehavior) this.emitQueueUpdate();
@@ -1628,6 +1631,7 @@ export class AgentSessionWrapper {
         const send = () => this.inner.steer(command.message as string, steerImages?.length ? steerImages : undefined);
         if (files.length) await this.attachmentQueue().run(files, send);
         else await send();
+        if (command.uploads !== undefined) await retainBrowserUploads({ sessionId: this.inner.sessionId, ids: command.uploads as string[] });
         return this.emitQueueUpdate();
       }
 
@@ -1642,6 +1646,7 @@ export class AgentSessionWrapper {
         const send = () => this.inner.followUp(command.message as string, followImages?.length ? followImages : undefined);
         if (files.length) await this.attachmentQueue().run(files, send);
         else await send();
+        if (command.uploads !== undefined) await retainBrowserUploads({ sessionId: this.inner.sessionId, ids: command.uploads as string[] });
         return this.emitQueueUpdate();
       }
 
@@ -1776,6 +1781,7 @@ export class AgentSessionWrapper {
     this.beginSessionDisposal();
     this._alive = false;
     void closeSpeechSession(this.openedSessionId).catch((error) => console.error("[reeve] speech cleanup failed:", error));
+    void closeLiveControllerSession(this.openedSessionId).catch((error) => console.error("[reeve] live cleanup failed:", error));
     forgetTurnLifecycle(this.openedSessionId);
     void this.collaboration.stop("session closed");
     if (this.idleTimer) clearTimeout(this.idleTimer);
@@ -2593,7 +2599,17 @@ export async function startRpcSession(
         wrapper.setForceEmptySystemPrompt(true);
       }
       wrapper.start();
-      await wrapper.reconcileGoalState();
+      try {
+        await wrapper.reconcileGoalState();
+      } catch (error) {
+        wrapper.destroy();
+        try {
+          await wrapper.shutdown();
+        } catch (disposalError) {
+          console.error("[reeve] Session startup cleanup failed:", disposalError);
+        }
+        throw error;
+      }
 
       const realSessionFile = inner.sessionFile as string | undefined;
       if (realSessionFile) cacheSessionPath(realSessionId, realSessionFile);

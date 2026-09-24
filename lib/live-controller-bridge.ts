@@ -255,8 +255,8 @@ export async function closeLiveControllerSession(sessionId: string): Promise<voi
   const bridges = liveControllerBridges();
   const bridge = bridges.get(sessionId);
   if (!bridge) return;
-  await bridge.close();
   if (bridges.get(sessionId) === bridge) bridges.delete(sessionId);
+  await bridge.close();
 }
 
 export async function shutdownLiveControllerBridges(): Promise<void> {

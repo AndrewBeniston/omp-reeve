@@ -455,10 +455,9 @@ export async function releaseBrowserUpload({ sessionId, id, root = browserUpload
   });
 }
 
-/** Claim uploads before a user message enters OMP, under the same lock as deletion and collection. */
-export async function retainBrowserUploads({ sessionId, ids, root = browserUploadRoot() }: {
+async function selectBrowserUploads({ sessionId, ids, root = browserUploadRoot() }: {
   sessionId: string; ids: string[]; root?: string;
-}): Promise<Array<{ upload: BrowserUpload; filePath: string }>> {
+}, claimUploads = false): Promise<Array<{ upload: BrowserUpload; filePath: string }>> {
   validateSessionId(sessionId);
   if (!Array.isArray(ids) || ids.length > 32) throw new UploadError("Too many uploads", 400);
   if (ids.some(id => typeof id !== "string")) throw new UploadError("Invalid upload id", 400);
@@ -471,18 +470,27 @@ export async function retainBrowserUploads({ sessionId, ids, root = browserUploa
       if (!record) throw new UploadError("Upload not found", 404);
       return record;
     });
-    const savedAt = Date.now();
-    for (const record of selected) {
-      if (!record.savedAt || !record.claimedAt) {
-        await writeRecord(join(root, sessionId, `${record.id}.json`), {
-          ...record,
-          savedAt: record.savedAt ?? savedAt,
-          claimedAt: record.claimedAt ?? record.savedAt ?? savedAt,
-        });
+    if (claimUploads) {
+      const savedAt = Date.now();
+      for (const record of selected) {
+        if (!record.savedAt || !record.claimedAt) {
+          await writeRecord(join(root, sessionId, `${record.id}.json`), {
+            ...record,
+            savedAt: record.savedAt ?? savedAt,
+            claimedAt: record.claimedAt ?? record.savedAt ?? savedAt,
+          });
+        }
       }
     }
     return selected.map(record => ({ upload: publicUpload(record), filePath: join(root, sessionId, `${record.id}.blob`) }));
   });
+}
+
+/** Claim uploads under the same lock as deletion and collection. */
+export async function retainBrowserUploads(options: {
+  sessionId: string; ids: string[]; root?: string;
+}): Promise<Array<{ upload: BrowserUpload; filePath: string }>> {
+  return selectBrowserUploads(options, true);
 }
 
 /** Convert saved browser uploads to the file context OMP accepts with a user message. */
@@ -491,7 +499,7 @@ export async function prepareBrowserUploadMessages({ sessionId, ids, cwd, root }
 }): Promise<FileMentionMessage[]> {
   if (ids === undefined) return [];
   if (!Array.isArray(ids)) throw new UploadError("Uploads must be a list", 400);
-  const selected = await retainBrowserUploads({ sessionId, ids, root });
+  const selected = await selectBrowserUploads({ sessionId, ids, root });
   const messages: FileMentionMessage[] = [];
   for (const { upload, filePath } of selected) {
     const prepared = await generateFileMentionMessages([filePath], cwd);
