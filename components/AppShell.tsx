@@ -86,6 +86,7 @@ import {
 } from "@/lib/panel-layout";
 import type { BlockingExtensionUiRequest, SessionInfo, SessionTreeNode, SubagentSnapshot } from "@/lib/types";
 import type { ProjectTrustStatus } from "@/lib/api-types";
+import type { SessionRelocationResult } from "@/lib/session-relocation";
 import { COMPOSER_IMAGE_INPUT_ID, type ChatInputHandle } from "./ChatInput";
 import { reviewTabMatchesSession } from "@/lib/review-comments";
 import { reviewComposerSessionId, reviewTabLabel } from "@/lib/review-owner";
@@ -736,6 +737,19 @@ export function AppShell() {
     hydrateSelectedSession(session.id);
     router.replace(`?session=${encodeURIComponent(session.id)}`, { scroll: false });
   }, [invalidateWorkspaceRestore, router, hydrateSelectedSession]);
+
+  const handleSessionRelocated = useCallback((result: SessionRelocationResult) => {
+    activeProjectRootRef.current = result.projectRoot;
+    setActiveCwd(result.cwd);
+    setLastOpenSession(result.projectRoot, result.sessionId);
+    setSelectedSession((current) => current?.id === result.sessionId
+      ? { ...current, cwd: result.cwd, projectRoot: result.projectRoot }
+      : current);
+    setProjectTrust(result.trust);
+    setRefreshKey((key) => key + 1);
+    setFileViewerRefreshKey((key) => key + 1);
+    setSessionKey((key) => key + 1);
+  }, []);
 
   const handleSessionNameChanged = useCallback((sessionId: string, name: string) => {
     setRefreshKey((key) => key + 1);
@@ -2331,6 +2345,7 @@ export function AppShell() {
               homeProjectPath={selectedSession?.cwd ?? effectiveNewSessionCwd}
               onSelectWorktree={(path) => beginNewSession(path, "project")}
               onRegisterProjectCommand={() => {}}
+              onWorkspaceRelocated={handleSessionRelocated}
               onHomeProjectSelected={(path) => handleNewSession(`home-${Date.now()}`, path)}
               onHomeProjectlessSelected={handleNewProjectlessSession}
             />
