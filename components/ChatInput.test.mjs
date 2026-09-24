@@ -176,10 +176,10 @@ test("renders only the consolidated desktop toolbar controls", () => {
     contextUsage: { tokens: 10_000, contextWindow: 100_000, percent: 10 },
   });
 
-  for (const label of ["Add", "Model settings", "Restricted mode", "Context donut: 10%"]) {
+  for (const label of ["Add files and more", "Model settings", "Restricted mode", "Context donut: 10%"]) {
     assert.match(html, new RegExp(`aria-label="${label}"`));
   }
-  const attach = buttonFor(html, "Add");
+  const attach = buttonFor(html, "Add files and more");
   const model = buttonFor(html, "Model settings");
   const mode = buttonFor(html, "Restricted mode");
   const send = buttonFor(html, "Send");
@@ -193,7 +193,7 @@ test("renders only the consolidated desktop toolbar controls", () => {
   assert.match(send, /<svg[^>]+width="16"[^>]+height="16"/);
   assert.doesNotMatch(send, />\s*Send\s*</);
   // Codex order, right cluster: Context donut, then model pill, then Send.
-  assert.ok(html.indexOf('aria-label="Add"') < html.indexOf('aria-label="Restricted mode"'));
+  assert.ok(html.indexOf('aria-label="Add files and more"') < html.indexOf('aria-label="Restricted mode"'));
   assert.ok(html.indexOf('aria-label="Restricted mode"') < html.indexOf('aria-label="Context donut'));
   assert.ok(html.indexOf('aria-label="Context donut') < html.indexOf("modelName"));
   assert.ok(html.indexOf("modelName") < html.indexOf('aria-label="Send"'));
@@ -224,7 +224,7 @@ test("renders the desktop footer groups in Codex order without unavailable Dicta
   });
 
   const expectedOrder = [
-    'aria-label="Add"',
+    'aria-label="Add files and more"',
     'aria-label="Restricted mode"',
     'aria-label="Context donut: 10%"',
     'aria-label="Model settings"',
@@ -238,7 +238,7 @@ test("renders the desktop footer groups in Codex order without unavailable Dicta
 
   assert.doesNotMatch(trustedHtml, /aria-label="Restricted mode"/);
   assert.match(trustedHtml, /aria-label="Full access"/);
-  assert.ok(trustedHtml.indexOf('aria-label="Add"') < trustedHtml.indexOf('aria-label="Full access"'));
+  assert.ok(trustedHtml.indexOf('aria-label="Add files and more"') < trustedHtml.indexOf('aria-label="Full access"'));
   assert.ok(trustedHtml.indexOf('aria-label="Full access"') < trustedHtml.indexOf('aria-label="Context donut: 10%"'));
   assert.ok(trustedHtml.indexOf('aria-label="Context donut: 10%"') < trustedHtml.indexOf('aria-label="Model settings"'));
   assert.ok(trustedHtml.indexOf('aria-label="Model settings"') < trustedHtml.indexOf('aria-label="Send"'));
@@ -339,7 +339,7 @@ test("matches the Codex attachment and model icon language", () => {
     onModelChange() {},
   });
 
-  assert.match(buttonFor(html, "Add"), /M10 3v14M3 10h14/);
+  assert.match(buttonFor(html, "Add files and more"), /M10 3v14M3 10h14/);
   assert.match(buttonFor(html, "Model settings"), /data-composer-icon="model"/);
 });
 
@@ -1057,7 +1057,7 @@ test("renders the complete semantic composer contract", async () => {
   assert.match(tokensCss, /--composer-control-size:\s*28px;/);
   assert.match(tokensCss, /--composer-send-size:\s*var\(--composer-control-size\);/);
   assert.match(editorCss, /\.editor\[data-empty="true"\]::before\s*\{[^}]*color:\s*var\(--ui-text-dim\);[^}]*opacity:\s*0\.5;/);
-  assert.match(css, /\.toolbar\s*\{[^}]*display:\s*flex;[^}]*column-gap:\s*5px;[^}]*padding-inline:\s*var\(--composer-footer-inset\);/);
+  assert.match(css, /\.toolbar\s*\{[^}]*display:\s*grid;[^}]*column-gap:\s*5px;[^}]*padding-inline:\s*var\(--composer-footer-inset\);/);
   // Codex: the footer centre sits 22px above the frame bottom. 8px inset plus half the 28px send circle.
   assert.match(css, /\.toolbar\s*\{[^}]*min-height:\s*var\(--composer-send-size\);[^}]*margin-top:\s*auto;[^}]*margin-bottom:\s*var\(--composer-footer-inset\);/);
   assert.match(css, /\.attachmentControl\s*\{[^}]*width:\s*var\(--composer-control-size\);[^}]*height:\s*var\(--composer-control-size\);[^}]*background:\s*transparent;/);
@@ -1076,7 +1076,7 @@ test("renders the complete semantic composer contract", async () => {
   assert.match(html, /class="toolbarLeft"[^>]*>[\s\S]*class="toolbarRight"[^>]*>[\s\S]*class="toolbarModelArea"[^>]*>[\s\S]*class="toolbarTrailing"/);
   assert.match(css, /\.toolbarModelArea\s*\{[^}]*flex:\s*1;[^}]*min-width:\s*0;/);
   assert.match(css, /\.toolbarTrailing\s*\{[^}]*flex-shrink:\s*0;/);
-  assert.match(css, /\.toolbar\[data-footer-mode="session"\]\s*\{[^}]*flex-wrap:\s*wrap;/);
+  assert.match(css, /\.toolbar\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\);/);
   assert.match(css, /\.toolbar\[data-footer-mode="home"\]\s*\{[^}]*overflow-x:\s*auto;[^}]*scrollbar-width:\s*none;/);
   assert.match(css, /\.toolbar\[data-footer-mode="home"\]::-webkit-scrollbar\s*\{[^}]*display:\s*none;/);
   // Codex context donut: 12px, 2px stroke, track at 0.16 opacity, arc rotated -90deg, 120ms ease-out.

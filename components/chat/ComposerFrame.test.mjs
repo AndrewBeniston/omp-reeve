@@ -109,7 +109,7 @@ test("names the footer and selects the Session or Home overflow behavior", () =>
 test("wraps the Session footer and lets the Home footer scroll with edge fades", async () => {
   const css = await readFile(new URL("./composer.module.css", import.meta.url), "utf8");
 
-  assert.match(css, /\.toolbar\[data-footer-mode="session"\]\s*\{[^}]*flex-wrap:\s*wrap;/);
+  assert.match(css, /\.toolbar\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\);/);
   assert.match(css, /\.toolbar\[data-footer-mode="home"\]\s*\{[^}]*overflow-x:\s*auto;[^}]*scrollbar-width:\s*none;/);
   assert.match(css, /\.toolbar\[data-footer-mode="home"\]\s*\{[^}]*mask-image:\s*linear-gradient/);
 });

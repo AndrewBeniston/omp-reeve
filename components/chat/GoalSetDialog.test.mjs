@@ -114,14 +114,23 @@ test("an existing Goal requires explicit replacement confirmation", async () => 
   } finally { await view.unmount(); }
 });
 
-test("a paused Goal cannot be replaced from the dialog", async () => {
+test("a paused Goal shows OMP's replacement reason", async () => {
   const submissions = [];
-  const { view, root, objective } = await open({ existingGoal: pausedGoal, onSubmit: async (...args) => submissions.push(args) });
+  const { view, root, objective } = await open({
+    existingGoal: pausedGoal,
+    onSubmit: async (...args) => {
+      submissions.push(args);
+      throw new Error("Only an active Goal can be replaced.");
+    },
+  });
   try {
     await typeInto(objective, "New work");
     await React.act(async () => { root.querySelector('form').dispatchEvent(new DomEvent('submit', { bubbles: true, cancelable: true })); });
     assert.equal(submissions.length, 0);
-    assert.match(root.textContent, /Resume this Goal before replacing it/);
+    assert.match(root.textContent, /Replace current goal\?/);
+    await click(root.querySelector('button[type="button"][data-action="confirm-replace"]'));
+    await settle();
+    assert.match(root.textContent, /Only an active Goal can be replaced/);
   } finally { await view.unmount(); }
 });
 

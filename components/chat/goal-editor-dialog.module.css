@@ -1,0 +1,75 @@
+.dialog {
+  width: min(640px, calc(100vw - 32px));
+  max-height: min(80dvh, 760px);
+  overflow-y: auto;
+  font-family: var(--font-sans);
+}
+
+.label {
+  display: block;
+  margin: var(--space-4) 0 var(--space-1);
+  color: var(--ui-text);
+  font-size: var(--text-ui);
+  font-weight: var(--font-weight-medium);
+}
+
+.objective,
+.budget {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-md);
+  background: var(--ui-main);
+  color: var(--ui-text);
+  font: inherit;
+  line-height: 1.5;
+}
+
+.objective {
+  min-height: 220px;
+  resize: vertical;
+}
+
+.objective:focus-visible,
+.budget:focus-visible,
+.off:focus-within {
+  outline: var(--ui-focus-ring);
+  outline-offset: var(--ui-focus-offset);
+}
+
+.off {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  color: var(--ui-text);
+  cursor: pointer;
+}
+
+.off input { margin: 0; accent-color: var(--ui-accent); }
+
+.help {
+  margin: var(--space-2) 0 0;
+  color: var(--ui-text-dim);
+  font-size: var(--text-sm);
+}
+
+.error {
+  margin: var(--space-3) 0 0;
+  color: var(--ui-danger);
+  font-size: var(--text-sm);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+@media (max-width: 640px) {
+  .actions { flex-direction: column-reverse; }
+  .actions button { width: 100%; min-height: var(--ui-control-touch); }
+}

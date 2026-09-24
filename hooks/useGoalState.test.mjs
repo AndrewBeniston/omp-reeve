@@ -132,6 +132,40 @@ test("budget changes send OMP the exact limit or Off and retain confirmed usage"
   }
 });
 
+test("Goal updates send objective then budget and retain Goal identity and accounting", async () => {
+  const originalFetch = globalThis.fetch;
+  const activeGoal = goal("active");
+  const objectiveGoal = { ...activeGoal, objective: "Finish the final film", updatedAt: 1_300 };
+  const budgetGoal = { ...objectiveGoal, tokenBudget: 1500, updatedAt: 1_400 };
+  const commands = [];
+  let client;
+  globalThis.fetch = async (_url, init) => {
+    const command = postCommand(init);
+    if (!command) return response(activeGoal, { enabled: true, mode: "active", goal: activeGoal });
+    commands.push(command);
+    const next = command.op === "set_objective" ? objectiveGoal : budgetGoal;
+    return commandResponse(next, { enabled: true, mode: "active", goal: next });
+  };
+  function Harness() { client = useGoalState("session-one"); return h("div"); }
+  const view = await mount(h(Harness));
+  try {
+    await React.act(async () => { assert.equal(await client.update("Finish the final film", 1500), true); });
+    assert.deepEqual(commands, [
+      { type: "goal", op: "set_objective", objective: "Finish the final film" },
+      { type: "goal", op: "set_budget", tokenBudget: 1500 },
+    ]);
+    assert.equal(client.goal.id, activeGoal.id);
+    assert.equal(client.goal.createdAt, activeGoal.createdAt);
+    assert.equal(client.goal.tokensUsed, activeGoal.tokensUsed);
+    assert.equal(client.goal.timeUsedSeconds, activeGoal.timeUsedSeconds);
+    assert.equal(client.goal.objective, "Finish the final film");
+    assert.equal(client.goal.tokenBudget, 1500);
+  } finally {
+    await view.unmount();
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("a failed Goal action keeps the confirmed Goal and reports an action error", async () => {
   const originalFetch = globalThis.fetch;
   const activeGoal = goal("active");
@@ -278,6 +312,39 @@ test("the initial Goal read uses the read-only Session GET route", async () => {
     assert.deepEqual(request, { url: "/api/agent/session-one", method: "GET" });
     assert.equal(client.goal.id, savedGoal.id);
     assert.equal(client.status, "ready");
+  } finally {
+    await view.unmount();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("the Goal client reads pending continuation from the live Wrapper state", async () => {
+  const originalFetch = globalThis.fetch;
+  const activeGoal = goal("active");
+  let pending = true;
+  globalThis.fetch = async () => ({
+    ok: true,
+    async json() {
+      return {
+        running: true,
+        state: { goalContinuationPending: pending },
+        goal: activeGoal,
+        goalState: { enabled: true, mode: "active", goal: activeGoal },
+      };
+    },
+  });
+  let client;
+  function Harness() {
+    client = useGoalState("session-one");
+    return h("div");
+  }
+  const view = await mount(h(Harness));
+  try {
+    await settle();
+    assert.equal(client.continuationPending, true);
+    pending = false;
+    await React.act(async () => { await client.refresh(); });
+    assert.equal(client.continuationPending, false);
   } finally {
     await view.unmount();
     globalThis.fetch = originalFetch;

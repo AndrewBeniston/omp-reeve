@@ -14,7 +14,9 @@ import { FileViewer } from "./FileViewer";
 import { fileTabId, reviewScopeFromSelection, type FileReviewOrigin } from "@/lib/file-review-origin";
 import type { ReviewSourceContext } from "./file-source/FileSourceView";
 import { ReviewPanel } from "./review/ReviewPanel";
-import { TabBar, assertNeverTab, type BrowserTab, type ReviewTab, type Tab, type TerminalTab } from "./TabBar";
+import { TabBar, assertNeverTab, type BrowserTab, type GoalTab as GoalSurfaceTab, type ReviewTab, type Tab, type TerminalTab } from "./TabBar";
+import { GoalTab } from "./chat/GoalTab";
+import type { Goal } from "@oh-my-pi/pi-tui/tools/goal";
 import { Launcher, type LauncherAction } from "./tabs/Launcher";
 import { BrowserTabs, browserTabCommand, useSupportsBrowserTab } from "./browser/BrowserTabs";
 import { RenameDialog } from "./RenameDialog";
@@ -417,6 +419,41 @@ export function AppShell() {
    */
   const closedTabsRef = useRef<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+
+  const handleGoalTabState = useCallback((
+    sessionId: string,
+    goal: Goal | null,
+    onSave: (objective: string, tokenBudget: number | null) => Promise<boolean>,
+    open: boolean,
+  ) => {
+    setTabs((current) => {
+      const existing = current.find((tab): tab is GoalSurfaceTab => tab.kind === "goal" && tab.sessionId === sessionId);
+      if (!goal || goal.status === "complete") {
+        if (!existing) return current;
+        const next = current.filter((tab) => tab.id !== existing.id);
+        if (next.length === 0) setRightPanelOpen(false);
+        return next;
+      }
+      if (!existing && !open) return current;
+      if (existing) {
+        if (existing.goal.id !== goal.id) return current.filter((tab) => tab.id !== existing.id);
+        return current.map((tab) => tab.id === existing.id ? { ...tab, goal, onSave } : tab);
+      }
+      const tab: GoalSurfaceTab = {
+        id: `goal:${sessionId}`,
+        kind: "goal",
+        label: translate("composer.threadGoal.editDialog.title"),
+        sessionId,
+        goal,
+        onSave,
+      };
+      return [...current, tab];
+    });
+    if (open && goal && goal.status !== "complete") {
+      setActiveTabId(`goal:${sessionId}`);
+      setRightPanelOpen(true);
+    }
+  }, [translate]);
 
   // Same @mention format as the chat input's @ autocomplete, so the agent's
   // read tool resolves it the same way (it strips the @ prefix).
@@ -1878,6 +1915,8 @@ export function AppShell() {
             )}
           />
         );
+      case "goal":
+        return <GoalTab goal={activeTab.goal} onSave={activeTab.onSave} onClose={() => handleCloseTab(activeTab.id)} />;
       case "file":
         return (
           <FileViewer
@@ -2273,6 +2312,7 @@ export function AppShell() {
               reviewGate={reviewGate}
               onSessionStatsChange={handleSessionStatsChange}
               onSummarySourcesChange={setSummarySources}
+              onGoalTabState={handleGoalTabState}
               onSubagentsChange={setSubagents}
               onOpenSubagent={setSelectedSubagentId}
               onOpenFile={handleOpenLinkedFile}

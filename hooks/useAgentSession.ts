@@ -128,6 +128,7 @@ type AgentStateResponse = {
   isBashRunning?: boolean;
   isCompacting?: boolean;
   isHandoffRunning?: boolean;
+  goalContinuationPending?: boolean;
   extensionStatuses?: ExtensionStatusItem[];
   extensionWidgets?: ExtensionWidgetItem[];
   queuedMessages?: QueuedMessageSnapshot | { steering?: string[]; followUp?: string[] } | null;
@@ -715,6 +716,9 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
 
         const liveState = agentState.state;
         if (liveState) {
+          if (liveState.goalContinuationPending !== undefined) {
+            goalState.setContinuationPending(liveState.goalContinuationPending);
+          }
           if (liveState.approvalMode !== undefined) setApprovalMode(liveState.approvalMode);
           if (liveState.contextUsage !== undefined) setContextUsage(liveState.contextUsage ?? null);
           if (liveState.systemPrompt !== undefined) setSystemPrompt(liveState.systemPrompt ?? null);
@@ -733,6 +737,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
             collaborationActiveRef.current = false;
           }
         } else if (!agentState.running) {
+          goalState.setContinuationPending(false);
           setQueuedMessages({ items: [], paused: false });
         }
         return agentState;
@@ -746,7 +751,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     } finally {
       if (showLoading && !messagesLoaded) setLoading(false);
     }
-  }, []);
+  }, [goalState.setContinuationPending]);
 
   const loadContext = useCallback(async (sid: string, leafId: string | null) => {
     try {

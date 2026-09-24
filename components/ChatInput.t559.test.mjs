@@ -31,7 +31,8 @@ test("ticket #559 footer keeps only the reference controls", async () => {
   assert.match(html, /data-composer-icon="send-arrow"/);
 
   const css = await readFile(new URL("./chat/composer.module.css", import.meta.url), "utf8");
-  assert.match(css, /\.toolbar\[data-mobile="true"\]\s*\{[^}]*flex-wrap:\s*wrap;/);
-  assert.match(css, /\.toolbar\[data-mobile="true"\] \.toolbarRight\s*\{[^}]*flex-wrap:\s*wrap;/);
+  // One footer row at every width: the grid shortens the model name instead of wrapping.
+  assert.match(css, /\.toolbar\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\);/);
+  assert.doesNotMatch(css, /\.toolbar\[data-mobile="true"\]\s*\{[^}]*flex-wrap:\s*wrap;/);
   assert.match(css, /\.sendAction,\s*\.stopControl\s*\{[^}]*background:\s*var\(--ui-composer-primary\);/);
 });

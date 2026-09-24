@@ -354,7 +354,7 @@ test("the Add menu collects command arguments separately from the existing draft
     slashCommands: [{ name: "goal", source: "extension", description: "Set a goal", icon: "goal" }],
   });
   await React.act(async () => { ref.current.insertText("Keep this draft"); });
-  await click(triggerFor(view.container, "Add"));
+  await click(triggerFor(view.container, "Add files and more"));
   const goal = Array.from(document.body.querySelectorAll("[role='menuitem']"))
     .find(button => textOf(button).startsWith("Goal"));
   assert.ok(goal);
@@ -378,7 +378,7 @@ test("opening Add loads OMP commands in a new chat without typing a slash", asyn
   let loads = 0;
   const view = await mountComposer({ draftKey: "new:/tmp/add-loader-test", onLoadSlashCommands: async () => { loads++; return []; } });
   assert.equal(loads, 0);
-  await click(triggerFor(view.container, "Add"));
+  await click(triggerFor(view.container, "Add files and more"));
   assert.equal(loads, 1);
   await view.unmount();
 });
@@ -430,19 +430,16 @@ test("slash submission keeps the Name draft after an error", async () => {
   await view.unmount();
 });
 
-test("Files and folders returns keyboard focus to the composer", async () => {
+test("Select files returns keyboard focus to the composer", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ files: [], skills: [], packages: [] }) });
   let view;
   try {
     view = await mountComposer({ cwd: "/tmp", onLoadSlashCommands: async () => [] });
-    await click(triggerFor(view.container, "Add"));
-    await click(menuItem("Files and folders"));
-    const files = addMenu("Files and folders");
-    assert.ok(files);
-    await click(menuItem("Files and folders", files));
+    await click(triggerFor(view.container, "Add files and more"));
+    await click(menuItem("Select files"));
     await settle();
-    assert.notEqual(focused(), triggerFor(view.container, "Add"));
+    assert.notEqual(focused(), triggerFor(view.container, "Add files and more"));
     assert.ok(view.container.querySelector("[data-composer-editor]").contains(focused()));
   } finally { await view?.unmount(); globalThis.fetch = originalFetch; }
 });
@@ -463,11 +460,8 @@ test("native attachment selection adds every chosen path as a row and preserves 
     view = await mountComposer({ ref, cwd: "/tmp", onSend: (value, images, attachments) => sent.push({ value, images, attachments }), onLoadSlashCommands: async () => [] });
     await React.act(async () => { ref.current.insertText("See these"); });
     await settle();
-    await click(triggerFor(view.container, "Add"));
-    await click(menuItem("Files and folders"));
-    const files = addMenu("Files and folders");
-    assert.ok(files);
-    await click(menuItem("Files and folders", files));
+    await click(triggerFor(view.container, "Add files and more"));
+    await click(menuItem("Select files"));
     await settle();
     const rows = document.body.querySelector("[role='list'][aria-label='Local attachments']")?.querySelectorAll("[role='listitem']") ?? [];
     assert.equal(rows.length, 2);
@@ -492,7 +486,7 @@ test("the Add menu opens Goal arguments before sending a complete command", asyn
     slashCommands: [{ name: "goal", source: "extension", subcommands: [{ name: "status", description: "Show status" }] }],
   });
   await React.act(async () => { ref.current.insertText("Please use "); });
-  await click(triggerFor(view.container, "Add"));
+  await click(triggerFor(view.container, "Add files and more"));
   await click(menuItem("Goal"));
   await settle();
   assert.equal(sent.length, 0);
