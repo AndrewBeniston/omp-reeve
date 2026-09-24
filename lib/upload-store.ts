@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, open, readFile, readdir, rename, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, open, readFile, readdir, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import lockfile from "proper-lockfile";
 import { getAgentDir } from "@oh-my-pi/pi-coding-agent";
@@ -14,10 +14,15 @@ export const UPLOAD_ABANDONED_TTL_MS = 24 * 60 * 60 * 1000;
 /** An upload claim without a persisted Session message expires under the same one-day policy. */
 export const UPLOAD_CLAIM_TTL_MS = UPLOAD_ABANDONED_TTL_MS;
 
+const UPLOAD_STAGING_PREFIX = ".upload-";
+const UPLOAD_STAGING_STALE_MS = 10_000;
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UPLOAD_ID = /^up_[0-9a-f]{32}$/;
 const IDEMPOTENCY_KEY = SESSION_ID;
 const MEDIA_TYPE = /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/i;
+const activeUploadStagingDirectories = ((globalThis as typeof globalThis & {
+  __ompActiveUploadStagingDirectories?: Set<string>;
+}).__ompActiveUploadStagingDirectories ??= new Set<string>());
 
 export interface BrowserUpload {
   id: string;
@@ -200,6 +205,7 @@ async function recoverAndInventory(root: string, options: {
   const inventory: Inventory = {
     recordsBySession: new Map(), bytesBySession: new Map(), globalBytes: 0,
   };
+  await removeAbandonedStagingDirectories(root);
   for (const directory of await readdir(root, { withFileTypes: true })) {
     if (!directory.isDirectory() || !SESSION_ID.test(directory.name)) continue;
     const sessionId = directory.name;
@@ -220,18 +226,30 @@ async function recoverAndInventory(root: string, options: {
         continue;
       }
       if (!entry.name.endsWith(".json")) continue;
-      const record = await readRecord(filePath);
-      if (!record || record.sessionId !== sessionId || `${record.id}.json` !== entry.name) {
-        throw new UploadError("Upload record is damaged", 500);
-      }
-      const blobName = `${record.id}.blob`;
-      if (!blobNames.has(blobName)) {
-        await rm(filePath, { force: true });
+      let record: StoredUpload | null;
+      let blobName: string;
+      try {
+        record = await readRecord(filePath);
+        if (!record || record.sessionId !== sessionId || `${record.id}.json` !== entry.name) {
+          await quarantineDamagedRecord(sessionDirectory, entry.name, blobNames);
+          continue;
+        }
+        blobName = `${record.id}.blob`;
+        if (!blobNames.has(blobName)) {
+          await rm(filePath, { force: true });
+          continue;
+        }
+        const blob = await stat(join(sessionDirectory, blobName));
+        if (blob.size !== record.size) {
+          await quarantineDamagedRecord(sessionDirectory, entry.name, blobNames);
+          continue;
+        }
+        blobNames.delete(blobName);
+      } catch (error) {
+        if (!(error instanceof UploadError) || error.status !== 500) throw error;
+        await quarantineDamagedRecord(sessionDirectory, entry.name, blobNames);
         continue;
       }
-      const blob = await stat(join(sessionDirectory, blobName));
-      if (blob.size !== record.size) throw new UploadError("Upload record is damaged", 500);
-      blobNames.delete(blobName);
       const lastAttemptAt = record.lastAttemptAt ?? record.createdAt ?? (await stat(filePath)).mtimeMs;
       const retrying = options.retry?.sessionId === sessionId && options.retry.key === record.key;
       const claimTimestamp = record.claimedAt ?? record.savedAt;
@@ -257,6 +275,49 @@ async function recoverAndInventory(root: string, options: {
     inventory.globalBytes += sessionBytes;
   }
   return inventory;
+}
+
+async function removeAbandonedStagingDirectories(root: string): Promise<void> {
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !entry.name.startsWith(UPLOAD_STAGING_PREFIX)) continue;
+    const stagingDirectory = join(root, entry.name);
+    if (activeUploadStagingDirectories.has(stagingDirectory)) continue;
+    const stagingStat = await stat(stagingDirectory);
+    if (Date.now() - stagingStat.mtimeMs < UPLOAD_STAGING_STALE_MS) continue;
+    let release: (() => Promise<void>) | undefined;
+    try {
+      release = await lockfile.lock(stagingDirectory, {
+        stale: 10_000,
+        update: 3_000,
+        retries: 0,
+      });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ELOCKED") continue;
+      throw error;
+    }
+    try {
+      if (activeUploadStagingDirectories.has(stagingDirectory)) continue;
+      await release();
+      release = undefined;
+      await rm(stagingDirectory, { recursive: true, force: true });
+    } finally {
+      await release?.();
+    }
+  }
+}
+
+async function quarantineDamagedRecord(
+  sessionDirectory: string,
+  recordName: string,
+  blobNames: Set<string>,
+): Promise<void> {
+  const blobName = recordName.replace(/\.json$/, ".blob");
+  blobNames.delete(blobName);
+  await Promise.all([
+    rm(join(sessionDirectory, recordName), { force: true }),
+    rm(join(sessionDirectory, blobName), { force: true }),
+  ]);
+  console.warn("Upload record is damaged", recordName);
 }
 
 async function withLockedRoot<T>(root: string, action: () => Promise<T>): Promise<T> {
@@ -302,59 +363,79 @@ async function writeBody(body: ReadableStream<Uint8Array>, filePath: string, exp
 export async function storeBrowserUpload(input: UploadInput): Promise<BrowserUpload> {
   validateInput(input);
   const root = input.root ?? browserUploadRoot();
-  return withLockedRoot(root, async () => {
-    const inventory = await recoverAndInventory(root, {
-      retry: { sessionId: input.sessionId, key: input.key },
+  await mkdir(root, { recursive: true, mode: 0o700 });
+  const stagingDirectory = await mkdtemp(join(root, UPLOAD_STAGING_PREFIX));
+  const stagedBlobPath = join(stagingDirectory, "payload.blob");
+  activeUploadStagingDirectories.add(stagingDirectory);
+  let releaseStaging: (() => Promise<void>) | undefined;
+  try {
+    releaseStaging = await lockfile.lock(stagingDirectory, {
+      stale: 10_000,
+      update: 3_000,
+      retries: 0,
     });
-    const records = inventory.recordsBySession.get(input.sessionId) ?? [];
-    const existing = records.find(record => record.key === input.key);
-    if (existing) {
-      if (existing.name !== input.name || existing.size !== input.size || existing.mediaType !== input.mediaType) {
-        throw new UploadError("Idempotency key belongs to another file", 409);
-      }
-      await writeRecord(join(root, input.sessionId, `${existing.id}.json`), {
-        ...existing,
-        lastAttemptAt: Date.now(),
+    await writeBody(input.body, stagedBlobPath, input.size);
+    return await withLockedRoot(root, async () => {
+      const inventory = await recoverAndInventory(root, {
+        retry: { sessionId: input.sessionId, key: input.key },
       });
-      return publicUpload(existing);
-    }
-    if ((inventory.bytesBySession.get(input.sessionId) ?? 0) + input.size > MAX_UPLOAD_SESSION_BYTES) {
-      throw new UploadError("Session upload quota exceeded", 413);
-    }
-    if (inventory.globalBytes + input.size > MAX_UPLOAD_GLOBAL_BYTES) {
-      throw new UploadError("Global upload quota exceeded", 413);
-    }
+      const records = inventory.recordsBySession.get(input.sessionId) ?? [];
+      const existing = records.find(record => record.key === input.key);
+      if (existing) {
+        if (existing.name !== input.name || existing.size !== input.size || existing.mediaType !== input.mediaType) {
+          throw new UploadError("Idempotency key belongs to another file", 409);
+        }
+        await writeRecord(join(root, input.sessionId, `${existing.id}.json`), {
+          ...existing,
+          lastAttemptAt: Date.now(),
+        });
+        return publicUpload(existing);
+      }
+      if ((inventory.bytesBySession.get(input.sessionId) ?? 0) + input.size > MAX_UPLOAD_SESSION_BYTES) {
+        throw new UploadError("Session upload quota exceeded", 413);
+      }
+      if (inventory.globalBytes + input.size > MAX_UPLOAD_GLOBAL_BYTES) {
+        throw new UploadError("Global upload quota exceeded", 413);
+      }
 
-    const sessionDirectory = join(root, input.sessionId);
-    await mkdir(sessionDirectory, { recursive: true, mode: 0o700 });
-    let id: string;
-    do {
-      id = `up_${randomBytes(16).toString("hex")}`;
-    } while (records.some(record => record.id === id));
-    const partialPath = join(sessionDirectory, `${id}.part`);
-    const blobPath = join(sessionDirectory, `${id}.blob`);
-    const recordPath = join(sessionDirectory, `${id}.json`);
-    const temporaryRecordPath = `${recordPath}.tmp`;
+      const sessionDirectory = join(root, input.sessionId);
+      await mkdir(sessionDirectory, { recursive: true, mode: 0o700 });
+      let id: string;
+      do {
+        id = `up_${randomBytes(16).toString("hex")}`;
+      } while (records.some(record => record.id === id));
+      const blobPath = join(sessionDirectory, `${id}.blob`);
+      const recordPath = join(sessionDirectory, `${id}.json`);
+      const temporaryRecordPath = `${recordPath}.tmp`;
+      try {
+        await rename(stagedBlobPath, blobPath);
+        const now = Date.now();
+        const record: StoredUpload = {
+          id, sessionId: input.sessionId, key: input.key,
+          name: input.name, size: input.size, mediaType: input.mediaType, state: "ready",
+          createdAt: now, lastAttemptAt: now,
+        };
+        await writeRecord(recordPath, record);
+        return publicUpload(record);
+      } catch (error) {
+        await Promise.all([
+          rm(blobPath, { force: true }),
+          rm(temporaryRecordPath, { force: true }),
+        ]);
+        throw error;
+      }
+    });
+  } finally {
     try {
-      await writeBody(input.body, partialPath, input.size);
-      await rename(partialPath, blobPath);
-      const now = Date.now();
-      const record: StoredUpload = {
-        id, sessionId: input.sessionId, key: input.key,
-        name: input.name, size: input.size, mediaType: input.mediaType, state: "ready",
-        createdAt: now, lastAttemptAt: now,
-      };
-      await writeRecord(recordPath, record);
-      return publicUpload(record);
-    } catch (error) {
-      await Promise.all([
-        rm(partialPath, { force: true }),
-        rm(blobPath, { force: true }),
-        rm(temporaryRecordPath, { force: true }),
-      ]);
-      throw error;
+      await releaseStaging?.();
+    } finally {
+      try {
+        await rm(stagingDirectory, { recursive: true, force: true });
+      } finally {
+        activeUploadStagingDirectories.delete(stagingDirectory);
+      }
     }
-  });
+  }
 }
 
 /** Release one draft upload. A saved Session reference prevents deletion. */

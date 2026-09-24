@@ -11,7 +11,11 @@ export async function register(): Promise<void> {
       import("@oh-my-pi/pi-coding-agent"),
     ]);
     const existingSessions = new Set((await SessionManager.listAll()).map(session => session.id));
-    await collectBrowserUploads({ sessionExists: async sessionId => existingSessions.has(sessionId) });
+    try {
+      await collectBrowserUploads({ sessionExists: async sessionId => existingSessions.has(sessionId) });
+    } catch (error) {
+      console.warn(error);
+    }
     return;
   }
 
