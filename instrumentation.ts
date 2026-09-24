@@ -1,30 +1,7 @@
-import type { configureHttpDispatcher as ConfigureHttpDispatcher } from "@/lib/http-dispatcher";
-
-type DispatcherModule = { configureHttpDispatcher: typeof ConfigureHttpDispatcher };
-
 export async function register(): Promise<void> {
-  if (process.env.NEXT_RUNTIME !== "nodejs") return;
-
-  if (typeof process.versions.bun === "string") {
-    const [{ collectBrowserUploads }, { SessionManager }] = await Promise.all([
-      import("@/lib/upload-store"),
-      import("@oh-my-pi/pi-coding-agent"),
-    ]);
-    const existingSessions = new Set((await SessionManager.listAll()).map(session => session.id));
-    try {
-      await collectBrowserUploads({ sessionExists: async sessionId => existingSessions.has(sessionId) });
-    } catch (error) {
-      console.warn(error);
-    }
-    return;
+  // Next removes this import from the edge bundle only in this form.
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { registerNode } = await import("./instrumentation-node");
+    await registerNode();
   }
-
-  // Keep the Node-only undici graph out of Next's browser/edge instrumentation
-  // bundles. Node 22 can load this local TypeScript module directly.
-  const importRuntimeModule = Function("specifier", "return import(specifier)") as (
-    specifier: string,
-  ) => Promise<DispatcherModule>;
-  const moduleUrl = `file://${encodeURI(process.cwd())}/lib/http-dispatcher.ts`;
-  const { configureHttpDispatcher } = await importRuntimeModule(moduleUrl);
-  await configureHttpDispatcher();
 }
