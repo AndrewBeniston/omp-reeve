@@ -81,9 +81,24 @@ test("the CSS uses the reference pill, fill, dot, and thumb geometry", async () 
   const powerCss = await readFile(new URL("./ModelPowerSlider.module.css", import.meta.url), "utf8");
   assert.match(powerCss, /\.track\s*\{[^}]*height:\s*44px;/);
   assert.match(powerCss, /\.rail\s*\{[^}]*height:\s*44px;[^}]*border-radius:\s*999px;[^}]*color-mix\(in srgb, var\(--ui-text\) 8%, transparent\);/);
-  assert.match(powerCss, /\.rail::before\s*\{[^}]*width:\s*clamp\(20px, var\(--ui-power-progress, 0%\), calc\(100% - 20px\)\);[^}]*background:\s*var\(--ui-accent\);/);
+  assert.match(powerCss, /\.rail::before\s*\{[^}]*width:\s*calc\(40px \+ \(100% - 40px\) \* var\(--ui-power-progress, 0\)\);[^}]*background:\s*var\(--ui-accent\);/);
+  assert.match(powerCss, /\.dot,\s*\.thumb\s*\{[^}]*left:\s*calc\(20px \+ \(100% - 40px\) \* var\(--ui-power-position, 0\.5\)\);/);
   assert.match(powerCss, /\.dot\s*\{[^}]*width:\s*6px;[^}]*height:\s*6px;/);
-  assert.match(powerCss, /\.thumb\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px;[^}]*background:\s*var\(--ui-composer-primary\);/);
+  assert.match(powerCss, /\.thumb\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px;[^}]*background:\s*#fff;/);
+});
+
+test("the slider dots use evenly spaced zero-to-one positions", async () => {
+  const view = await renderSlider();
+  try {
+    const positions = Array.from(view.container.querySelectorAll("[data-power-dot]"), (dot) => {
+      const propsKey = Object.keys(dot).find((key) => key.startsWith("__reactProps$"));
+      return propsKey ? dot[propsKey].style["--ui-power-position"] : null;
+    });
+    assert.deepEqual(positions, ["0", "0.3333333333333333", "0.6666666666666666", "1"]);
+    assert.equal(positions.every((position, index) => index === 0 || Number(position) > Number(positions[index - 1])), true);
+  } finally {
+    await view.unmount();
+  }
 });
 
 test("the Power arrows wrap and announce the selected model and effort", async () => {
@@ -92,13 +107,13 @@ test("the Power arrows wrap and announce the selected model and effort", async (
     const control = view.container.querySelector("[aria-label='Power']");
     const left = await press(control, "ArrowLeft");
     assert.equal(left.defaultPrevented, true);
-    assert.deepEqual(view.selections, ["max"]);
-    assert.equal(textOf(view.container.querySelector("[role='status']")), "Model Max, 3 of 3. Consumes usage limits faster");
+    assert.deepEqual(view.selections, ["auto"]);
+    assert.equal(textOf(view.container.querySelector("[role='status']")), "Model Auto, 1 of 4.");
 
     const right = await press(control, "ArrowRight");
     assert.equal(right.defaultPrevented, true);
-    assert.deepEqual(view.selections, ["max", "minimal"]);
-    assert.equal(textOf(view.container.querySelector("[role='status']")), "Model Minimal, 1 of 3.");
+    assert.deepEqual(view.selections, ["auto", "minimal"]);
+    assert.equal(textOf(view.container.querySelector("[role='status']")), "Model Minimal, 2 of 4.");
   } finally {
     await view.unmount();
   }
@@ -109,7 +124,7 @@ test("the Power announcement uses a one-based position for a middle step", async
   try {
     await press(view.container.querySelector("[aria-label='Power']"), "ArrowRight");
     assert.deepEqual(view.selections, ["medium"]);
-    assert.equal(textOf(view.container.querySelector("[role='status']")), "Model Medium, 2 of 3.");
+    assert.equal(textOf(view.container.querySelector("[role='status']")), "Model Medium, 3 of 4.");
     assert.equal(view.container.querySelector("[role='status']").getAttribute("aria-live"), "polite");
   } finally {
     await view.unmount();
@@ -136,8 +151,8 @@ test("Right Arrow wraps from the selected last step to the first step", async ()
   const view = await renderSlider({ currentStepId: steps[2].id });
   try {
     await press(view.container.querySelector("[aria-label='Power']"), "ArrowRight");
-    assert.deepEqual(view.selections, ["minimal"]);
-    assert.equal(textOf(view.container.querySelector("[role='status']")), "Model Minimal, 1 of 3.");
+    assert.deepEqual(view.selections, ["auto"]);
+    assert.equal(textOf(view.container.querySelector("[role='status']")), "Model Auto, 1 of 4.");
   } finally {
     await view.unmount();
   }
@@ -166,10 +181,10 @@ test("the model effort list keeps Auto selectable when the selector has no curre
     const power = view.container.querySelector("[data-model-power-view]");
     assert.ok(power);
     assert.ok(power.querySelector("[data-slider-row]"));
-    assert.equal(power.querySelector("[data-power-thumb]"), null);
+    assert.equal(power.querySelector("[data-power-thumb]")?.getAttribute("data-step"), "auto");
     assert.deepEqual(
-      Array.from(power.querySelectorAll("[data-power-dot]"), (dot) => dot.getAttribute("data-effort")),
-      ["minimal", "medium", "max"],
+      Array.from(power.querySelectorAll("[data-power-dot]"), (dot) => dot.getAttribute("data-step-id")),
+      ["auto", "model:minimal", "model:medium", "model:max"],
     );
 
     await press(power.querySelector("[aria-label='Power']"), "ArrowRight");
@@ -330,7 +345,7 @@ test("selecting the top step replaces the reset control with the warning text an
   }
 });
 
-test("keyboard navigation to top step replaces reset with warning, and moving away restores reset", async () => {
+test("keyboard navigation to the top step replaces reset with warning, and moving away restores reset", async () => {
   const view = await renderSlider({
     explicitModelOverride: true,
     currentStepId: steps[0].id,
@@ -343,9 +358,10 @@ test("keyboard navigation to top step replaces reset with warning, and moving aw
     assert.equal(reset.getAttribute("tabindex"), "0");
     assert.equal(view.container.querySelector("[data-usage-warning]"), null);
 
-    // Left Arrow wraps to max (top step)
+    // Two Right Arrow presses reach max (top step).
     const control = view.container.querySelector("[aria-label='Power']");
-    await press(control, "ArrowLeft");
+    await press(control, "ArrowRight");
+    await press(control, "ArrowRight");
 
     // Top step active: warning shown, reset hidden and not focusable
     const warning = view.container.querySelector("[data-usage-warning]");
@@ -356,7 +372,7 @@ test("keyboard navigation to top step replaces reset with warning, and moving aw
     assert.equal(reset.getAttribute("tabindex"), "-1");
     assert.equal(reset.hasAttribute("disabled"), true);
 
-    // Right Arrow wraps to minimal (not top step): warning absent, reset restored
+    // Right Arrow wraps to Auto (not top step): warning absent, reset restored.
     await press(control, "ArrowRight");
     assert.equal(view.container.querySelector("[data-usage-warning]"), null);
     reset = view.container.querySelector("[aria-label='Reset to default']");

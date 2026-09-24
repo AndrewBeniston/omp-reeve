@@ -149,6 +149,7 @@ export function ModelPowerSlider({
               type="button"
               ref={advancedTriggerRef}
               data-model-menu-row="advanced"
+              role="menuitem"
               className={styles.resetControl}
               aria-label={t("chat.advanced")}
               title={t("chat.advanced")}
@@ -247,6 +248,7 @@ export function ModelPowerSlider({
                   key={step.id}
                   className={styles.dot}
                   data-power-dot
+                  data-step-id={step.id}
                   data-effort={step.effort}
                   data-filled={index < visibleIndex ? "true" : "false"}
                   variables={{ "--ui-power-position": String(position) }}
