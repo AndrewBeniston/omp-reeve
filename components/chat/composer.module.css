@@ -590,7 +590,11 @@
 }
 
 .toolbar[data-mobile="true"] {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+}
+
+.toolbar[data-mobile="true"] .toolbarRight {
+  flex-wrap: wrap;
 }
 
 .toolbarLeft {
@@ -771,11 +775,6 @@
   align-items: center;
 }
 
-.modelIcon {
-  flex-shrink: 0;
-  color: var(--ui-text);
-}
-
 .menuTrigger {
   min-width: 0;
   max-width: 100%;
@@ -804,16 +803,6 @@
   color: var(--ui-text);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
-}
-
-.modelRoute {
-  min-width: 0;
-  max-width: calc(16 * var(--space-1));
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--ui-text-dim);
-  font-size: var(--text-xs);
 }
 
 .reasoningLevel {

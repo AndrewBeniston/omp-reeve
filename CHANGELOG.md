@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Match the Composer footer to the reference one-row control order and simplify its model and Send controls.
 - Show agent identity, role, model tooltips, and overflow-only prompt tooltips in multi-agent transcript rows.
 
 - Multi-agent transcript actions now show one row per agent with action-specific text and optional input.
