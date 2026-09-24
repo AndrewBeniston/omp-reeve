@@ -14,6 +14,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The model list shows every available model in provider groups, with friendly names and search.
 - The effort popup shows a Reset to default control when you change the effort, and the control restores the model default effort.
 - Give transcript dividers a 44px mobile touch target.
 - Active transcript turns now show a live Working Divider with an elapsed clock.

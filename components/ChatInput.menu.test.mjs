@@ -220,7 +220,7 @@ test("the model control preserves the route when providers share a model name", 
   await click(document.body.querySelector("[data-model-menu-row='model']"));
   await settle();
   const menu = document.body.querySelector("[data-model-submenu='model']");
-  assert.equal(menu.querySelector("[data-model-provider]"), null);
+  assert.deepEqual([...menu.querySelectorAll("[data-model-provider]")].map((heading) => heading.textContent), ["OpenAI API", "ChatGPT subscription"]);
   assert.deepEqual(itemsOf(menu).map(textOf), ["GPT Example", "GPT Example Pro", "GPT Example"]);
   const api = itemsOf(menu).find((item) => item.getAttribute("data-selection-id") === "openai/gpt-example:medium");
   const subscription = itemsOf(menu).find((item) => item.getAttribute("data-selection-id") === "openai-codex/gpt-example:medium");
@@ -323,7 +323,7 @@ test("the model list check follows provider, model id, and effort", async () => 
     ...props, thinkingLevel: "auto",
   })));
   await settle();
-  assert.equal(itemsOf(document.body.querySelector("[data-model-submenu='model']"))[1].getAttribute("aria-checked"), "false");
+  assert.equal(itemsOf(document.body.querySelector("[data-model-submenu='model']"))[1].getAttribute("aria-checked"), "true");
   await view.unmount();
 });
 
@@ -539,7 +539,7 @@ test("the model menu shows supported power steps beside Speed and Advanced", asy
   await view.unmount();
 });
 
-test("a large model menu renders a flat list without a filter", async () => {
+test("a large model menu renders provider groups with a filter", async () => {
   const view = await mountComposer({
     model: { provider: "openai", modelId: "model-0" },
     modelList: Array.from({ length: 9 }, (_, index) => ({
@@ -554,8 +554,32 @@ test("a large model menu renders a flat list without a filter", async () => {
   await click(document.body.querySelector("[data-model-menu-row='model']"));
   await settle();
   assert.equal(itemsOf(document.body.querySelector("[data-model-list-scroller]")).length, 9);
-  assert.equal(document.body.querySelector("input[aria-label='Filter models…']"), null);
-  assert.equal(document.body.querySelector("[data-model-provider]"), null);
+  assert.equal(document.body.querySelector("input[aria-label='Search models']") != null, true);
+  assert.deepEqual([...document.body.querySelectorAll("[data-model-provider]")].map((heading) => heading.textContent), ["OpenAI API"]);
+  const search = document.body.querySelector("[data-model-search]");
+  await typeInto(search, "Model 4");
+  await settle();
+  assert.deepEqual(itemsOf(document.body.querySelector("[data-model-list-scroller]")).map(textOf), ["Model 4"]);
+  await view.unmount();
+});
+
+test("the model control and effort stage use the same friendly name", async () => {
+  const view = await mountComposer({
+    model: { provider: "opencode-go", modelId: "kimi-k2.5" },
+    modelList: [
+      { provider: "opencode-go", id: "deepseek-flash", name: "deepseek-flash" },
+      { provider: "opencode-go", id: "kimi-k2.5", name: "kimi-k2.5" },
+    ],
+    modelThinkingLevels: { "opencode-go:kimi-k2.5": ["off", "high"] },
+    thinkingLevel: "high",
+    onModelChange() {},
+    onThinkingLevelChange() {},
+  });
+  const trigger = triggerFor(view.container, "Model settings");
+  assert.match(trigger.textContent, /Kimi K2\.5/);
+  await click(trigger);
+  await settle();
+  assert.equal(textOf(document.body.querySelector("[data-model-effort-name]")), "Kimi K2.5");
   await view.unmount();
 });
 

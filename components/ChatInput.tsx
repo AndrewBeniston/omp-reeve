@@ -69,6 +69,7 @@ import {
 import { useI18n } from "@/hooks/useI18n";
 import { PRESET_DEFAULT, PRESET_FULL } from "@/lib/tool-presets";
 import { buildModelSelectorState, filterModelOptions, INITIAL_MODEL_MENU_STATE, reduceModelMenuState, THINKING_STEP_ORDER, thinkingLevelLabelKey } from "@/lib/model-selector";
+import { modelDisplayName } from "@/lib/model-display-name";
 import { buildModelCommandSections, buildReasoningCommandSections, readRecentModelConfigurations, rememberModelConfiguration } from "@/lib/model-selector/commands";
 import {
   ComposerFloatingGeometry,
@@ -2086,7 +2087,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   }, [displayedSlashCommands.length, slashActiveIndex]);
 
   const displayModelName = model
-    ? (modelOptions.find((o) => o.modelId === model.modelId && o.provider === model.provider)?.name ?? modelNames?.[`${model.provider}:${model.modelId}`] ?? model.modelId)
+    ? modelDisplayName({
+      id: model.modelId,
+      name: modelOptions.find((o) => o.modelId === model.modelId && o.provider === model.provider)?.name
+        ?? modelNames?.[`${model.provider}:${model.modelId}`],
+    })
     : null;
   const currentName = displayModelName;
   const currentEffortLabel = selector.currentStep?.effortLabel ?? t(thinkingLevelLabelKey(thinkingLevel ?? "auto"));
@@ -2494,6 +2499,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                           {modelSubmenu === "model" ? (
                             <ModelList
                               selector={selector}
+                              filter={modelFilter}
+                              onFilterChange={(value) => dispatchModelMenu({ type: "filter", value })}
                               isAutoModelSelection={isAutoModelSelection}
                               onDefault={defaultRow ? () => {
                                 dispatchModelMenu({ type: "submenu", value: "effort" });

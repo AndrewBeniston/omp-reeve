@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, type KeyboardEvent } from "react";
 import { useI18n } from "@/hooks/useI18n";
 import type { buildModelSelectorState } from "@/lib/model-selector";
 import { MenuItem } from "@/components/ui/Menu";
@@ -9,6 +10,8 @@ type Selector = ReturnType<typeof buildModelSelectorState>;
 
 interface Props {
   selector: Selector;
+  filter?: string;
+  onFilterChange?: (value: string) => void;
   isAutoModelSelection?: boolean;
   onDefault?: () => void;
   onModel: (provider: string, modelId: string, selected: boolean) => void;
@@ -25,6 +28,8 @@ function SelectionMark({ selected }: { selected: boolean }) {
 
 export function ModelList({
   selector,
+  filter = "",
+  onFilterChange,
   isAutoModelSelection,
   onDefault,
   onModel,
@@ -32,11 +37,52 @@ export function ModelList({
 }: Props) {
   const { t } = useI18n();
   const { defaultRow, defaultRowSelected, modelRowsByProvider } = selector;
-  const modelRows = modelRowsByProvider.flatMap((group) => group.options);
+  const modelCount = modelRowsByProvider.reduce((count, group) => count + group.options.length, 0);
+  const hasDefaultRow = Boolean(defaultRow && onDefault);
+  const firstModelChoice = modelRowsByProvider[0]?.options[0];
+  const listRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const moveFocusToSearch = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== "ArrowUp") return;
+    event.preventDefault();
+    searchRef.current?.focus();
+  };
+
+  const moveFocusFromSearch = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      const rows = listRef.current?.querySelectorAll<HTMLElement>(
+        "[role='menuitem'],[role='menuitemradio']",
+      );
+      if (rows?.length) {
+        event.preventDefault();
+        event.stopPropagation();
+        rows[event.key === "ArrowDown" ? 0 : rows.length - 1]?.focus();
+      }
+      return;
+    }
+    if (["Enter", " ", "Home", "End"].includes(event.key)) {
+      if (event.key === "Enter") event.preventDefault();
+      event.stopPropagation();
+    }
+  };
 
   return (
-    <div data-model-list data-stage-transition={stageTransition ?? undefined} className={styles.list}>
+    <div ref={listRef} data-model-list data-stage-transition={stageTransition ?? undefined} className={styles.list}>
       <div className={styles.heading} data-model-list-heading>{t("chat.selectModel")}</div>
+      <div className={styles.searchRow}>
+        <input
+          ref={searchRef}
+          type="search"
+          value={filter}
+          onChange={(event) => onFilterChange?.(event.target.value)}
+          onKeyDown={moveFocusFromSearch}
+          placeholder={t("chat.searchModels")}
+          aria-label={t("chat.searchModels")}
+          className={styles.search}
+          data-model-search
+        />
+      </div>
       <div className={styles.scroller} data-model-list-scroller>
         {defaultRow && onDefault && (
           <MenuItem
@@ -44,6 +90,7 @@ export function ModelList({
             className={styles.choice}
             data-selected={defaultRowSelected ? "true" : "false"}
             data-model-default
+            onKeyDown={moveFocusToSearch}
             role="menuitemradio"
             checked={defaultRowSelected}
             surface="plain"
@@ -55,21 +102,24 @@ export function ModelList({
             <SelectionMark selected={defaultRowSelected} />
           </MenuItem>
         )}
-        {modelRows.length === 0 ? (
-          <div className={styles.empty}>{t("chat.noAvailableModels")}</div>
-        ) : modelRows.map((option) => {
+        {modelCount === 0 ? (
+          <div className={styles.empty}>{t(filter.trim() ? "chat.noMatchingModels" : "chat.noAvailableModels")}</div>
+        ) : modelRowsByProvider.map((group) => (
+          <section key={group.provider} className={styles.providerGroup}>
+            <div className={styles.providerHeading} data-model-provider>{group.label}</div>
+            {group.options.map((option) => {
               const selected = option.selected && !defaultRowSelected;
-              const route = modelRowsByProvider.find((group) => group.provider === option.provider)?.label ?? option.provider;
               return (
                 <MenuItem
                   key={`${option.provider}:${option.modelId}`}
                   onClick={() => onModel(option.provider, option.modelId, selected && !isAutoModelSelection)}
+                  onKeyDown={!hasDefaultRow && option === firstModelChoice ? moveFocusToSearch : undefined}
                   className={styles.choice}
                   data-selected={selected ? "true" : "false"}
                   data-selection-id={option.selectionId}
                   role="menuitemradio"
                   checked={selected}
-                  aria-label={`${route}, ${option.name}`}
+                  aria-label={`${group.label}, ${option.name}`}
                   surface="plain"
                 >
                   <span className={styles.label} title={option.name}>{option.name}</span>
@@ -77,6 +127,8 @@ export function ModelList({
                 </MenuItem>
               );
             })}
+          </section>
+        ))}
       </div>
     </div>
   );
