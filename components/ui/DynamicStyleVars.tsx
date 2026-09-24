@@ -24,6 +24,7 @@ const DYNAMIC_STYLE_VARIABLES = [
   "--ui-response-spacer-height",
   "--ui-image-zoom",
   "--ui-power-position",
+  "--ui-power-progress",
   "--ui-transcript-scroll-padding-bottom",
   "--subagent-avatar-hue",
 ] as const;

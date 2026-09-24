@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
 import type { PowerSelection, ThinkingStep } from "@/lib/model-selector";
 import { useI18n } from "@/hooks/useI18n";
 import { MenuItem } from "@/components/ui/Menu";
@@ -50,7 +50,6 @@ export function ModelPowerSlider({
   const visibleIndex = previewIndex >= 0 ? previewIndex : currentIndex;
   const isTopStep = visibleIndex >= 0 && steps[visibleIndex]?.thinkingLevel === "max";
   const progress = steps.length === 1 ? 50 : visibleIndex < 0 ? 0 : (visibleIndex / (steps.length - 1)) * 100;
-  const railStyle = { "--ui-power-progress": `${progress}%` } as CSSProperties;
 
   useEffect(() => {
     setPreviewStepId(null);
@@ -183,23 +182,27 @@ export function ModelPowerSlider({
             <span id={instructionsId} className={styles.visuallyHidden}>
               {t("chat.powerKeyboardInstructions")}
             </span>
-            <div className={styles.rail} style={railStyle}>
+            <DynamicStyleVars className={styles.rail} variables={{ "--ui-power-progress": `${progress}%` }}>
               {steps.map((step, index) => {
                 const position = steps.length === 1 ? 50 : (index / (steps.length - 1)) * 100;
-                return <span
+                return <DynamicStyleVars
+                  as="span"
                   key={step.id}
                   className={styles.dot}
                   data-power-dot
                   data-effort={step.effort}
                   data-filled={index < visibleIndex ? "true" : "false"}
-                  ><DynamicStyleVars variables={{ "--ui-power-position": `${position}%` }} /></span>
+                  variables={{ "--ui-power-position": `${position}%` }}
+                />
               })}
-              {visibleIndex >= 0 && <span
+              {visibleIndex >= 0 && <DynamicStyleVars
+                as="span"
                 className={styles.thumb}
                 data-power-thumb
                 data-step={steps[visibleIndex].thinkingLevel}
-                ><DynamicStyleVars variables={{ "--ui-power-position": `${steps.length === 1 ? 50 : (visibleIndex / (steps.length - 1)) * 100}%` }} /></span>}
-            </div>
+                variables={{ "--ui-power-position": `${progress}%` }}
+              />}
+            </DynamicStyleVars>
           </div>
           <span role="status" aria-live="polite" aria-atomic="true" className={styles.visuallyHidden}>
             {announcement}
