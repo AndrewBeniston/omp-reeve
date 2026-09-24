@@ -191,16 +191,14 @@ test("the model control preserves the route when providers share a model name", 
   await click(view.container.querySelector("[data-model-menu-row='model']"));
   await settle();
   const menu = view.container.querySelector("[data-model-submenu='model']");
-  assert.match(textOf(menu), /OpenAI API/);
-  assert.match(textOf(menu), /ChatGPT subscription/);
-  const apiGroup = Array.from(menu.querySelectorAll("[data-model-provider]"))
-    .find((group) => group.getAttribute("data-model-provider") === "openai");
-  const subscriptionGroup = Array.from(menu.querySelectorAll("[data-model-provider]"))
-    .find((group) => group.getAttribute("data-model-provider") === "openai-codex");
-  assert.deepEqual(itemsOf(subscriptionGroup).map(textOf), ["GPT Example"]);
-  assert.equal(itemsOf(subscriptionGroup)[0].getAttribute("aria-checked"), "true");
+  assert.equal(menu.querySelector("[data-model-provider]"), null);
+  assert.deepEqual(itemsOf(menu).map(textOf), ["GPT Example", "GPT Example Pro", "GPT Example"]);
+  const api = itemsOf(menu).find((item) => item.getAttribute("data-selection-id") === "openai/gpt-example:medium");
+  const subscription = itemsOf(menu).find((item) => item.getAttribute("data-selection-id") === "openai-codex/gpt-example:medium");
+  assert.equal(api.getAttribute("aria-checked"), "false");
+  assert.equal(subscription.getAttribute("aria-checked"), "true");
 
-  await click(itemsOf(apiGroup)[0]);
+  await click(api);
   await settle();
   assert.deepEqual(picked, [{ provider: "openai", modelId: "gpt-example" }]);
 
@@ -259,8 +257,9 @@ test("the model list check follows provider, model id, and effort", async () => 
   await click(triggerFor(view.container, "Model settings"));
   await click(view.container.querySelector("[data-model-menu-row='model']"));
   await settle();
-  const api = itemsOf(view.container.querySelector("[data-model-provider='openai']"))[0];
-  const subscription = itemsOf(view.container.querySelector("[data-model-provider='openai-codex']"))[0];
+  const menu = view.container.querySelector("[data-model-submenu='model']");
+  const api = itemsOf(menu).find((item) => item.getAttribute("data-selection-id") === "openai/gpt-example:high");
+  const subscription = itemsOf(menu).find((item) => item.getAttribute("data-selection-id") === "openai-codex/gpt-example:high");
   assert.equal(api.getAttribute("aria-checked"), "false");
   assert.equal(subscription.getAttribute("aria-checked"), "true");
   assert.equal(subscription.getAttribute("data-selection-id"), "openai-codex/gpt-example:high");
@@ -269,7 +268,7 @@ test("the model list check follows provider, model id, and effort", async () => 
     ...props, thinkingLevel: "auto",
   })));
   await settle();
-  assert.equal(itemsOf(view.container.querySelector("[data-model-provider='openai-codex']"))[0].getAttribute("aria-checked"), "false");
+  assert.equal(itemsOf(view.container.querySelector("[data-model-submenu='model']"))[1].getAttribute("aria-checked"), "false");
   await view.unmount();
 });
 
@@ -287,9 +286,8 @@ test("the model control preserves provider-qualified names when the model list i
   await settle();
   await click(view.container.querySelector("[data-model-menu-row='model']"));
   await settle();
-  const apiGroup = view.container.querySelector("[data-model-provider='openai']");
-  assert.ok(apiGroup);
-  await click(itemsOf(apiGroup)[0]);
+  const api = itemsOf(view.container.querySelector("[data-model-submenu='model']"))[0];
+  await click(api);
   assert.deepEqual(picked, [{ provider: "openai", modelId: "gpt-example" }]);
   await view.unmount();
 });
@@ -489,7 +487,7 @@ test("the model menu shows supported power steps beside Speed and Advanced", asy
   await view.unmount();
 });
 
-test("a large model menu gives focus to its filter", async () => {
+test("a large model menu renders a flat list without a filter", async () => {
   const view = await mountComposer({
     model: { provider: "openai", modelId: "model-0" },
     modelList: Array.from({ length: 9 }, (_, index) => ({
@@ -504,12 +502,8 @@ test("a large model menu gives focus to its filter", async () => {
   await click(view.container.querySelector("[data-model-menu-row='model']"));
   await settle();
   assert.equal(itemsOf(view.container.querySelector("[data-model-list-scroller]")).length, 9);
-  const filter = view.container.querySelector("[aria-label='Filter models…']");
-  assert.ok(filter);
-  assert.equal(domDocument.activeElement, filter);
-  await typeInto(filter, "model 8");
-  await settle();
-  assert.deepEqual(itemsOf(view.container.querySelector("[data-model-submenu='model']")).map(textOf), ["Model 8"]);
+  assert.equal(view.container.querySelector("input[aria-label='Filter models…']"), null);
+  assert.equal(view.container.querySelector("[data-model-provider]"), null);
   await view.unmount();
 });
 
@@ -554,7 +548,7 @@ test("choosing a model opens the effort stage with the model under its effort la
   await click(triggerFor(view.container, "Model settings"));
   await click(view.container.querySelector("[data-model-menu-row='model']"));
   await settle();
-  const next = itemsOf(view.container.querySelector("[data-model-provider='openai']"))
+  const next = itemsOf(view.container.querySelector("[data-model-submenu='model']"))
     .find((item) => textOf(item) === "GPT New");
   await click(next);
   assert.deepEqual(models, [{ provider: "openai", modelId: "gpt-new" }]);
@@ -589,7 +583,7 @@ test("choosing the current model opens effort without repeating the model change
   await click(triggerFor(view.container, "Model settings"));
   await click(view.container.querySelector("[data-model-menu-row='model']"));
   await settle();
-  const selected = itemsOf(view.container.querySelector("[data-model-provider='openai']"))[0];
+  const selected = itemsOf(view.container.querySelector("[data-model-submenu='model']"))[0];
   assert.equal(selected.getAttribute("aria-checked"), "true");
   await click(selected);
   await settle();
@@ -727,9 +721,9 @@ test("Escape from a nested menu returns focus to its parent row", async () => {
   await press(activeItem, "Escape");
   await settle();
 
-  assert.ok(view.container.querySelector("[role='menu'][aria-label='Model settings']"));
+  assert.equal(view.container.querySelector("[role='menu'][aria-label='Model settings']"), null);
   assert.equal(view.container.querySelector("[data-model-submenu='model']"), null);
-  assert.equal(domDocument.activeElement, modelRow);
+  assert.equal(domDocument.activeElement, trigger);
   await view.unmount();
 });
 

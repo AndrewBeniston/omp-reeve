@@ -1,6 +1,5 @@
 "use client";
 
-import type { RefObject } from "react";
 import { useI18n } from "@/hooks/useI18n";
 import type { buildModelSelectorState } from "@/lib/model-selector";
 import { MenuItem } from "@/components/ui/Menu";
@@ -10,12 +9,7 @@ type Selector = ReturnType<typeof buildModelSelectorState>;
 
 interface Props {
   selector: Selector;
-  filter: string;
-  showFilter: boolean;
-  filterRef: RefObject<HTMLInputElement | null>;
-  isMobile: boolean;
   isAutoModelSelection?: boolean;
-  onFilterChange: (value: string) => void;
   onDefault?: () => void;
   onModel: (provider: string, modelId: string, selected: boolean) => void;
   stageTransition?: "enter" | "leave" | null;
@@ -23,48 +17,28 @@ interface Props {
 
 function SelectionMark({ selected }: { selected: boolean }) {
   return selected ? (
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.selectionMark} aria-hidden="true">
-      <path d="m1 5 2.5 2.5L9 2" />
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={styles.selectionMark} data-model-selection-check aria-hidden="true">
+      <path d="m3.5 8 3 3 6-7" />
     </svg>
   ) : <span className={styles.selectionSpacer} />;
 }
 
 export function ModelList({
   selector,
-  filter,
-  showFilter,
-  filterRef,
-  isMobile,
   isAutoModelSelection,
-  onFilterChange,
   onDefault,
   onModel,
   stageTransition = null,
 }: Props) {
   const { t } = useI18n();
   const { defaultRow, defaultRowSelected, modelRowsByProvider } = selector;
+  const modelRows = modelRowsByProvider.flatMap((group) => group.options);
 
   return (
     <div data-model-list data-stage-transition={stageTransition ?? undefined} className={styles.list}>
       <div className={styles.heading} data-model-list-heading>{t("chat.selectModel")}</div>
-      {showFilter && (
-        <div className={styles.filterWrap}>
-          <input
-            ref={filterRef}
-            value={filter}
-            onChange={(event) => onFilterChange(event.target.value)}
-            placeholder={t("chat.filterModels")}
-            aria-label={t("chat.filterModels")}
-            autoFocus
-            autoComplete="off"
-            spellCheck={false}
-            className={styles.filter}
-            data-mobile={isMobile ? "true" : "false"}
-          />
-        </div>
-      )}
       <div className={styles.scroller} data-model-list-scroller>
-        {defaultRow && onDefault && !filter.trim() && (
+        {defaultRow && onDefault && (
           <MenuItem
             onClick={onDefault}
             className={styles.choice}
@@ -74,21 +48,16 @@ export function ModelList({
             checked={defaultRowSelected}
             surface="plain"
           >
-            <SelectionMark selected={defaultRowSelected} />
             <span className={styles.defaultCopy}>
               <span className={styles.label}>{defaultRow.label}</span>
               <span className={styles.description}>{defaultRow.description}</span>
             </span>
+            <SelectionMark selected={defaultRowSelected} />
           </MenuItem>
         )}
-        {modelRowsByProvider.length === 0 ? (
-          <div className={styles.empty}>{filter.trim() ? t("chat.noMatchingModels") : t("chat.noAvailableModels")}</div>
-        ) : modelRowsByProvider.map((group, groupIndex) => (
-          <div key={group.provider} data-model-provider={group.provider}>
-            {(modelRowsByProvider.length > 1 || group.label !== group.provider) && (
-              <div className={styles.groupLabel} data-divided={groupIndex > 0 ? "true" : "false"}>{group.label}</div>
-            )}
-            {group.options.map((option) => {
+        {modelRows.length === 0 ? (
+          <div className={styles.empty}>{t("chat.noAvailableModels")}</div>
+        ) : modelRows.map((option) => {
               const selected = option.selected && !defaultRowSelected;
               return (
                 <MenuItem
@@ -101,13 +70,11 @@ export function ModelList({
                   checked={selected}
                   surface="plain"
                 >
-                  <SelectionMark selected={selected} />
                   <span className={styles.label} title={option.name}>{option.name}</span>
+                  <SelectionMark selected={selected} />
                 </MenuItem>
               );
             })}
-          </div>
-        ))}
       </div>
     </div>
   );

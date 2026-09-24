@@ -251,7 +251,6 @@ const FULL_TOOL_ADDITIONS = PRESET_FULL.filter((name) => !PRESET_DEFAULT.include
 const COMPOSITION_END_ENTER_GRACE_MS = 100;
 const COMPOSER_MAX_ATTACHED_IMAGES = 5;
 const FOLLOW_UP_QUEUE_MODE_KEY = "reeve-follow-up-queue-mode";
-const MODEL_FILTER_THRESHOLD = 8;
 const EMPTY_SUBAGENTS: SubagentSnapshot[] = [];
 export { filterModelOptions };
 
@@ -678,7 +677,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const modelRowRef = useRef<HTMLButtonElement>(null);
   const speedRowRef = useRef<HTMLButtonElement>(null);
   const advancedRowRef = useRef<HTMLButtonElement>(null);
-  const modelFilterRef = useRef<HTMLInputElement>(null);
   const contextTriggerRef = useRef<HTMLButtonElement>(null);
   const sessionMenuRef = useRef<HTMLDivElement>(null);
   const controlsMenuRef = useRef<HTMLDivElement>(null);
@@ -1401,14 +1399,16 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     return [...entries, { name: branch.id, description: detail }];
   }, [reviewBranches]);
 
-  const selectorRegistry = modelList && modelList.length > 0
-    ? modelList.map((entry) => ({
+  const selectorRegistry = modelList
+    ? modelList.length > 0
+      ? modelList.map((entry) => ({
       provider: entry.provider,
       id: entry.id,
       name: entry.name,
       thinkingLevels: modelThinkingLevels?.[`${entry.provider}:${entry.id}`]
         ?? (entry.provider === model?.provider && entry.id === model.modelId ? availableThinkingLevels ?? [] : []),
-    }))
+      }))
+      : []
     : Object.entries(modelNames ?? {}).map(([key, name]) => {
       const separator = key.indexOf(":");
       const provider = separator < 0 ? model?.provider ?? "unknown" : key.slice(0, separator);
@@ -1430,7 +1430,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   }, t);
   const modelOptions = selector.models;
   const defaultRow = selector.defaultRow;
-  const showModelFilter = modelOptions.length > MODEL_FILTER_THRESHOLD;
 
   useEffect(() => {
     if (!model) return;
@@ -2059,14 +2058,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     }
   }, [displayedSlashCommands.length, slashActiveIndex]);
 
-  useEffect(() => {
-    if (!modelDropdownOpen || modelSubmenu !== "model" || !showModelFilter) return;
-    const timer = globalThis.setTimeout(() => modelFilterRef.current?.focus(), 0);
-    return () => globalThis.clearTimeout(timer);
-  }, [modelDropdownOpen, modelSubmenu, showModelFilter]);
-
   const displayModelName = model
-    ? (modelOptions.find((o) => o.modelId === model.modelId && o.provider === model.provider)?.name ?? model.modelId)
+    ? (modelOptions.find((o) => o.modelId === model.modelId && o.provider === model.provider)?.name ?? modelNames?.[`${model.provider}:${model.modelId}`] ?? model.modelId)
     : null;
   const currentName = displayModelName;
   const currentEffortLabel = selector.currentStep?.effortLabel ?? t(thinkingLevelLabelKey(thinkingLevel ?? "auto"));
@@ -2446,78 +2439,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                           triggerRef={modelTriggerRef}
                           surface="plain"
                           className={styles.modelMenu}
+                          data-model-submenu={modelSubmenu === "model" ? "model" : undefined}
                         >
-                          <ModelPowerSlider
-                            steps={selector.steps}
-                            currentStepId={selector.currentStep?.id}
-                            effortLabel={currentEffortLabel}
-                            modelName={currentName}
-                            effortStage={modelSubmenu === "effort"}
-                            modelTriggerRef={modelRowRef}
-                            modelMenuOpen={modelSubmenu === "model"}
-                            canSelectModel={Boolean(onModelChange)}
-                            canChangeEffort={Boolean(onThinkingLevelChange)}
-                            onOpenModels={() => dispatchModelMenu({ type: "submenu", value: "model" })}
-                            onSelectEffort={(level) => onThinkingLevelChange?.(level)}
-                            explicitModelOverride={explicitModelOverride}
-                            onResetToDefault={() => {
-                              if (onRoleModelChange) onRoleModelChange("default");
-                              else if (selector.defaultRow && onModelChange) onModelChange(selector.defaultRow.model.provider, selector.defaultRow.model.modelId);
-                            }}
-                            stageTransition={modelStageTransition}
-                          />
-                          {modelMenuRows.map((row) => {
-                            return (
-                              <MenuItem
-                                key={row.id}
-                                ref={row.triggerRef}
-                                data-model-menu-row={row.id}
-                                aria-haspopup="menu"
-                                aria-expanded={modelSubmenu === row.id}
-                                disabled={row.disabled}
-                                onMouseEnter={() => dispatchModelMenu({ type: "submenu", value: row.id })}
-                                onClick={() => dispatchModelMenu({ type: "submenu", value: row.id })}
-                                className={styles.modelMenuRow}
-                                surface="plain"
-                              >
-                                <span>{row.label}</span>
-                                <span className={styles.modelMenuRowValue}>{row.value}</span>
-                                <svg className={styles.modelMenuRowChevron} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                  <path d="m6.5 5 3 3-3 3" />
-                                </svg>
-                              </MenuItem>
-                            );
-                          })}
-                          <div className={styles.modelMenuFooter}>
-                            <MenuItem
-                              ref={advancedRowRef}
-                              data-model-menu-row="advanced"
-                              aria-haspopup="menu"
-                              aria-expanded={modelSubmenu === "advanced"}
-                              disabled={!onToolPresetChange && !onThinkingLevelChange}
-                              onMouseEnter={() => dispatchModelMenu({ type: "submenu", value: "advanced" })}
-                              onClick={() => dispatchModelMenu({ type: "submenu", value: "advanced" })}
-                              className={styles.modelMenuRow}
-                              surface="plain"
-                            >
-                              <span>{t("chat.advanced")}</span>
-                              <svg className={styles.advancedChevron} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                <path d="m5 9.5 3-3 3 3" />
-                              </svg>
-                            </MenuItem>
-                          </div>
-                        </Menu>
-
-                        {modelStage === "model" && modelSubmenu !== null && (
-                          <Menu open label={t("chat.model")} onClose={() => dispatchModelMenu({ type: "submenu", value: null })} triggerRef={modelRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuModel}`} data-model-submenu="model">
+                          {modelSubmenu === "model" ? (
                             <ModelList
                               selector={selector}
-                              filter={modelFilter}
-                              showFilter={showModelFilter}
-                              filterRef={modelFilterRef}
-                              isMobile={isMobile}
                               isAutoModelSelection={isAutoModelSelection}
-                              onFilterChange={(value) => dispatchModelMenu({ type: "filter", value })}
                               onDefault={defaultRow ? () => {
                                 dispatchModelMenu({ type: "submenu", value: "effort" });
                                 if (onRoleModelChange) onRoleModelChange("default");
@@ -2529,8 +2456,70 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                               }}
                               stageTransition={modelStageTransition}
                             />
-                          </Menu>
-                        )}
+                          ) : (
+                            <>
+                              <ModelPowerSlider
+                                steps={selector.steps}
+                                currentStepId={selector.currentStep?.id}
+                                effortLabel={currentEffortLabel}
+                                modelName={currentName}
+                                effortStage={modelSubmenu === "effort"}
+                                modelTriggerRef={modelRowRef}
+                                modelMenuOpen={false}
+                                canSelectModel={Boolean(onModelChange)}
+                                canChangeEffort={Boolean(onThinkingLevelChange)}
+                                onOpenModels={() => dispatchModelMenu({ type: "submenu", value: "model" })}
+                                onSelectEffort={(level) => onThinkingLevelChange?.(level)}
+                                explicitModelOverride={explicitModelOverride}
+                                onResetToDefault={() => {
+                                  if (onRoleModelChange) onRoleModelChange("default");
+                                  else if (selector.defaultRow && onModelChange) onModelChange(selector.defaultRow.model.provider, selector.defaultRow.model.modelId);
+                                }}
+                                stageTransition={modelStageTransition}
+                              />
+                              {modelMenuRows.map((row) => {
+                                return (
+                                  <MenuItem
+                                    key={row.id}
+                                    ref={row.triggerRef}
+                                    data-model-menu-row={row.id}
+                                    aria-haspopup="menu"
+                                    aria-expanded={modelSubmenu === row.id}
+                                    disabled={row.disabled}
+                                    onMouseEnter={() => dispatchModelMenu({ type: "submenu", value: row.id })}
+                                    onClick={() => dispatchModelMenu({ type: "submenu", value: row.id })}
+                                    className={styles.modelMenuRow}
+                                    surface="plain"
+                                  >
+                                    <span>{row.label}</span>
+                                    <span className={styles.modelMenuRowValue}>{row.value}</span>
+                                    <svg className={styles.modelMenuRowChevron} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                      <path d="m6.5 5 3 3-3 3" />
+                                    </svg>
+                                  </MenuItem>
+                                );
+                              })}
+                              <div className={styles.modelMenuFooter}>
+                                <MenuItem
+                                  ref={advancedRowRef}
+                                  data-model-menu-row="advanced"
+                                  aria-haspopup="menu"
+                                  aria-expanded={modelSubmenu === "advanced"}
+                                  disabled={!onToolPresetChange && !onThinkingLevelChange}
+                                  onMouseEnter={() => dispatchModelMenu({ type: "submenu", value: "advanced" })}
+                                  onClick={() => dispatchModelMenu({ type: "submenu", value: "advanced" })}
+                                  className={styles.modelMenuRow}
+                                  surface="plain"
+                                >
+                                  <span>{t("chat.advanced")}</span>
+                                  <svg className={styles.advancedChevron} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <path d="m5 9.5 3-3 3 3" />
+                                  </svg>
+                                </MenuItem>
+                              </div>
+                            </>
+                          )}
+                        </Menu>
 
                         {modelSubmenu === "speed" && onFastModeChange && (
                           <Menu open label={t("chat.speed")} onClose={() => dispatchModelMenu({ type: "submenu", value: null })} triggerRef={speedRowRef} surface="plain" className={`${styles.modelSubmenu} ${styles.modelSubmenuSpeed}`} data-model-submenu="speed">
