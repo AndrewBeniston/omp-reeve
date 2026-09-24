@@ -225,6 +225,24 @@ test("activating the reset control triggers onResetToDefault", async () => {
   }
 });
 
+test("the reset control appears for an effort override and restores automatic effort", async () => {
+  let resetEffortCalled = false;
+  const view = await renderSlider({
+    effortOverride: true,
+    onResetEffort() {
+      resetEffortCalled = true;
+    },
+  });
+  try {
+    const reset = view.container.querySelector("[aria-label='Reset to default']");
+    assert.ok(reset);
+    await click(reset);
+    assert.equal(resetEffortCalled, true);
+  } finally {
+    await view.unmount();
+  }
+});
+
 test("selecting the top step replaces the reset control with the warning text and makes reset hidden and not focusable", async () => {
   const view = await renderSlider({
     explicitModelOverride: true,

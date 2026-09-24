@@ -5,6 +5,7 @@ import type { PowerSelection, ThinkingStep } from "@/lib/model-selector";
 import { useI18n } from "@/hooks/useI18n";
 import { MenuItem } from "@/components/ui/Menu";
 import { DynamicStyleVars } from "../ui/DynamicStyleVars";
+import composerStyles from "./composer.module.css";
 import styles from "./ModelPowerSlider.module.css";
 
 interface Props {
@@ -20,7 +21,9 @@ interface Props {
   onOpenModels: () => void;
   onSelectEffort: (level: ThinkingStep) => void;
   explicitModelOverride?: boolean;
+  effortOverride?: boolean;
   onResetToDefault?: () => void;
+  onResetEffort?: () => void;
   stageTransition?: "enter" | "leave" | null;
 }
 
@@ -37,7 +40,9 @@ export function ModelPowerSlider({
   onOpenModels,
   onSelectEffort,
   explicitModelOverride = false,
+  effortOverride = false,
   onResetToDefault,
+  onResetEffort,
   stageTransition = null,
 }: Props) {
   const { t } = useI18n();
@@ -49,6 +54,7 @@ export function ModelPowerSlider({
   const previewIndex = steps.findIndex((step) => step.id === previewStepId);
   const visibleIndex = previewIndex >= 0 ? previewIndex : currentIndex;
   const isTopStep = visibleIndex >= 0 && steps[visibleIndex]?.thinkingLevel === "max";
+  const showResetControl = explicitModelOverride || effortOverride;
   const progress = steps.length === 1 ? 50 : visibleIndex < 0 ? 0 : (visibleIndex / (steps.length - 1)) * 100;
 
   useEffect(() => {
@@ -111,11 +117,11 @@ export function ModelPowerSlider({
         </MenuItem>
         {modelName && <div className={styles.effortModelName} data-model-effort-name>{modelName}</div>}
         <div className={styles.sliderStart} data-slider-start>
-          {explicitModelOverride && (
+          {showResetControl && (
             <button
               type="button"
               data-reset-control
-              className={`${styles.resetControl} ${isTopStep ? styles.resetControlHidden : ""}`}
+              className={`${styles.resetControl} ${composerStyles.resetEffortControl} ${isTopStep ? styles.resetControlHidden : ""}`}
               aria-label={t("chat.resetToDefault")}
               title={t("chat.resetToDefault")}
               tabIndex={isTopStep ? -1 : 0}
@@ -124,7 +130,8 @@ export function ModelPowerSlider({
               hidden={isTopStep}
               onClick={(event) => {
                 event.preventDefault();
-                onResetToDefault?.();
+                if (effortOverride) onResetEffort?.();
+                else onResetToDefault?.();
               }}
             >
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
