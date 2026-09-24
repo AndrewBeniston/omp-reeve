@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Keep same-name models from different providers distinct in model list names and Composer tooltips.
 - Match the Composer footer to the reference one-row control order and simplify its model and Send controls.
 - Match the Composer effort popup to the reference header and pill slider, and use OMP effort names.
 - Show agent identity, role, model tooltips, and overflow-only prompt tooltips in multi-agent transcript rows.

@@ -1119,10 +1119,9 @@ test("composer model menu follows verified Codex geometry contracts", async () =
   const powerCss = await readFile(new URL("./chat/ModelPowerSlider.module.css", import.meta.url), "utf8");
   const listCss = await readFile(new URL("./chat/ModelList.module.css", import.meta.url), "utf8");
 
-  assert.match(powerCss, /\.view\s*\{[^}]*min-height:\s*36px;[^}]*padding-block:\s*4px;/);
-  assert.match(powerCss, /\.controlRow\s*\{[^}]*min-height:\s*36px;/);
-  assert.match(powerCss, /\.modelToggle\s*\{[^}]*min-height:\s*32px;[^}]*padding:\s*4px;[^}]*border-radius:\s*8px;/);
-  assert.match(powerCss, /\.effortModelName\s*\{[^}]*color:\s*var\(--ui-text-dim\);[^}]*font-size:\s*var\(--text-2xs\);[^}]*font-weight:\s*var\(--font-weight-regular\);/);
+  assert.match(powerCss, /\.view\s*\{[^}]*min-height:\s*104px;[^}]*padding-block:\s*8px;/);
+  assert.match(powerCss, /\.modelToggle\s*\{[^}]*min-height:\s*28px;[^}]*padding:\s*0 48px;[^}]*border-radius:\s*8px;/);
+  assert.match(powerCss, /\.effortModelName\s*\{[^}]*color:\s*var\(--ui-text-dim\);[^}]*font-size:\s*var\(--text-sm\);[^}]*font-weight:\s*var\(--font-weight-regular\);/);
 
   assert.match(menuCss, /\.modelSubmenuModel\s*\{[^}]*bottom:\s*0;/);
   assert.match(listCss, /\.list\s*\{[^}]*max-height:\s*min\(316px, calc\(var\(--ui-scroll-offset, 316px\) - 12px\)\);/);
@@ -1140,11 +1139,11 @@ test("the Composer exposes a stable image input for the Summary panel", async ()
   assert.doesNotMatch(html, /id="reeve-composer-image-input"/);
 });
 
-test("the session Composer offers the worktree control while it loads", () => {
+test("the session Composer keeps workspace controls out of the footer", () => {
   const html = renderChatInput({ cwd: "/repo", onSelectWorktree() {} });
-  assert.match(html, /aria-label="Switch branch"/);
-  assert.match(html, /Loading branch/);
-  assert.match(html, /Session worktree/);
+  assert.doesNotMatch(html, /aria-label="Switch branch"/);
+  assert.doesNotMatch(html, /Loading branch/);
+  assert.doesNotMatch(html, /Session worktree/);
 });
 
 test("workspace changes confirm only when the Composer has unsent input", () => {
@@ -1154,26 +1153,23 @@ test("workspace changes confirm only when the Composer has unsent input", () => 
   assert.equal(hasUnsentComposerInput("   ", 0, 1), true);
 });
 
-test("Cancel keeps the draft when a worktree change needs confirmation", async (t) => {
+test("the home Composer confirms a project change with a draft", async (t) => {
   const harness = await import("../test/dom-harness.mjs");
   const previousFetch = globalThis.fetch;
-  const draftKey = "t546-worktree-confirmation";
-  let openWorktree;
+  const draftKey = "t561-project-confirmation";
   let selected;
   setDraft(draftKey, { value: "keep this draft", images: [] });
   globalThis.fetch = async (url, options) => {
-    if (String(url).startsWith("/api/worktrees?") && options?.method === undefined) {
+    if (String(url).startsWith("/api/sessions?")) {
       return { ok: true, status: 200, json: async () => ({
-        isGit: true,
-        isTopLevel: true,
-        worktrees: [
-          { path: "/repo", branch: "main", isMain: true, isDetached: false, isDirty: false },
-          { path: "/repo-worktrees/feature", branch: "feature", isMain: false, isDetached: false, isDirty: false },
+        sessions: [
+          { cwd: "/repo", projectRoot: "/repo", branch: "main" },
+          { cwd: "/feature", projectRoot: "/feature", branch: "feature" },
         ],
       }) };
     }
-    if (String(url) === "/api/worktrees" && options?.method === "POST") {
-      return { ok: true, status: 200, json: async () => ({ path: "/repo-worktrees/feature" }) };
+    if (String(url) === "/api/cwd/validate" && options?.method === "POST") {
+      return { ok: true, status: 200, json: async () => ({ cwd: "/feature" }) };
     }
     throw new Error(`Unexpected fetch: ${url}`);
   };
@@ -1188,21 +1184,20 @@ test("Cancel keeps the draft when a worktree change needs confirmation", async (
     isStreaming: false,
     cwd: "/repo",
     draftKey,
-    onRegisterWorktreeCommand(open) { openWorktree = open; },
-    onSelectWorktree(path) { selected = path; },
+    footerMode: "home",
+    onSelectProject(path) { selected = path; },
   })));
   await harness.settle();
-  openWorktree();
+  await harness.click(view.container.querySelector('[aria-label="Select project"]'));
   await harness.settle();
   const item = Array.from(view.container.querySelectorAll("[role='menuitemradio']"))
-    .find((candidate) => harness.textOf(candidate) === "feature");
+    .find((candidate) => harness.textOf(candidate) === "Feature");
   assert.ok(item);
   await harness.click(item);
-  await harness.settle();
 
   const dialog = document.querySelector("[role='dialog']");
   assert.ok(dialog);
-  assert.match(harness.textOf(dialog), /Replace this worktree\?/);
+  assert.match(harness.textOf(dialog), /Replace this new session\?/);
   assert.equal(selected, undefined);
   await harness.click(Array.from(dialog.querySelectorAll("button")).find((button) => harness.textOf(button) === "Cancel"));
   await harness.settle();

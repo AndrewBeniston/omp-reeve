@@ -157,7 +157,9 @@ test("the budget editor starts with OMP's limit and saves a whole number", async
   try {
     const root = view.container.ownerDocument.body;
     await click(view.container.querySelector('button[aria-label="Edit token budget"]'));
-    const input = root.querySelector('#goal-budget-edit');
+    const dialog = root.querySelectorAll('[role="dialog"]').at(-1);
+    assert.ok(dialog);
+    const input = dialog.querySelector('#goal-budget-edit');
     assert.equal(input.value, "1000");
     assert.equal(focused(), input);
     await typeInto(input, "1500");
@@ -176,19 +178,23 @@ test("a paused Goal can turn its budget Off and an unbudgeted Goal starts Off", 
   try {
     const root = view.container.ownerDocument.body;
     await click(view.container.querySelector('button[aria-label="Edit token budget"]'));
-    assert.match(root.textContent, /1,200 tokens used/);
-    const checkbox = root.querySelector('#goal-budget-off');
+    let dialog = root.querySelectorAll('[role="dialog"]').at(-1);
+    assert.ok(dialog);
+    assert.match(dialog.textContent, /1,200 tokens used/);
+    const checkbox = dialog.querySelector('#goal-budget-off');
     const propsKey = Object.keys(checkbox).find((key) => key.startsWith("__reactProps$"));
     await React.act(async () => { checkbox[propsKey].onChange({ target: { checked: true } }); });
-    assert.equal(root.querySelector('#goal-budget-edit').hasAttribute("disabled"), true);
-    await React.act(async () => { root.querySelector('form').dispatchEvent(new DomEvent('submit', { bubbles: true, cancelable: true })); });
+    assert.equal(dialog.querySelector('#goal-budget-edit').hasAttribute("disabled"), true);
+    await React.act(async () => { dialog.querySelector('form').dispatchEvent(new DomEvent('submit', { bubbles: true, cancelable: true })); });
     assert.deepEqual(submitted, [null]);
 
     await view.render(wrap(makeGoal("active", { tokenBudget: undefined, tokensUsed: 1_200, updatedAt: Date.now() })));
     assert.match(view.container.textContent, /12s/);
     await click(view.container.querySelector('button[aria-label="Edit token budget"]'));
-    assert.equal(root.querySelector('#goal-budget-off').checked, true);
-    assert.equal(focused(), root.querySelector('#goal-budget-off'));
+    dialog = root.querySelectorAll('[role="dialog"]').at(-1);
+    assert.ok(dialog);
+    assert.equal(dialog.querySelector('#goal-budget-off').checked, true);
+    assert.equal(focused(), dialog.querySelector('#goal-budget-off'));
   } finally { await view.unmount(); }
 });
 
@@ -201,15 +207,17 @@ test("the budget editor rejects zero, fractions, text, and unsafe integers", asy
   try {
     const root = view.container.ownerDocument.body;
     await click(view.container.querySelector('button[aria-label="Edit token budget"]'));
-    const input = root.querySelector('#goal-budget-edit');
+    const dialog = root.querySelectorAll('[role="dialog"]').at(-1);
+    assert.ok(dialog);
+    const input = dialog.querySelector('#goal-budget-edit');
     for (const invalid of ["", "0", "-1", "1.5", "abc", "9007199254740992"]) {
       await typeInto(input, invalid);
-      await React.act(async () => { root.querySelector('form').dispatchEvent(new DomEvent('submit', { bubbles: true, cancelable: true })); });
-      assert.match(root.textContent, /positive whole number/i);
+      await React.act(async () => { dialog.querySelector('form').dispatchEvent(new DomEvent('submit', { bubbles: true, cancelable: true })); });
+      assert.match(dialog.textContent, /positive whole number/i);
       assert.deepEqual(submitted, []);
     }
     await typeInto(input, "1200");
-    await React.act(async () => { root.querySelector('form').dispatchEvent(new DomEvent('submit', { bubbles: true, cancelable: true })); });
+    await React.act(async () => { dialog.querySelector('form').dispatchEvent(new DomEvent('submit', { bubbles: true, cancelable: true })); });
     assert.deepEqual(submitted, [1200]);
   } finally { await view.unmount(); }
 });
@@ -224,12 +232,16 @@ test("a failed budget change keeps the editor open and shows OMP's error", async
   try {
     const root = view.container.ownerDocument.body;
     await click(view.container.querySelector('button[aria-label="Edit token budget"]'));
-    await React.act(async () => { root.querySelector('form').dispatchEvent(new DomEvent('submit', { bubbles: true, cancelable: true })); });
-    assert.ok(root.querySelector('#goal-budget-edit'));
+    let dialog = root.querySelectorAll('[role="dialog"]').at(-1);
+    assert.ok(dialog);
+    await React.act(async () => { dialog.querySelector('form').dispatchEvent(new DomEvent('submit', { bubbles: true, cancelable: true })); });
+    assert.ok(dialog.querySelector('#goal-budget-edit'));
     await view.render(wrap({ action: "budget", message: "Unavailable" }));
-    assert.match(root.textContent, /Failed to change token budget: Unavailable/);
-    assert.equal(root.querySelector('#goal-budget-edit').value, "1000");
-    await click(root.querySelector('[role="dialog"]').querySelector('button[type="button"]'));
+    dialog = root.querySelectorAll('[role="dialog"]').at(-1);
+    assert.ok(dialog);
+    assert.match(dialog.textContent, /Failed to change token budget: Unavailable/);
+    assert.equal(dialog.querySelector('#goal-budget-edit').value, "1000");
+    await click(dialog.querySelector('button[type="button"]'));
     await click(view.container.querySelector('button[aria-label="Edit token budget"]'));
     assert.doesNotMatch(root.textContent, /Failed to change token budget: Unavailable/);
   } finally { await view.unmount(); }
