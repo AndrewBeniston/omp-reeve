@@ -215,6 +215,8 @@ class DomElement extends DomNode {
     this.dispatchEvent(new DomEvent("click", { bubbles: true, cancelable: true, button: 0, detail: 1 }));
   }
 
+  scrollIntoView() {}
+
   matches(selector) { return matchesSelector(this, selector); }
 
   closest(selector) {
@@ -403,6 +405,7 @@ export { DomEvent };
 
 export async function mount(element) {
   installHarnessGlobals();
+  const bodyChildrenAtMount = new Set(domDocument.body.childNodes);
   const container = domDocument.createElement("div");
   domDocument.body.appendChild(container);
   const root = createRoot(container);
@@ -412,6 +415,9 @@ export async function mount(element) {
     async render(next) { await React.act(async () => { root.render(next); }); },
     async unmount() {
       await React.act(async () => { root.unmount(); });
+      for (const child of [...domDocument.body.childNodes]) {
+        if (child !== container && !bodyChildrenAtMount.has(child)) domDocument.body.removeChild(child);
+      }
       domDocument.body.removeChild(container);
       domDocument.activeElement = domDocument.body;
     },

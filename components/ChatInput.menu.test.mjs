@@ -67,6 +67,17 @@ function itemsOf(container) {
   return container.querySelectorAll("[role='menuitem'],[role='menuitemradio']");
 }
 
+function menuItem(label, menu = document.body) {
+  const item = Array.from(menu.querySelectorAll("[role='menuitem'],[role='menuitemradio']"))
+    .find(candidate => textOf(candidate).startsWith(label));
+  assert.ok(item, `the menu contains ${label}`);
+  return item;
+}
+
+function addMenu(label) {
+  return document.body.querySelector(`[role='menu'][aria-label='${label}']`);
+}
+
 const modelProps = {
   model: { provider: "openai", modelId: "gpt-5.4" },
   modelList: [{ provider: "openai", id: "gpt-5.4", name: "GPT-5.4" }],
@@ -347,7 +358,7 @@ test("opening Add loads OMP commands in a new chat without typing a slash", asyn
   await view.unmount();
 });
 
-test("Add executes Compact without sending or clearing the existing draft", async () => {
+test("slash submission executes Compact without sending a message", async () => {
   const ref = React.createRef();
   const commands = [];
   const sent = [];
@@ -355,21 +366,18 @@ test("Add executes Compact without sending or clearing the existing draft", asyn
     onBuiltinCommand: async command => { commands.push(command); return { handled: true }; },
     onSend: text => sent.push(text),
   });
-  await React.act(async () => { ref.current.insertText("Keep this unfinished message"); });
-  await click(triggerFor(view.container, "Add"));
-  await click(Array.from(document.body.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("More commands")));
-  await click(Array.from(document.body.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("Compact")));
+  await React.act(async () => { ref.current.insertText("/compact"); });
   await settle();
-  assert.deepEqual(commands, ["/compact"]);
-  assert.deepEqual(sent, []);
   await React.act(async () => {
     view.container.querySelector("form").dispatchEvent(new DomEvent("submit", { bubbles: true, cancelable: true }));
   });
-  assert.deepEqual(sent, ["Keep this unfinished message"]);
+  await settle();
+  assert.deepEqual(commands, ["/compact"]);
+  assert.deepEqual(sent, []);
   await view.unmount();
 });
 
-test("Name retries its own arguments without consuming the message draft", async () => {
+test("slash submission keeps the Name draft after an error", async () => {
   const ref = React.createRef();
   const commands = [];
   const sent = [];
@@ -379,20 +387,21 @@ test("Name retries its own arguments without consuming the message draft", async
       return commands.length === 1 ? { handled: true, error: "Temporary failure" } : { handled: true };
     },
   });
-  await React.act(async () => { ref.current.insertText("Explain this failure"); });
-  await click(triggerFor(view.container, "Add"));
-  await click(Array.from(document.body.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("More commands")));
-  await click(Array.from(document.body.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("Name")));
-  const dialog = domDocument.querySelector("[role='dialog']");
-  await typeInto(dialog.querySelector("input"), "Dedicated title");
-  const submit = async () => React.act(async () => { dialog.querySelector("form").dispatchEvent(new DomEvent("submit", { bubbles: true, cancelable: true })); });
+  await React.act(async () => { ref.current.insertText("/name Dedicated title"); });
+  const submit = async () => {
+    await React.act(async () => {
+      view.container.querySelector("form").dispatchEvent(new DomEvent("submit", { bubbles: true, cancelable: true }));
+    });
+    await settle();
+  };
   await submit();
-  assert.match(textOf(dialog), /Temporary failure/);
+  assert.deepEqual(commands, ["/name Dedicated title"]);
+  assert.equal(view.container.querySelector("[data-composer-editor]").getAttribute("data-empty"), "false");
   assert.deepEqual(sent, []);
   await submit();
   assert.deepEqual(commands, ["/name Dedicated title", "/name Dedicated title"]);
-  await React.act(async () => { view.container.querySelector("form").dispatchEvent(new DomEvent("submit", { bubbles: true, cancelable: true })); });
-  assert.deepEqual(sent, ["Explain this failure"]);
+  assert.equal(view.container.querySelector("[data-composer-editor]").getAttribute("data-empty"), "true");
+  assert.deepEqual(sent, []);
   await view.unmount();
 });
 
@@ -403,10 +412,10 @@ test("Files and folders returns keyboard focus to the composer", async () => {
   try {
     view = await mountComposer({ cwd: "/tmp", onLoadSlashCommands: async () => [] });
     await click(triggerFor(view.container, "Add"));
-    await click(Array.from(document.body.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("Files and folders")));
-    const files = Array.from(document.body.querySelectorAll("[role='menuitem']"))
-      .find(button => textOf(button) === "Files and folders");
-    await click(files);
+    await click(menuItem("Files and folders"));
+    const files = addMenu("Files and folders");
+    assert.ok(files);
+    await click(menuItem("Files and folders", files));
     await settle();
     assert.notEqual(focused(), triggerFor(view.container, "Add"));
     assert.ok(view.container.querySelector("[data-composer-editor]").contains(focused()));
@@ -430,8 +439,10 @@ test("native attachment selection adds every chosen path as a row and preserves 
     await React.act(async () => { ref.current.insertText("See these"); });
     await settle();
     await click(triggerFor(view.container, "Add"));
-    await click(Array.from(document.body.querySelectorAll("[role='menuitem']")).find(button => textOf(button).startsWith("Files and folders")));
-    await click(Array.from(document.body.querySelectorAll("[role='menuitem']")).find(button => textOf(button) === "Files and folders"));
+    await click(menuItem("Files and folders"));
+    const files = addMenu("Files and folders");
+    assert.ok(files);
+    await click(menuItem("Files and folders", files));
     await settle();
     const rows = document.body.querySelector("[role='list'][aria-label='Local attachments']")?.querySelectorAll("[role='listitem']") ?? [];
     assert.equal(rows.length, 2);
@@ -449,7 +460,7 @@ test("native attachment selection adds every chosen path as a row and preserves 
   }
 });
 
-test("the Add menu opens command submenus before inserting a complete command", async () => {
+test("the Add menu opens Goal arguments before sending a complete command", async () => {
   const ref = React.createRef();
   const sent = [];
   const view = await mountComposer({ ref, onSend: text => sent.push(text),
@@ -457,15 +468,12 @@ test("the Add menu opens command submenus before inserting a complete command", 
   });
   await React.act(async () => { ref.current.insertText("Please use "); });
   await click(triggerFor(view.container, "Add"));
-  await click(Array.from(document.body.querySelectorAll("[role='menuitem']"))
-    .find(button => textOf(button).startsWith("Goal")));
-  assert.equal(sent.length, 0);
-  const status = Array.from(document.body.querySelectorAll("[role='menuitem']"))
-    .find(button => textOf(button).startsWith("Status"));
-  assert.ok(status);
-  await click(status);
+  await click(menuItem("Goal"));
+  await settle();
   assert.equal(sent.length, 0);
   const dialog = domDocument.querySelector("[role='dialog']");
+  assert.ok(dialog);
+  await typeInto(dialog.querySelector("input"), "status");
   await React.act(async () => { dialog.querySelector("form").dispatchEvent(new DomEvent("submit", { bubbles: true, cancelable: true })); });
   assert.deepEqual(sent, ["/goal status"]);
   await React.act(async () => {
