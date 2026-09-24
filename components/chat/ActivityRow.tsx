@@ -13,6 +13,7 @@ import { composeActivitySummary } from "@/lib/transcript/activity-summary";
 import type { SubagentSnapshot } from "@/lib/types";
 import { SubagentActivityRow, SubagentGroupSummary, visibleSubagentRows } from "./SubagentActivityRow";
 import { MultiAgentActionHeader } from "./MultiAgentActionHeader";
+import { MultiAgentActionRows, multiAgentActionPrompt, multiAgentAgentMessage, multiAgentPerAgentState, multiAgentPerAgentStates } from "./MultiAgentActionRow";
 import { multiAgentActionIds, multiAgentActionKind, multiAgentActionState } from "@/lib/transcript/multi-agent-action-header";
 import styles from "./activity-row.module.css";
 
@@ -116,6 +117,10 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls, 
   const actionCalls = actionKind ? calls.map((call) => ({
     kind: actionKind,
     state: multiAgentActionState(call.result?.isError, Boolean(call.result), call.result?.details),
+    prompt: multiAgentActionPrompt(call.block.input),
+    agentState: multiAgentPerAgentState(call.block.input),
+    agentMessage: multiAgentAgentMessage(call.block.input),
+    perAgentStates: multiAgentPerAgentStates(call.block.input),
     ...multiAgentActionIds(call.block.input),
   })) : [];
   const content = activityRowContent(first.block, first.result, interrupted);
@@ -137,6 +142,8 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls, 
   const parentSubagents = subagents.filter((snapshot) => snapshot.parentToolCallId === first.block.toolCallId);
   const agentStates = new Map(parentSubagents.map((snapshot) => [snapshot.id, snapshot.status === "failed" ? "failed" as const : snapshot.status === "aborted" || (snapshot.status as string) === "cancelled" ? "interrupted" as const : snapshot.status === "completed" ? "completed" as const : "inProgress" as const]));
   const multiAgentHeader = actionKind ? <MultiAgentActionHeader input={{ actions: actionCalls, agentStates, actionCount: calls.length }} /> : null;
+  const perAgentStates = new Map(actionCalls.flatMap((action) => [...(action.perAgentStates ?? [])]));
+  const multiAgentRows = actionKind ? <MultiAgentActionRows actions={actionCalls} agents={subagents} perAgentStates={perAgentStates} /> : null;
   if (group) {
     return (
       <div data-activity-repeats-group>
@@ -153,6 +160,7 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls, 
         </button>
         {expanded ? calls.map((call) => <div data-activity-instance className={styles.repeatInstance} key={call.block.toolCallId}><ActivityRow block={call.block} result={call.result} subagents={subagents} onOpenSubagent={onOpenSubagent} /></div>) : null}
         {multiAgentHeader}
+        {multiAgentRows}
         {childRows}
       </div>
     );
@@ -168,6 +176,7 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls, 
         <TerminalOutput command={text.detail ?? ""} output={resultText ?? ""} pending={!result} isError={isError} />
       ) : null}
       {multiAgentHeader}
+      {multiAgentRows}
       {childRows}
     </div>
   );
