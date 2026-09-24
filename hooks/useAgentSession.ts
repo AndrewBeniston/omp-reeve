@@ -569,7 +569,6 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const notifiedPromptRunIdRef = useRef(-1);
   const bashRunningRef = useRef(false);
   const bashRecoveryIdRef = useRef(0);
-  const pendingFileMentionsRef = useRef<UserMessageAttachment[]>([]);
   const handleAgentEventRef = useRef<((event: AgentEvent) => void) | null>(null);
   const executeBashRef = useRef<(command: string, excludeFromContext: boolean) => Promise<void> | undefined>(undefined);
   const ensuringNewSessionRef = useRef<Promise<string | null> | null>(null);
@@ -1512,7 +1511,19 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         if (!agentRunningRef.current) break;
         const completed = event.message as AgentMessage | undefined;
         if (isFileMentionMessage(completed)) {
-          pendingFileMentionsRef.current.push(...userMessageAttachmentsFromFileMention(completed as FileMentionMessage));
+          const attachments = userMessageAttachmentsFromFileMention(completed as FileMentionMessage);
+          setMessages((previous) => {
+            const lastIndex = previous.length - 1;
+            const lastMessage = previous[lastIndex];
+            if (lastMessage?.role !== "user") return previous;
+            return [
+              ...previous.slice(0, lastIndex),
+              {
+                ...lastMessage,
+                attachments: [...(lastMessage.attachments ?? []), ...attachments],
+              },
+            ];
+          });
           break;
         } else if (completed && completed.role === "user") {
           // Delivered steering/follow-up messages surface here as user
@@ -1520,13 +1531,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
           // already appended it optimistically. Consume only the still-adjacent
           // optimistic bubble; later same-text queue deliveries must render.
           const delivered = normalizeToolCalls(completed) as UserMessage;
-          const deliveredWithAttachments = pendingFileMentionsRef.current.length > 0
-            ? {
-              ...delivered,
-              attachments: [...(delivered.attachments ?? []), ...pendingFileMentionsRef.current],
-            }
-            : delivered;
-          pendingFileMentionsRef.current = [];
+          const deliveredWithAttachments = delivered;
           const deliveredKey = userMessageKey(delivered);
           const optimisticKey = optimisticUserMessageKeyRef.current;
           optimisticUserMessageKeyRef.current = null;

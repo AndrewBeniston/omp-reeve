@@ -435,7 +435,6 @@ export function buildSessionContext(
   // targets stay aligned with what the transcript renders.
   const messages: AgentMessage[] = [];
   const entryIds: string[] = [];
-  let pendingAttachments: UserMessageAttachment[] = [];
   let pendingGoalObjective: string | null = null;
   const modelChanges: ModelChangeNote[] = [];
   const fallbackRoutes: SessionContext["fallbackRoutes"] = [];
@@ -466,7 +465,13 @@ export function buildSessionContext(
         activeDefaultModel = nextModel;
       }
     } else if (entry.type === "message" && isFileMentionMessage(entry.message)) {
-      pendingAttachments.push(...userMessageAttachmentsFromFileMention(entry.message));
+      const attachments = userMessageAttachmentsFromFileMention(entry.message);
+      for (let index = messages.length - 1; index >= 0; index -= 1) {
+        const message = messages[index];
+        if (message.role !== "user") continue;
+        message.attachments = [...(message.attachments ?? []), ...attachments];
+        break;
+      }
       continue;
     } else if (entry.type === "custom" && entry.customType === "goal-message") {
       const data = entry.data as { objective?: unknown } | undefined;
@@ -479,10 +484,6 @@ export function buildSessionContext(
 
     const m = entryToUiMessage(entry, options);
     if (m) {
-      if (m.role === "user" && pendingAttachments.length > 0) {
-        m.attachments = [...(m.attachments ?? []), ...pendingAttachments];
-        pendingAttachments = [];
-      }
       if (m.role === "user" && pendingGoalObjective !== null) {
         const content = typeof m.content === "string" ? m.content : m.content
           .filter((block) => block.type === "text").map((block) => block.text).join("\n");

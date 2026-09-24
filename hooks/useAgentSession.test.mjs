@@ -72,18 +72,42 @@ test("keeps the session event stream open through the idle grace window", () => 
   assert.match(sendSource, /if \(!definitivelyRejected && sentSessionId\) \{[\s\S]*?return\s+(?:true|false);[\s\S]*?\}[\s\S]*?closeEvents\(\)/);
 });
 
-test("keeps live file mention rows on the following user message", () => {
-  const messageEndSource = source.slice(
-    source.indexOf('case "message_end":'),
-    source.indexOf('case "tool_execution_start":'),
-  );
-
-  assert.match(source, /const pendingFileMentionsRef = useRef<UserMessageAttachment\[\]>/);
-  assert.match(messageEndSource, /isFileMentionMessage\(completed\)/);
-  assert.match(messageEndSource, /userMessageAttachmentsFromFileMention\(completed as FileMentionMessage\)/);
-  assert.match(messageEndSource, /const deliveredWithAttachments = pendingFileMentionsRef\.current\.length > 0/);
-  assert.match(messageEndSource, /attachments: \[\.\.\.\(delivered\.attachments \?\? \[\]\), \.\.\.pendingFileMentionsRef\.current\]/);
-  assert.match(messageEndSource, /pendingFileMentionsRef\.current = \[\]/);
+test("attaches a live file mention to the user message before it", async () => {
+  const originalFetch = globalThis.fetch;
+  let client;
+  globalThis.fetch = async (url) => {
+    if (String(url).startsWith("/api/sessions/session-one?")) {
+      return { ok: true, async json() {
+        return {
+          sessionId: "session-one", filePath: "", totalActiveMs: 0, tree: [], leafId: null,
+          context: { messages: [], entryIds: [], thinkingLevel: "off", model: null },
+        };
+      } };
+    }
+    if (String(url) === "/api/sessions/session-one/state") {
+      return { ok: true, async json() { return { running: false }; } };
+    }
+    return { ok: true, async json() { return { models: {}, modelList: [], fields: [] }; } };
+  };
+  function Harness() {
+    client = useAgentSession({ session: { id: "session-one", cwd: "/tmp" }, newSessionCwd: null });
+    return h("div");
+  }
+  const view = await mount(h(Harness));
+  try {
+    await React.act(async () => {
+      client.handleAgentEventRef.current({ type: "agent_start" });
+      client.handleAgentEventRef.current({ type: "message_end", message: { role: "user", content: "Review this file" } });
+      client.handleAgentEventRef.current({
+        type: "message_end",
+        message: { role: "fileMention", files: [{ path: "a.ts", content: "export const a = 1;" }] },
+      });
+    });
+    assert.deepEqual(client.messages[0].attachments?.map(({ name }) => name), ["a.ts"]);
+  } finally {
+    await view.unmount();
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("marks delivered pasted-text mentions as uploaded attachments", () => {

@@ -277,7 +277,20 @@ async function getRepoRoot(cwd: string): Promise<string> {
 }
 
 async function listWorktreeRecords(cwd: string): Promise<Array<Omit<WorktreeInfo, "isDirty">>> {
-  const out = await git(cwd, ["worktree", "list", "--porcelain", "-z"]);
+  let out: string;
+  let separator: "\0" | "\n";
+  try {
+    out = await git(cwd, ["worktree", "list", "--porcelain", "-z"]);
+    separator = "\0";
+  } catch {
+    // Git added -z for worktree list in 2.36. Fall back for older clients.
+    out = await git(cwd, ["worktree", "list", "--porcelain"]);
+    separator = "\n";
+  }
+  return parseWorktreeList(out, separator);
+}
+
+function parseWorktreeList(out: string, separator: "\0" | "\n"): Array<Omit<WorktreeInfo, "isDirty">> {
   const worktrees: Array<Omit<WorktreeInfo, "isDirty">> = [];
   let current: (Partial<WorktreeInfo> & { prunable?: boolean; bare?: boolean }) | null = null;
   let position = 0;
@@ -299,7 +312,7 @@ async function listWorktreeRecords(cwd: string): Promise<Array<Omit<WorktreeInfo
     current = null;
   };
 
-  for (const line of out.split("\0")) {
+  for (const line of out.split(separator)) {
     if (line.startsWith("worktree ")) {
       flush();
       current = { path: line.slice("worktree ".length), isMain: position++ === 0 };
@@ -329,7 +342,11 @@ async function withWorktreeStatus(worktree: Omit<WorktreeInfo, "isDirty">): Prom
 }
 
 export async function listWorktrees(cwd: string): Promise<WorktreeInfo[]> {
-  return Promise.all((await listWorktreeRecords(cwd)).map(withWorktreeStatus));
+  const records = await listWorktreeRecords(cwd);
+  const statuses = await Promise.allSettled(records.map(withWorktreeStatus));
+  return statuses.map((result, index) => result.status === "fulfilled"
+    ? result.value
+    : { ...records[index], isDirty: true });
 }
 
 export async function selectWorktree(cwd: string, path: string): Promise<WorktreeInfo> {

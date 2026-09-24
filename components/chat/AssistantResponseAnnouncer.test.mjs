@@ -177,6 +177,37 @@ test("The progress announcement runs on interval and carries only text not annou
   await view.unmount();
 });
 
+test("Streamed token updates do not postpone the progress announcement", async () => {
+  const announcements = [];
+  const view = await mountAnnouncer({
+    responseId: "resp-streaming",
+    isStreaming: true,
+    plainText: "First ",
+    intervalMs: 100,
+    onAnnounce(msg) {
+      announcements.push(msg);
+    },
+  });
+  const initialTimer = getResponseAnnouncerState("resp-streaming")?.timerId;
+  assert.ok(initialTimer);
+
+  await waitTimer(60);
+  await view.render(h(I18nProvider, null, h(AssistantResponseAnnouncer, {
+    responseId: "resp-streaming",
+    isStreaming: true,
+    plainText: "First token ",
+    intervalMs: 100,
+    onAnnounce(msg) {
+      announcements.push(msg);
+    },
+  })));
+  assert.equal(getResponseAnnouncerState("resp-streaming")?.timerId, initialTimer);
+  await waitTimer(60);
+
+  assert.ok(announcements.some((message) => message.startsWith("Response: ")));
+  await view.unmount();
+});
+
 test("The completion announcement reads 'Response complete: {content}' when unannounced text remains and 'Response complete' when none remains", async () => {
   // Case A: Unannounced text remains
   const announcementsA = [];
@@ -441,4 +472,3 @@ test("derivePlainText extracts text from content blocks", () => {
   assert.equal(derivePlainText("Raw string"), "Raw string");
   assert.equal(derivePlainText(undefined), "");
 });
-
