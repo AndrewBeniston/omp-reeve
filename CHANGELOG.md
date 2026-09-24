@@ -143,6 +143,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Fixed
 
+- Goal tests now ignore asynchronously discovered MCP tools when checking tool restoration.
+
 - `/collab list` now shows the active local collaboration hosts. OMP added
   the command, and Reeve showed it in the menu but refused to run it.
 
