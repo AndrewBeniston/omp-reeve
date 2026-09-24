@@ -3,36 +3,36 @@
   padding-block: 4px;
 }
 
-[data-stage-transition] {
+.view[data-stage-transition], .controlRow[data-stage-transition], .sliderRow[data-stage-transition] {
   animation-duration: 0.32s;
   animation-timing-function: var(--ease-enter);
   animation-fill-mode: both;
 }
 
-[data-stage-transition="enter"] {
+.view[data-stage-transition="enter"], .controlRow[data-stage-transition="enter"], .sliderRow[data-stage-transition="enter"] {
   animation-name: stageEnter;
 }
 
-[data-stage-panel="top"][data-stage-transition="enter"] {
+.controlRow[data-stage-panel="top"][data-stage-transition="enter"] {
   animation-delay: 56ms;
 }
 
-[data-stage-panel="top"][data-stage-transition="leave"] {
+.controlRow[data-stage-panel="top"][data-stage-transition="leave"] {
   animation-delay: 0ms;
 }
 
-[data-stage-transition="leave"] {
+.view[data-stage-transition="leave"], .controlRow[data-stage-transition="leave"], .sliderRow[data-stage-transition="leave"] {
   animation-name: stageLeave;
   animation-delay: 0ms;
 }
 
-[data-stage-panel="slider"][data-stage-transition] {
+.sliderRow[data-stage-panel="slider"][data-stage-transition] {
   animation-duration: 0.32s, 0.2s;
   animation-name: stageSlideEnter, stageFadeEnter;
   animation-delay: 56ms, 56ms;
 }
 
-[data-stage-panel="slider"][data-stage-transition="leave"] {
+.sliderRow[data-stage-panel="slider"][data-stage-transition="leave"] {
   animation-name: stageSlideLeave, stageFadeLeave;
   animation-delay: 16ms, 16ms;
 }
@@ -277,8 +277,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-stage-transition],
-  [data-stage-panel][data-stage-transition] {
+  .view[data-stage-transition],
+  .controlRow[data-stage-transition],
+  .sliderRow[data-stage-transition] {
     animation: none !important;
     transition: none !important;
   }

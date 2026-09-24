@@ -151,7 +151,7 @@ export function ActivityRow({ block, result, interrupted = false, groupedCalls, 
           <span className={styles.action}>{header}</span>
           <span className={styles.detail} data-activity-count>{countText}</span>
         </button>
-        {expanded ? calls.map((call) => <div data-activity-instance key={call.block.toolCallId}><ActivityRow block={call.block} result={call.result} subagents={subagents} onOpenSubagent={onOpenSubagent} /></div>) : null}
+        {expanded ? calls.map((call) => <div data-activity-instance className={styles.repeatInstance} key={call.block.toolCallId}><ActivityRow block={call.block} result={call.result} subagents={subagents} onOpenSubagent={onOpenSubagent} /></div>) : null}
         {multiAgentHeader}
         {childRows}
       </div>

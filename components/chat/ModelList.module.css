@@ -5,12 +5,12 @@
   max-height: min(316px, calc(var(--ui-scroll-offset, 316px) - 12px));
 }
 
-[data-stage-transition] {
+.list[data-stage-transition] {
   animation: stageListSlideEnter 0.32s var(--ease-enter) 40ms both,
     stageListFadeEnter 0.2s var(--ease-enter) 40ms both;
 }
 
-[data-stage-transition="leave"] {
+.list[data-stage-transition="leave"] {
   animation: stageListSlideLeave 0.32s var(--ease-enter) 16ms both,
     stageListFadeLeave 0.2s var(--ease-enter) 16ms both;
 }
@@ -25,7 +25,7 @@
   to { transform: translateX(10px); }
 }
 
-[data-stage-transition="leave"] {
+.list[data-stage-transition="leave"] {
   pointer-events: none;
 }
 
@@ -40,7 +40,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-stage-transition] {
+  .list[data-stage-transition] {
     animation: none !important;
     transition: none !important;
   }

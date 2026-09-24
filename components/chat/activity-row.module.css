@@ -52,4 +52,4 @@
 }
 
 .repeatsButton .detail { flex: 0 0 auto; }
-[data-activity-repeats-group] [data-activity-instance] { padding-left: var(--space-4); }
+.repeatInstance { padding-left: var(--space-4); }

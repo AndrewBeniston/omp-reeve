@@ -151,7 +151,7 @@ export function GoalSetDialog({ existingGoal, initialObjective = "", initialAtta
           />
           <p className={styles.help}>{t("composer.goal.budgetHelp")}</p>
           {attachments.map((attachment, index) => (
-            <div key={index} role="listitem" data-goal-attachment>
+            <div key={index} role="listitem" data-goal-attachment className={styles.attachment}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={attachment.previewUrl} alt="" />
               <button type="button" aria-label={`${t("composer.goal.removeAttachment")} ${index + 1}`} onClick={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
