@@ -32,11 +32,16 @@ async function loadModels(cwd: string): Promise<ModelsData> {
   const thinkingLevels: Record<string, string[]> = {};
 
   const { modelRegistry } = await getOmpRuntime();
+  // Read the model list before the Settings clone. In the running server a
+  // clone for another folder briefly drops online-discovered provider models
+  // from the shared registry (#590), so a list read after it misses them.
+  const available = modelRegistry.getAvailable();
+  const registrySnapshot = { getAvailable: () => available } as typeof modelRegistry;
   const settings = await getSettingsForCwd(cwd);
   const modelError = modelRegistry.getError()?.message;
   // `enabledModels` supports globs and fuzzy patterns, so resolve it the same
   // way the CLI does instead of comparing pattern strings literally.
-  const scope = await resolveVisibleModels(modelRegistry, settings.get("enabledModels"), settings);
+  const scope = await resolveVisibleModels(registrySnapshot, settings.get("enabledModels"), settings);
   const { visible, thinkingLevelPins, warnings } = scope;
   const scoped = (settings.get("enabledModels") ?? []).some((pattern) => (
     typeof pattern === "string" && pattern.trim().length > 0

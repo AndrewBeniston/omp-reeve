@@ -43,6 +43,8 @@ the What's New dialog adds a second page that invites support.
 - The fork action on user messages now opens a destination dialog to fork into the current workspace, same worktree, or a new worktree.
 - The queue persists failed message sends with safe error summaries, reload and reconnect reconciliation, and a Retry command.
 ### Fixed
+
+- The model picker now lists models that OMP found online in every project folder, so their effort slider shows.
 - Expanded transcript dividers stay anchored inside the transcript at high zoom.
 - Keep the effort slider available after Reset returns the effort to Auto.
 - Browser upload recovery now removes damaged records without blocking later uploads or server startup.
