@@ -67,6 +67,18 @@ test("an interrupted command uses stopped text and icon", async () => {
   await view.unmount();
 });
 
+test("a stopped Turn does not change a command that has a result", async () => {
+  const view = await mount(h(I18nProvider, null, h(ActivityRow, {
+    block: tool("bash", { command: "bun test" }),
+    result: { role: "toolResult", toolCallId: "call-bash", content: [] },
+    interrupted: true,
+  })));
+  const row = view.container.querySelector('[data-activity-state="completed"]');
+  assert.ok(row);
+  assert.equal(row?.querySelector('[data-activity-slot="action"]')?.textContent, "Ran");
+  await view.unmount();
+});
+
 test("Activity strings exist in both locales and do not end with an ellipsis", () => {
   const keys = Object.keys(enLocale.messages).filter((key) => key.startsWith("transcript.activity."));
   assert.ok(keys.length > 0);

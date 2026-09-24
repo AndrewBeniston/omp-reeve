@@ -36,6 +36,24 @@ test("a classified usage-limit failure is attached to the end of its Turn", () =
   assert.equal(rows[0].usageLimitMessage, messages[1]);
 });
 
+test("a saved process stop marks transcript items as interrupted", () => {
+  const rows = buildTranscriptRows([
+    { role: "user", content: "Question", timestamp: Date.parse("2026-09-23T10:00:00.000Z") },
+    {
+      role: "assistant",
+      content: [{ type: "toolCall", toolCallId: "call-1", toolName: "bash", input: { command: "bun test" } }],
+      stopReason: "toolUse",
+      timestamp: Date.parse("2026-09-23T10:00:01.000Z"),
+    },
+    { role: "custom", customType: "session_exit", content: "", display: false, timestamp: Date.parse("2026-09-23T10:00:02.000Z") },
+    { role: "assistant", content: [], stopReason: "aborted", timestamp: Date.parse("2026-09-23T10:00:44.000Z") },
+  ], ["user-1", "call-1", "exit-1", "abort-1"], null, false);
+
+  assert.equal(rows[0].kind, "turn");
+  assert.equal(rows[0].clock.completedAt, Date.parse("2026-09-23T10:00:01.000Z"));
+  assert.equal(rows[0].items[1].interrupted, true);
+});
+
 test("an unclassified failure has no usage-limit message", () => {
   const messages = [
     { role: "user", content: "Question" },

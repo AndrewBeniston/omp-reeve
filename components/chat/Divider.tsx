@@ -57,7 +57,9 @@ export function Divider({ turnId, status, startedAt, completedAt, previousMessag
   const label = status === "working"
     ? elapsed < TURN_CLOCK_INTERVAL_MS ? t("transcript.divider.working") : t("transcript.divider.workingFor", { time: duration })
     : status === "stopped"
-      ? t(stopSource === "process" ? "transcript.divider.processStoppedAfter" : "transcript.divider.userStoppedAfter", { time: duration })
+      ? completedAt === undefined && stopSource === "process"
+        ? t("transcript.divider.processStopped")
+        : t(stopSource === "process" ? "transcript.divider.processStoppedAfter" : "transcript.divider.userStoppedAfter", { time: duration })
       : startedAt !== undefined && completedAt !== undefined
         ? t("transcript.divider.workedFor", { time: duration })
         : t(previousMessageCount === 1 ? "transcript.divider.previousMessage.one" : "transcript.divider.previousMessage.other", { count: previousMessageCount });

@@ -397,6 +397,34 @@ test("renders completed command activity with terminal output", () => {
   assert.match(html, /components\/MessageView\.tsx/);
 });
 
+test("renders an unfinished command as stopped inside a stopped Turn", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(
+      I18nProvider,
+      null,
+      React.createElement(MessageView, {
+        interrupted: true,
+        message: {
+          role: "assistant",
+          provider: "openai",
+          model: "gpt-test",
+          content: [{
+            type: "toolCall",
+            toolCallId: "shell-stopped",
+            toolName: "bash",
+            input: { command: "bun test" },
+          }],
+        },
+      }),
+    ),
+  );
+
+  assert.match(html, /data-activity-kind="command" data-activity-state="interrupted"/);
+  assert.match(html, /data-state="interrupted">Stopped/);
+  assert.doesNotMatch(html, /Running command/);
+  assert.doesNotMatch(html, /shell-output-pending/);
+});
+
 test("routes bash execution messages through BashExecutionActivity", () => {
   const html = renderMessage({
     role: "bashExecution",

@@ -795,6 +795,7 @@ export const zhCNLocale: LocalePlugin = {
     "transcript.divider.workedFor": "处理了 {time}",
     "transcript.divider.userStoppedAfter": "你在 {time} 后停止",
     "transcript.divider.processStoppedAfter": "进程在 {time} 后停止",
+    "transcript.divider.processStopped": "进程已停止",
     "transcript.stoppedTurn.error": "进程已停止：{message}",
     "transcript.stoppedTurn.errorFallback": "进程在完成此轮次前停止。",
     "transcript.divider.previousMessage.one": "{count} 条先前消息",

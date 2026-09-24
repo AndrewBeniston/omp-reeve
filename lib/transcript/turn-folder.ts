@@ -61,6 +61,12 @@ function isSavedInterruptedAssistant<Message extends { role: string }>(message: 
   return candidate.stopReason === "aborted";
 }
 
+function isSavedProcessExit<Message extends { role: string }>(message: Message): boolean {
+  if (message.role !== "custom") return false;
+  const candidate = message as Message & { customType?: unknown };
+  return candidate.customType === "session_exit";
+}
+
 const APPROVAL_DENIAL_PREFIXES = [
   "Tool call denied by user: ",
   "Tool call rejected by user",
@@ -145,6 +151,8 @@ export function foldTurns<Message extends { role: string; steering?: boolean; co
   let pendingStartAt: number | undefined;
   let hasPendingStart = false;
   let provisional: TurnItem<Message> | undefined;
+  let processExitAt: number | undefined;
+  let lastEntryAt: number | undefined;
   const startedTurns = new WeakSet<Turn<Message>>();
   const seenTypes = new WeakMap<TurnItem<Message>, string[]>();
 
@@ -242,6 +250,8 @@ export function foldTurns<Message extends { role: string; steering?: boolean; co
         message.steering === true || (runActive && runHasUser)
       ));
       if (!interrupted) {
+        processExitAt = undefined;
+        lastEntryAt = timestampToMs(record.timestamp);
         const startsLiveRun = runActive && !runHasUser && hasPendingStart;
         activeTurn = {
           id: record.type === "message" && record.id ? record.id : `live:${turns.length}`,
@@ -278,8 +288,10 @@ export function foldTurns<Message extends { role: string; steering?: boolean; co
       activeTurn.settled = true;
       activeTurn.status = "stopped";
       activeTurn.stopSource = "process";
-      activeTurn.completedAt = timestampToMs(record.timestamp) ?? activeTurn.completedAt;
+      activeTurn.completedAt = processExitAt;
     }
+    if (isSavedProcessExit(message)) processExitAt = lastEntryAt;
+    else lastEntryAt = timestampToMs(record.timestamp);
     if (record.type === "message" && !runActive) {
       activeTurn.settled = true;
       if (activeTurn.status !== "stopped") {
