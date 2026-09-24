@@ -319,6 +319,10 @@ function boundedSessionContext(context: string | undefined): string {
   return (context ?? "").slice(-COMPOSER_SESSION_CONTEXT_LIMIT);
 }
 
+function formatSessionMention(id: string, context: string): string {
+  return context ? `@session:${id}\n\nPrior work context:\n${context}` : `@session:${id}`;
+}
+
 function buildSessionSuggestion(session: ComposerSessionSource): ComposerSuggestion {
   const context = boundedSessionContext(session.context);
   return {
@@ -327,7 +331,7 @@ function buildSessionSuggestion(session: ComposerSessionSource): ComposerSuggest
     kind: "session",
     icon: "message",
     label: session.label,
-    raw: `@session:${session.id}\n\nPrior work context:\n${context}`,
+    raw: formatSessionMention(session.id, context),
     detail: session.detail,
     targetId: session.id,
     searchTerms: [session.label, session.detail ?? "", session.id],
@@ -464,6 +468,17 @@ export function formatSessionTranscriptContext(messages: ComposerTranscriptMessa
       .join("\n");
   }).filter(Boolean).join("\n\n").trim();
   return boundedSessionContext(text);
+}
+
+export function attachSessionTranscriptContext(
+  suggestion: ComposerSuggestion,
+  messages: ComposerTranscriptMessage[],
+): ComposerSuggestion {
+  if (suggestion.kind !== "session" || !suggestion.targetId) return suggestion;
+  return {
+    ...suggestion,
+    raw: formatSessionMention(suggestion.targetId, formatSessionTranscriptContext(messages)),
+  };
 }
 
 export function rankComposerSessionSources(

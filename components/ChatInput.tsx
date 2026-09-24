@@ -47,7 +47,7 @@ import {
   buildSlashSections,
   buildSlashSubcommandSections,
   extractSlashQuery,
-  formatSessionTranscriptContext,
+  attachSessionTranscriptContext,
   flattenSuggestionSections,
   rankComposerSessionSources,
   resolveAutocompleteSelection,
@@ -55,6 +55,7 @@ import {
   type ComposerSuggestionGroup,
   type ComposerMcpSource,
   type ComposerSessionSource,
+  type ComposerTranscriptMessage,
   type ComposerTabSource,
   type ComposerAgentSource,
 } from "@/lib/composer-intelligence";
@@ -685,11 +686,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     sources: ComposerSourceResponse;
   } | null>(null);
   const composerSourcesCacheRef = useRef(new Map<string, ComposerSourceResponse>());
-  const [composerSessionContexts, setComposerSessionContexts] = useState<{
-    cwd: string;
-    query: string;
-    contexts: Record<string, string>;
-  } | null>(null);
   const composerSkills = useMemo(
     () => cwd && composerResourcesState?.cwd === cwd ? composerResourcesState.skills : [],
     [composerResourcesState, cwd],
@@ -1638,15 +1634,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const atMatches: FileIndexEntry[] = serverResultInUse ? atServerResult.matches : atLocalMatches;
   const composerSessionSources = useMemo<ComposerSessionSource[]>(() => {
     if (!composerSources || atQueryText === null) return [];
-    const contexts = composerSessionContexts && composerSessionContexts.cwd === cwd && composerSessionContexts.query === atFileQuery
-      ? composerSessionContexts.contexts
-      : {};
     return rankComposerSessionSources(
-      composerSources.sessions.map((session) => ({ ...session, context: contexts[session.id] })),
+      composerSources.sessions,
       atFileQuery,
       5,
     );
-  }, [composerSources, composerSessionContexts, atFileQuery, atQueryText, cwd]);
+  }, [composerSources, atFileQuery, atQueryText]);
 
   const atSections = useMemo(() => atQueryText === null ? [] : buildAtMentionSections({
     query: atQueryText,
@@ -1729,10 +1722,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       });
   }, [cwd]);
 
-  const applyAtCompletion = useCallback((suggestion: ComposerSuggestion) => {
+  const applyAtCompletion = useCallback(async (suggestion: ComposerSuggestion) => {
     if (!atQuery) return;
     const editor = textareaRef.current;
     if (!editor) return;
+    const originalValue = editor.value;
     const cursor = editor.selectionStart;
     const quotedEnd = atQuery.quoted && value[cursor] === '"' ? cursor + 1 : cursor;
     if (suggestion.isDirectory) {
@@ -1743,7 +1737,23 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       setAtQuery(extractAtQuery(nextValue.slice(0, nextCursor)));
       return;
     }
-    editor.replaceRangeWithMention(atQuery.start, quotedEnd, suggestion, true);
+    let selectedSuggestion = suggestion;
+    if (suggestion.kind === "session" && suggestion.targetId) {
+      try {
+        const response = await fetch(
+          `/api/sessions/${encodeURIComponent(suggestion.targetId)}/context?deferThinking&deferMedia`,
+        );
+        if (response.ok) {
+          const data = await response.json() as { context?: { messages?: ComposerTranscriptMessage[] } };
+          selectedSuggestion = attachSessionTranscriptContext(suggestion, data.context?.messages ?? []);
+        }
+      } catch {
+        // Keep the Session reference usable if transcript loading fails.
+      }
+    }
+    const currentEditor = textareaRef.current;
+    if (!currentEditor || currentEditor.value !== originalValue) return;
+    currentEditor.replaceRangeWithMention(atQuery.start, quotedEnd, selectedSuggestion, true);
     setAtQuery(null);
     setAtMenuOpen(false);
     setAtActiveIndex(0);
