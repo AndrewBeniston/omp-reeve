@@ -25,6 +25,7 @@ export const zhCNLocale: LocalePlugin = {
     "composer.threadGoal.replaceConfirmation.cancel": "取消",
     "codex.userMessage.goal": "作为目标发送",
     "composer.threadGoal.summary.active": "正在执行目标",
+    "composer.threadGoal.summary.continuing": "正在继续目标…",
     "composer.threadGoal.summary.paused": "目标已暂停",
     "composer.threadGoal.summary.budgetLimited": "目标已达上限",
     "composer.threadGoal.summary.complete": "目标已完成",

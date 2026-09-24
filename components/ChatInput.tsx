@@ -147,6 +147,7 @@ export async function dispatchPausedQueueSubmission({
 
 interface Props {
   requestPending?: boolean;
+  continuationPending?: boolean;
   onSend: (message: string, images?: AttachedImage[], attachments?: ComposerAttachmentDescriptor[]) => void;
   onAbort: () => void;
   onSteer?: (message: string, images?: AttachedImage[], attachments?: ComposerAttachmentDescriptor[]) => void;
@@ -526,6 +527,7 @@ function revokeImagePreview(image: AttachedImage): void {
 export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   imageInputId = COMPOSER_IMAGE_INPUT_ID,
   requestPending = false,
+  continuationPending = false,
   onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, explicitModelOverride, modelNames, modelList, modelError, modelScopeWarnings, modelScopeConfigured, onModelChange,
   modelRoles, onRoleModelChange, modelSwitching,
   onCompact, onAbortCompaction, isCompacting, compactError, compactResult, toolPreset, onToolPresetChange,
@@ -942,7 +944,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
      */
     submitText(text: string): "sent" | "busy" | "ignored" {
       if (!text.trim()) return "ignored";
-      if (isStreaming) return "busy";
+      if (isStreaming || continuationPending) return "busy";
       if (projectRequired) {
         setCommandActionError(`${t("composer.sendErrorTitle")} ${t("composer.projectRequiredError")}`);
         return "ignored";
@@ -1349,6 +1351,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       clearForGoalHandover();
       return;
     }
+    if (continuationPending) return;
     setBuiltinCommandPending(true);
     try {
       await dispatchIdleSubmission({
@@ -1374,9 +1377,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     } finally {
       setBuiltinCommandPending(false);
     }
-  }, [builtinCommandPending, value, attachedImages, localAttachments, isStreaming, onBuiltinCommand, onOpenGoal, onSend, clearInput, clearForGoalHandover, onAudioUnlock, contextUsage, projectRequired, t]);
+  }, [builtinCommandPending, value, attachedImages, localAttachments, isStreaming, continuationPending, onBuiltinCommand, onOpenGoal, onSend, clearInput, clearForGoalHandover, onAudioUnlock, contextUsage, projectRequired, t]);
 
   const requestIdleSubmission = useCallback(() => {
+    const opensGoalEditor = /^\/goal(?:\s+[\s\S]*)?$/i.test(value.trim());
+    if (continuationPending && !opensGoalEditor) return;
     // The command already running is the one the human asked for; a second
     // press would run it again rather than hurry it.
     if (builtinCommandPending) return;
@@ -1386,7 +1391,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       return;
     }
     void handleSend();
-  }, [builtinCommandPending, debugQueuedMessages, queuedMessages, isStreaming, handleSend]);
+  }, [builtinCommandPending, continuationPending, value, debugQueuedMessages, queuedMessages, isStreaming, handleSend]);
 
   const resolvePausedQueueSubmission = useCallback(async (clearQueue: boolean) => {
     setPausedQueueSubmitBusy(true);
@@ -2441,15 +2446,17 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     subagents,
   });
   const hasStreamingSubmissionHandler = Boolean(onSteer || onFollowUp || onPromptWithStreamingBehavior);
-  const placeholder = selectComposerPlaceholder({
-    working: () => isStreaming && !hasStreamingSubmissionHandler
-      ? t("chat.agentPlaceholder")
-      : undefined,
-    callerOverride: () => isStreaming && hasStreamingSubmissionHandler
-      ? t("chat.steerPlaceholder")
-      : undefined,
-    fallback: () => t("chat.messagePlaceholder"),
-  });
+  const placeholder = continuationPending
+    ? t("composer.threadGoal.summary.continuing")
+    : selectComposerPlaceholder({
+      working: () => isStreaming && !hasStreamingSubmissionHandler
+        ? t("chat.agentPlaceholder")
+        : undefined,
+      callerOverride: () => isStreaming && hasStreamingSubmissionHandler
+        ? t("chat.steerPlaceholder")
+        : undefined,
+      fallback: () => t("chat.messagePlaceholder"),
+    });
   const editor = (
     <ComposerEditor
       ref={textareaRef}
@@ -3008,11 +3015,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           </Tooltip>
         </>
       ) : (
-        <Tooltip content={t("chat.send")}>
+        <Tooltip content={continuationPending ? t("composer.threadGoal.summary.continuing") : t("chat.send")}>
             <button
             type="submit"
-            disabled={builtinCommandPending || (!value.trim() && !attachedImages.length && !localAttachments.length)}
-            aria-label={t("chat.send")}
+            disabled={continuationPending || builtinCommandPending || (!value.trim() && !attachedImages.length && !localAttachments.length)}
+            aria-label={continuationPending ? t("composer.threadGoal.summary.continuing") : t("chat.send")}
+            title={continuationPending ? t("composer.threadGoal.summary.continuing") : undefined}
             className={styles.sendAction}
           >
             <ArrowUp size={16} strokeWidth={1.75} data-composer-icon="send-arrow" aria-hidden="true" />

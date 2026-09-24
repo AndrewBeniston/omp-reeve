@@ -523,6 +523,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
     <ChatInput
       ref={chatInputRef}
       requestPending={displayedExtensionDialog?.method === "ask"}
+      continuationPending={goalState.continuationPending}
       onSend={handleSend}
       onOpenGoal={openGoalDialog}
       onAbort={handleAbort}
@@ -1062,6 +1063,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
         <GoalPill
           goal={goalState.goal}
           isRunning={sessionBusy}
+          continuationPending={goalState.continuationPending}
           pendingAction={goalState.pendingAction}
           actionError={goalState.actionError}
           onClear={() => goalState.clear(sessionBusy)}

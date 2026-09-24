@@ -37,6 +37,7 @@ function formatElapsed(seconds: number, locale: string): string {
 interface GoalPillProps {
   goal: Goal | null;
   isRunning?: boolean;
+  continuationPending?: boolean;
   pendingAction?: GoalAction | null;
   actionError?: { action: GoalAction; message: string } | null;
   onClear?: () => Promise<boolean> | void;
@@ -47,7 +48,19 @@ interface GoalPillProps {
   onExpand?: () => void;
 }
 
-export function GoalPill({ goal, isRunning = false, pendingAction, actionError, onClear, onPause, onResume, onEditBudget, onUpdateGoal, onExpand }: GoalPillProps) {
+export function GoalPill({
+  goal,
+  isRunning = false,
+  continuationPending = false,
+  pendingAction,
+  actionError,
+  onClear,
+  onPause,
+  onResume,
+  onEditBudget,
+  onUpdateGoal,
+  onExpand,
+}: GoalPillProps) {
   const { locale, t } = useI18n();
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [confirmingResume, setConfirmingResume] = useState(false);
@@ -117,10 +130,13 @@ export function GoalPill({ goal, isRunning = false, pendingAction, actionError, 
     : visibleGoal.timeUsedSeconds;
   const tokenFormatter = new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 });
   const errorLabel = actionError?.action === "drop" ? t("composer.threadGoal.clearError") : t("composer.threadGoal.statusUpdateError");
+  const statusKey = continuationPending && visibleGoal.status === "active"
+    ? "composer.threadGoal.summary.continuing"
+    : statusKeys[visibleGoal.status];
   return (
     <div className={styles.row}>
       <div className={styles.pill} data-status={visibleGoal.status}>
-        <span className={styles.status}>{t(statusKeys[visibleGoal.status])}</span>
+        <span className={styles.status}>{t(statusKey)}</span>
         <span className={styles.objective} title={visibleGoal.objective}>{visibleGoal.objective}</span>
         <span className={styles.separator} aria-hidden="true">·</span>
         <span className={styles.metric}>
