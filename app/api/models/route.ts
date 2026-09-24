@@ -38,6 +38,9 @@ async function loadModels(cwd: string): Promise<ModelsData> {
   // way the CLI does instead of comparing pattern strings literally.
   const scope = await resolveVisibleModels(modelRegistry, settings.get("enabledModels"), settings);
   const { visible, thinkingLevelPins, warnings } = scope;
+  const scoped = (settings.get("enabledModels") ?? []).some((pattern) => (
+    typeof pattern === "string" && pattern.trim().length > 0
+  ));
   const modelList = visible.map((m) => ({
     id: m.id,
     name: m.name,
@@ -70,6 +73,7 @@ async function loadModels(cwd: string): Promise<ModelsData> {
       thinkingLevels,
       thinkingLevelMaps: {},
       thinkingLevelPins,
+      scoped,
       roles,
       ...(warnings.length > 0 ? { modelScopeWarnings: warnings } : {}),
     },
@@ -84,6 +88,7 @@ const EMPTY_MODELS: ModelsData = {
   thinkingLevels: {},
   thinkingLevelMaps: {},
   thinkingLevelPins: {},
+  scoped: false,
   roles: [],
 };
 

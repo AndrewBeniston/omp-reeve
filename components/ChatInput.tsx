@@ -149,6 +149,8 @@ interface Props {
   modelError?: string | null;
   /** Diagnostics from resolving `enabledModels`, e.g. a pattern that matched nothing. */
   modelScopeWarnings?: string[];
+  /** Whether `enabledModels` limits the model list. */
+  modelScopeConfigured?: boolean;
   onModelChange?: (provider: string, modelId: string) => void | boolean | Promise<void | boolean>;
   /** omp's model roles (default/smol/slow/plan/commit/…) with their assignments. */
   modelRoles?: ModelRoleAssignment[];
@@ -509,7 +511,7 @@ function revokeImagePreview(image: AttachedImage): void {
 export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   imageInputId = COMPOSER_IMAGE_INPUT_ID,
   requestPending = false,
-  onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, explicitModelOverride, modelNames, modelList, modelError, modelScopeWarnings, onModelChange,
+  onSend, onAbort, onSteer, onFollowUp, isStreaming, model, isAutoModelSelection, explicitModelOverride, modelNames, modelList, modelError, modelScopeWarnings, modelScopeConfigured, onModelChange,
   modelRoles, onRoleModelChange, modelSwitching,
   onCompact, onAbortCompaction, isCompacting, compactError, compactResult, toolPreset, onToolPresetChange,
   thinkingLevel, onThinkingLevelChange, onCycleThinkingLevel, availableThinkingLevels, modelThinkingLevels,
@@ -1423,6 +1425,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const selector = buildModelSelectorState({
     registry: selectorRegistry,
     roles: modelRoles ?? [],
+    modelScopeConfigured,
     currentModel: model,
     currentThinkingLevel: thinkingLevel,
     explicitModelOverride,

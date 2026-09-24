@@ -72,6 +72,8 @@ export interface ModelSelectorInput {
   currentModel?: ModelRef | null;
   currentThinkingLevel?: string | null;
   thinkingLevelPins?: Readonly<Record<string, string>>;
+  /** Whether the registry is already limited by `enabledModels`. */
+  modelScopeConfigured?: boolean;
   explicitModelOverride?: boolean;
   filter?: string;
 }
@@ -178,11 +180,24 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
     }
   }
 
-  const models = [...registry.values()].map((entry) => entry.option).sort((a, b) => (
+  const allModels = [...registry.values()].map((entry) => entry.option).sort((a, b) => (
     MODEL_COLLATOR.compare(a.name || a.modelId, b.name || b.modelId)
       || MODEL_COLLATOR.compare(a.provider, b.provider)
       || MODEL_COLLATOR.compare(a.modelId, b.modelId)
   ));
+  const models = input.modelScopeConfigured === false
+    ? [...input.roles.flatMap((role) => role.hidden || !role.resolved ? [] : [role.resolved]), ...(currentModel ? [currentModel] : [])]
+      .reduce<ModelOption[]>((unique, model) => {
+        const key = modelKey(model);
+        if (unique.some((candidate) => modelKey(candidate) === key)) return unique;
+        unique.push(registry.get(key)?.option ?? {
+          provider: model.provider,
+          modelId: model.modelId,
+          name: ("name" in model ? model.name : undefined) ?? model.modelId,
+        });
+        return unique;
+      }, [])
+    : allModels;
   const filteredModels = filterModelOptions(models, input.filter ?? "");
   const modelsByProvider: { provider: string; label: string; options: ModelOption[] }[] = [];
   for (const option of filteredModels) {
@@ -216,7 +231,14 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
     : pin ?? (currentModel && defaultModel && sameModel(currentModel, defaultModel) ? defaultRole?.resolved?.thinkingLevel : undefined);
   const currentStep = steps.find((step) => step.thinkingLevel === currentLevel);
   const selectionIds = new Set(selections.map((selection) => selection.id));
-  const modelRowsByProvider = modelsByProvider.map((group) => ({
+  const modelRowsByProvider = (input.modelScopeConfigured === false
+    ? filteredModels.map((option) => ({
+      provider: option.provider,
+      label: routeLabel(option.provider, label),
+      options: [option],
+    }))
+    : modelsByProvider
+  ).map((group) => ({
     ...group,
     options: group.options.map((option) => {
       const matchingId = currentStep && selectionId(option, currentStep.effort);
