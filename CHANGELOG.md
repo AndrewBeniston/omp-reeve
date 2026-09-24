@@ -180,6 +180,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Changed
 
+- The effort popup opens Advanced from a small icon at the top right, on click only. The slider has an Auto position and evenly spaced dots.
+
 - Reeve now runs OMP 18.2.11, so the latest models work. Claude Opus 5.5
   answers now. Before, Anthropic refused it with "version too old".
 

@@ -20,13 +20,20 @@ interface Props {
   canSelectModel: boolean;
   canChangeEffort: boolean;
   onOpenModels: () => void;
-  onSelectEffort: (level: ThinkingStep) => void;
+  onSelectEffort: (level: ThinkingStep | "auto") => void;
   explicitModelOverride?: boolean;
   effortOverride?: boolean;
   onResetToDefault?: () => void;
   onResetEffort?: () => void;
+  /** Opens the Advanced menu. The trigger is a small icon at the top right. */
+  onOpenAdvanced?: () => void;
+  advancedOpen?: boolean;
+  advancedTriggerRef?: RefObject<HTMLButtonElement | null>;
   stageTransition?: "enter" | "leave" | null;
 }
+
+/** A slider position. Auto is the first position and lets OMP pick the effort. */
+type SliderStep = Omit<PowerSelection, "thinkingLevel"> & { thinkingLevel: ThinkingStep | "auto" };
 
 export function ModelPowerSlider({
   steps,
@@ -45,12 +52,27 @@ export function ModelPowerSlider({
   effortOverride = false,
   onResetToDefault,
   onResetEffort,
+  onOpenAdvanced,
+  advancedOpen = false,
+  advancedTriggerRef,
   stageTransition = null,
 }: Props) {
   const { t } = useI18n();
   const instructionsId = useId();
-  const visibleSteps = modelSteps ?? steps;
-  const currentIndex = visibleSteps.findIndex((step) => step.id === currentStepId);
+  const levelSteps: readonly SliderStep[] = modelSteps ?? steps;
+  const autoStep: SliderStep | null = canChangeEffort && levelSteps.length > 0
+    ? {
+      ...levelSteps[0],
+      id: "auto",
+      thinkingLevel: "auto",
+      effortLabel: t("chat.effortAuto"),
+      sliderLabel: t("chat.effortAuto"),
+    }
+    : null;
+  const visibleSteps: readonly SliderStep[] = autoStep ? [autoStep, ...levelSteps] : levelSteps;
+  const matchedIndex = visibleSteps.findIndex((step) => step.id === currentStepId);
+  // No matching level means the Session runs at Auto.
+  const currentIndex = matchedIndex >= 0 ? matchedIndex : autoStep ? 0 : -1;
   const [previewStepId, setPreviewStepId] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const activePointer = useRef<number | null>(null);
@@ -58,7 +80,9 @@ export function ModelPowerSlider({
   const visibleIndex = previewIndex >= 0 ? previewIndex : currentIndex;
   const isTopStep = visibleIndex >= 0 && visibleSteps[visibleIndex]?.thinkingLevel === "max";
   const showResetControl = explicitModelOverride || effortOverride;
-  const progress = visibleSteps.length === 1 ? 50 : visibleIndex < 0 ? 0 : (visibleIndex / (visibleSteps.length - 1)) * 100;
+  // 0 to 1 along the track. The CSS keeps the first and last dots one thumb
+  // radius inside the rail ends, so every gap between dots is equal.
+  const progress = visibleSteps.length === 1 ? 0.5 : visibleIndex < 0 ? 0 : visibleIndex / (visibleSteps.length - 1);
 
   useEffect(() => {
     setPreviewStepId(null);
@@ -85,7 +109,7 @@ export function ModelPowerSlider({
   const indexAt = (event: PointerEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     if (visibleSteps.length === 1 || bounds.width <= 20) return 0;
-    const fraction = (event.clientX - bounds.left - 10) / (bounds.width - 20);
+    const fraction = (event.clientX - bounds.left - 20) / (bounds.width - 40);
     return Math.max(0, Math.min(visibleSteps.length - 1, Math.round(fraction * (visibleSteps.length - 1))));
   };
 
@@ -120,6 +144,30 @@ export function ModelPowerSlider({
         </MenuItem>
         {modelName && <div className={styles.effortModelName} data-model-effort-name>{modelName}</div>}
         <div className={styles.sliderStart} data-slider-start>
+          {onOpenAdvanced && (
+            <button
+              type="button"
+              ref={advancedTriggerRef}
+              data-model-menu-row="advanced"
+              role="menuitem"
+              className={styles.resetControl}
+              aria-label={t("chat.advanced")}
+              title={t("chat.advanced")}
+              aria-haspopup="menu"
+              aria-expanded={advancedOpen}
+              data-open={advancedOpen ? "true" : undefined}
+              onClick={(event) => {
+                event.preventDefault();
+                onOpenAdvanced();
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                <path d="M2.5 4.5h6M11.5 4.5h2M2.5 11.5h2M7.5 11.5h6" />
+                <circle cx="10" cy="4.5" r="1.5" />
+                <circle cx="6" cy="11.5" r="1.5" />
+              </svg>
+            </button>
+          )}
           {showResetControl && (
             <button
               type="button"
@@ -192,17 +240,18 @@ export function ModelPowerSlider({
             <span id={instructionsId} className={styles.visuallyHidden}>
               {t("chat.powerKeyboardInstructions")}
             </span>
-            <DynamicStyleVars className={styles.rail} variables={{ "--ui-power-progress": `${progress}%` }}>
+            <DynamicStyleVars className={styles.rail} variables={{ "--ui-power-progress": String(progress) }}>
               {visibleSteps.map((step, index) => {
-                const position = visibleSteps.length === 1 ? 50 : (index / (visibleSteps.length - 1)) * 100;
+                const position = visibleSteps.length === 1 ? 0.5 : index / (visibleSteps.length - 1);
                 return <DynamicStyleVars
                   as="span"
                   key={step.id}
                   className={styles.dot}
                   data-power-dot
-                  data-effort={step.effort}
+                  data-step-id={step.id}
+                  data-effort={step.id === "auto" ? "auto" : step.effort}
                   data-filled={index < visibleIndex ? "true" : "false"}
-                  variables={{ "--ui-power-position": `${position}%` }}
+                  variables={{ "--ui-power-position": String(position) }}
                 />
               })}
               {visibleIndex >= 0 && <DynamicStyleVars
@@ -210,7 +259,7 @@ export function ModelPowerSlider({
                 className={styles.thumb}
                 data-power-thumb
                 data-step={visibleSteps[visibleIndex].thinkingLevel}
-                variables={{ "--ui-power-position": `${progress}%` }}
+                variables={{ "--ui-power-position": String(progress) }}
               />}
             </DynamicStyleVars>
           </div>

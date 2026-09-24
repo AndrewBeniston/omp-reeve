@@ -2536,6 +2536,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                                   if (onRoleModelChange) onRoleModelChange("default");
                                   else if (selector.defaultRow && onModelChange) onModelChange(selector.defaultRow.model.provider, selector.defaultRow.model.modelId);
                                 }}
+                                onOpenAdvanced={(onToolPresetChange || onThinkingLevelChange)
+                                  ? () => dispatchModelMenu({ type: "submenu", value: modelSubmenu === "advanced" ? null : "advanced" })
+                                  : undefined}
+                                advancedOpen={modelSubmenu === "advanced"}
+                                advancedTriggerRef={advancedRowRef}
                                 stageTransition={modelStageTransition}
                               />
                               {modelMenuRows.map((row) => {
@@ -2560,24 +2565,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                                   </MenuItem>
                                 );
                               })}
-                              <div className={styles.modelMenuFooter}>
-                                <MenuItem
-                                  ref={advancedRowRef}
-                                  data-model-menu-row="advanced"
-                                  aria-haspopup="menu"
-                                  aria-expanded={modelSubmenu === "advanced"}
-                                  disabled={!onToolPresetChange && !onThinkingLevelChange}
-                                  onMouseEnter={() => dispatchModelMenu({ type: "submenu", value: "advanced" })}
-                                  onClick={() => dispatchModelMenu({ type: "submenu", value: "advanced" })}
-                                  className={styles.modelMenuRow}
-                                  surface="plain"
-                                >
-                                  <span>{t("chat.advanced")}</span>
-                                  <svg className={styles.advancedChevron} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                    <path d="m5 9.5 3-3 3 3" />
-                                  </svg>
-                                </MenuItem>
-                              </div>
                             </>
                           )}
                         </Menu>
