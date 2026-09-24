@@ -50,7 +50,7 @@ the What's New dialog adds a second page that invites support.
 - The queue persists failed message sends with safe error summaries, reload and reconnect reconciliation, and a Retry command.
 ### Fixed
 
-- The Full access note above the Composer reads on one line instead of one word per line.
+- The Full access note sits above the Composer on one line, and it no longer covers the placeholder.
 
 - The Composer footer stays on one row at every width. The model name shortens instead of pushing the controls onto a second line.
 - The model chip is as tall as the Send button, keeps a gap before it, and reads Select effort while its popup is open.

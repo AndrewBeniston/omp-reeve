@@ -138,7 +138,7 @@ export function ApprovalModeSelector({
         {error ? <div role="alert" className={styles.error}>{error}</div> : null}
       </Menu>
       {mode === "yolo" && !warningDismissed ? (
-        <div role="status" className={styles.warning}>
+        <div role="status" className={styles.warning} data-full-access-warning>
           <span>{t("approvalMode.warningTitle")}</span>
           <button
             type="button"

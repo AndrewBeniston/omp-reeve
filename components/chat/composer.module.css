@@ -589,6 +589,11 @@
   box-sizing: border-box;
 }
 
+.toolbar:has([data-full-access-warning]) {
+  /* Lets the Full access note anchor to the Composer frame. */
+  position: static;
+}
+
 .toolbarLeft {
   display: flex;
   align-items: center;

@@ -4,6 +4,12 @@
   font-family: var(--font-sans);
 }
 
+/* While the Full access note shows, the Composer frame is its containing block,
+   so the note sits above the Composer and never covers the placeholder. */
+.root:has(> [data-full-access-warning]) {
+  position: static;
+}
+
 .trigger {
   display: inline-flex;
   height: var(--composer-control-size);
