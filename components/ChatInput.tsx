@@ -47,10 +47,19 @@ import {
   buildSlashSections,
   buildSlashSubcommandSections,
   extractSlashQuery,
+  attachSessionTranscriptContext,
   flattenSuggestionSections,
+  rankComposerSessionSources,
   resolveAutocompleteSelection,
   type ComposerSuggestion,
+  type ComposerSuggestionGroup,
+  type ComposerMcpSource,
+  type ComposerSessionSource,
+  type ComposerTranscriptMessage,
+  type ComposerTabSource,
+  type ComposerAgentSource,
 } from "@/lib/composer-intelligence";
+import type { ComposerSourceResponse } from "@/lib/composer-mention-types";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { selectComposerPlaceholder } from "./composer-placeholder";
 import { getSecureAttachmentPicker } from "@/lib/desktop-attachments";
@@ -76,7 +85,7 @@ import {
   ComposerFloatingGeometry,
   ComposerFrame,
 } from "./chat/ComposerFrame";
-import { ComposerAutocomplete } from "./chat/ComposerAutocomplete";
+import { ComposerSourceMenu } from "./chat/ComposerSourceMenu";
 import { ComposerAddMenu } from "./chat/ComposerAddMenu";
 import { CommandArgumentsDialog } from "./chat/CommandArgumentsDialog";
 import { ComposerEditor, type ComposerEditorHandle } from "./chat/ComposerEditor";
@@ -652,9 +661,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const bashExcluded = bashMode && trimmedValue.startsWith("!!");
   const [slashMenuOpen, setSlashMenuOpen] = useState(false);
   const [slashActiveIndex, setSlashActiveIndex] = useState(0);
+  const [slashSearchQuery, setSlashSearchQuery] = useState("");
   const [atQuery, setAtQuery] = useState<AtQueryMatch | null>(null);
   const [atMenuOpen, setAtMenuOpen] = useState(false);
   const [atActiveIndex, setAtActiveIndex] = useState(0);
+  const [atFileQuery, setAtFileQuery] = useState("");
+  const [atConnectedQuery, setAtConnectedQuery] = useState("");
   const [historyMenuOpen, setHistoryMenuOpen] = useState(false);
   const [historyActiveIndex, setHistoryActiveIndex] = useState(0);
   const [textareaHeight, setTextareaHeight] = useState("auto");
@@ -667,6 +679,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     skills: SkillInfo[];
     plugins: PluginPackageInfo[];
   } | null>(null);
+  const [composerSourcesState, setComposerSourcesState] = useState<{
+    cwd: string;
+    loading: boolean;
+    sources: ComposerSourceResponse;
+  } | null>(null);
+  const composerSourcesCacheRef = useRef(new Map<string, ComposerSourceResponse>());
   const composerSkills = useMemo(
     () => cwd && composerResourcesState?.cwd === cwd ? composerResourcesState.skills : [],
     [composerResourcesState, cwd],
@@ -680,6 +698,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     [composerPlugins, toolPreset],
   );
   const composerResourcesLoading = Boolean(cwd && composerResourcesState?.cwd === cwd && composerResourcesState.loading);
+  const composerSources = composerSourcesState && composerSourcesState.cwd === cwd ? composerSourcesState.sources : null;
+  const composerSourcesLoading = Boolean(cwd && composerSourcesState && composerSourcesState.cwd === cwd && composerSourcesState.loading);
 
   const textareaRef = useRef<ComposerEditorHandle>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -1518,10 +1538,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   ], [composerHoldsOnlyCommand, isStreaming, onOpenGoal, reviewEnabled, reviewGate?.reason, reviewSubcommands, slashCommands, t]);
   const slashContext = extractSlashQuery(value, availableSlashCommands);
   const slashQuery = slashContext?.query ?? null;
-  const modelCommand = buildModelCommandSections(modelOptions, recentConfigurations, slashQuery ?? "", t);
+  const slashFilterQuery = slashSearchQuery.trim() || slashQuery || "";
+  const modelCommand = buildModelCommandSections(modelOptions, recentConfigurations, slashFilterQuery, t);
   const allModelCommands = buildModelCommandSections(modelOptions, recentConfigurations, "", t);
   const reasoningCommand = buildReasoningCommandSections(
-    availableThinkingLevels ?? selector.steps.map((step) => step.thinkingLevel), slashQuery ?? "", t,
+    availableThinkingLevels ?? selector.steps.map((step) => step.thinkingLevel), slashFilterQuery, t,
   );
   const allReasoningCommands = buildReasoningCommandSections(
     availableThinkingLevels ?? selector.steps.map((step) => step.thinkingLevel), "", t,
@@ -1531,16 +1552,19 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     if (slashContext.parentCommand) {
       if (slashContext.parentCommand.name === "model") return modelCommand.sections;
       if (slashContext.parentCommand.name === "reasoning") return reasoningCommand.sections;
-      return buildSlashSubcommandSections(slashContext.parentCommand, slashContext.query);
+      return buildSlashSubcommandSections(slashContext.parentCommand, slashSearchQuery.trim() || slashContext.query);
     }
     return buildSlashSections({
-      query: slashContext.query,
+      query: slashSearchQuery,
       commands: availableSlashCommands,
       skills: composerSkills,
       disabledCommands: reviewEnabled ? undefined : REVIEW_DISABLED_COMMANDS,
     });
   })();
   const displayedSlashCommands = flattenSuggestionSections(slashSections);
+  const slashLoadingGroups: ComposerSuggestionGroup[] = [];
+  if (slashCommandsLoading) slashLoadingGroups.push("commands");
+  if (composerResourcesLoading) slashLoadingGroups.push("skills");
   const hasInputText = Boolean(value.trim());
   const canQueueStreamingMessage = hasInputText || attachedImages.length > 0 || localAttachments.length > 0;
 
@@ -1559,9 +1583,28 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const atQueryText = atQuery?.query ?? null;
   const atLocalMatches: FileIndexEntry[] = React.useMemo(() => (
     atQueryText !== null && fileIndex && fileIndex.cwd === cwd
-      ? filterFileEntries(fileIndex.entries, atQueryText)
+      ? filterFileEntries(fileIndex.entries, atFileQuery)
       : []
-  ), [atQueryText, fileIndex, cwd]);
+  ), [atQueryText, atFileQuery, fileIndex, cwd]);
+
+  useEffect(() => {
+    if (atQueryText === null) {
+      setAtFileQuery("");
+      setAtConnectedQuery("");
+      return;
+    }
+    if (!atQueryText) {
+      setAtFileQuery("");
+      setAtConnectedQuery("");
+      return;
+    }
+    const fileTimer = setTimeout(() => setAtFileQuery(atQueryText), 100);
+    const connectedTimer = setTimeout(() => setAtConnectedQuery(atQueryText), 300);
+    return () => {
+      clearTimeout(fileTimer);
+      clearTimeout(connectedTimer);
+    };
+  }, [atQueryText]);
 
   // When the client index is truncated (repo larger than the index cap),
   // local filtering cannot see deep files, so queries are also ranked
@@ -1592,17 +1635,53 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     && atServerResult.cwd === cwd
     && atServerResult.query === atQueryText;
   const atMatches: FileIndexEntry[] = serverResultInUse ? atServerResult.matches : atLocalMatches;
+  const composerSessionSources = useMemo<ComposerSessionSource[]>(() => {
+    if (!composerSources || atQueryText === null) return [];
+    return rankComposerSessionSources(
+      composerSources.sessions,
+      atFileQuery,
+      5,
+    );
+  }, [composerSources, atFileQuery, atQueryText]);
+
   const atSections = useMemo(() => atQueryText === null ? [] : buildAtMentionSections({
     query: atQueryText,
+    fileQuery: atFileQuery,
+    connectedQuery: atConnectedQuery,
     files: atMatches,
     skills: composerSkills,
     plugins: mentionablePlugins,
+    sessions: composerSessionSources,
+    tabs: composerSources?.tabs as ComposerTabSource[] | undefined,
+    agents: composerSources?.agents as ComposerAgentSource[] | undefined,
+    mcpServers: composerSources?.mcpServers as ComposerMcpSource[] | undefined,
     subagents,
-  }), [atMatches, atQueryText, composerSkills, mentionablePlugins, subagents]);
+  }), [atMatches, atQueryText, atFileQuery, atConnectedQuery, composerSkills, composerSessionSources, composerSources, mentionablePlugins, subagents]);
   const displayedAtSuggestions = useMemo(
     () => flattenSuggestionSections(atSections),
     [atSections],
   );
+  const composerGroupLabels: Record<ComposerSuggestionGroup, string> = {
+    agents: t("composer.autocomplete.agents"),
+    commands: t("composer.autocomplete.commands"),
+    files: t("composer.autocomplete.files"),
+    liveAgents: t("composer.autocomplete.liveAgents"),
+    mcp: t("composer.autocomplete.mcpServers"),
+    plugins: t("composer.autocomplete.plugins"),
+    sessions: t("composer.autocomplete.sessions"),
+    skills: t("composer.autocomplete.skills"),
+    tabs: t("composer.autocomplete.tabs"),
+  };
+  const atLoadingGroups: ComposerSuggestionGroup[] = [];
+  if (composerSourcesLoading) atLoadingGroups.push("agents", "mcp", "sessions", "tabs");
+  if (composerResourcesLoading) atLoadingGroups.push("plugins", "skills");
+  if (atQueryText && atQueryText !== atFileQuery) atLoadingGroups.push("sessions", "files");
+  if (atQueryText && atQueryText !== atConnectedQuery) {
+    atLoadingGroups.push("agents", "liveAgents", "mcp", "plugins", "skills", "tabs");
+  }
+  if ((fileIndexLoading && (!fileIndex || fileIndex.cwd !== cwd)) || (needsServerSearch && !serverResultInUse)) {
+    atLoadingGroups.push("files");
+  }
 
   // Open/reset the menu whenever the @token appears or changes (mirrors the
   // slash menu: Escape closes it, the next keystroke re-opens it).
@@ -1646,10 +1725,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       });
   }, [cwd]);
 
-  const applyAtCompletion = useCallback((suggestion: ComposerSuggestion) => {
+  const applyAtCompletion = useCallback(async (suggestion: ComposerSuggestion) => {
     if (!atQuery) return;
     const editor = textareaRef.current;
     if (!editor) return;
+    const originalValue = editor.value;
     const cursor = editor.selectionStart;
     const quotedEnd = atQuery.quoted && value[cursor] === '"' ? cursor + 1 : cursor;
     if (suggestion.isDirectory) {
@@ -1660,7 +1740,23 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       setAtQuery(extractAtQuery(nextValue.slice(0, nextCursor)));
       return;
     }
-    editor.replaceRangeWithMention(atQuery.start, quotedEnd, suggestion, true);
+    let selectedSuggestion = suggestion;
+    if (suggestion.kind === "session" && suggestion.targetId) {
+      try {
+        const response = await fetch(
+          `/api/sessions/${encodeURIComponent(suggestion.targetId)}/context?deferThinking&deferMedia`,
+        );
+        if (response.ok) {
+          const data = await response.json() as { context?: { messages?: ComposerTranscriptMessage[] } };
+          selectedSuggestion = attachSessionTranscriptContext(suggestion, data.context?.messages ?? []);
+        }
+      } catch {
+        // Keep the Session reference usable if transcript loading fails.
+      }
+    }
+    const currentEditor = textareaRef.current;
+    if (!currentEditor || currentEditor.value !== originalValue) return;
+    currentEditor.replaceRangeWithMention(atQuery.start, quotedEnd, selectedSuggestion, true);
     setAtQuery(null);
     setAtMenuOpen(false);
     setAtActiveIndex(0);
@@ -1779,6 +1875,33 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       ? Math.max(0, displayedSlashCommands.findIndex((item) => !item.disabled))
       : slashActiveIndex;
   }
+
+  const handleSlashSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing || isComposingRef.current) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSlashActiveIndex(() => getNextSlashIndex("down"));
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setSlashActiveIndex(() => getNextSlashIndex("up"));
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setSlashMenuOpen(false);
+      setSlashActiveIndex(0);
+      setSlashSearchQuery("");
+      textareaRef.current?.focus();
+      return;
+    }
+    const selection = resolveAutocompleteSelection(event.key, event.shiftKey, displayedSlashCommands, slashActiveIndex);
+    if (selection.captured) {
+      event.preventDefault();
+      if (selection.item) applySlashCommand(selection.item);
+    }
+  };
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -2033,10 +2156,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     if (slashQuery === null) {
       setSlashMenuOpen(false);
       setSlashActiveIndex(0);
+      setSlashSearchQuery("");
       return;
     }
     setSlashMenuOpen(true);
     setSlashActiveIndex(0);
+    setSlashSearchQuery("");
   }, [slashQuery]);
 
   useEffect(() => {
@@ -2094,6 +2219,37 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       setSlashActiveIndex(Math.max(0, displayedSlashCommands.length - 1));
     }
   }, [displayedSlashCommands.length, slashActiveIndex]);
+
+  // Sessions, Browser tabs, agents and MCP servers for the @ menu. Loaded when
+  // the @ menu first opens in a folder, then reused while the folder stays.
+  const atMenuActive = atQueryText !== null;
+  useEffect(() => {
+    if (!atMenuActive || !cwd) return;
+    const requestCwd = cwd;
+    const cachedSources = composerSourcesCacheRef.current.get(requestCwd);
+    if (cachedSources) {
+      setComposerSourcesState({ cwd: requestCwd, loading: false, sources: cachedSources });
+      return;
+    }
+    const controller = new AbortController();
+    setComposerSourcesState({ cwd: requestCwd, loading: true, sources: { sessions: [], tabs: [], agents: [], mcpServers: [] } });
+    fetch(`/api/composer/sources?cwd=${encodeURIComponent(requestCwd)}`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`sources fetch failed: ${response.status}`);
+        return response.json() as Promise<ComposerSourceResponse>;
+      })
+      .then((sources) => {
+        if (controller.signal.aborted) return;
+        composerSourcesCacheRef.current.set(requestCwd, sources);
+        setComposerSourcesState({ cwd: requestCwd, loading: false, sources });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setComposerSourcesState({ cwd: requestCwd, loading: false, sources: { sessions: [], tabs: [], agents: [], mcpServers: [] } });
+        }
+      });
+    return () => controller.abort();
+  }, [atMenuActive, cwd]);
 
   const displayModelName = model
     ? modelDisplayName({
@@ -2238,44 +2394,38 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             </div>
           )}
           {slashMenuOpen && slashQuery !== null && (
-            <ComposerAutocomplete
+            <ComposerSourceMenu
+              variant="slash"
               sections={slashSections}
               activeIndex={slashActiveIndex}
-              loading={Boolean(slashCommandsLoading || composerResourcesLoading)}
-              label={t("composer.autocomplete.slashCommands")}
-              emptyText={t("composer.autocomplete.noCommands")}
-              groupLabels={{
-                agents: t("composer.autocomplete.agents"),
-                commands: t("composer.autocomplete.commands"),
-                files: t("composer.autocomplete.files"),
-                plugins: t("composer.autocomplete.plugins"),
-                skills: t("composer.autocomplete.skills"),
-              }}
+              loadingGroups={slashLoadingGroups}
+              label={t("composer.slashCommands.dialogTitle")}
+              description={t("composer.slashCommands.dialogDescription")}
+              searchQuery={slashSearchQuery}
+              searchPlaceholder={t("composer.slashCommands.inputPlaceholder")}
+              emptyText={t("composer.slashCommands.noResults")}
+              groupLabels={composerGroupLabels}
               loadingText={t("composer.autocomplete.loading")}
               onActiveIndexChange={setSlashActiveIndex}
               onSelect={applySlashCommand}
+              onSearchQueryChange={(query) => {
+                setSlashSearchQuery(query);
+                setSlashActiveIndex(0);
+              }}
+              onSearchKeyDown={handleSlashSearchKeyDown}
             />
           )}
           {atMenuOpen && atQuery !== null && (
-            <ComposerAutocomplete
+            <ComposerSourceMenu
+              variant="mentions"
               sections={atSections}
               activeIndex={atActiveIndex}
-              loading={Boolean(
-                composerResourcesLoading
-                || (fileIndexLoading && (!fileIndex || fileIndex.cwd !== cwd))
-                || (needsServerSearch && !serverResultInUse)
-              )}
+              loadingGroups={atLoadingGroups}
               label={t("composer.autocomplete.addFilesAndMore")}
               emptyText={atQuery.query
                 ? t("composer.autocomplete.noResults")
                 : t("composer.autocomplete.searchFiles")}
-              groupLabels={{
-                agents: t("composer.autocomplete.agents"),
-                commands: t("composer.autocomplete.commands"),
-                files: t("composer.autocomplete.files"),
-                plugins: t("composer.autocomplete.plugins"),
-                skills: t("composer.autocomplete.skills"),
-              }}
+              groupLabels={composerGroupLabels}
               loadingText={t("composer.autocomplete.loading")}
               onActiveIndexChange={setAtActiveIndex}
               onSelect={applyAtCompletion}

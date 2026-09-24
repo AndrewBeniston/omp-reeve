@@ -11,6 +11,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- The @ menu lists MCP servers, plugins, agents, Sessions, Browser tabs, skills and files from OMP, and a Session row attaches a short transcript. The / menu opens a searchable Slash commands list.
+
 - Goal editors can update the objective and token budget, open a Goal tab, and confirm Goal replacement and resume.
 - Existing Sessions can now move to another project from the Composer.
 - Goal objectives can now be edited without resetting the Goal identity or accounting.
