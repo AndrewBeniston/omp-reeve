@@ -81,7 +81,7 @@ test("shows the project, local environment, branch, and complete Codex project m
   const text = textOf(view.container);
   assert.equal(view.container.querySelector("input")?.getAttribute("placeholder"), "Search projects");
   assert.match(text, /Help Self/);
-  assert.match(text, /New project/);
+  assert.match(text, /Add new project/);
   assert.match(text, /Don't work in a project/);
   assert.doesNotMatch(text, /New remote project/);
   assert.ok(view.container.querySelector("[role='menuitemradio'][aria-checked='true']"));
@@ -99,8 +99,8 @@ test("an unassigned new chat offers a project instead of naming Chats as a proje
   });
 
   const trigger = view.container.querySelector("[aria-haspopup='menu']");
-  assert.equal(textOf(trigger), "Choose Project");
-  assert.equal(trigger?.getAttribute("aria-label"), "Choose Project");
+  assert.equal(textOf(trigger), "Choose project");
+  assert.equal(trigger?.getAttribute("aria-label"), "Choose project");
   assert.ok(trigger?.querySelector("[data-project-context-icon='folder']"));
   assert.doesNotMatch(textOf(view.container), /Chats/);
 
@@ -203,7 +203,7 @@ test("uses the protected desktop directory picker for a new project", async (t) 
   await click(view.container.querySelector("[aria-haspopup='menu']"));
   await settle();
   const add = Array.from(view.container.querySelectorAll("[role='menuitem']"))
-    .find((item) => textOf(item) === "New project");
+    .find((item) => textOf(item) === "Add new project");
   assert.ok(add);
 
   await click(add);
@@ -225,7 +225,7 @@ test("keeps the browser directory picker as the non-desktop adapter", async (t) 
   await click(view.container.querySelector("[aria-haspopup='menu']"));
   await settle();
   const add = Array.from(view.container.querySelectorAll("[role='menuitem']"))
-    .find((item) => textOf(item) === "New project");
+    .find((item) => textOf(item) === "Add new project");
   await click(add);
   await settle();
 

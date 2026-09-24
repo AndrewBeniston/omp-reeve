@@ -27,7 +27,7 @@ test("shows the Codex-style projectless question with the real composer slot", a
   const view = await renderHome();
 
   assert.match(textOf(view.container), /What should we build\?/);
-  assert.match(textOf(view.container), /Choose Project/);
+  assert.match(textOf(view.container), /Choose project/);
   assert.doesNotMatch(textOf(view.container), /Chats/);
   assert.ok(view.container.querySelector("[data-test-composer='true']"));
 
@@ -51,13 +51,14 @@ test("delegates every project path to the shared project context bar", async () 
   assert.doesNotMatch(source, /<DirectoryPicker/);
 });
 
-test("launches projectless chats without auto-selecting the newest project", async () => {
+test("opens a new chat without creating or selecting a scratch folder", async () => {
   const appShellSource = await readFile(new URL("../AppShell.tsx", import.meta.url), "utf8");
   const sidebarSource = await readFile(new URL("../SessionSidebar.tsx", import.meta.url), "utf8");
   const css = await readFile(new URL("./empty-chat-home.module.css", import.meta.url), "utf8");
 
-  assert.match(appShellSource, /fetch\("\/api\/default-cwd", \{ method: "POST" \}\)/);
-  assert.match(appShellSource, /beginNewSession\(data\.cwd, "chat"\)/);
+  assert.doesNotMatch(appShellSource, /\/api\/default-cwd/);
+  assert.match(appShellSource, /beginUnassignedSession/);
+  assert.match(appShellSource, /setNewSessionCwd\(null\)/);
   assert.match(appShellSource, /homeProjectless=/);
   assert.doesNotMatch(sidebarSource, /if \(projects\.length > 0\) setSelectedCwd\(projects\[0\]\)/);
   assert.match(sidebarSource, /disabled=\{!selectedCwd && !onNewProjectlessSession\}/);

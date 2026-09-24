@@ -37,6 +37,23 @@ async function submitCommand(view, composerRef, command) {
   await settle();
 }
 
+test("a new chat without a project shows the project selection message and does not send", async () => {
+  const ref = React.createRef();
+  const sent = [];
+  const view = await mountComposer({
+    ref,
+    projectRequired: true,
+    onSend: (message) => sent.push(message),
+  });
+
+  await submitCommand(view, ref, "Explain this project");
+
+  assert.deepEqual(sent, []);
+  assert.match(document.body.textContent, /Unable to send message/);
+  assert.match(document.body.textContent, /Select a project to continue/);
+  await view.unmount();
+});
+
 function triggerFor(container, label) {
   const trigger = container.querySelector(`[aria-label='${label}']`);
   assert.ok(trigger, `the composer renders the ${label} control`);
