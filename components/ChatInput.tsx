@@ -52,6 +52,7 @@ import {
   rankComposerSessionSources,
   resolveAutocompleteSelection,
   type ComposerSuggestion,
+  type ComposerSuggestionGroup,
   type ComposerMcpSource,
   type ComposerSessionSource,
   type ComposerTabSource,
@@ -1664,6 +1665,27 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     () => flattenSuggestionSections(atSections),
     [atSections],
   );
+  const composerGroupLabels: Record<ComposerSuggestionGroup, string> = {
+    agents: t("composer.autocomplete.agents"),
+    commands: t("composer.autocomplete.commands"),
+    files: t("composer.autocomplete.files"),
+    liveAgents: t("composer.autocomplete.liveAgents"),
+    mcp: t("composer.autocomplete.mcpServers"),
+    plugins: t("composer.autocomplete.plugins"),
+    sessions: t("composer.autocomplete.sessions"),
+    skills: t("composer.autocomplete.skills"),
+    tabs: t("composer.autocomplete.tabs"),
+  };
+  const atLoadingGroups: ComposerSuggestionGroup[] = [];
+  if (composerSourcesLoading) atLoadingGroups.push("agents", "mcp", "sessions", "tabs");
+  if (composerResourcesLoading) atLoadingGroups.push("plugins", "skills");
+  if (atQueryText && atQueryText !== atFileQuery) atLoadingGroups.push("sessions", "files");
+  if (atQueryText && atQueryText !== atConnectedQuery) {
+    atLoadingGroups.push("agents", "liveAgents", "mcp", "plugins", "skills", "tabs");
+  }
+  if ((fileIndexLoading && (!fileIndex || fileIndex.cwd !== cwd)) || (needsServerSearch && !serverResultInUse)) {
+    atLoadingGroups.push("files");
+  }
 
   // Open/reset the menu whenever the @token appears or changes (mirrors the
   // slash menu: Escape closes it, the next keystroke re-opens it).
@@ -2336,46 +2358,23 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               loading={Boolean(slashCommandsLoading || composerResourcesLoading)}
               label={t("composer.autocomplete.slashCommands")}
               emptyText={t("composer.autocomplete.noCommands")}
-              groupLabels={{
-                agents: t("composer.autocomplete.agents"),
-                commands: t("composer.autocomplete.commands"),
-                files: t("composer.autocomplete.files"),
-                liveAgents: t("composer.autocomplete.agents"),
-                mcp: t("chat.mcpPrompts"),
-                plugins: t("composer.autocomplete.plugins"),
-                sessions: t("commandMenu.chats"),
-                skills: t("composer.autocomplete.skills"),
-                tabs: t("tabs.strip"),
-              }}
+              groupLabels={composerGroupLabels}
               loadingText={t("composer.autocomplete.loading")}
               onActiveIndexChange={setSlashActiveIndex}
               onSelect={applySlashCommand}
             />
           )}
           {atMenuOpen && atQuery !== null && (
-            <ComposerAutocomplete
+            <ComposerSourceMenu
+              variant="mentions"
               sections={atSections}
               activeIndex={atActiveIndex}
-              loading={Boolean(
-                composerResourcesLoading
-                || (fileIndexLoading && (!fileIndex || fileIndex.cwd !== cwd))
-                || (needsServerSearch && !serverResultInUse)
-              )}
+              loadingGroups={atLoadingGroups}
               label={t("composer.autocomplete.addFilesAndMore")}
               emptyText={atQuery.query
                 ? t("composer.autocomplete.noResults")
                 : t("composer.autocomplete.searchFiles")}
-              groupLabels={{
-                agents: t("composer.autocomplete.agents"),
-                commands: t("composer.autocomplete.commands"),
-                files: t("composer.autocomplete.files"),
-                liveAgents: t("composer.autocomplete.agents"),
-                mcp: t("chat.mcpPrompts"),
-                plugins: t("composer.autocomplete.plugins"),
-                sessions: t("commandMenu.chats"),
-                skills: t("composer.autocomplete.skills"),
-                tabs: t("tabs.strip"),
-              }}
+              groupLabels={composerGroupLabels}
               loadingText={t("composer.autocomplete.loading")}
               onActiveIndexChange={setAtActiveIndex}
               onSelect={applyAtCompletion}
