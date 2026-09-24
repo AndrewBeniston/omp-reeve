@@ -2651,16 +2651,28 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               }}
               labels={{
                 loading: t("composer.autocomplete.loading"),
-                add: t("composer.add"), images: t("chat.attachImage"), files: t("composer.filesAndFolders"), goal: t("composer.goal.objective"),
-                groups: {
-                  commands: t("composer.autocomplete.commands"),
-                  plugins: t("composer.autocomplete.plugins"),
-                  skills: t("composer.autocomplete.skills"),
-                  agents: t("composer.autocomplete.agents"),
-                },
+                add: t("composer.autocomplete.addFilesAndMore"),
+                images: t("composer.addPhotos"),
+                files: t("composer.selectFiles"),
+                folder: t("composer.selectFolder"),
+                planMode: t("composer.planMode"),
+                voiceChat: t("composer.voiceChat"),
+                unavailable: t("composer.unavailable"),
+                keyboardEquivalent: "@",
               }}
               sections={buildComposerAddSections({ commands: availableSlashCommands, skills: composerSkills, plugins: mentionablePlugins, subagents })}
               onAttachImages={() => fileInputRef.current?.click()}
+              onPlanMode={() => {
+                const editor = textareaRef.current;
+                if (!editor) return;
+                editor.replaceRangeWithMention(editor.selectionStart, editor.selectionEnd, {
+                  kind: "command",
+                  label: t("composer.planMode"),
+                  raw: "/plan",
+                  icon: "plan",
+                }, true);
+                requestAnimationFrame(() => editor.focus());
+              }}
               childrenFor={item => {
                 if (item.raw === "/model") return allModelCommands.sections;
                 if (item.raw === "/reasoning") return allReasoningCommands.sections;
@@ -2671,7 +2683,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 const picker = getSecureAttachmentPicker();
                 if (picker) {
                   setAttachmentPickerError(null);
-                  void picker().then(selections => {
+                  const openFiles = picker.selectFiles ?? picker;
+                  void openFiles().then(selections => {
                     if (localAttachmentsRef.current.length + selections.length > 32) {
                       setAttachmentPickerError(t("composer.localAttachmentLimit", { count: 32 }));
                       return;
@@ -2686,6 +2699,24 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 browserFileInputRef.current?.click();
                 requestAnimationFrame(() => textareaRef.current?.focus());
               } : undefined}
+              onBrowseFolder={cwd ? () => {
+                const picker = getSecureAttachmentPicker();
+                if (!picker?.selectFolder) return;
+                setAttachmentPickerError(null);
+                void picker.selectFolder().then(selections => {
+                  if (localAttachmentsRef.current.length + selections.length > 32) {
+                    setAttachmentPickerError(t("composer.localAttachmentLimit", { count: 32 }));
+                    return;
+                  }
+                  const next = addComposerAttachments(localAttachmentsRef.current, selections);
+                  localAttachmentsRef.current = next;
+                  setLocalAttachments(next);
+                  requestAnimationFrame(() => textareaRef.current?.focus());
+                }).catch(() => setAttachmentPickerError(t("composer.attachmentPickerError")));
+              } : undefined}
+              folderDisabledReason={cwd
+                ? getSecureAttachmentPicker()?.selectFolder ? null : t("composer.folderUnavailable")
+                : t("composer.folderNeedsProject")}
               onSelect={(item) => {
                 if (selectSelectorCommand(item, false)) return;
                 const editor = textareaRef.current;

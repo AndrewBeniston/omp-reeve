@@ -7,19 +7,47 @@ import { ComposerFloatingGeometry } from "./ComposerFrame";
 import { SlashCommandIcon } from "./SlashCommandIcon";
 import styles from "./composer-add-menu.module.css";
 
-export function ComposerAddMenu({ sections, onSelect, onAttachImages, onBrowseFiles, childrenFor, onOpen, loading, labels }: {
+interface ComposerAddMenuLabels {
+  add: string;
+  images: string;
+  files: string;
+  folder: string;
+  planMode: string;
+  voiceChat: string;
+  unavailable: string;
+  keyboardEquivalent?: string;
+  back?: string;
+  loading?: string;
+  groups?: Record<string, string>;
+}
+
+export function ComposerAddMenu({
+  sections,
+  onSelect,
+  onAttachImages,
+  onBrowseFiles,
+  onBrowseFolder,
+  folderDisabledReason,
+  onPlanMode,
+  childrenFor,
+  onOpen,
+  loading,
+  labels,
+}: {
   onOpen?: () => void;
   loading?: boolean;
   sections: ComposerSuggestionSection[];
   onSelect: (item: ComposerSuggestion) => void;
   onAttachImages: () => void;
   onBrowseFiles?: () => void;
+  onBrowseFolder?: () => void;
+  folderDisabledReason?: string | null;
+  onPlanMode: () => void;
   childrenFor?: (item: ComposerSuggestion) => ComposerSuggestionSection[];
-  labels: { add: string; images: string; files: string; goal: string; back?: string; loading?: string; groups: Record<string, string> };
+  labels: ComposerAddMenuLabels;
 }) {
   const [open, setOpen] = useState(false);
   const [parent, setParent] = useState<ComposerSuggestion | null>(null);
-  const [page, setPage] = useState<"root" | "files" | "plugins" | "skills">("root");
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const popup = useRef<HTMLDivElement>(null);
@@ -60,76 +88,115 @@ export function ComposerAddMenu({ sections, onSelect, onAttachImages, onBrowseFi
     setOpen(false);
     action();
   };
-  const commandItems = sections.filter(section => section.id === "commands").flatMap(section => section.items);
-  const goal = commandItems.find(item => item.raw === "/goal");
-  const visibleSections = parent ? childrenFor?.(parent) ?? []
-    : page === "plugins" || page === "skills" ? sections.filter(section => section.id === page)
-      : [];
-  const goBack = () => { if (parent) setParent(null); else setPage("root"); };
-  const pageTitle = page === "files" ? labels.files : page === "plugins" ? labels.groups.plugins : page === "skills" ? labels.groups.skills : labels.add;
+  const parkedAction = /^(add remote files|sketch|attach appshot|pull request|shared chat|sites|browser annotation)$/i;
+  const visibleSections = (parent ? childrenFor?.(parent) ?? [] : sections)
+    .map(section => ({
+      ...section,
+      items: section.items.filter(item => item.raw !== "/plan" && !parkedAction.test(item.label)),
+    }))
+    .filter(section => section.items.length > 0);
+  const folderDisabled = Boolean(folderDisabledReason || !onBrowseFolder);
+  const moveFocus = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape" || event.key === "ArrowLeft") {
+      if (!parent) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setParent(null);
+      return;
+    }
+    const rows = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("[role='menuitem']"));
+    const current = rows.indexOf(document.activeElement as HTMLElement);
+    if (event.key === "Enter" || event.key === " ") {
+      if (current < 0 || rows[current].getAttribute("aria-disabled") === "true") {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      rows[current]?.click();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    let next: number;
+    if (event.key === "ArrowDown") next = current < rows.length - 1 ? current + 1 : 0;
+    else if (event.key === "ArrowUp") next = current > 0 ? current - 1 : rows.length - 1;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = rows.length - 1;
+    else return;
+    event.preventDefault();
+    event.stopPropagation();
+    rows[next]?.focus();
+  };
 
   return <div ref={root} className={styles.root}>
     <button ref={trigger} type="button" className={styles.trigger}
-      aria-label={labels.add} title={labels.add} aria-haspopup="menu" aria-expanded={open}
-      onClick={() => { setParent(null); setPage("root"); if (!open) onOpen?.(); setOpen(!open); }}>
+      aria-label={labels.add} title={labels.add} aria-keyshortcuts={labels.keyboardEquivalent}
+      aria-haspopup="menu" aria-expanded={open}
+      onClick={() => { setParent(null); if (!open) onOpen?.(); setOpen(!open); }}>
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
         <path d="M10 3v14M3 10h14" />
       </svg>
+      <span className={styles.keyboardEquivalent} aria-hidden="true">{labels.keyboardEquivalent}</span>
     </button>
     {open && <ComposerFloatingGeometry left={geometry.left} bottom={geometry.bottom} maxHeight={geometry.maxHeight} isMobile={false}>
       <div ref={popup} className={styles.popup} data-add-menu-popup>
-        <Menu key={parent?.id ?? page} open label={parent?.label ?? pageTitle} onClose={() => setOpen(false)} triggerRef={trigger}
-          onKeyDown={event => {
-            if (event.key === "Escape" && (parent || page !== "root")) {
-              event.preventDefault();
-              event.stopPropagation();
-              goBack();
-            } else if (event.key === "ArrowLeft" && (parent || page !== "root")) {
-              event.preventDefault();
-              event.stopPropagation();
-              goBack();
-            }
-          }}
-          className={styles.menu} surface="plain">
+        <Menu key={parent?.id ?? "root"} open label={parent?.label ?? labels.add} onClose={() => setOpen(false)} triggerRef={trigger}
+          onKeyDown={moveFocus} className={styles.menu} surface="plain">
           {loading && <div role="status" className={styles.heading}>{labels.loading}</div>}
-          {parent || page !== "root" ? <MenuItem surface="plain" aria-haspopup="menu" className={styles.item} onClick={goBack}>
+          {parent ? <MenuItem surface="plain" className={styles.item} onClick={() => setParent(null)}>
             <span aria-hidden="true">←</span>{labels.back ?? labels.add}
           </MenuItem> : <>
-            <div className={styles.heading}>{labels.add}</div>
-            <MenuItem surface="plain" aria-haspopup="menu" className={styles.item}
-              icon={<SlashCommandIcon name="paperclip" />} onClick={() => setPage("files")}>
-              {labels.files}<span className={styles.chevron} aria-hidden="true">›</span>
-            </MenuItem>
-            <MenuItem surface="plain" className={styles.item} icon={<SlashCommandIcon name="goal" />} disabled={!goal}
-              onClick={() => goal && select(() => onSelect(goal))}>
-              {labels.goal}
-            </MenuItem>
-            <MenuItem surface="plain" aria-haspopup="menu" className={styles.item} icon={<SlashCommandIcon name="extension" />} onClick={() => setPage("plugins")}>
-              {labels.groups.plugins}<span className={styles.chevron} aria-hidden="true">›</span>
-            </MenuItem>
-            <MenuItem surface="plain" aria-haspopup="menu" className={styles.item} icon={<SlashCommandIcon name="skill" />} onClick={() => setPage("skills")}>
-              {labels.groups.skills}<span className={styles.chevron} aria-hidden="true">›</span>
-            </MenuItem>
-          </>}
-          {page === "files" && <>
-            <div className={styles.heading}>{labels.files}</div>
-            {onBrowseFiles && <MenuItem surface="plain" className={styles.item}
-              icon={<SlashCommandIcon name="folder" />} onClick={() => select(onBrowseFiles)}>{labels.files}</MenuItem>}
             <MenuItem surface="plain" className={styles.item} icon={<SlashCommandIcon name="image" />}
-              onClick={() => select(onAttachImages)}>{labels.images}</MenuItem>
+              onClick={() => select(onAttachImages)}>
+              <span className={styles.label}>{labels.images}</span>
+            </MenuItem>
+            <MenuItem surface="plain" className={styles.item} icon={<SlashCommandIcon name="file" />}
+              aria-disabled={!onBrowseFiles || undefined} data-disabled={!onBrowseFiles || undefined}
+              aria-description={!onBrowseFiles ? labels.unavailable : undefined}
+              onClick={() => onBrowseFiles && select(onBrowseFiles)}>
+              <span className={styles.row}>
+                <span className={styles.label}>{labels.files}</span>
+                {!onBrowseFiles && <span className={styles.status}>{labels.unavailable}</span>}
+              </span>
+            </MenuItem>
+            <MenuItem aria-disabled={folderDisabled || undefined}
+              aria-description={folderDisabledReason ?? undefined} data-disabled={folderDisabled || undefined} surface="plain" className={styles.item}
+              icon={<SlashCommandIcon name="folder" />} onClick={() => {
+                if (!folderDisabled && onBrowseFolder) select(onBrowseFolder);
+              }}>
+              <span className={styles.row}>
+                <span className={styles.label}>{labels.folder}</span>
+                {folderDisabled && folderDisabledReason && <span className={styles.reason}>{folderDisabledReason}</span>}
+                {folderDisabled && <span className={styles.status}>{labels.unavailable}</span>}
+              </span>
+            </MenuItem>
+            <MenuItem surface="plain" className={styles.item} icon={<SlashCommandIcon name="plan" />}
+              onClick={() => select(onPlanMode)}>
+              <span className={styles.label}>{labels.planMode}</span>
+            </MenuItem>
+            <MenuItem surface="plain" className={styles.item} icon={<SlashCommandIcon name="voice" />}
+              aria-disabled="true" data-disabled="true" aria-description={labels.unavailable}>
+              <span className={styles.row}>
+                <span className={styles.label}>{labels.voiceChat}</span>
+                <span className={styles.status}>{labels.unavailable}</span>
+              </span>
+            </MenuItem>
           </>}
           {visibleSections.map(section => <div key={`${section.id}:${section.title ?? ""}`}>
-            {section.showTitle === false ? null : <div className={styles.heading}>{section.title ?? labels.groups[section.id]}</div>}
-            {section.items.map(item => <MenuItem key={item.id} surface="plain" className={styles.item}
-              aria-haspopup={childrenFor?.(item).length ? "menu" : undefined}
-              icon={<SlashCommandIcon name={item.icon} />} onClick={() => {
-                if (childrenFor?.(item).length) setParent(item);
-                else select(() => onSelect(item));
-              }}>
-              <span className={styles.label}>{item.label}</span>
-              {item.detail && <span className={styles.detail}>{item.detail}</span>}
-              {childrenFor?.(item).length ? <span className={styles.chevron} aria-hidden="true">›</span> : null}
-            </MenuItem>)}
+            {section.showTitle === false ? null : <div className={styles.heading}>{section.title ?? labels.groups?.[section.id]}</div>}
+            {section.items.map(item => {
+              const children = childrenFor?.(item) ?? [];
+              return <MenuItem key={item.id} surface="plain" className={styles.item}
+                aria-haspopup={children.length ? "menu" : undefined}
+                icon={<SlashCommandIcon name={item.icon} />} onClick={() => {
+                  if (children.length) setParent(item);
+                  else select(() => onSelect(item));
+                }}>
+                <span className={styles.label}>{item.label}</span>
+                {item.detail && <span className={styles.detail}>{item.detail}</span>}
+                {children.length ? <span className={styles.chevron} aria-hidden="true">›</span> : null}
+              </MenuItem>;
+            })}
           </div>)}
         </Menu>
       </div>

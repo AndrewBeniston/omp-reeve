@@ -42,8 +42,8 @@ contextBridge.exposeInMainWorld(
     saveAudioCopy(filename, bytes) {
       return ipcRenderer.invoke("omp-desktop:save-audio-copy", filename, bytes);
     },
-    selectAttachmentsWithCapabilities() {
-      return ipcRenderer.invoke("omp-desktop:select-attachments", { secure: true });
+    selectAttachmentsWithCapabilities(kind) {
+      return ipcRenderer.invoke("omp-desktop:select-attachments", { secure: true, ...(kind ? { kind } : {}) });
     },
     showProjectMenu(state) {
       return ipcRenderer.invoke("omp-desktop:show-project-menu", state);
