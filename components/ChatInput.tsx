@@ -2623,9 +2623,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 });
               }}
               labels={{
-                moreCommands: t("composer.moreCommands"),
                 loading: t("composer.autocomplete.loading"),
-                add: t("composer.add"), images: t("chat.attachImage"), files: t("composer.filesAndFolders"),
+                add: t("composer.add"), images: t("chat.attachImage"), files: t("composer.filesAndFolders"), goal: t("composer.goal.objective"),
                 groups: {
                   commands: t("composer.autocomplete.commands"),
                   plugins: t("composer.autocomplete.plugins"),
