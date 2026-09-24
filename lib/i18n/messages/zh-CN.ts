@@ -521,7 +521,7 @@ export const zhCNLocale: LocalePlugin = {
     "chat.effortAuto": "自动",
     "chat.effortNone": "无",
     "chat.effortMinimal": "最低",
-    "chat.effortLight": "轻度",
+    "chat.effortLight": "低",
     "chat.effortMedium": "中等",
     "chat.effortHigh": "高",
     "chat.effortExtraHigh": "特高",

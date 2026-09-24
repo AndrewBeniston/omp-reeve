@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
 import type { PowerSelection, ThinkingStep } from "@/lib/model-selector";
 import { useI18n } from "@/hooks/useI18n";
 import { MenuItem } from "@/components/ui/Menu";
@@ -49,6 +49,8 @@ export function ModelPowerSlider({
   const previewIndex = steps.findIndex((step) => step.id === previewStepId);
   const visibleIndex = previewIndex >= 0 ? previewIndex : currentIndex;
   const isTopStep = visibleIndex >= 0 && steps[visibleIndex]?.thinkingLevel === "max";
+  const progress = steps.length === 1 ? 50 : visibleIndex < 0 ? 0 : (visibleIndex / (steps.length - 1)) * 100;
+  const railStyle = { "--ui-power-progress": `${progress}%` } as CSSProperties;
 
   useEffect(() => {
     setPreviewStepId(null);
@@ -90,7 +92,7 @@ export function ModelPowerSlider({
 
   return (
     <div data-model-power-view data-stage-transition={stageTransition ?? undefined} className={styles.view}>
-      <div data-stage-panel="top" data-stage-transition={stageTransition ?? undefined} className={styles.controlRow}>
+      <div data-model-effort-header className={styles.sliderHeader}>
         <MenuItem
           ref={modelTriggerRef}
           data-model-menu-row="model"
@@ -102,52 +104,47 @@ export function ModelPowerSlider({
           className={styles.modelToggle}
           surface="plain"
         >
-          <span data-model-effort-placeholder={effortStage ? "true" : undefined}>{t(effortStage ? "chat.selectEffort" : "chat.selectModel")}</span>
-          {!effortStage && modelName && <span className={styles.modelName}>{modelName}</span>}
+          {effortStage && <span className={styles.visuallyHidden} data-model-effort-placeholder="true">{t("chat.selectEffort")}</span>}
+          <span className={styles.effortLabel} data-model-effort-label>{steps[visibleIndex]?.sliderLabel ?? effortLabel}</span>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="m6.5 5 3 3-3 3" />
           </svg>
         </MenuItem>
+        {modelName && <div className={styles.effortModelName} data-model-effort-name>{modelName}</div>}
+        <div className={styles.sliderStart} data-slider-start>
+          {explicitModelOverride && (
+            <button
+              type="button"
+              data-reset-control
+              className={`${styles.resetControl} ${isTopStep ? styles.resetControlHidden : ""}`}
+              aria-label={t("chat.resetToDefault")}
+              title={t("chat.resetToDefault")}
+              tabIndex={isTopStep ? -1 : 0}
+              aria-hidden={isTopStep ? "true" : undefined}
+              disabled={isTopStep}
+              hidden={isTopStep}
+              onClick={(event) => {
+                event.preventDefault();
+                onResetToDefault?.();
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M2.5 2.5v4h4" />
+                <path d="M2.7 6.5A6 6 0 1 1 2 8" />
+              </svg>
+            </button>
+          )}
+          {isTopStep && (
+            <span className={styles.usageWarning} data-usage-warning aria-hidden="true">
+              <span className={styles.usageWarningText}>
+                {t("chat.ultraUsageWarning")}
+              </span>
+            </span>
+          )}
+        </div>
       </div>
       {steps.length > 0 ? (
         <div data-slider-row data-stage-panel="slider" data-stage-transition={stageTransition ?? undefined} className={styles.sliderRow}>
-          <div className={styles.sliderHeader}>
-            {(explicitModelOverride || isTopStep) && (
-              <div className={styles.sliderStart} data-slider-start>
-                {explicitModelOverride && (
-                  <button
-                    type="button"
-                    data-reset-control
-                    className={`${styles.resetControl} ${isTopStep ? styles.resetControlHidden : ""}`}
-                    aria-label={t("chat.resetToDefault")}
-                    title={t("chat.resetToDefault")}
-                    tabIndex={isTopStep ? -1 : 0}
-                    aria-hidden={isTopStep ? "true" : undefined}
-                    disabled={isTopStep}
-                    hidden={isTopStep}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      onResetToDefault?.();
-                    }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M2.5 2.5v4h4" />
-                      <path d="M2.7 6.5A6 6 0 1 1 2 8" />
-                    </svg>
-                  </button>
-                )}
-                {isTopStep && (
-                  <span className={styles.usageWarning} data-usage-warning aria-hidden="true">
-                    <span className={styles.usageWarningText}>
-                      {t("chat.ultraUsageWarning")}
-                    </span>
-                  </span>
-                )}
-              </div>
-            )}
-            <div className={styles.effortLabel}>{steps[visibleIndex]?.sliderLabel ?? effortLabel}</div>
-            {effortStage && modelName && <div className={styles.effortModelName} data-model-effort-name>{modelName}</div>}
-          </div>
           <div
             className={styles.track}
             aria-label={t("chat.effort")}
@@ -186,7 +183,7 @@ export function ModelPowerSlider({
             <span id={instructionsId} className={styles.visuallyHidden}>
               {t("chat.powerKeyboardInstructions")}
             </span>
-            <div className={styles.rail}>
+            <div className={styles.rail} style={railStyle}>
               {steps.map((step, index) => {
                 const position = steps.length === 1 ? 50 : (index / (steps.length - 1)) * 100;
                 return <span
