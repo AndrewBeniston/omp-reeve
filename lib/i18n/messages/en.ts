@@ -52,6 +52,7 @@ export const enLocale: LocalePlugin = {
     "composer.threadGoal.editor.updatedJustNow": "Updated just now",
     "composer.threadGoal.editor.updatedMinutesAgo": "Updated {minutes} min ago",
     "composer.threadGoal.editor.revert": "Revert",
+    "composer.threadGoal.editLoadError": "Failed to load goal objective",
     "composer.threadGoal.editSaveError": "Failed to save goal objective",
     "composer.threadGoal.budgetDialog.open": "Edit token budget",
     "composer.threadGoal.budgetDialog.title": "Edit token budget",

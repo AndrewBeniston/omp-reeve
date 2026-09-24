@@ -46,6 +46,29 @@ test("Revert restores the saved objective and Save updates it", async () => {
   } finally { await view.unmount(); }
 });
 
+test("the Goal tab stays open when its save event arrives before Save resolves", async () => {
+  const original = goal({ updatedAt: 1_000 });
+  const updated = { ...original, objective: "Finish the final film", updatedAt: 2_000 };
+  let closes = 0;
+  let view;
+  const props = {
+    goal: original,
+    onSave: async () => {
+      await view.render(wrap({ ...props, goal: updated }));
+      return true;
+    },
+    onClose() { closes += 1; },
+  };
+  view = await mount(wrap(props));
+  try {
+    await typeInto(view.container.querySelector("textarea"), updated.objective);
+    const save = [...view.container.querySelectorAll("button")].find((button) => button.textContent.includes("Save"));
+    await click(save);
+    assert.equal(closes, 0);
+    assert.equal(view.container.querySelector("textarea").value, updated.objective);
+  } finally { await view.unmount(); }
+});
+
 test("the Goal tab closes when the Goal completes or its identity changes", async () => {
   let closes = 0;
   const original = goal();
@@ -55,5 +78,35 @@ test("the Goal tab closes when the Goal completes or its identity changes", asyn
     assert.equal(closes, 1);
     await view.render(wrap({ goal: { ...original, id: "goal-two" }, onSave: async () => true, onClose: () => { closes += 1; } }));
     assert.equal(closes, 2);
+  } finally { await view.unmount(); }
+});
+
+test("the Goal tab closes when another update changes the objective", async () => {
+  let closes = 0;
+  const original = goal({ updatedAt: 1_000 });
+  const props = { goal: original, onSave: async () => true, onClose: () => { closes += 1; } };
+  const view = await mount(wrap(props));
+  try {
+    await view.render(wrap({
+      ...props,
+      goal: { ...original, objective: "Changed in another view", updatedAt: 2_000 },
+    }));
+    assert.equal(closes, 1);
+  } finally { await view.unmount(); }
+});
+
+test("the Goal tab shows the reference error without backend details when Save fails", async () => {
+  const view = await mount(wrap({
+    goal: goal(),
+    onSave: async () => { throw new Error("Injected private backend detail"); },
+    onClose() {},
+  }));
+  try {
+    await typeInto(view.container.querySelector("textarea"), "Finish the final film");
+    const save = [...view.container.querySelectorAll("button")].find((button) => button.textContent.includes("Save"));
+    await click(save);
+    const alert = view.container.querySelector('[role="alert"]');
+    assert.equal(alert.textContent, "Failed to save goal objective");
+    assert.doesNotMatch(view.container.textContent, /Injected private backend detail/);
   } finally { await view.unmount(); }
 });

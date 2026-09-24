@@ -64,5 +64,12 @@ test("Cancel changes nothing and a failed update keeps the draft open", async ()
     assert.deepEqual(updates, [["Keep this draft", 1000]]);
     assert.match(second.root.textContent, /Failed to save goal objective/);
     await second.view.unmount();
+
+    const third = await open({ onSave: async () => { throw new Error("Injected private backend detail"); } });
+    await typeInto(third.objective, "Keep this draft");
+    await React.act(async () => { third.root.querySelector("form").dispatchEvent(new DomEvent("submit", { bubbles: true, cancelable: true })); });
+    assert.equal(third.root.querySelector('[role="alert"]').textContent, "Failed to save goal objective");
+    assert.doesNotMatch(third.root.textContent, /Injected private backend detail/);
+    await third.view.unmount();
   } finally { await view.unmount(); }
 });

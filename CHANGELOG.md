@@ -16,6 +16,7 @@ the What's New dialog adds a second page that invites support.
 - Goal editors can update the objective and token budget, open a Goal tab, and confirm Goal replacement and resume.
 - Existing Sessions can now move to another project from the Composer.
 - Goal objectives can now be edited without resetting the Goal identity or accounting.
+- Show the reference error when a Goal objective fails to load.
 - Goal continuations wait for an idle Session and stop while a draft or attachment is pending.
 - Show interrupted process turns with their activity, elapsed time, and saved error after reload.
 - Stop unfinished command rows when a process exits, and end the Turn clock at the saved process-exit entry.
