@@ -2090,6 +2090,21 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     : null;
   const currentName = displayModelName;
   const currentEffortLabel = selector.currentStep?.effortLabel ?? t(thinkingLevelLabelKey(thinkingLevel ?? "auto"));
+  const selectedModelEntry = model
+    ? selectorRegistry.find((entry) => entry.provider === model.provider && entry.id === model.modelId) ?? {
+      provider: model.provider,
+      id: model.modelId,
+      name: currentName ?? model.modelId,
+      thinkingLevels: availableThinkingLevels ?? [],
+    }
+    : undefined;
+  const selectedModelSteps = selectedModelEntry
+    ? buildModelSelectorState({
+      registry: [selectedModelEntry],
+      roles: [],
+      currentModel: { provider: selectedModelEntry.provider, modelId: selectedModelEntry.id },
+    }, t).steps
+    : [];
   // "auto" lets OMP apply the selected model's default effort, so any other
   // explicit level that differs from the default role's level is an override.
   const defaultRoleModel = modelRoles?.find((role) => role.role === "default")?.resolved;
@@ -2503,6 +2518,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                             <>
                               <ModelPowerSlider
                                 steps={selector.steps}
+                                modelSteps={selectedModelSteps.length > 0 ? selectedModelSteps : undefined}
                                 currentStepId={selector.currentStep?.id}
                                 effortLabel={currentEffortLabel}
                                 modelName={currentName}
