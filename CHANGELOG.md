@@ -9,14 +9,12 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
-### Changed
-
-- Give transcript dividers a 44px mobile touch target.
-
-- The transcript no longer shows hidden extension messages or extension widgets such as the usage line.
-
 ### Added
 
+### Changed
+- Give transcript dividers a 44px mobile touch target.
+- Active transcript turns now show a live Working Divider with an elapsed clock.
+- The transcript no longer shows hidden extension messages or extension widgets such as the usage line.
 - Completed transcript turns now use one persistent Worked for disclosure.
 - Show OMP approval-denial counts on each transcript Turn.
 - New chats now stay unassigned until the user selects a project, and the Composer blocks sending before then.

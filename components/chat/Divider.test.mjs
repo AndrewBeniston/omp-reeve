@@ -38,6 +38,51 @@ test("renders each live and complete divider label", async () => {
   await stopped.unmount();
 });
 
+test("a live Divider clock ticks each second and freezes when complete", async () => {
+  const originalNow = Date.now;
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  let now = 10_000;
+  let tick;
+  const cleared = [];
+  Date.now = () => now;
+  globalThis.setInterval = (callback, delay) => {
+    assert.equal(delay, 1_000);
+    tick = callback;
+    return 42;
+  };
+  globalThis.clearInterval = (id) => { cleared.push(id); };
+  let view;
+  try {
+    view = await renderDivider({ status: "working", startedAt: 10_000, completedAt: undefined });
+    assert.match(textOf(view.container), /Working$/);
+    now = 11_000;
+    await React.act(async () => { tick(); });
+    assert.match(textOf(view.container), /Working for 1s$/);
+    now = 12_000;
+    await React.act(async () => { tick(); });
+    assert.match(textOf(view.container), /Working for 2s$/);
+    await view.render(h(I18nProvider, null, h(Divider, {
+      turnId: "turn-1",
+      status: "worked",
+      startedAt: 10_000,
+      completedAt: 12_000,
+      previousMessageCount: 2,
+      children: h("div", { "data-activity": "visible" }, "Activity"),
+    })));
+    assert.match(textOf(view.container), /Worked for 2s/);
+    now = 15_000;
+    await React.act(async () => { tick(); });
+    assert.match(textOf(view.container), /Worked for 2s/);
+    assert.deepEqual(cleared, [42]);
+  } finally {
+    if (view) await view.unmount();
+    Date.now = originalNow;
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+  }
+});
+
 test("uses the previous-message label when clock data is absent", async () => {
   const view = await renderDivider({ status: "idle", startedAt: undefined, completedAt: undefined, previousMessageCount: 1 });
   assert.match(textOf(view.container), /1 previous message/);

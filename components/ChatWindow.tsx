@@ -763,7 +763,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
               const rendered: ReactNode[] = [];
               const renderSection = (items: TranscriptMessageRow[], key: string, live: boolean, phase: TurnPhase, clock: TurnClock, turnNumber?: number, totalTurnCount?: number, deniedActionCount = 0) => {
                 const assistantPosition = presentationAssistantPosition(items);
-                if (assistantPosition === -1 || live) {
+                if (assistantPosition === -1) {
                   for (const item of items) rendered.push(renderMessage(item));
                   return;
                 }
@@ -789,7 +789,10 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                   : null;
 
                 const processCount = visibleProcessItems.length + (finalProcessMessage ? 1 : 0);
-                const divider = dividerPresentation(items, clock, deniedActionCount);
+                const divider = dividerPresentation(items, clock, deniedActionCount)
+                  ?? (clock.status === "working" && processCount > 0
+                    ? { ...clock, previousMessageCount: processCount, deniedActionCount }
+                    : null);
                 if (processCount > 0 && divider) {
                   const activityCalls: ActivityCall[] = [];
                   for (const item of items.slice(1, assistantPosition + 1)) {
@@ -802,7 +805,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                   }
                   rendered.push(
                     <Divider key={`process-group-${key}`} turnId={key} turnNumber={turnNumber} totalTurnCount={totalTurnCount} forceExpanded={!finalAnswerMessage} {...divider}>
-                      <ActivityHeader input={{ calls: activityCalls, closed: true, inProgress: false, latestVisible: true, exploring: false }} />
+                      <ActivityHeader input={{ calls: activityCalls, closed: !live, inProgress: live, latestVisible: live, exploring: live }} />
                       {visibleProcessItems.map((item) => renderMessage(item, { keyPrefix: "process" }))}
                       {finalProcessMessage && renderMessage(finalItem, { keyPrefix: "process-final", messageOverride: finalProcessMessage, showTimestamp: false })}
                     </Divider>,
