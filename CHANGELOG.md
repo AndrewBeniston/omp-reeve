@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Added
 
+- Multi-agent transcript actions now show one row per agent with action-specific text and optional input.
 - Classify usage-limit failures on the server so saved and live notes keep their retry timing.
 - Show grouped pasted-text attachment rows on sent user messages.
 - Preserve pasted-text attachment rows on queued, steered, follow-up, and edited user messages.
