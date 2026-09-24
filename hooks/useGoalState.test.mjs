@@ -132,27 +132,34 @@ test("budget changes send OMP the exact limit or Off and retain confirmed usage"
   }
 });
 
-test("objective changes send the exact objective and retain confirmed accounting", async () => {
+test("Goal updates send objective then budget and retain Goal identity and accounting", async () => {
   const originalFetch = globalThis.fetch;
   const activeGoal = goal("active");
-  const editedGoal = { ...activeGoal, objective: "Edited objective", updatedAt: 1_300 };
+  const objectiveGoal = { ...activeGoal, objective: "Finish the final film", updatedAt: 1_300 };
+  const budgetGoal = { ...objectiveGoal, tokenBudget: 1500, updatedAt: 1_400 };
   const commands = [];
   let client;
   globalThis.fetch = async (_url, init) => {
     const command = postCommand(init);
     if (!command) return response(activeGoal, { enabled: true, mode: "active", goal: activeGoal });
     commands.push(command);
-    return commandResponse(editedGoal, { enabled: true, mode: "active", goal: editedGoal });
+    const next = command.op === "set_objective" ? objectiveGoal : budgetGoal;
+    return commandResponse(next, { enabled: true, mode: "active", goal: next });
   };
   function Harness() { client = useGoalState("session-one"); return h("div"); }
   const view = await mount(h(Harness));
   try {
-    await React.act(async () => { assert.equal(await client.setObjective("Edited objective"), true); });
-    assert.deepEqual(commands, [{ type: "goal", op: "set_objective", objective: "Edited objective" }]);
-    assert.equal(client.goal.objective, "Edited objective");
+    await React.act(async () => { assert.equal(await client.update("Finish the final film", 1500), true); });
+    assert.deepEqual(commands, [
+      { type: "goal", op: "set_objective", objective: "Finish the final film" },
+      { type: "goal", op: "set_budget", tokenBudget: 1500 },
+    ]);
+    assert.equal(client.goal.id, activeGoal.id);
+    assert.equal(client.goal.createdAt, activeGoal.createdAt);
     assert.equal(client.goal.tokensUsed, activeGoal.tokensUsed);
     assert.equal(client.goal.timeUsedSeconds, activeGoal.timeUsedSeconds);
-    assert.equal(client.goal.tokenBudget, activeGoal.tokenBudget);
+    assert.equal(client.goal.objective, "Finish the final film");
+    assert.equal(client.goal.tokenBudget, 1500);
   } finally {
     await view.unmount();
     globalThis.fetch = originalFetch;
