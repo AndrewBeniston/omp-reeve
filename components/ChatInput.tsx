@@ -84,6 +84,7 @@ import { ModelList } from "./chat/ModelList";
 import { ModelPowerSlider } from "./chat/ModelPowerSlider";
 import { ComposerWorktreeControl, type ComposerWorktreeControlHandle } from "./chat/ComposerWorktreeControl";
 import { ComposerProjectControl, type ComposerProjectControlHandle } from "./chat/ComposerProjectControl";
+import type { SessionRelocationResult } from "@/lib/session-relocation";
 import { PausedQueueSubmitDialog } from "./chat/PausedQueueSubmitDialog";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
@@ -204,6 +205,7 @@ interface Props {
   onRegisterWorktreeCommand?: (open: () => void) => void;
   onSelectProject?: (path: string) => void;
   onRegisterProjectCommand?: (open: () => void) => void;
+  onWorkspaceRelocated?: (result: SessionRelocationResult) => void;
   projectRequired?: boolean;
   footerMode?: "home" | "session";
   contextUsage?: ContextUsage | null;
@@ -537,6 +539,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   onRegisterWorktreeCommand,
   onSelectProject,
   onRegisterProjectCommand,
+  onWorkspaceRelocated,
   footerMode = "session",
   projectRequired = footerMode === "home" && !cwd,
   contextUsage,
@@ -2635,12 +2638,16 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   );
   const toolbarStart = (
     <>
-            {footerMode === "home" && cwd && onSelectProject && <ComposerProjectControl
+            {cwd && ((footerMode === "home" && onSelectProject) || (existingSessionId && onWorkspaceRelocated)) && <ComposerProjectControl
               ref={projectControlRef}
               selectedPath={cwd}
+              sessionId={existingSessionId}
+              hasUnsentInput={hasUnsentComposerInput(value, attachedImages.length, localAttachments.length)}
+              onRelocated={onWorkspaceRelocated}
               onSelect={(path) => {
+                if (existingSessionId) return;
                 if (hasUnsentComposerInput(value, attachedImages.length, localAttachments.length)) setPendingProjectPath(path);
-                else onSelectProject(path);
+                else onSelectProject?.(path);
               }}
             />}
             {commandActionError && <span role="alert">{commandActionError}</span>}
