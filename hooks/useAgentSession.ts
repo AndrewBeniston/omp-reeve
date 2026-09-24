@@ -475,6 +475,7 @@ type ModelsResponse = {
   thinkingLevels?: Record<string, string[]>;
   thinkingLevelMaps?: Record<string, Record<string, string | null>>;
   thinkingLevelPins?: Record<string, string>;
+  scoped?: boolean;
   roles?: ModelRoleAssignment[];
   modelError?: string;
   modelScopeWarnings?: string[];
@@ -508,6 +509,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   const [modelList, setModelList] = useState<ModelEntry[]>([]);
   const [modelError, setModelError] = useState<string | null>(null);
   const [modelScopeWarnings, setModelScopeWarnings] = useState<string[]>([]);
+  const [modelScopeConfigured, setModelScopeConfigured] = useState(false);
   const [modelThinkingLevels, setModelThinkingLevels] = useState<Record<string, string[]>>({});
   const [modelThinkingLevelMaps, setModelThinkingLevelMaps] = useState<Record<string, Record<string, string | null>>>({});
   const [modelRoles, setModelRoles] = useState<ModelRoleAssignment[]>([]);
@@ -2120,6 +2122,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     setModelNames(d.models);
     setModelError(d.modelError ?? null);
     setModelScopeWarnings(d.modelScopeWarnings ?? []);
+    setModelScopeConfigured(d.scoped ?? false);
     setModelThinkingLevels(d.thinkingLevels ?? {});
     setModelThinkingLevelMaps(d.thinkingLevelMaps ?? {});
     setModelRoles(d.roles ?? []);
@@ -2827,7 +2830,7 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   return {
     // State
     data, loading, error, activeLeafId, messages, entryIds, streamState,
-    agentRunning, modelNames, modelList, modelError, modelScopeWarnings, modelThinkingLevels, modelThinkingLevelMaps, modelRoles, newSessionModel, toolPreset, approvalMode, approvalModeChanging, approvalModeError, thinkingLevel, fastModeEnabled, fastModeAvailable,
+    agentRunning, modelNames, modelList, modelError, modelScopeWarnings, modelScopeConfigured, modelThinkingLevels, modelThinkingLevelMaps, modelRoles, newSessionModel, toolPreset, approvalMode, approvalModeChanging, approvalModeError, thinkingLevel, fastModeEnabled, fastModeAvailable,
     retryInfo, contextUsage, systemPrompt, forkingEntryId,
     isCompacting, compactError, compactResult, compactSource, currentModel, displayModel, modelSwitching, sessionStats,
     slashCommands, slashCommandsLoading, queuedMessages, subagents,

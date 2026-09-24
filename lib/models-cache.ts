@@ -13,6 +13,8 @@ export interface ModelsData {
   thinkingLevelMaps: Record<string, Record<string, string | null>>;
   /** `provider/modelId` → thinking level pinned by an `enabledModels` `:level` suffix. */
   thinkingLevelPins: Record<string, string>;
+  /** Whether `enabledModels` has at least one non-empty pattern. */
+  scoped?: boolean;
   /** omp's model roles (default/smol/slow/plan/commit/…) with their assignments. */
   roles: ModelRoleAssignment[];
   modelError?: string;

@@ -257,7 +257,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
 
   const {
     data: sessionData, loading, error, activeLeafId, messages, entryIds, streamState,
-    agentRunning, bashRunning, pendingBash, modelNames, modelList, modelError, modelScopeWarnings, modelThinkingLevels, modelThinkingLevelMaps, modelRoles, toolPreset, approvalMode, approvalModeChanging, approvalModeError, thinkingLevel, fastModeEnabled, fastModeAvailable,
+    agentRunning, bashRunning, pendingBash, modelNames, modelList, modelError, modelScopeWarnings, modelScopeConfigured, modelThinkingLevels, modelThinkingLevelMaps, modelRoles, toolPreset, approvalMode, approvalModeChanging, approvalModeError, thinkingLevel, fastModeEnabled, fastModeAvailable,
     retryInfo, contextUsage, forkingEntryId,
     isCompacting, compactError, compactResult, compactSource, displayModel: displayModelValue, modelSwitching, sessionStats,
     slashCommands, slashCommandsLoading, queuedMessages, subagents,
@@ -565,6 +565,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
       modelList={modelList}
       modelError={modelError}
       modelScopeWarnings={modelScopeWarnings}
+      modelScopeConfigured={modelScopeConfigured}
       onModelChange={handleModelChange}
       modelRoles={modelRoles}
       onRoleModelChange={handleRoleModelChange}
