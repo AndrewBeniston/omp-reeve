@@ -2429,6 +2429,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                   </button>
                   {modelDropdownOpen && modelDropdownRect && (() => {
                     const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+                    const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+                    // Align the popup's end edge with the chip's end edge, as the
+                    // reference does, and keep it inside the window.
+                    const popupWidth = 260;
+                    const left = Math.max(8, Math.min(modelDropdownRect.left + modelDropdownRect.width - popupWidth, viewportWidth - popupWidth - 8));
                     const bottom = viewportHeight - modelDropdownRect.top + 6;
                     const availableHeight = modelDropdownRect.top - 8;
                     const maxHeight = modelSubmenu === "model"
@@ -2436,7 +2441,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                       : Math.max(120, Math.min(availableHeight, viewportHeight * 0.6));
                     return (
                       <ComposerFloatingGeometry
-                        left={modelDropdownRect.left}
+                        left={left}
                         bottom={bottom}
                         maxHeight={maxHeight}
                         isMobile={isMobile}
