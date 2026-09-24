@@ -8,6 +8,7 @@ const { GoalSetDialog } = await jiti.import("./GoalSetDialog.tsx");
 const { I18nProvider } = await jiti.import("../../hooks/useI18n.tsx");
 const h = React.createElement;
 const existingGoal = { id: "first", objective: "Old work", status: "active", tokensUsed: 12, timeUsedSeconds: 4, createdAt: 1000, updatedAt: 1000 };
+const pausedGoal = { ...existingGoal, status: "paused" };
 
 function dialog(props) {
   return h(I18nProvider, null, h(GoalSetDialog, { onClose() {}, onSubmit: async () => {}, ...props }));
@@ -110,6 +111,17 @@ test("an existing Goal requires explicit replacement confirmation", async () => 
     await click(root.querySelector('button[type="button"][data-action="confirm-replace"]'));
     await settle();
     assert.deepEqual(submissions, [[{ objective: "New work" }, "replace"]]);
+  } finally { await view.unmount(); }
+});
+
+test("a paused Goal cannot be replaced from the dialog", async () => {
+  const submissions = [];
+  const { view, root, objective } = await open({ existingGoal: pausedGoal, onSubmit: async (...args) => submissions.push(args) });
+  try {
+    await typeInto(objective, "New work");
+    await React.act(async () => { root.querySelector('form').dispatchEvent(new DomEvent('submit', { bubbles: true, cancelable: true })); });
+    assert.equal(submissions.length, 0);
+    assert.match(root.textContent, /Resume this Goal before replacing it/);
   } finally { await view.unmount(); }
 });
 

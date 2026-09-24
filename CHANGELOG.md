@@ -37,6 +37,7 @@ the What's New dialog adds a second page that invites support.
 - The fork action on user messages now opens a destination dialog to fork into the current workspace, same worktree, or a new worktree.
 - The queue persists failed message sends with safe error summaries, reload and reconnect reconciliation, and a Retry command.
 ### Fixed
+- Goal reads from saved Sessions no longer start an AgentSession or change the saved file. Invalid saved Goals can now be cleared. Paused Goals cannot be replaced until they resume.
 - Strip ANSI colour codes from extension and notice text in the transcript.
 - Session history loads 50 more messages near the top and keeps the reading position after each page.
 - Assistant Markdown images now show loading and failure states, and inline videos use native playback controls.

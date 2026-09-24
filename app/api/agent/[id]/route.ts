@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { SessionManager } from "@oh-my-pi/pi-coding-agent";
 import { resolveSessionPath } from "@/lib/session-reader";
 import { startRpcSession, getRpcSession } from "@/lib/rpc-manager";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 import { AttachmentPathError } from "@/lib/attachment-paths";
 import { UploadError } from "@/lib/upload-store";
-import { GoalApiError } from "@/lib/goal-command";
+import { GoalApiError, readPersistedGoalState } from "@/lib/goal-command";
+import type { GoalCommandResult } from "@/lib/omp-types";
 
 // POST /api/agent/[id] - Send a command to an existing session
 export async function POST(
@@ -75,11 +77,25 @@ export async function GET(
   try {
     const session = getRpcSession(id);
     if (!session || !session.isAlive()) {
-      return NextResponse.json({ running: false });
+      const filePath = await resolveSessionPath(id);
+      if (!filePath) return NextResponse.json({ running: false, goal: null, goalState: null });
+      const sessionManager = await SessionManager.open(filePath);
+      try {
+        const goal = readPersistedGoalState(sessionManager);
+        return NextResponse.json({ running: false, goal: goal.goal, goalState: goal.state });
+      } catch (error) {
+        if (error instanceof GoalApiError && error.code === "goal_invalid_snapshot") {
+          return NextResponse.json({ running: false, goal: null, goalState: null });
+        }
+        throw error;
+      }
     }
 
-    const state = await session.send({ type: "get_state" });
-    return NextResponse.json({ running: true, state });
+    const state = await session.send({ type: "get_state" }) as {
+      goal?: GoalCommandResult["goal"];
+      goalState?: GoalCommandResult["state"];
+    };
+    return NextResponse.json({ running: true, state, goal: state.goal ?? null, goalState: state.goalState ?? null });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }

@@ -9,7 +9,7 @@ const root = await mkdtemp(join(tmpdir(), "reeve-goal-route-"));
 process.env.PI_CODING_AGENT_DIR = join(root, "agent");
 const jiti = createJiti(import.meta.url, { tsconfigPaths: true });
 const { getRpcSession, startRpcSession } = await jiti.import("../../../../lib/rpc-manager.ts");
-const { POST } = await jiti.import("./route.ts");
+const { GET, POST } = await jiti.import("./route.ts");
 
 async function request(id, body) {
   const response = await POST(new Request(`http://localhost:30141/api/agent/${id}`, {
@@ -33,6 +33,26 @@ test("a disposable Session has no Goal before creation", { timeout: 60_000 }, as
   } finally {
     session.destroy();
   }
+});
+
+test("a cold Goal read uses the session file without starting an AgentSession", { timeout: 60_000 }, async () => {
+  const cwd = await mkdtemp(join(root, "project-"));
+  const { session, realSessionId } = await startRpcSession("new", "", cwd);
+  const created = await request(realSessionId, { type: "goal", op: "create", objective: "Read from disk" });
+  await session.inner.sessionManager.flush();
+  const sessionFile = session.inner.sessionFile;
+  await session.shutdown();
+
+  const response = await GET(new Request(`http://localhost:30141/api/agent/${realSessionId}`, {
+    headers: { host: "localhost:30141" },
+  }), { params: Promise.resolve({ id: realSessionId }) });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.running, false);
+  assert.equal(body.goal.id, created.body.data.goal.id);
+  assert.equal(body.goalState.enabled, true);
+  assert.equal(getRpcSession(realSessionId), undefined);
+  assert.ok(sessionFile);
 });
 
 test("creation returns OMP's Goal and persists its optional budget", { timeout: 60_000 }, async () => {
@@ -188,7 +208,7 @@ test("a cold Wrapper pauses a persisted active Goal once", { timeout: 60_000 }, 
   }
 });
 
-test("a malformed saved Goal returns a field error while ordinary Session commands remain available", { timeout: 60_000 }, async () => {
+test("an invalid saved Goal can be read and cleared while ordinary Session commands remain available", { timeout: 60_000 }, async () => {
   const cwd = await mkdtemp(join(root, "project-"));
   const { session, realSessionId } = await startRpcSession("new", "", cwd);
   session.inner.sessionManager.appendModeChange("goal", {
@@ -204,13 +224,16 @@ test("a malformed saved Goal returns a field error while ordinary Session comman
   const { session: cold } = await startRpcSession(realSessionId, sessionFile, undefined);
   try {
     const goal = await request(realSessionId, { type: "goal", op: "get" });
-    assert.equal(goal.status, 422);
-    assert.equal(goal.body.code, "goal_invalid_snapshot");
-    assert.match(goal.body.error, /tokenBudget/);
+    assert.equal(goal.status, 200);
+    assert.deepEqual(goal.body.data, { goal: null, state: null });
+    const cleared = await request(realSessionId, { type: "goal", op: "drop" });
+    assert.equal(cleared.status, 200);
+    assert.deepEqual(cleared.body.data, { goal: null, state: null });
+    assert.equal(cold.inner.sessionManager.buildSessionContext().mode, "none");
     const renamed = await request(realSessionId, { type: "set_session_name", name: "Still usable" });
     assert.equal(renamed.status, 200);
     assert.equal(cold.inner.sessionManager.getSessionName(), "Still usable");
-    assert.equal(cold.inner.sessionManager.buildSessionContext().mode, "goal");
+    assert.equal(cold.inner.sessionManager.buildSessionContext().mode, "none");
   } finally {
     cold.destroy();
   }
