@@ -67,6 +67,7 @@ import type { ApprovalMode } from "./approval-mode";
 import type { SlashCommandInfo } from "./omp-types";
 import type { AgentSessionLike, ExtensionUiContextLike, ToolInfo } from "./omp-types";
 import { GoalApiError, restoreGoalFromSession } from "./goal-command";
+import { GoalContinuationCoordinator } from "./goal-continuation";
 import { GoalToolCoordination } from "./goal-tool-coordination";
 import type {
   ExtensionAskDialogResult,
@@ -352,6 +353,7 @@ export class AgentSessionWrapper {
   private promptRunning = false;
   private goalCommandTail: Promise<void> = Promise.resolve();
   private readonly goalTools: GoalToolCoordination;
+  private readonly goalContinuation: GoalContinuationCoordinator;
   // Set while the handoff RPC is in flight so state polls and the running-set
   // stay honest during the long oneshot generation + session transition.
   private handoffRunning = false;
@@ -400,6 +402,12 @@ export class AgentSessionWrapper {
   ) {
     this.openedSessionId = inner.sessionId;
     this.goalTools = new GoalToolCoordination(inner);
+    this.goalContinuation = new GoalContinuationCoordinator(inner, {
+      isPromptRunning: () => this.promptRunning,
+      onPromptError: (error) => {
+        console.error("[reeve] Goal continuation failed:", error instanceof Error ? error.message : error);
+      },
+    });
     this.sessionEventChannels = [...new Set(eventSessionIds)].map(acquireSessionEventChannel);
     this.queuedMessageEditor = new QueuedMessageEditor(this.inner.agent as QueueAgent);
     this.collaboration = new CollaborationAdapter({
@@ -603,6 +611,7 @@ export class AgentSessionWrapper {
     }) ?? null;
     this.unsubscribe = this.inner.subscribe((event: AgentEvent) => {
       this.goalTools.observe(event);
+      this.goalContinuation.observe(event);
       if (event.type === "agent_end") {
         invalidateSessionListCache();
       }
@@ -1231,7 +1240,13 @@ export class AgentSessionWrapper {
         return result;
       }
 
+      case "goal_continuation_ready": {
+        this.goalContinuation.setBrowserReady(command.ready === true);
+        return null;
+      }
+
       case "prompt": {
+        this.goalContinuation.cancel();
         if (this.inner.isBashRunning) {
           throw new Error("Cannot send a prompt while a shell command is running");
         }
@@ -1315,6 +1330,7 @@ export class AgentSessionWrapper {
       }
 
       case "abort":
+        this.goalContinuation.cancel();
         void this.noteTurn({ type: "abort_requested" });
         this.queuedMessageEditor.parkAllAsFollowUp();
         await this.withFinalRunningNotification(() => this.inner.abort({
@@ -1349,6 +1365,7 @@ export class AgentSessionWrapper {
             : null,
           goal: goalState?.goal ?? null,
           goalState,
+          goalContinuationPending: this.goalContinuation.pending,
           systemPrompt: [this.inner.agent.state?.systemPrompt ?? ""].flat().join("\n"),
           thinkingLevel: this.inner.configuredThinkingLevel() ?? this.inner.agent.state?.thinkingLevel ?? "off",
           ...fastModeState(this.inner, model),
@@ -1829,6 +1846,7 @@ export class AgentSessionWrapper {
 
   destroy(): void {
     if (!this._alive) return;
+    this.goalContinuation.dispose();
     this.beginSessionDisposal();
     this._alive = false;
     void closeSpeechSession(this.openedSessionId).catch((error) => console.error("[reeve] speech cleanup failed:", error));
