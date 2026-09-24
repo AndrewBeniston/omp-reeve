@@ -1,5 +1,6 @@
 /** The OMP-backed model and thinking choices used by the Composer. */
 import type { ModelRoleAssignment } from "../api-types";
+import { modelDisplayName } from "../model-display-name";
 
 export type ModelSubmenu = "model" | "effort" | "speed" | "advanced";
 
@@ -47,7 +48,8 @@ export function previousModelNameForWarning(
   registry: readonly Pick<RegistryModel, "provider" | "id" | "name">[],
 ): string | null {
   if (!hasTurn || !current || current.provider === next.provider && current.modelId === next.modelId) return null;
-  return registry.find((entry) => entry.provider === current.provider && entry.id === current.modelId)?.name || current.modelId;
+  const previous = registry.find((entry) => entry.provider === current.provider && entry.id === current.modelId);
+  return modelDisplayName({ id: current.modelId, name: previous?.name });
 }
 
 export interface RegistryModel {
@@ -103,9 +105,17 @@ function selectionId(model: ModelRef, effort: ReferenceEffort): string {
 }
 
 function routeLabel(provider: string, label: (key: string) => string): string {
-  if (provider === "openai") return label("chat.openaiApiRoute");
-  if (provider === "openai-codex") return label("chat.chatgptSubscriptionRoute");
-  return provider;
+  const labelKeys: Record<string, string> = {
+    anthropic: "chat.anthropicRoute",
+    google: "chat.googleRoute",
+    "google-antigravity": "chat.googleAntigravityRoute",
+    openai: "chat.openaiApiRoute",
+    "openai-codex": "chat.chatgptSubscriptionRoute",
+    "opencode-go": "chat.opencodeGoRoute",
+  };
+  const key = labelKeys[provider];
+  if (key) return label(key);
+  return provider.split(/[-_]/).filter(Boolean).map((part) => `${part[0]?.toLocaleUpperCase() ?? ""}${part.slice(1)}`).join(" ");
 }
 
 function sameModel(a: ModelRef, b: ModelRef): boolean {
@@ -132,7 +142,7 @@ export interface ModelOption extends ModelRef {
 export function filterModelOptions(options: ModelOption[], query: string): ModelOption[] {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) return options;
-  return options.filter((option) => `${option.name} ${option.modelId}`.toLocaleLowerCase().includes(normalizedQuery));
+  return options.filter((option) => `${option.name} ${option.modelId} ${option.provider}`.toLocaleLowerCase().includes(normalizedQuery));
 }
 
 /** Build the selector without React, the DOM, or an OMP runtime. */
@@ -145,7 +155,7 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
   for (const model of input.registry) {
     const key = modelKey({ provider: model.provider, modelId: model.id });
     const entry = registry.get(key) ?? {
-      option: { provider: model.provider, modelId: model.id, name: model.name },
+      option: { provider: model.provider, modelId: model.id, name: modelDisplayName(model) },
       levels: new Set<string>(),
     };
     for (const level of model.thinkingLevels) entry.levels.add(level);
@@ -161,7 +171,7 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
       const levels = new Set<string>();
       if (model.thinkingLevel) levels.add(model.thinkingLevel);
       registry.set(key, {
-        option: { provider: model.provider, modelId: model.modelId, name: model.name ?? model.modelId },
+        option: { provider: model.provider, modelId: model.modelId, name: modelDisplayName({ id: model.modelId, name: model.name }) },
         levels,
       });
     }
@@ -173,7 +183,7 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
         const levels = new Set<string>();
         if (input.currentThinkingLevel) levels.add(input.currentThinkingLevel);
         registry.set(currentKey, {
-          option: { provider: input.currentModel.provider, modelId: input.currentModel.modelId, name: input.currentModel.modelId },
+          option: { provider: input.currentModel.provider, modelId: input.currentModel.modelId, name: modelDisplayName({ id: input.currentModel.modelId }) },
           levels,
         });
       }
@@ -185,19 +195,17 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
       || MODEL_COLLATOR.compare(a.provider, b.provider)
       || MODEL_COLLATOR.compare(a.modelId, b.modelId)
   ));
-  const models = input.modelScopeConfigured === false
-    ? [...input.roles.flatMap((role) => role.hidden || !role.resolved ? [] : [role.resolved]), ...(currentModel ? [currentModel] : [])]
-      .reduce<ModelOption[]>((unique, model) => {
-        const key = modelKey(model);
-        if (unique.some((candidate) => modelKey(candidate) === key)) return unique;
-        unique.push(registry.get(key)?.option ?? {
-          provider: model.provider,
-          modelId: model.modelId,
-          name: ("name" in model && typeof model.name === "string" ? model.name : undefined) ?? model.modelId,
-        });
-        return unique;
-      }, [])
-    : allModels;
+  const duplicateNames = new Map<string, number>();
+  for (const option of allModels) {
+    const key = `${option.provider}\u0000${option.name.toLocaleLowerCase()}`;
+    duplicateNames.set(key, (duplicateNames.get(key) ?? 0) + 1);
+  }
+  const models = allModels.map((option) => ({
+    ...option,
+    name: (duplicateNames.get(`${option.provider}\u0000${option.name.toLocaleLowerCase()}`) ?? 0) > 1
+      ? `${option.name} (${option.modelId})`
+      : option.name,
+  }));
   const filteredModels = filterModelOptions(models, input.filter ?? "");
   const modelsByProvider: { provider: string; label: string; options: ModelOption[] }[] = [];
   for (const option of filteredModels) {
@@ -205,6 +213,7 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
     if (group) group.options.push(option);
     else modelsByProvider.push({ provider: option.provider, label: routeLabel(option.provider, label), options: [option] });
   }
+  modelsByProvider.sort((a, b) => MODEL_COLLATOR.compare(a.provider, b.provider));
 
   const selections: PowerSelection[] = [];
   for (const { option, levels } of registry.values()) {
@@ -231,14 +240,7 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
     : pin ?? (currentModel && defaultModel && sameModel(currentModel, defaultModel) ? defaultRole?.resolved?.thinkingLevel : undefined);
   const currentStep = steps.find((step) => step.thinkingLevel === currentLevel);
   const selectionIds = new Set(selections.map((selection) => selection.id));
-  const modelRowsByProvider = (input.modelScopeConfigured === false
-    ? filteredModels.map((option) => ({
-      provider: option.provider,
-      label: routeLabel(option.provider, label),
-      options: [option],
-    }))
-    : modelsByProvider
-  ).map((group) => ({
+  const modelRowsByProvider = modelsByProvider.map((group) => ({
     ...group,
     options: group.options.map((option) => {
       const matchingId = currentStep && selectionId(option, currentStep.effort);
@@ -246,7 +248,7 @@ export function buildModelSelectorState(input: ModelSelectorInput, label: (key: 
       return {
         ...option,
         selectionId: optionSelectionId,
-        selected: Boolean(optionSelectionId && optionSelectionId === currentStep?.id),
+        selected: Boolean(currentModel && sameModel(option, currentModel)),
       };
     }),
   }));
