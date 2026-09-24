@@ -1034,15 +1034,16 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
     });
   }, []);
   const goalRetryLabel = translate("workspace.retry");
+  const goalLoadError = translate("composer.threadGoal.editLoadError");
   useEffect(() => {
     if (goalState.status !== "error" || !goalState.error) return;
     addNotice({
-      message: goalState.error,
+      message: goalLoadError,
       type: "error",
       actionLabel: goalRetryLabel,
       onAction: () => { void goalState.retry(); },
     });
-  }, [addNotice, goalRetryLabel, goalState.error, goalState.retry, goalState.status]);
+  }, [addNotice, goalLoadError, goalRetryLabel, goalState.error, goalState.retry, goalState.status]);
   const appendCommandOutput = useCallback((text: string) => {
     const content = stripAnsi(text).trim();
     const message: CustomMessage = {

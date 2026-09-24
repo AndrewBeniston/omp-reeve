@@ -54,8 +54,8 @@ export function GoalEditorDialog({ goal, onSave, onClose, error }: GoalEditorDia
     try {
       if (await onSave(trimmedObjective, off ? null : Number(budget.trim()))) onClose();
       else setSubmitError(error ?? t("composer.threadGoal.editSaveError"));
-    } catch (cause) {
-      setSubmitError(`${t("composer.threadGoal.editSaveError")}: ${cause instanceof Error ? cause.message : String(cause)}`);
+    } catch {
+      setSubmitError(t("composer.threadGoal.editSaveError"));
     } finally {
       busyRef.current = false;
       setBusy(false);

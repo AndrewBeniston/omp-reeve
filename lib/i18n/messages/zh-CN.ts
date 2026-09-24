@@ -53,6 +53,7 @@ export const zhCNLocale: LocalePlugin = {
     "composer.threadGoal.editor.updatedJustNow": "刚刚更新",
     "composer.threadGoal.editor.updatedMinutesAgo": "更新于 {minutes} 分钟前",
     "composer.threadGoal.editor.revert": "恢复",
+    "composer.threadGoal.editLoadError": "加载目标内容失败",
     "composer.threadGoal.editSaveError": "保存目标失败",
     "composer.threadGoal.budgetDialog.open": "编辑令牌预算",
     "composer.threadGoal.budgetDialog.title": "编辑令牌预算",

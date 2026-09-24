@@ -28,7 +28,7 @@ export function GoalTab({ goal, onSave, onClose }: GoalTabProps) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const versionRef = useRef({ id: goal.id, updatedAt: goal.updatedAt, objective: goal.objective });
-  const pendingSaveRef = useRef<{ updatedAt: number; objective: string } | null>(null);
+  const pendingSaveRef = useRef<{ objective: string } | null>(null);
 
   useEffect(() => {
     if (goal.status === "complete") {
@@ -39,13 +39,12 @@ export function GoalTab({ goal, onSave, onClose }: GoalTabProps) {
       onClose();
       return;
     }
-    if (goal.updatedAt !== versionRef.current.updatedAt) {
-      if (pendingSaveRef.current && goal.updatedAt < pendingSaveRef.current.updatedAt) return;
-      const expectedObjective = pendingSaveRef.current?.objective ?? versionRef.current.objective;
-      if (goal.objective !== expectedObjective) {
-        onClose();
-        return;
-      }
+    const objectiveChanged = goal.objective !== versionRef.current.objective;
+    if (objectiveChanged && goal.objective !== pendingSaveRef.current?.objective) {
+      onClose();
+      return;
+    }
+    if (goal.updatedAt !== versionRef.current.updatedAt || objectiveChanged) {
       versionRef.current = { id: goal.id, updatedAt: goal.updatedAt, objective: goal.objective };
       pendingSaveRef.current = null;
       setSavedGoal(goal);
@@ -62,20 +61,25 @@ export function GoalTab({ goal, onSave, onClose }: GoalTabProps) {
 
   async function save() {
     if (busy || !changed || !draft.trim()) return;
+    const objective = draft.trim();
+    const pendingSave = { objective };
+    pendingSaveRef.current = pendingSave;
     setBusy(true);
     setError(null);
     try {
-      if (!await onSave(draft.trim(), savedGoal.tokenBudget ?? null)) {
+      if (!await onSave(objective, savedGoal.tokenBudget ?? null)) {
+        if (pendingSaveRef.current === pendingSave) pendingSaveRef.current = null;
         setError(t("composer.threadGoal.editSaveError"));
         return;
       }
-      const next = { ...savedGoal, objective: draft.trim(), updatedAt: Date.now() };
-      pendingSaveRef.current = { updatedAt: next.updatedAt, objective: next.objective };
-      setSavedGoal(next);
-      setDraft(next.objective);
+      setSavedGoal((current) => current.objective === objective
+        ? current
+        : { ...current, objective, updatedAt: Date.now() });
+      setDraft(objective);
       setNow(Date.now());
-    } catch (cause) {
-      setError(`${t("composer.threadGoal.editSaveError")}: ${cause instanceof Error ? cause.message : String(cause)}`);
+    } catch {
+      if (pendingSaveRef.current === pendingSave) pendingSaveRef.current = null;
+      setError(t("composer.threadGoal.editSaveError"));
     } finally {
       setBusy(false);
     }

@@ -786,7 +786,9 @@ test("an initial Goal read failure exposes a retry action in the Session", async
   function Harness() {
     client = useAgentSession({
       session: { id: "session-one", cwd: "/tmp" }, newSessionCwd: null,
-      translate: (key) => key === "workspace.retry" ? "Retry" : key,
+      translate: (key) => key === "workspace.retry" ? "Retry"
+        : key === "composer.threadGoal.editLoadError" ? "Failed to load goal objective"
+          : key,
     });
     return h("div");
   }
@@ -795,6 +797,7 @@ test("an initial Goal read failure exposes a retry action in the Session", async
     assert.equal(client.goalState.status, "error");
     const retryNotice = client.notices.find((notice) => notice.actionLabel === "Retry");
     assert.ok(retryNotice);
+    assert.equal(retryNotice.message, "Failed to load goal objective");
     await React.act(async () => { retryNotice.onAction(); });
     assert.equal(goalReads, 2);
     assert.equal(client.goalState.status, "ready");
