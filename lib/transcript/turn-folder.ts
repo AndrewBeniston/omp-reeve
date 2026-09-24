@@ -50,8 +50,27 @@ export interface Turn<Message extends { role: string }> extends TurnClock {
   items: TurnItem<Message>[];
   phase: TurnPhase;
   settled: boolean;
-  /** Historical auto-review denials in this Turn. OMP does not supply this yet. */
+  /** Approval denials recorded in this Turn. */
   deniedActionCount: number;
+}
+
+const APPROVAL_DENIAL_PREFIXES = [
+  "Tool call denied by user: ",
+  "Tool call rejected by user",
+] as const;
+
+function isApprovalDenial<Message extends { role: string; content?: unknown; isError?: boolean }>(
+  message: Message,
+): boolean {
+  if (message.role !== "toolResult" || message.isError !== true) return false;
+  const content = message.content;
+  if (typeof content === "string") return APPROVAL_DENIAL_PREFIXES.some(prefix => content.startsWith(prefix));
+  if (!Array.isArray(content)) return false;
+  return content.some(block => (
+    block?.type === "text"
+    && typeof block.text === "string"
+    && APPROVAL_DENIAL_PREFIXES.some(prefix => block.text.startsWith(prefix))
+  ));
 }
 
 function markPrework<Message extends { role: string }>(turn: Turn<Message>): void {
@@ -201,6 +220,7 @@ export function foldTurns<Message extends { role: string; steering?: boolean; co
     if (record.type === "message_end" && provisional?.message.role === message.role) {
       provisional.message = message;
       if (activeTurn) foldAssistantContent(activeTurn, provisional, seenTypes);
+      if (activeTurn && isApprovalDenial(message)) activeTurn.deniedActionCount += 1;
       provisional = undefined;
       continue;
     }
@@ -240,6 +260,9 @@ export function foldTurns<Message extends { role: string; steering?: boolean; co
       ? { message, entryId: record.id }
       : { message };
     activeTurn.items.push(item);
+    if ((record.type === "message" || record.type === "message_end") && isApprovalDenial(message)) {
+      activeTurn.deniedActionCount += 1;
+    }
     foldAssistantContent(activeTurn, item, seenTypes);
     if (record.type === "message") {
       activeTurn.settled = true;
