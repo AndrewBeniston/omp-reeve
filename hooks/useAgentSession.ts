@@ -21,6 +21,8 @@ import type { AgentControlReply, AgentControlRequestEvent } from "@/lib/agent-co
 import { normalizeToolCalls } from "@/lib/normalize";
 import { stripAnsi } from "@/lib/ansi";
 import { isPromptRejectedError, sendAgentCommand } from "@/lib/agent-client";
+import { isGoalContinuationBrowserReady } from "@/lib/goal-continuation";
+import { subscribeDraft } from "@/lib/draft-store";
 import { validateAgentImages } from "@/lib/image-attachments";
 import { useGoalState, type GoalUpdateEvent } from "./useGoalState";
 import { getToolNamesForPreset, type ToolEntry } from "@/lib/tool-presets";
@@ -1411,6 +1413,22 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
   useEffect(() => {
     agentRunningRef.current = agentRunning;
   }, [agentRunning]);
+
+  useEffect(() => {
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+    const report = (hasText: boolean, hasAttachments: boolean) => {
+      void sendAgentCommand(sid, {
+        type: "goal_continuation_ready",
+        ready: isGoalContinuationBrowserReady({ hasText, hasAttachments }, true),
+      }).catch(() => {});
+    };
+    const unsubscribeDraft = subscribeDraft(sid, ({ hasText, hasAttachments }) => report(hasText, hasAttachments));
+    return () => {
+      unsubscribeDraft();
+      void sendAgentCommand(sid, { type: "goal_continuation_ready", ready: false }).catch(() => {});
+    };
+  }, [goalSessionId]);
 
   const handleAgentEvent = useCallback((event: AgentEvent) => {
     switch (event.type) {
