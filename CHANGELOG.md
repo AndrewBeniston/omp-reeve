@@ -11,6 +11,8 @@ the What's New dialog adds a second page that invites support.
 
 ### Changed
 
+- Give transcript dividers a 44px mobile touch target.
+
 - The transcript no longer shows hidden extension messages or extension widgets such as the usage line.
 
 ### Added
