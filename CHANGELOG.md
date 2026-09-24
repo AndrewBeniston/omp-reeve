@@ -11,6 +11,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Changed
 
+- Active transcript turns now show a live Working Divider with an elapsed clock.
 - The transcript no longer shows hidden extension messages or extension widgets such as the usage line.
 
 ### Added

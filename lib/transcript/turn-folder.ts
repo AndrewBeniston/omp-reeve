@@ -242,7 +242,9 @@ export function foldTurns<Message extends { role: string; steering?: boolean; co
           settled: record.type === "message",
           deniedActionCount: 0,
           status: startsLiveRun ? "working" : "idle",
-          startedAt: startsLiveRun ? pendingStartAt : timestampToMs(record.timestamp),
+          startedAt: startsLiveRun
+            ? pendingStartAt ?? timestampToMs(record.timestamp)
+            : timestampToMs(record.timestamp),
         };
         turns.push(activeTurn);
         if (startsLiveRun) {
@@ -264,12 +266,12 @@ export function foldTurns<Message extends { role: string; steering?: boolean; co
       activeTurn.deniedActionCount += 1;
     }
     foldAssistantContent(activeTurn, item, seenTypes);
-    if (record.type === "message") {
+    if (record.type === "message" && !runActive) {
       activeTurn.settled = true;
       if (activeTurn.status !== "stopped") {
         activeTurn.completedAt = timestampToMs(record.timestamp) ?? activeTurn.completedAt;
       }
-      if (!runActive && message.role === "assistant" && activeTurn.status !== "stopped") {
+      if (message.role === "assistant" && activeTurn.status !== "stopped") {
         activeTurn.status = "worked";
       }
     }
