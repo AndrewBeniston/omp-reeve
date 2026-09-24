@@ -13,6 +13,11 @@ export interface ComposerSessionSource {
   context?: string;
 }
 
+export interface ComposerTranscriptMessage {
+  role?: string;
+  content?: unknown;
+}
+
 export interface ComposerTabSource {
   id: string;
   label: string;
@@ -324,6 +329,7 @@ function buildSessionSuggestion(session: ComposerSessionSource): ComposerSuggest
     label: session.label,
     raw: `@session:${session.id}\n\nPrior work context:\n${context}`,
     detail: session.detail,
+    targetId: session.id,
     searchTerms: [session.label, session.detail ?? "", session.id],
   };
 }
@@ -360,6 +366,8 @@ function buildMcpSuggestion(server: ComposerMcpSource): ComposerSuggestion {
 
 export function buildAtMentionSections({
   query,
+  fileQuery = query,
+  connectedQuery = query,
   files,
   skills,
   plugins,
@@ -370,6 +378,10 @@ export function buildAtMentionSections({
   mcpServers = [],
 }: {
   query: string;
+  /** Files and prior Sessions use the 100 ms query lane. */
+  fileQuery?: string;
+  /** Skills, Plugins, Agents, Tabs, and MCP use the 300 ms query lane. */
+  connectedQuery?: string;
   files: FileIndexEntry[];
   skills: SkillInfo[];
   plugins: PluginPackageInfo[];
@@ -394,22 +406,24 @@ export function buildAtMentionSections({
   const liveAgentCandidates = subagents.map(buildLiveAgentSuggestion);
   const normalizedQuery = query.trim().toLowerCase();
   if (normalizedQuery) {
-    const candidates = [...mcpCandidates, ...pluginCandidates, ...agentCandidates, ...liveAgentCandidates, ...tabCandidates, ...skillCandidates, ...sessionCandidates, ...fileCandidates];
-    const ranked = candidates
-      .map((suggestion, index) => ({
-        suggestion,
-        index,
-        score: suggestionScore(suggestion, normalizedQuery),
-        priority: suggestion.label.toLowerCase().startsWith(normalizedQuery)
-          ? suggestion.group === "mcp" ? 0 : suggestion.group === "plugins" ? 1 : suggestion.group === "files" ? 6 : 2
-          : suggestion.group === "mcp" ? 0 : suggestion.group === "files" ? 6 : 2,
-      }))
-      .filter(({ score }) => score > 0)
-      .sort((left, right) => right.score - left.score
-        || left.priority - right.priority
-        || left.index - right.index)
-      .slice(0, 8)
-      .map(({ suggestion }) => suggestion);
+    const fileLane = [...sessionCandidates, ...fileCandidates];
+    const connectedLane = [
+      ...mcpCandidates,
+      ...pluginCandidates,
+      ...agentCandidates,
+      ...liveAgentCandidates,
+      ...tabCandidates,
+      ...skillCandidates,
+    ];
+    const ranked = [
+      ...(fileQuery.trim() ? rankSuggestions(fileLane, fileQuery, 8) : []),
+      ...(connectedQuery.trim() ? rankSuggestions(connectedLane, connectedQuery, 8) : []),
+    ]
+      .sort((left, right) => suggestionScore(right, normalizedQuery) - suggestionScore(left, normalizedQuery)
+        || (left.group === "mcp" ? -1 : right.group === "mcp" ? 1 : 0)
+        || (left.group === "plugins" ? -1 : right.group === "plugins" ? 1 : 0)
+        || (left.group === "files" ? 1 : right.group === "files" ? -1 : 0))
+      .slice(0, 8);
     return ranked.length > 0
       ? [{ id: "commands", title: "Results", showTitle: false, items: ranked }]
       : [];
@@ -433,6 +447,46 @@ export function buildAtMentionSections({
     { id: "files" as const, items: fileItems },
   ].filter((section) => section.items.length > 0);
   return sections;
+}
+
+export function formatSessionTranscriptContext(messages: ComposerTranscriptMessage[]): string {
+  const text = messages.map((message) => {
+    if (typeof message.content === "string") return message.content;
+    if (!Array.isArray(message.content)) return "";
+    return message.content
+      .filter((block): block is { type: string; text: string } => (
+        typeof block === "object"
+        && block !== null
+        && (block as { type?: unknown }).type === "text"
+        && typeof (block as { text?: unknown }).text === "string"
+      ))
+      .map((block) => block.text)
+      .join("\n");
+  }).filter(Boolean).join("\n\n").trim();
+  return boundedSessionContext(text);
+}
+
+export function rankComposerSessionSources(
+  sessions: ComposerSessionSource[],
+  query: string,
+  limit = 5,
+): ComposerSessionSource[] {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return sessions.slice(0, limit);
+  return sessions
+    .map((session, index) => ({
+      session,
+      index,
+      score: Math.max(
+        scoreTerm(session.label, normalizedQuery),
+        scoreTerm(session.detail ?? "", normalizedQuery),
+        scoreTerm(session.id, normalizedQuery),
+      ),
+    }))
+    .filter(({ score }) => score > 0)
+    .sort((left, right) => right.score - left.score || left.index - right.index)
+    .slice(0, limit)
+    .map(({ session }) => session);
 }
 
 function slashRightLabel(command: SlashCommandInfo, skill?: SkillInfo): string | undefined {
@@ -544,18 +598,26 @@ export function flattenSuggestionSections(sections: ComposerSuggestionSection[])
   return sections.flatMap((section) => section.items);
 }
 
-export function buildComposerAddSections({ commands, skills, plugins, subagents = [] }: {
+export function buildComposerAddSections({ commands, skills, plugins, sessions = [], tabs = [], agents = [], subagents = [], mcpServers = [] }: {
   commands: SlashCommandInfo[];
   skills: SkillInfo[];
   plugins: PluginPackageInfo[];
+  sessions?: ComposerSessionSource[];
+  tabs?: ComposerTabSource[];
+  agents?: ComposerAgentSource[];
   subagents?: SubagentSnapshot[];
+  mcpServers?: ComposerMcpSource[];
 }): ComposerSuggestionSection[] {
   const computer = buildComputerUseSuggestion(plugins);
   const candidates = [
     ...commands.map(command => buildSlashSuggestion(command, skills)),
     ...skills.map(buildSkillSuggestion),
+    ...sessions.map(buildSessionSuggestion),
+    ...tabs.map(buildTabSuggestion),
+    ...agents.map(buildAgentDefinitionSuggestion),
     ...(computer ? [computer] : []),
     ...subagents.map(buildLiveAgentSuggestion),
+    ...mcpServers.map(buildMcpSuggestion),
   ];
   const seen = new Set<string>();
   const items = candidates.filter(item => {
@@ -564,7 +626,7 @@ export function buildComposerAddSections({ commands, skills, plugins, subagents 
     return true;
   });
   const priority = ["/goal", "/plan"];
-  const groups: ComposerSuggestionGroup[] = ["commands", "plugins", "skills", "agents"];
+  const groups: ComposerSuggestionGroup[] = ["mcp", "plugins", "agents", "liveAgents", "tabs", "skills", "sessions", "commands"];
   return groups.map(id => ({
     id,
     items: items.filter(item => item.group === id).sort((left, right) => {
