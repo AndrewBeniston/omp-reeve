@@ -2393,7 +2393,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                     data-state={modelSwitching ? "running" : "idle"}
                     data-streaming={isStreaming ? "true" : "false"}
                     data-mobile={isMobile ? "true" : "false"}
-                    title={modelSwitching ? "Switching model" : modelOptions.length > 0 ? "Change model" : "No available models"}
+                    title={modelSwitching ? "Switching model" : currentName && selector.currentRouteLabel
+                      ? `${selector.currentRouteLabel}, ${currentName}`
+                      : modelOptions.length > 0 ? "Change model" : "No available models"}
                   >
                     {modelSwitching ? (
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className={styles.spinner} aria-hidden="true">

@@ -15,7 +15,8 @@ function dialog(props) {
 
 async function open(props) {
   const view = await mount(dialog(props));
-  const root = view.container.ownerDocument.body;
+  const root = view.container.ownerDocument.body.querySelectorAll('[role="dialog"]').at(-1);
+  assert.ok(root);
   return { view, root, objective: root.querySelector("textarea"), budget: root.querySelector('#goal-budget') };
 }
 

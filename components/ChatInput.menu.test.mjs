@@ -82,7 +82,7 @@ test("the model menu opens on the OMP power steps", async () => {
   await view.unmount();
 });
 
-test("the model menu exposes the stage transition panels", async () => {
+test("the model menu switches between the power and flat model stages", async () => {
   const view = await mountComposer({
     ...modelProps,
     thinkingLevel: "medium",
@@ -92,10 +92,10 @@ test("the model menu exposes the stage transition panels", async () => {
 
   await click(triggerFor(view.container, "Model settings"));
   await settle();
-  const slider = view.container.querySelector("[data-model-power-view]");
-  assert.equal(slider?.getAttribute("data-stage-transition"), "enter");
-  assert.equal(slider?.querySelector("[data-stage-panel='top']")?.getAttribute("data-stage-transition"), "enter");
-  assert.equal(slider?.querySelector("[data-stage-panel='slider']")?.getAttribute("data-stage-transition"), "enter");
+  const power = view.container.querySelector("[data-model-power-view]");
+  assert.ok(power);
+  assert.equal(power.querySelector("[data-stage-panel='top']"), null);
+  assert.equal(power.querySelector("[data-stage-panel='slider']")?.getAttribute("data-stage-transition"), "enter");
 
   await click(view.container.querySelector("[aria-label='Select model']"));
   await settle();
@@ -184,7 +184,7 @@ test("the model control preserves the route when providers share a model name", 
   };
   const view = await mountComposer(props);
   const trigger = triggerFor(view.container, "Model settings");
-  assert.match(textOf(trigger), /ChatGPT subscription.*GPT Example/);
+  assert.match(trigger.getAttribute("title"), /ChatGPT subscription.*GPT Example/);
 
   await click(trigger);
   await settle();
@@ -197,6 +197,8 @@ test("the model control preserves the route when providers share a model name", 
   const subscription = itemsOf(menu).find((item) => item.getAttribute("data-selection-id") === "openai-codex/gpt-example:medium");
   assert.equal(api.getAttribute("aria-checked"), "false");
   assert.equal(subscription.getAttribute("aria-checked"), "true");
+  assert.equal(api.getAttribute("aria-label"), "OpenAI API, GPT Example");
+  assert.equal(subscription.getAttribute("aria-label"), "ChatGPT subscription, GPT Example");
 
   await click(api);
   await settle();
@@ -206,7 +208,7 @@ test("the model control preserves the route when providers share a model name", 
     ...props, model: { provider: "openai", modelId: "gpt-example" },
   })));
   await settle();
-  assert.match(textOf(triggerFor(view.container, "Model settings")), /OpenAI API.*GPT Example/);
+  assert.match(triggerFor(view.container, "Model settings").getAttribute("title"), /OpenAI API.*GPT Example/);
   await view.unmount();
 });
 

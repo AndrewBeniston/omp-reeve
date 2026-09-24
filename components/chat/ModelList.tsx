@@ -59,6 +59,7 @@ export function ModelList({
           <div className={styles.empty}>{t("chat.noAvailableModels")}</div>
         ) : modelRows.map((option) => {
               const selected = option.selected && !defaultRowSelected;
+              const route = modelRowsByProvider.find((group) => group.provider === option.provider)?.label ?? option.provider;
               return (
                 <MenuItem
                   key={`${option.provider}:${option.modelId}`}
@@ -68,6 +69,7 @@ export function ModelList({
                   data-selection-id={option.selectionId}
                   role="menuitemradio"
                   checked={selected}
+                  aria-label={`${route}, ${option.name}`}
                   surface="plain"
                 >
                   <span className={styles.label} title={option.name}>{option.name}</span>
