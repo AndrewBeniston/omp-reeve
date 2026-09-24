@@ -57,14 +57,14 @@ test("renders saved file, folder, uploaded-file, and unavailable attachment rows
   assert.doesNotMatch(html, /src\/main\.ts/);
 });
 
-test("attaches saved file mentions to the following user message", () => {
+test("attaches saved file mentions to the user message they follow", () => {
   const loaded = buildSessionContext([
-    { type: "message", id: "file-1", parentId: null, timestamp: "2026-01-01T00:00:00.000Z", message: { role: "fileMention", files: [
+    { type: "message", id: "user-1", parentId: null, timestamp: "2026-01-01T00:00:00.000Z", message: { role: "user", content: "Check these" } },
+    { type: "message", id: "file-1", parentId: "user-1", timestamp: "2026-01-01T00:00:01.000Z", message: { role: "fileMention", files: [
       { path: "src/main.ts", content: "export {};" },
       { path: "docs/", content: "guide.md", kind: "folder" },
       { path: "browser-upload:up_123/notes.txt", content: "saved notes" },
     ] } },
-    { type: "message", id: "user-1", parentId: "file-1", timestamp: "2026-01-01T00:00:01.000Z", message: { role: "user", content: "Check these" } },
   ]);
 
   assert.equal(loaded.messages.length, 1);
@@ -77,11 +77,11 @@ test("attaches saved file mentions to the following user message", () => {
 
 test("preserves pasted-text attachment descriptors when the session reloads", () => {
   const loaded = buildSessionContext([
-    { type: "message", id: "paste-1", parentId: null, timestamp: "2026-01-01T00:00:00.000Z", message: { role: "fileMention", files: [
+    { type: "message", id: "user-1", parentId: null, timestamp: "2026-01-01T00:00:00.000Z", message: { role: "user", content: "Review" } },
+    { type: "message", id: "paste-1", parentId: "user-1", timestamp: "2026-01-01T00:00:01.000Z", message: { role: "fileMention", files: [
       { path: "browser-upload:up_123/Pasted text.txt", content: "Uploaded file: Pasted text.txt\nfirst" },
       { path: "browser-upload:up_456/Pasted text.txt", content: "Uploaded file: Pasted text.txt\nsecond" },
     ] } },
-    { type: "message", id: "user-1", parentId: "paste-1", timestamp: "2026-01-01T00:00:01.000Z", message: { role: "user", content: "Review" } },
   ]);
 
   assert.deepEqual(loaded.messages[0].attachments, [

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { SessionManager } from "@oh-my-pi/pi-coding-agent";
-import { resolveSessionPath } from "@/lib/session-reader";
+import { buildSessionContext as ompBuildSessionContext } from "@oh-my-pi/pi-coding-agent";
+import { getSessionEntries, resolveSessionPath } from "@/lib/session-reader";
 import { startRpcSession, getRpcSession } from "@/lib/rpc-manager";
 import { hasJsonContentType, isApiRequestAllowed } from "@/lib/request-security";
 import { AttachmentPathError } from "@/lib/attachment-paths";
@@ -79,7 +79,12 @@ export async function GET(
     if (!session || !session.isAlive()) {
       const filePath = await resolveSessionPath(id);
       if (!filePath) return NextResponse.json({ running: false, goal: null, goalState: null });
-      const sessionManager = await SessionManager.open(filePath);
+      // Read the file through the shared reader. Only startRpcSession opens a
+      // SessionManager, so a read never races a live wrapper on the file.
+      const entries = await getSessionEntries(filePath);
+      const sessionManager = {
+        buildSessionContext: () => ompBuildSessionContext(entries as unknown as Parameters<typeof ompBuildSessionContext>[0]),
+      };
       try {
         const goal = readPersistedGoalState(sessionManager);
         return NextResponse.json({ running: false, goal: goal.goal, goalState: goal.state });
