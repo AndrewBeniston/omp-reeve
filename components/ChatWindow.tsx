@@ -1026,7 +1026,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
         />
       </div>
 
-      <div className={styles.composerDock}><div ref={footerRef}>
+      <div className={styles.composerDock} data-composer-dock><div ref={footerRef}>
         <LatestTurnPreview
           turn={latestTurn}
           visible={transcriptFollow.button.visible}

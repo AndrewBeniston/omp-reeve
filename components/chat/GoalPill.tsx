@@ -134,7 +134,7 @@ export function GoalPill({
     ? "composer.threadGoal.summary.continuing"
     : statusKeys[visibleGoal.status];
   return (
-    <div className={styles.row}>
+    <div className={styles.row} data-goal-pill>
       <div className={styles.pill} data-status={visibleGoal.status}>
         <span className={styles.status}>{t(statusKey)}</span>
         <span className={styles.objective} title={visibleGoal.objective}>{visibleGoal.objective}</span>

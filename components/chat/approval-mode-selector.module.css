@@ -10,6 +10,11 @@
   position: static;
 }
 
+/* When a Goal pill sits above the Composer, the note moves above the pill. */
+:global([data-composer-dock]:has([data-goal-pill])) .warning {
+  bottom: calc(100% + var(--goal-pill-clearance, 50px));
+}
+
 .trigger {
   display: inline-flex;
   height: var(--composer-control-size);
