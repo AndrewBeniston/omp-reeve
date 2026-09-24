@@ -745,7 +745,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                 const idx = item.index;
                 const msg = options.messageOverride ?? item.message;
                 if (item.streaming) {
-                  return <MessageView key={`streaming-view-${idx}`} message={msg} isStreaming modelNames={modelNames} cwd={messageCwd} onOpenFile={onOpenFile} subagents={subagents} onOpenSubagent={onOpenSubagent} />;
+                  return <MessageView key={`streaming-view-${idx}`} message={msg} isStreaming modelNames={modelNames} modelList={modelList} cwd={messageCwd} onOpenFile={onOpenFile} subagents={subagents} onOpenSubagent={onOpenSubagent} />;
                 }
                 const prevAssistantEntryId =
                   msg.role === "user" && idx > 0 && messages[idx - 1].role === "assistant"
@@ -772,6 +772,7 @@ export function ChatWindow({ compactHome, scrollOrigin = "bottom", preserveFoote
                     message={msg}
                     toolResults={toolResultsMap}
                     modelNames={modelNames}
+                    modelList={modelList}
                     cwd={messageCwd}
                     onOpenFile={onOpenFile}
                     entryId={item.entryId}
