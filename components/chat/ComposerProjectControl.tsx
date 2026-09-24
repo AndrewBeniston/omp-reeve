@@ -174,14 +174,7 @@ export const ComposerProjectControl = forwardRef<ComposerProjectControlHandle, {
       >
         {choice.label}
       </MenuItem>)}
-      <MenuItem disabled title={t("composer.project.cloudReason")}>
-        <span className={styles.unavailableLabel}>{t("composer.project.cloud")}</span>
-        <span className={styles.reason}>{t("composer.project.cloudReason")}</span>
-      </MenuItem>
-      <MenuItem disabled title={t("composer.project.remoteReason")}>
-        <span className={styles.unavailableLabel}>{t("composer.project.remote")}</span>
-        <span className={styles.reason}>{t("composer.project.remoteReason")}</span>
-      </MenuItem>
+      {/* Cloud and remote run locations are parked (#205 decision, tracked in #596). */}
     </Menu>
     {error && !open && <p role="alert" className={styles.error}>{error}</p>}
     <Dialog

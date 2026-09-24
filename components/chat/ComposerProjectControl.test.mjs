@@ -53,7 +53,7 @@ test("selects a Reeve project and opens through its command handle", async (t) =
   await view.unmount();
 });
 
-test("keeps cloud and remote unavailable with reasons", async () => {
+test("hides the parked cloud and remote run locations", async () => {
   const view = await mount(h(I18nProvider, null, h(ComposerProjectControl, {
     selectedPath: "/repos/omp-web",
     onSelect() {},
@@ -62,14 +62,8 @@ test("keeps cloud and remote unavailable with reasons", async () => {
   await click(trigger);
   await settle();
 
-  const cloud = Array.from(view.container.querySelectorAll("[role='menuitem']"))
-    .find((item) => textOf(item).includes("Cloud"));
-  const remote = Array.from(view.container.querySelectorAll("[role='menuitem']"))
-    .find((item) => textOf(item).includes("Remote"));
-  assert.match(textOf(cloud), /Reeve has no cloud run location/);
-  assert.match(textOf(remote), /Reeve has no remote run location/);
-  assert.equal(cloud?.hasAttribute("disabled"), true);
-  assert.equal(remote?.hasAttribute("disabled"), true);
+  const labels = Array.from(view.container.querySelectorAll("[role='menuitem'],[role='menuitemradio']")).map(textOf);
+  assert.equal(labels.some((label) => /Cloud|Remote/.test(label)), false);
   await view.unmount();
 });
 
