@@ -1,11 +1,20 @@
 const CORRECTION_DURATION_MS = 350;
 const ABANDON_EVENTS = ["wheel", "touchmove", "pointerdown", "keydown"] as const;
 
+function findScrollContainer(row: HTMLElement): HTMLElement | null {
+  for (let element = row.parentElement; element; element = element.parentElement) {
+    const style = typeof globalThis.getComputedStyle === "function" ? globalThis.getComputedStyle(element) : null;
+    if (style && /^(auto|scroll|overlay)$/.test(style.overflowY)) return element;
+  }
+  return null;
+}
+
 export function startExpansionScrollAnchor(
   row: HTMLElement,
   turnElement: HTMLElement,
 ): () => void {
   const recordedTop = row.getBoundingClientRect().top;
+  const scrollContainer = findScrollContainer(row);
   const startedAt = performance.now();
   let frame = 0;
   let stopped = false;
@@ -13,7 +22,9 @@ export function startExpansionScrollAnchor(
   const correct = () => {
     if (stopped) return;
     const distance = row.getBoundingClientRect().top - recordedTop;
-    if (distance !== 0) window.scrollBy(0, distance);
+    if (distance === 0) return;
+    if (scrollContainer) scrollContainer.scrollTop += distance;
+    else window.scrollBy(0, distance);
   };
   const stop = () => {
     if (stopped) return;
