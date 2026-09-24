@@ -132,6 +132,33 @@ test("budget changes send OMP the exact limit or Off and retain confirmed usage"
   }
 });
 
+test("objective changes send the exact objective and retain confirmed accounting", async () => {
+  const originalFetch = globalThis.fetch;
+  const activeGoal = goal("active");
+  const editedGoal = { ...activeGoal, objective: "Edited objective", updatedAt: 1_300 };
+  const commands = [];
+  let client;
+  globalThis.fetch = async (_url, init) => {
+    const command = postCommand(init);
+    if (!command) return response(activeGoal, { enabled: true, mode: "active", goal: activeGoal });
+    commands.push(command);
+    return commandResponse(editedGoal, { enabled: true, mode: "active", goal: editedGoal });
+  };
+  function Harness() { client = useGoalState("session-one"); return h("div"); }
+  const view = await mount(h(Harness));
+  try {
+    await React.act(async () => { assert.equal(await client.setObjective("Edited objective"), true); });
+    assert.deepEqual(commands, [{ type: "goal", op: "set_objective", objective: "Edited objective" }]);
+    assert.equal(client.goal.objective, "Edited objective");
+    assert.equal(client.goal.tokensUsed, activeGoal.tokensUsed);
+    assert.equal(client.goal.timeUsedSeconds, activeGoal.timeUsedSeconds);
+    assert.equal(client.goal.tokenBudget, activeGoal.tokenBudget);
+  } finally {
+    await view.unmount();
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("a failed Goal action keeps the confirmed Goal and reports an action error", async () => {
   const originalFetch = globalThis.fetch;
   const activeGoal = goal("active");
