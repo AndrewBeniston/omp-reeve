@@ -2239,8 +2239,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 agents: t("composer.autocomplete.agents"),
                 commands: t("composer.autocomplete.commands"),
                 files: t("composer.autocomplete.files"),
+                liveAgents: t("composer.autocomplete.agents"),
+                mcp: t("chat.mcpPrompts"),
                 plugins: t("composer.autocomplete.plugins"),
+                sessions: t("commandMenu.chats"),
                 skills: t("composer.autocomplete.skills"),
+                tabs: t("tabs.strip"),
               }}
               loadingText={t("composer.autocomplete.loading")}
               onActiveIndexChange={setSlashActiveIndex}
@@ -2264,8 +2268,12 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 agents: t("composer.autocomplete.agents"),
                 commands: t("composer.autocomplete.commands"),
                 files: t("composer.autocomplete.files"),
+                liveAgents: t("composer.autocomplete.agents"),
+                mcp: t("chat.mcpPrompts"),
                 plugins: t("composer.autocomplete.plugins"),
+                sessions: t("commandMenu.chats"),
                 skills: t("composer.autocomplete.skills"),
+                tabs: t("tabs.strip"),
               }}
               loadingText={t("composer.autocomplete.loading")}
               onActiveIndexChange={setAtActiveIndex}

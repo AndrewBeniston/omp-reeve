@@ -1,4 +1,4 @@
-export type ComposerMentionKind = "agent" | "command" | "computer-use" | "file" | "plugin" | "skill";
+export type ComposerMentionKind = "agent" | "command" | "computer-use" | "file" | "mcp" | "plugin" | "session" | "skill" | "tab";
 
 export interface ComposerMentionToken {
   kind: ComposerMentionKind;
