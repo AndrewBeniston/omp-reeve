@@ -141,6 +141,7 @@ the What's New dialog adds a second page that invites support.
 
 ### Fixed
 
+- The Composer Add menu is now a compact popup with Plugins and Skills submenus and capped scrolling.
 - The model menu in the Composer now appears when you click the model name. It was drawn behind the new-chat screen and the transcript, so it looked as if nothing opened. It now opens above the whole window.
 
 ## [0.8.0] - 2026-09-23
