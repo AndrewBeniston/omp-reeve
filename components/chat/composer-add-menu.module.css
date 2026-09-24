@@ -1,5 +1,6 @@
 .root { position: static; }
 .trigger {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -14,6 +15,21 @@
   cursor: pointer;
 }
 .trigger:hover, .trigger[aria-expanded="true"] { background: var(--ui-hover); }
+.keyboardEquivalent {
+  position: absolute;
+  top: -5px;
+  right: -4px;
+  display: grid;
+  min-width: 13px;
+  height: 13px;
+  place-items: center;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-round);
+  background: var(--ui-surface-elevated);
+  color: var(--ui-text-muted);
+  font-size: 9px;
+  line-height: 1;
+}
 .popup { width: min(320px, calc(100vw - 16px)); }
 .menu {
   position: relative;
@@ -29,8 +45,13 @@
   box-shadow: var(--shadow-composer);
 }
 .heading { padding: 6px 8px; color: var(--ui-text-muted); font-size: var(--text-sm); }
-.item { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 32px; border-radius: 12px; }
+.item { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 32px; border-radius: 12px; text-align: left; }
 .item:hover, .item:focus-visible { background: var(--ui-hover); }
 .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ui-text-muted); }
 .chevron { margin-left: auto; flex-shrink: 0; }
+.row { display: flex; min-width: 0; flex: 1; align-items: center; gap: 8px; }
+.row .label { flex: 0 1 auto; }
+.reason { min-width: 0; flex: 1; overflow: hidden; color: var(--ui-text-muted); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
+.status { flex-shrink: 0; color: var(--ui-text-muted); font-size: var(--text-sm); }
+.item[data-disabled="true"] { color: var(--ui-text-muted); cursor: not-allowed; }
