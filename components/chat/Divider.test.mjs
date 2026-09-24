@@ -44,7 +44,7 @@ test("uses the previous-message label when clock data is absent", async () => {
   await view.unmount();
 });
 
-test("uses one collapsed disclosure and restores its per-turn choice", async () => {
+test("uses one disclosure and restores its per-turn choice after remount", async () => {
   globalThis.localStorage.setItem("omp-transcript-turn-open:turn-1", "true");
   const view = await renderDivider();
   const trigger = view.container.querySelector("button");
@@ -57,6 +57,11 @@ test("uses one collapsed disclosure and restores its per-turn choice", async () 
   assert.equal(view.container.querySelector("[data-activity='visible']"), null);
   assert.equal(globalThis.localStorage.getItem("omp-transcript-turn-open:turn-1"), "false");
   await view.unmount();
+
+  const reloaded = await renderDivider();
+  assert.equal(reloaded.container.querySelector("button").getAttribute("aria-expanded"), "false");
+  assert.equal(reloaded.container.querySelector("[data-activity='visible']"), null);
+  await reloaded.unmount();
 });
 
 test("keeps a forced-expanded turn open", async () => {

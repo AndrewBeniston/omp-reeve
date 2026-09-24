@@ -9,6 +9,8 @@ the What's New dialog adds a second page that invites support.
 
 ## [Unreleased]
 
+- Completed transcript turns now use one persistent Worked for disclosure.
+
 ### Added
 
 - New chats now stay unassigned until the user selects a project, and the Composer blocks sending before then.

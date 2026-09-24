@@ -4,10 +4,10 @@ import test from "node:test";
 
 const source = await readFile(new URL("./ChatWindow.tsx", import.meta.url), "utf8");
 
-test("expands process details when a completed turn has no final answer", () => {
-  assert.match(source, /const \[expanded, setExpanded\] = useState\(defaultExpanded\)/);
+test("uses the Divider as the only completed-turn disclosure", () => {
+  assert.doesNotMatch(source, /ProcessDetailsGroup/);
   assert.match(
     source,
-    /<ProcessDetailsGroup[\s\S]*?defaultExpanded=\{!finalAnswerMessage\}/,
+    /rendered\.push\(\s*<Divider[\s\S]*?forceExpanded=\{!finalAnswerMessage\}[\s\S]*?<ActivityHeader/,
   );
 });
