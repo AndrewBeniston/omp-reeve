@@ -76,15 +76,16 @@ test("the effort header centers the effort and model name and owns the model tri
   }
 });
 
-test("the CSS uses the reference pill, fill, dot, and thumb geometry", async () => {
+test("the CSS uses the reference track, fill, tick, and thumb geometry", async () => {
   const { readFile } = await import("node:fs/promises");
   const powerCss = await readFile(new URL("./ModelPowerSlider.module.css", import.meta.url), "utf8");
-  assert.match(powerCss, /\.track\s*\{[^}]*height:\s*44px;/);
-  assert.match(powerCss, /\.rail\s*\{[^}]*height:\s*44px;[^}]*border-radius:\s*999px;[^}]*color-mix\(in srgb, var\(--ui-text\) 8%, transparent\);/);
-  assert.match(powerCss, /\.rail::before\s*\{[^}]*width:\s*calc\(40px \+ \(100% - 40px\) \* var\(--ui-power-progress, 0\)\);[^}]*background:\s*var\(--ui-accent\);/);
-  assert.match(powerCss, /\.dot,\s*\.thumb\s*\{[^}]*left:\s*calc\(20px \+ \(100% - 40px\) \* var\(--ui-power-position, 0\.5\)\);/);
-  assert.match(powerCss, /\.dot\s*\{[^}]*width:\s*6px;[^}]*height:\s*6px;/);
-  assert.match(powerCss, /\.thumb\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px;[^}]*background:\s*#fff;/);
+  assert.match(powerCss, /\.track\s*\{[^}]*--power-thumb:\s*28px;[^}]*--power-motion:\s*0\.3s cubic-bezier\(0\.23, 1, 0\.32, 1\);/);
+  assert.match(powerCss, /\.rail\s*\{[^}]*height:\s*24px;[^}]*border-radius:\s*12px;/);
+  assert.match(powerCss, /\.rail::before\s*\{[^}]*width:\s*calc\(var\(--power-thumb\) \/ 2 \+ \(100% - var\(--power-thumb\)\) \* var\(--ui-power-progress, 0\)\);[^}]*transition:\s*width var\(--power-motion\);/);
+  assert.match(powerCss, /\.dot,\s*\.thumb\s*\{[^}]*left:\s*calc\(var\(--power-thumb\) \/ 2 \+ \(100% - var\(--power-thumb\)\) \* var\(--ui-power-position, 0\.5\)\);/);
+  assert.match(powerCss, /\.dot\s*\{[^}]*width:\s*4px;[^}]*height:\s*4px;/);
+  assert.match(powerCss, /\.thumb\s*\{[^}]*width:\s*var\(--power-thumb\);[^}]*background:\s*#fff;[^}]*transition:\s*left var\(--power-motion\)/);
+  assert.match(powerCss, /\.sliderHeader\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*36px minmax\(0, 1fr\) 36px;/);
 });
 
 test("the slider dots use evenly spaced zero-to-one positions", async () => {
@@ -211,196 +212,29 @@ test("Shift and Tab still cycles effort when no menu is open", () => {
   assert.equal(shouldCycleComposerEffort({ key: "Tab", shiftKey: true, isComposing: false, menuOpen: true, canCycle: true }), false);
 });
 
-test("the reset control is absent while no explicit model override exists", async () => {
-  const view = await renderSlider({ explicitModelOverride: false });
+test("the effort header has no reset control", async () => {
+  const view = await renderSlider({ explicitModelOverride: true, effortOverride: true });
   try {
-    const reset = view.container.querySelector("[aria-label='Reset to default']");
-    assert.equal(reset, null);
-    const resetByData = view.container.querySelector("[data-reset-control]");
-    assert.equal(resetByData, null);
+    assert.equal(view.container.querySelector("[data-reset-control]"), null);
+    assert.equal(view.container.querySelector("[aria-label='Reset to default']"), null);
   } finally {
     await view.unmount();
   }
 });
 
-test("the reset control shows for an explicit override, measures 32 px, and carries accessible label and tooltip", async () => {
-  const view = await renderSlider({ explicitModelOverride: true });
+test("the usage warning shows under the slider only on the max step", async () => {
+  const top = steps.find((step) => step.thinkingLevel === "max");
+  const view = await renderSlider({ currentStepId: top.id });
   try {
-    const reset = view.container.querySelector("[aria-label='Reset to default']");
-    assert.ok(reset);
-    assert.equal(reset.getAttribute("aria-label"), "Reset to default");
-    assert.equal(reset.getAttribute("title"), "Reset to default");
-
-    const sliderStart = view.container.querySelector("[data-model-effort-header]");
-    assert.ok(sliderStart);
-    assert.ok(sliderStart.contains(reset));
-
-    // Verify 32 px round geometry in CSS
-    const { readFile } = await import("node:fs/promises");
-    const powerCss = await readFile(new URL("./ModelPowerSlider.module.css", import.meta.url), "utf8");
-    assert.match(powerCss, /\.resetControl\s*\{[^}]*width:\s*32px;[^}]*height:\s*32px;/);
-    assert.match(powerCss, /\.resetControl\s*\{[^}]*border-radius:\s*50%;/);
+    assert.equal(view.container.querySelector("[data-usage-warning]")?.getAttribute("data-visible"), "true");
   } finally {
     await view.unmount();
   }
-});
-
-test("activating the reset control triggers onResetToDefault", async () => {
-  let resetCalled = false;
-  const view = await renderSlider({
-    explicitModelOverride: true,
-    onResetToDefault() {
-      resetCalled = true;
-    },
-  });
+  const lower = await renderSlider({ currentStepId: steps[1].id });
   try {
-    const reset = view.container.querySelector("[aria-label='Reset to default']");
-    assert.ok(reset);
-    const { click } = await import("../../test/dom-harness.mjs");
-    await click(reset);
-    assert.equal(resetCalled, true);
+    assert.equal(lower.container.querySelector("[data-usage-warning]")?.getAttribute("data-visible"), "false");
   } finally {
-    await view.unmount();
-  }
-});
-
-test("the reset control appears for an effort override and restores automatic effort", async () => {
-  let resetEffortCalled = false;
-  const view = await renderSlider({
-    effortOverride: true,
-    onResetEffort() {
-      resetEffortCalled = true;
-    },
-  });
-  try {
-    const reset = view.container.querySelector("[aria-label='Reset to default']");
-    assert.ok(reset);
-    await click(reset);
-    assert.equal(resetEffortCalled, true);
-  } finally {
-    await view.unmount();
-  }
-});
-
-test("the effort popup restores automatic effort for the selected model", async () => {
-  const efforts = [];
-  function ControlledChatInput() {
-    const [thinkingLevel, setThinkingLevel] = React.useState("high");
-    return h(ChatInput, {
-      onSend() {},
-      onAbort() {},
-      isStreaming: false,
-      model: { provider: "test", modelId: "model" },
-      modelList: [{ provider: "test", id: "model", name: "Model" }],
-      modelThinkingLevels: { "test:model": ["low", "medium", "high"] },
-      onModelChange() {},
-      thinkingLevel,
-      onThinkingLevelChange(level) {
-        efforts.push(level);
-        setThinkingLevel(level);
-      },
-    });
-  }
-  const view = await mount(h(I18nProvider, null, h(ControlledChatInput)));
-  try {
-    const trigger = view.container.querySelector("[aria-label='Model settings']");
-    assert.ok(trigger);
-    trigger.getBoundingClientRect = () => ({ top: 500, left: 20, width: 180, height: 24 });
-    await click(trigger);
-    await settle();
-
-    const reset = document.body.querySelector("[aria-label='Reset to default']");
-    assert.ok(reset);
-    await click(reset);
-    assert.deepEqual(efforts, ["auto"]);
-
-    const power = document.body.querySelector("[data-model-power-view]");
-    assert.ok(power.querySelector("[data-slider-row]"));
-    assert.equal(textOf(power).includes("This model does not support effort levels"), false);
-    await press(power.querySelector("[aria-label='Power']"), "ArrowRight");
-    assert.deepEqual(efforts, ["auto", "low"]);
-  } finally {
-    await view.unmount();
-  }
-});
-
-test("selecting the top step replaces the reset control with the warning text and makes reset hidden and not focusable", async () => {
-  const view = await renderSlider({
-    explicitModelOverride: true,
-    currentStepId: steps[2].id, // steps[2] is max
-  });
-  try {
-    const warning = view.container.querySelector("[data-usage-warning]");
-    assert.ok(warning);
-    assert.equal(textOf(warning), "Consumes usage limits faster");
-
-    const reset = view.container.querySelector("[aria-label='Reset to default']");
-    assert.ok(reset);
-    assert.equal(reset.getAttribute("aria-hidden"), "true");
-    assert.equal(reset.getAttribute("tabindex"), "-1");
-    assert.equal(reset.hasAttribute("disabled"), true);
-    assert.equal(reset.hasAttribute("hidden"), true);
-  } finally {
-    await view.unmount();
-  }
-});
-
-test("keyboard navigation to the top step replaces reset with warning, and moving away restores reset", async () => {
-  const view = await renderSlider({
-    explicitModelOverride: true,
-    currentStepId: steps[0].id,
-  });
-  try {
-    // Initially on minimal: reset visible, warning absent
-    let reset = view.container.querySelector("[aria-label='Reset to default']");
-    assert.ok(reset);
-    assert.equal(reset.hasAttribute("hidden"), false);
-    assert.equal(reset.getAttribute("tabindex"), "0");
-    assert.equal(view.container.querySelector("[data-usage-warning]"), null);
-
-    // Two Right Arrow presses reach max (top step).
-    const control = view.container.querySelector("[aria-label='Power']");
-    await press(control, "ArrowRight");
-    await press(control, "ArrowRight");
-
-    // Top step active: warning shown, reset hidden and not focusable
-    const warning = view.container.querySelector("[data-usage-warning]");
-    assert.ok(warning);
-    assert.equal(textOf(warning), "Consumes usage limits faster");
-    reset = view.container.querySelector("[aria-label='Reset to default']");
-    assert.equal(reset.getAttribute("aria-hidden"), "true");
-    assert.equal(reset.getAttribute("tabindex"), "-1");
-    assert.equal(reset.hasAttribute("disabled"), true);
-
-    // Right Arrow wraps to Auto (not top step): warning absent, reset restored.
-    await press(control, "ArrowRight");
-    assert.equal(view.container.querySelector("[data-usage-warning]"), null);
-    reset = view.container.querySelector("[aria-label='Reset to default']");
-    assert.equal(reset.hasAttribute("hidden"), false);
-    assert.equal(reset.getAttribute("tabindex"), "0");
-  } finally {
-    await view.unmount();
-  }
-});
-
-test("the warning text belongs to the actual top OMP step (max) and is absent on non-max last steps", async () => {
-  const subSteps = steps.slice(0, 2); // minimal and medium, no max
-  const view = await renderSlider({
-    steps: subSteps,
-    currentStepId: subSteps[1].id, // medium is the last step here
-    explicitModelOverride: true,
-  });
-  try {
-    // Medium is the last step in subSteps, but NOT the top OMP step (max)
-    const warning = view.container.querySelector("[data-usage-warning]");
-    assert.equal(warning, null);
-
-    // Reset control remains visible
-    const reset = view.container.querySelector("[aria-label='Reset to default']");
-    assert.ok(reset);
-    assert.equal(reset.hasAttribute("hidden"), false);
-  } finally {
-    await view.unmount();
+    await lower.unmount();
   }
 });
 

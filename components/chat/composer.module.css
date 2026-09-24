@@ -35,6 +35,7 @@
   min-height: var(--composer-frame-min-height);
   margin: 0 auto;
   border-radius: var(--radius-composer);
+  corner-shape: superellipse(1.1);
   --composer-attachment-radius: max(calc(var(--radius-composer) - 8px), 0px);
   background: var(--ui-composer);
   box-shadow: var(--shadow-composer);
@@ -786,10 +787,12 @@
   max-width: calc(64 * var(--space-1));
   align-items: center;
   gap: var(--space-1);
-  min-height: 36px;
+  /* Every Composer footer control is 28px tall, as in the reference. */
+  min-height: var(--composer-control-size, 28px);
+  height: var(--composer-control-size, 28px);
   box-sizing: border-box;
   border: 0;
-  padding: var(--space-1) var(--space-2);
+  padding: 0 var(--space-2);
   border-radius: var(--radius-round); corner-shape: var(--corner-round);
   corner-shape: var(--corner-round);
   background: transparent;

@@ -28,7 +28,9 @@
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   caret-color: var(--ui-text);
-  padding: 15px 18px 16px;
+  /* The Composer content already insets the text 14px from the top and 12px
+     from the sides, as the reference does. The editor adds no padding. */
+  padding: 0;
 }
 
 .editor p {

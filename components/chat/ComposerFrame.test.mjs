@@ -280,7 +280,7 @@ test("uses the reference frame geometry across default, large, compact, and mobi
   assert.match(tokens, /--composer-frame-min-height:\s*44px;/);
   assert.match(tokens, /--composer-control-size:\s*28px;/);
   assert.match(css, /\.composerContent\s*\{[^}]*padding:\s*14px 12px 0;/);
-  assert.match(editorCss, /\.editor\s*\{[^}]*min-height:\s*44px;[^}]*line-height:\s*20px;[^}]*padding:\s*15px 18px 16px;/);
+  assert.match(editorCss, /\.editor\s*\{[^}]*min-height:\s*44px;[^}]*line-height:\s*20px;[^}]*padding:\s*0;/);
   assert.match(editorCss, /\.editor\[data-empty="true"\]::before\s*\{[^}]*opacity:\s*0\.5;/);
   assert.match(css, /\.imagePreviews\s*\{[^}]*padding:\s*8px;[^}]*border-radius:\s*var\(--composer-attachment-radius\);/);
   assert.match(css, /\.imagePreview\s*\{[^}]*border-radius:\s*var\(--composer-attachment-radius\);/);

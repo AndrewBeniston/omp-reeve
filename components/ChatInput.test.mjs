@@ -151,7 +151,7 @@ test("the footer chip shows the model, effort, and chevron with a marked top ste
   assert.match(css, /\.reasoningLevel\s*\{[^}]*color:\s*var\(--ui-text-dim\);/);
   assert.match(css, /\.reasoningLevel\[data-top-step="true"\]\s*\{[^}]*color:\s*var\(--ui-accent\);/);
   assert.match(css, /\.reasoningLevel\[data-model-prefix="false"\]\s*\{[^}]*color:\s*var\(--ui-text\);/);
-  assert.match(css, /\.menuTrigger\s*\{[^}]*min-height:\s*36px;[^}]*padding:\s*var\(--space-1\) var\(--space-2\);/);
+  assert.match(css, /\.menuTrigger\s*\{[^}]*min-height:\s*var\(--composer-control-size, 28px\);[^}]*padding:\s*0 var\(--space-2\);/);
   assert.match(css, /\.menuTrigger\s*\{[^}]*max-width:\s*calc\(64 \* var\(--space-1\)\);/);
 });
 
@@ -1043,7 +1043,7 @@ test("renders the complete semantic composer contract", async () => {
   assert.match(css, /\.composerContent\s*\{[^}]*padding:\s*14px 12px 0;/);
   assert.match(css, /\.textareaGeometry\s*\{[^}]*transform:\s*translateY\(var\(--composer-text-nudge\)\);/);
   assert.match(tokensCss, /--composer-text-nudge:\s*2px;/);
-  assert.match(editorCss, /\.editor\s*\{[^}]*min-height:\s*44px;[^}]*max-height:\s*var\(--composer-max-height\);[^}]*font-size:\s*var\(--text-ui\);[^}]*line-height:\s*20px;[^}]*padding:\s*15px 18px 16px;/);
+  assert.match(editorCss, /\.editor\s*\{[^}]*min-height:\s*44px;[^}]*max-height:\s*var\(--composer-max-height\);[^}]*font-size:\s*var\(--text-ui\);[^}]*line-height:\s*20px;[^}]*padding:\s*0;/);
   assert.match(tokensCss, /--composer-max-height:\s*25dvh;/);
   assert.match(tokensCss, /--leading-ui:\s*20px;/);
   // Codex Electron: --text-base is 14px at the theme root. Only the browser window raises it to 1rem.
@@ -1051,7 +1051,7 @@ test("renders the complete semantic composer contract", async () => {
   // The model chip uses the compact reference height and padding.
   assert.match(css, /\.attachmentControl\s*\{[^}]*width:\s*var\(--composer-control-size\);[^}]*height:\s*var\(--composer-control-size\);/);
   assert.match(css, /\.contextDonut\s*\{[^}]*width:\s*var\(--composer-control-size\);[^}]*height:\s*var\(--composer-control-size\);/);
-  assert.match(css, /\.menuTrigger\s*\{[^}]*min-height:\s*36px;[^}]*padding:\s*var\(--space-1\) var\(--space-2\);[^}]*border-radius:\s*var\(--radius-round\);[^}]*font-size:\s*var\(--text-base\);[^}]*line-height:\s*18px;/);
+  assert.match(css, /\.menuTrigger\s*\{[^}]*min-height:\s*var\(--composer-control-size, 28px\);[^}]*padding:\s*0 var\(--space-2\);[^}]*border-radius:\s*var\(--radius-round\);[^}]*font-size:\s*var\(--text-base\);[^}]*line-height:\s*18px;/);
   assert.match(approvalCss, /\.trigger\s*\{[^}]*height:\s*var\(--composer-control-size\);/);
   assert.match(tokensCss, /--composer-control-size:\s*28px;/);
   assert.match(tokensCss, /--composer-send-size:\s*var\(--composer-control-size\);/);
@@ -1120,7 +1120,7 @@ test("composer model menu follows verified Codex geometry contracts", async () =
   const listCss = await readFile(new URL("./chat/ModelList.module.css", import.meta.url), "utf8");
 
   assert.match(powerCss, /\.view\s*\{[^}]*min-height:\s*104px;[^}]*padding-block:\s*8px;/);
-  assert.match(powerCss, /\.modelToggle\s*\{[^}]*min-height:\s*28px;[^}]*padding:\s*0 48px;[^}]*border-radius:\s*8px;/);
+  assert.match(powerCss, /\.modelToggle\s*\{[^}]*grid-area:\s*label;[^}]*min-height:\s*32px;[^}]*border-radius:\s*10px;/);
   assert.match(powerCss, /\.effortModelName\s*\{[^}]*color:\s*var\(--ui-text-dim\);[^}]*font-size:\s*var\(--text-sm\);[^}]*font-weight:\s*var\(--font-weight-regular\);/);
 
   assert.match(menuCss, /\.modelSubmenuModel\s*\{[^}]*bottom:\s*0;/);
